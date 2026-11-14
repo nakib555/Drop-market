@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import { Product } from '../../types/commerce';
 import { useStore } from '../../context/StoreContext';
 import { formatCurrency, getDiscountPercent } from '../../utils/format';
-import { STUDIO_TRANSITION } from '../../utils/motion';
+import { STUDIO_EASE, STUDIO_TRANSITION } from '../../utils/motion';
 import { ResilientImage } from '../ui/Primitives';
 
 interface ProductCardProps {
@@ -224,7 +224,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'gri
           <motion.button
             type="button"
             whileTap={{ scale: 0.88 }}
-            animate={isWishlisted ? { scale: [1, 1.15, 1] } : { scale: 1 }}
+            animate={
+              isWishlisted
+                ? {
+                    scale: [1, 1.15, 1],
+                    transition: {
+                      type: 'tween',
+                      duration: 0.28,
+                      times: [0, 0.45, 1],
+                      ease: STUDIO_EASE,
+                    },
+                  }
+                : { scale: 1 }
+            }
             transition={STUDIO_TRANSITION.springPop}
             onClick={(e) => {
               e.stopPropagation();

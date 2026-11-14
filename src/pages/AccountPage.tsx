@@ -192,6 +192,8 @@ export const AccountPage: React.FC = () => {
         )}
 
         <AuthPanel
+          key={route.accountTab === 'register' ? 'register' : 'signin'}
+          initialTab={route.accountTab === 'register' ? 'register' : 'signin'}
           onSuccess={(user) => {
             if (user.role === 'admin') {
               setSection('admin-console');

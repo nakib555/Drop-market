@@ -326,6 +326,12 @@ export const SkeletonLoader: React.FC<{ className?: string }> = ({ className = '
   />
 );
 
+export {
+  ProductCardSkeleton,
+  ProductGridSkeleton,
+  ProductDetailSkeleton,
+} from './SkeletonLoaders';
+
 interface ResilientImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   fallbackTitle?: string;
 }

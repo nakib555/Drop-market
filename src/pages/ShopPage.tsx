@@ -13,6 +13,7 @@ import {
   Drawer,
   EmptyState,
   Pagination,
+  ProductGridSkeleton,
   ResilientImage,
 } from '../components/ui/Primitives';
 
@@ -23,7 +24,15 @@ interface ShopPageProps {
 const ITEMS_PER_PAGE = 9;
 
 export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
-  const { categories, products, currency, route, navigate, addRecentSearch } = useStore();
+  const {
+    categories,
+    products,
+    currency,
+    route,
+    navigate,
+    addRecentSearch,
+    storefrontLoading,
+  } = useStore();
 
   const catalogMaxPrice = useMemo(() => {
     const highest = Math.max(500, ...products.map((p) => p.price));
@@ -893,7 +902,13 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
         </aside>
 
         <div className="lg:col-span-9 space-y-8">
-          {paginatedProducts.length === 0 ? (
+          {storefrontLoading ? (
+            <ProductGridSkeleton
+              count={viewLayout === 'grid' ? 9 : 4}
+              layout={viewLayout}
+              label="Loading marketplace catalog"
+            />
+          ) : paginatedProducts.length === 0 ? (
             <div className="rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]">
               <EmptyState
                 title="No matching products found"
@@ -918,7 +933,9 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
             </div>
           )}
 
-          <Pagination currentPage={safePage} totalPages={totalPages} onPageChange={setPage} />
+          {!storefrontLoading && (
+            <Pagination currentPage={safePage} totalPages={totalPages} onPageChange={setPage} />
+          )}
         </div>
       </div>
 

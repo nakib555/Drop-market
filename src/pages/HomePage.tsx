@@ -16,7 +16,7 @@ import { ScrollReveal, StaggerGrid, StaggerItem } from '../components/ui/MotionP
 import { TypingGradientText } from '../components/ui/TypingGradientText';
 import { ProductCard } from '../components/product/ProductCard';
 import { Button } from '../components/ui/Button';
-import { ResilientImage } from '../components/ui/Primitives';
+import { ProductGridSkeleton, ResilientImage } from '../components/ui/Primitives';
 
 type HomeCollectionTab =
   | 'all'
@@ -57,7 +57,7 @@ const HERO_TYPING_PHRASES = [
 ];
 
 export const HomePage: React.FC = () => {
-  const { categories, products, recentlyViewedIds, navigate } = useStore();
+  const { categories, products, recentlyViewedIds, navigate, storefrontLoading } = useStore();
   const [activeTab, setActiveTab] = useState<HomeCollectionTab>('all');
 
   const trendingProducts = useMemo(() => {
@@ -316,13 +316,21 @@ export const HomePage: React.FC = () => {
           </button>
         </div>
 
-        <StaggerGrid className="grid grid-cols-1 min-[390px]:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          {trendingProducts.map((product) => (
-            <StaggerItem key={product.id}>
-              <ProductCard product={product} />
-            </StaggerItem>
-          ))}
-        </StaggerGrid>
+        {storefrontLoading ? (
+          <ProductGridSkeleton
+            count={4}
+            className="grid grid-cols-1 min-[390px]:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6"
+            label="Loading trending products"
+          />
+        ) : (
+          <StaggerGrid className="grid grid-cols-1 min-[390px]:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            {trendingProducts.map((product) => (
+              <StaggerItem key={product.id}>
+                <ProductCard product={product} />
+              </StaggerItem>
+            ))}
+          </StaggerGrid>
+        )}
       </ScrollReveal>
 
       {/* 4. Curated Multi-Department Collection Tabs (includes New Arrivals & Best Sellers) */}
@@ -381,20 +389,28 @@ export const HomePage: React.FC = () => {
           </div>
         </div>
 
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={STUDIO_TRANSITION.fast}
+        {storefrontLoading ? (
+          <ProductGridSkeleton
+            count={6}
             className="grid grid-cols-1 min-[390px]:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8"
-          >
-            {collectionProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </motion.div>
-        </AnimatePresence>
+            label="Loading curated collection"
+          />
+        ) : (
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={STUDIO_TRANSITION.fast}
+              className="grid grid-cols-1 min-[390px]:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8"
+            >
+              {collectionProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </motion.div>
+          </AnimatePresence>
+        )}
 
         <div className="mt-10 text-center">
           <Button variant="outline" size="lg" onClick={handleViewAllCollection}>

@@ -48,18 +48,13 @@ import {
 } from '../types/commerce';
 import { CurrencyCode, formatCurrency } from '../utils/format';
 import { resolveImagePreset } from '../utils/imagePresets';
+import {
+  NavigationDirection,
+  RouteState,
+  useNavigationController,
+} from './navigationController';
 
-export interface RouteState {
-  name: RouteName;
-  slug?: string;
-  category?: CategorySlug | 'all';
-  subcategory?: string;
-  brand?: string;
-  query?: string;
-  collection?: 'trending' | 'best-sellers' | 'new-arrivals' | 'offers';
-  accountTab?: string;
-  orderId?: string;
-}
+export type { NavigationDirection, RouteState };
 
 export interface ToastMessage {
   id: string;
@@ -87,7 +82,11 @@ interface CheckoutPayload {
 
 interface StoreContextValue {
   route: RouteState;
+  navigationDirection: NavigationDirection;
+  canGoBack: boolean;
   navigate: (next: RouteState) => void;
+  goBack: () => void;
+  storefrontLoading: boolean;
   categories: CategoryMeta[];
   products: Product[];
   currency: CurrencyCode;
@@ -186,182 +185,7 @@ interface StoreContextValue {
 
 const StoreContext = createContext<StoreContextValue | undefined>(undefined);
 
-const PAGE_TITLES: Record<RouteName, string> = {
-  home: 'KINTO STUDIO — Everything You Need. All in One Place.',
-  shop: 'Shop Marketplace — KINTO STUDIO',
-  category: 'Department — KINTO STUDIO',
-  product: 'Product Details — KINTO STUDIO',
-  search: 'Search Catalog — KINTO STUDIO',
-  cart: 'Shopping Bag — KINTO STUDIO',
-  wishlist: 'Saved Wishlist — KINTO STUDIO',
-  checkout: 'Checkout — KINTO STUDIO',
-  account: 'Account Workspace — KINTO STUDIO',
-  login: 'Sign In — KINTO STUDIO',
-  seller: 'Seller Studio Portal — KINTO STUDIO',
-  admin: 'Admin Operations Console — KINTO STUDIO',
-  'track-order': 'Order Tracking — KINTO STUDIO',
-  compare: 'Compare Specifications — KINTO STUDIO',
-  brands: 'Partner Brands & Makers — KINTO STUDIO',
-  offers: 'Seasonal Offers — KINTO STUDIO',
-  journal: 'Studio Journal — KINTO STUDIO',
-  about: 'About Kinto Studio',
-  contact: 'Contact Us — KINTO STUDIO',
-  faq: 'Frequently Asked Questions — KINTO STUDIO',
-  'shipping-policy': 'Shipping & Delivery Policy — KINTO STUDIO',
-  'return-policy': 'Returns & Refunds — KINTO STUDIO',
-  'privacy-policy': 'Privacy Policy — KINTO STUDIO',
-  terms: 'Terms & Conditions — KINTO STUDIO',
-  maintenance: 'Scheduled Maintenance — KINTO STUDIO',
-  'not-found': 'Page Not Found — KINTO STUDIO',
-};
-
-const LEGACY_CATEGORY_MAP: Record<string, CategorySlug> = {
-  seating: 'home-living',
-  lighting: 'home-living',
-  'tables-storage': 'home-living',
-  'ceramics-glass': 'home-living',
-  'textiles-objects': 'home-living',
-  'electronics-audio': 'electronics-tech',
-  'apparel-accessories': 'fashion-apparel',
-  'beauty-wellness': 'beauty-care',
-  'outdoor-travel': 'sports-outdoor',
-  'pantry-coffee': 'grocery-food',
-};
-
-function normalizeCategorySlug(raw: string | null | undefined): CategorySlug | 'all' {
-  if (!raw || raw === 'all') return 'all';
-  return LEGACY_CATEGORY_MAP[raw] || (raw as CategorySlug);
-}
-
-function parseHashToRoute(): RouteState {
-  if (typeof window === 'undefined') return { name: 'home' };
-  const raw = window.location.hash.replace(/^#\/?/, '');
-  if (!raw) return { name: 'home' };
-
-  const [pathPart, queryPart] = raw.split('?');
-  const segments = pathPart.split('/').filter(Boolean);
-  const searchParams = new URLSearchParams(queryPart || '');
-
-  const first = segments[0] as RouteName;
-  if (first === 'product' && segments[1]) {
-    return { name: 'product', slug: segments[1] };
-  }
-  if (first === 'category' && segments[1]) {
-    return {
-      name: 'category',
-      category: normalizeCategorySlug(segments[1]),
-      subcategory: searchParams.get('sub') || undefined,
-      brand: searchParams.get('brand') || undefined,
-    };
-  }
-  if (first === 'shop') {
-    const col = searchParams.get('collection') as RouteState['collection'] | null;
-    const cat = normalizeCategorySlug(searchParams.get('category'));
-    return {
-      name: 'shop',
-      collection: col || undefined,
-      category: cat,
-      subcategory: searchParams.get('sub') || undefined,
-      brand: searchParams.get('brand') || undefined,
-      query: searchParams.get('q') || undefined,
-    };
-  }
-  if (first === 'search') {
-    return { name: 'search', query: searchParams.get('q') || '' };
-  }
-  if (first === 'account') {
-    return { name: 'account', accountTab: segments[1] || 'overview' };
-  }
-  if (first === 'login') {
-    return { name: 'login' };
-  }
-  if (first === 'seller') {
-    return { name: 'seller', accountTab: 'seller-hub' };
-  }
-  if (first === 'admin') {
-    return { name: 'admin', accountTab: 'admin-console' };
-  }
-  if (first === 'track-order') {
-    return { name: 'track-order', orderId: searchParams.get('id') || segments[1] || '' };
-  }
-
-  const validRoutes: RouteName[] = [
-    'home',
-    'shop',
-    'category',
-    'product',
-    'search',
-    'cart',
-    'wishlist',
-    'checkout',
-    'account',
-    'login',
-    'seller',
-    'admin',
-    'track-order',
-    'compare',
-    'brands',
-    'offers',
-    'journal',
-    'about',
-    'contact',
-    'faq',
-    'shipping-policy',
-    'return-policy',
-    'privacy-policy',
-    'terms',
-    'maintenance',
-    'not-found',
-  ];
-  if (validRoutes.includes(first)) {
-    return { name: first };
-  }
-  return { name: 'not-found' };
-}
-
-function serializeRouteToHash(route: RouteState): string {
-  switch (route.name) {
-    case 'home':
-      return '#/';
-    case 'product':
-      return `#/product/${route.slug || ''}`;
-    case 'category': {
-      const p = new URLSearchParams();
-      if (route.subcategory) p.set('sub', route.subcategory);
-      if (route.brand) p.set('brand', route.brand);
-      const qs = p.toString();
-      const base = `#/category/${route.category || 'home-living'}`;
-      return qs ? `${base}?${qs}` : base;
-    }
-    case 'shop': {
-      const p = new URLSearchParams();
-      if (route.collection) p.set('collection', route.collection);
-      if (route.category && route.category !== 'all') p.set('category', route.category);
-      if (route.subcategory) p.set('sub', route.subcategory);
-      if (route.brand) p.set('brand', route.brand);
-      if (route.query) p.set('q', route.query);
-      const qs = p.toString();
-      return qs ? `#/shop?${qs}` : '#/shop';
-    }
-    case 'search':
-      return route.query ? `#/search?q=${encodeURIComponent(route.query)}` : '#/search';
-    case 'account':
-      return route.accountTab ? `#/account/${route.accountTab}` : '#/account';
-    case 'login':
-      return '#/login';
-    case 'seller':
-      return '#/seller';
-    case 'admin':
-      return '#/admin';
-    case 'track-order':
-      return route.orderId ? `#/track-order?id=${encodeURIComponent(route.orderId)}` : '#/track-order';
-    default:
-      return `#/${route.name}`;
-  }
-}
-
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [route, setRoute] = useState<RouteState>(parseHashToRoute);
   const [currency, setCurrencyState] = useState<CurrencyCode>(() =>
     readStorage<CurrencyCode>('kinto-currency', 'USD')
   );
@@ -401,6 +225,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // API-driven auth, accounts directory, notifications, and live catalog sync
   const [authAccounts, setAuthAccounts] = useState<AccountDirectoryEntry[]>([]);
   const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [storefrontLoading, setStorefrontLoading] = useState<boolean>(true);
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
   const [authModalTab, setAuthModalTab] = useState<'signin' | 'register'>('signin');
   const [profile, setProfile] = useState<CustomerProfile>(() =>
@@ -444,11 +269,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-
-  const openAuthModal = useCallback((tab: 'signin' | 'register' = 'signin') => {
-    setAuthModalTab(tab);
-    setAuthModalOpen(true);
-  }, []);
 
   const hydrateOrderImages = useCallback((apiOrders: Order[]): Order[] => {
     return apiOrders.map((ord) => ({
@@ -498,6 +318,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     let active = true;
     async function initApi() {
       setAuthLoading(true);
+      setStorefrontLoading(true);
       try {
         const [accountsRes, meRes, syncRes, ordersRes] = await Promise.allSettled([
           fetchAuthAccounts(),
@@ -533,7 +354,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setOrders(hydrateOrderImages(ordersRes.value));
         }
       } finally {
-        if (active) setAuthLoading(false);
+        if (active) {
+          setAuthLoading(false);
+          setStorefrontLoading(false);
+        }
       }
     }
     initApi();
@@ -661,36 +485,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => writeStorage('kinto-notif-prefs', notificationPrefs), [notificationPrefs]);
   useEffect(() => writeStorage('kinto-privacy-prefs', privacyPrefs), [privacyPrefs]);
 
-  useEffect(() => {
-    const onHashChange = () => {
-      setRoute(parseHashToRoute());
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
-    window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
-  }, []);
+  const { route, navigationDirection, canGoBack, navigate, goBack } = useNavigationController(
+    products,
+    categories
+  );
 
-  useEffect(() => {
-    if (route.name === 'product' && route.slug) {
-      const found = products.find((p) => p.slug === route.slug);
-      document.title = found ? `${found.name} — KINTO STUDIO` : PAGE_TITLES.product;
-    } else if (route.name === 'category' && route.category) {
-      const foundCat = categories.find((c) => c.slug === route.category);
-      document.title = foundCat ? `${foundCat.name} — KINTO STUDIO` : PAGE_TITLES.category;
-    } else {
-      document.title = PAGE_TITLES[route.name] || PAGE_TITLES.home;
-    }
-  }, [route, products, categories]);
-
-  const navigate = useCallback((next: RouteState) => {
-    const targetHash = serializeRouteToHash(next);
-    if (window.location.hash !== targetHash) {
-      window.location.hash = targetHash;
-    } else {
-      setRoute(next);
-    }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
+  const openAuthModal = useCallback(
+    (tab: 'signin' | 'register' = 'signin') => {
+      setAuthModalTab(tab);
+      setAuthModalOpen(false);
+      navigate({ name: 'login', accountTab: tab });
+    },
+    [navigate]
+  );
 
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -1446,7 +1253,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const value: StoreContextValue = {
     route,
+    navigationDirection,
+    canGoBack,
     navigate,
+    goBack,
+    storefrontLoading,
     categories,
     products,
     currency,

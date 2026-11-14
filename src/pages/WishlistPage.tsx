@@ -3,10 +3,23 @@ import { Heart, ShoppingBag, Trash2 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { formatCurrency } from '../utils/format';
 import { Button } from '../components/ui/Button';
-import { Breadcrumb, EmptyState, ResilientImage } from '../components/ui/Primitives';
+import {
+  Breadcrumb,
+  EmptyState,
+  ProductGridSkeleton,
+  ResilientImage,
+} from '../components/ui/Primitives';
 
 export const WishlistPage: React.FC = () => {
-  const { currency, products, wishlistIds, toggleWishlist, addToCart, navigate } = useStore();
+  const {
+    currency,
+    products,
+    wishlistIds,
+    toggleWishlist,
+    addToCart,
+    navigate,
+    storefrontLoading,
+  } = useStore();
   const savedProducts = products.filter((p) => wishlistIds.includes(p.id));
 
   return (
@@ -30,7 +43,13 @@ export const WishlistPage: React.FC = () => {
         </Button>
       </div>
 
-      {savedProducts.length === 0 ? (
+      {storefrontLoading ? (
+        <ProductGridSkeleton
+          count={3}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+          label="Loading saved wishlist"
+        />
+      ) : savedProducts.length === 0 ? (
         <div className="rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]">
           <EmptyState
             icon={<Heart className="w-6 h-6" />}

@@ -23,7 +23,13 @@ import { STUDIO_TRANSITION } from '../utils/motion';
 import { ProductCard } from '../components/product/ProductCard';
 import { Button } from '../components/ui/Button';
 import { Input, Textarea } from '../components/ui/FormFields';
-import { Breadcrumb, EmptyState, Modal, ResilientImage } from '../components/ui/Primitives';
+import {
+  Breadcrumb,
+  EmptyState,
+  Modal,
+  ProductDetailSkeleton,
+  ResilientImage,
+} from '../components/ui/Primitives';
 
 export const ProductDetailPage: React.FC = () => {
   const {
@@ -40,6 +46,7 @@ export const ProductDetailPage: React.FC = () => {
     recordProductView,
     submitProductReview,
     submitProductQuestion,
+    storefrontLoading,
   } = useStore();
 
   const product = useMemo(
@@ -95,6 +102,10 @@ export const ProductDetailPage: React.FC = () => {
     observer.observe(el);
     return () => observer.disconnect();
   }, [product?.id]);
+
+  if (storefrontLoading) {
+    return <ProductDetailSkeleton />;
+  }
 
   if (!product) {
     return (

@@ -51,7 +51,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
     compareIds,
     setCartDrawerOpen,
     profile,
-    openAuthModal,
     logoutDemo,
     notifications,
     unreadNotificationCount,
@@ -392,7 +391,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
             {!profile.isAuthenticated ? (
               <button
                 type="button"
-                onClick={() => openAuthModal('signin')}
+                onClick={() => go({ name: 'login' })}
                 aria-label="Sign in to account"
                 className="h-9 px-2.5 sm:px-3.5 rounded-md flex items-center gap-1.5 text-xs font-medium border border-[#E5E3DD] dark:border-[#2C2C28] bg-[#FFFFFF] dark:bg-[#191917] text-[#171716] dark:text-[#F4F3EF] hover:border-[#8F6438] dark:hover:border-[#C89B67] hover:text-[#8F6438] dark:hover:text-[#C89B67] transition-colors cursor-pointer shrink-0"
               >
@@ -545,7 +544,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                           type="button"
                           onClick={() => {
                             setAccountMenuOpen(false);
-                            openAuthModal('signin');
+                            go({ name: 'login' });
                           }}
                           className="flex-1 py-2 px-2.5 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] bg-[#FFFFFF] dark:bg-[#191917] hover:border-[#8F6438] dark:hover:border-[#C89B67] text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                         >
@@ -696,14 +695,14 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                 <>
                   <button
                     type="button"
-                    onClick={() => openAuthModal('signin')}
+                    onClick={() => go({ name: 'login' })}
                     className="font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
                   >
                     Sign In
                   </button>
                   <button
                     type="button"
-                    onClick={() => openAuthModal('register')}
+                    onClick={() => go({ name: 'login', accountTab: 'register' })}
                     className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
                   >
                     Create Account
@@ -1045,8 +1044,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                         <button
                           type="button"
                           onClick={() => {
-                            setMobileMenuOpen(false);
-                            openAuthModal('signin');
+                            go({ name: 'login' });
                           }}
                           className="py-2 px-3 rounded-md bg-[#171716] dark:bg-[#F4F3EF] text-white dark:text-[#171716] text-xs font-medium cursor-pointer"
                         >
@@ -1055,8 +1053,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                         <button
                           type="button"
                           onClick={() => {
-                            setMobileMenuOpen(false);
-                            openAuthModal('register');
+                            go({ name: 'login', accountTab: 'register' });
                           }}
                           className="py-2 px-3 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] bg-[#FFFFFF] dark:bg-[#191917] text-xs font-medium cursor-pointer"
                         >
@@ -1076,8 +1073,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                         <button
                           type="button"
                           onClick={() => {
-                            setMobileMenuOpen(false);
-                            openAuthModal('signin');
+                            go({ name: 'login' });
                           }}
                           className="text-[11px] font-medium text-[#8F6438] dark:text-[#C89B67] shrink-0 cursor-pointer"
                         >
