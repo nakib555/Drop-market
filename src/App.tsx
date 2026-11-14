@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AnimatePresence, MotionConfig, motion } from 'motion/react';
+import { MotionConfig, motion } from 'motion/react';
 import { StoreProvider, useStore } from './context/StoreContext';
 import { getRouteKey } from './context/navigationController';
 import { ThemeProvider } from './context/ThemeContext';
@@ -38,18 +38,16 @@ const AppShell: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-[#F9F8F6] dark:bg-[#111110] text-[#171716] dark:text-[#F4F3EF]">
       <Header onOpenSearch={() => setSearchOpen(true)} />
       <main className="flex-1 overflow-x-clip">
-        <AnimatePresence mode="wait" initial={false} custom={navigationDirection}>
-          <motion.div
-            key={routeKey}
-            custom={navigationDirection}
-            variants={slideFadeVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-          >
-            <StorefrontRouter route={route} />
-          </motion.div>
-        </AnimatePresence>
+        <motion.div
+          key={routeKey}
+          custom={navigationDirection}
+          variants={slideFadeVariants}
+          initial="initial"
+          animate="animate"
+          style={{ willChange: 'transform, opacity' }}
+        >
+          <StorefrontRouter route={route} />
+        </motion.div>
       </main>
       <Footer />
       <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />

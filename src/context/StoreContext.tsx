@@ -880,7 +880,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const clearCompare = useCallback(() => setCompareIds([]), []);
 
   const recordProductView = useCallback((productId: string) => {
-    setRecentlyViewedIds((prev) => [productId, ...prev.filter((id) => id !== productId)].slice(0, 8));
+    setRecentlyViewedIds((prev) => {
+      if (prev[0] === productId) return prev;
+      return [productId, ...prev.filter((id) => id !== productId)].slice(0, 8);
+    });
   }, []);
 
   const addRecentSearch = useCallback(

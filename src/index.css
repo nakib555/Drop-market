@@ -104,6 +104,38 @@
   }
 }
 
+@keyframes kinto-gradient-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes kinto-caret-blink {
+  0%, 48% {
+    opacity: 1;
+  }
+  50%, 100% {
+    opacity: 0;
+  }
+}
+
+.typing-gradient-shimmer {
+  background-size: 220% auto;
+  animation: kinto-gradient-flow 6.5s ease-in-out infinite;
+  will-change: background-position;
+}
+
+.typing-caret-blink {
+  animation: kinto-caret-blink 1.05s steps(1, end) infinite;
+  will-change: opacity;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

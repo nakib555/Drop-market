@@ -19,7 +19,7 @@ import {
   UserCheck,
   XCircle,
 } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { motion } from 'motion/react';
 import { AdminDashboard } from '../components/account/AdminDashboard';
 import { SellerDashboard } from '../components/account/SellerDashboard';
 import { AuthPanel } from '../components/auth/AuthPanel';
@@ -375,14 +375,12 @@ export const AccountPage: React.FC = () => {
 
         {/* Active Panel */}
         <div className="lg:col-span-9 p-5 sm:p-8 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-6">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={section}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={STUDIO_TRANSITION.fast}
-            >
+          <motion.div
+            key={section}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={STUDIO_TRANSITION.fast}
+          >
           {section === 'seller-hub' &&
             (profile.role === 'seller' || profile.role === 'admin' ? (
               <SellerDashboard />
@@ -1320,8 +1318,7 @@ export const AccountPage: React.FC = () => {
               </div>
             </div>
           )}
-            </motion.div>
-          </AnimatePresence>
+          </motion.div>
         </div>
       </div>
 

@@ -22,15 +22,15 @@ export const STUDIO_TRANSITION = {
 };
 
 export const PAGE_TRANSITION = {
-  duration: 0.26,
-  exitDuration: 0.2,
+  duration: 0.22,
+  exitDuration: 0.16,
   ease: STUDIO_EASE,
 } as const;
 
 export const slideFadeVariants = {
   initial: (direction: number) => ({
     opacity: 0,
-    x: direction >= 0 ? 24 : -24,
+    x: direction >= 0 ? 14 : -14,
   }),
   animate: {
     opacity: 1,
@@ -42,7 +42,7 @@ export const slideFadeVariants = {
   },
   exit: (direction: number) => ({
     opacity: 0,
-    x: direction >= 0 ? -18 : 18,
+    x: direction >= 0 ? -12 : 12,
     transition: {
       duration: PAGE_TRANSITION.exitDuration,
       ease: STUDIO_EASE,

@@ -16,7 +16,7 @@ import {
   Truck,
   X,
 } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { motion } from 'motion/react';
 import { BANGLADESH_GEO_TREE, type BangladeshDivisionEntry } from '../../server/shared/marketplaceSchema';
 import { useStore } from '../context/StoreContext';
 import {
@@ -785,14 +785,12 @@ export const CheckoutPage: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
         <div className="lg:col-span-7 p-5 sm:p-8 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-6">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={step}
-              initial={{ opacity: 0, x: 8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -8 }}
-              transition={STUDIO_TRANSITION.fast}
-            >
+          <motion.div
+            key={step}
+            initial={{ opacity: 0, x: 8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={STUDIO_TRANSITION.fast}
+          >
               {step === 1 && (
                 <div className="space-y-5">
                   <h2 className="font-display text-2xl font-medium">1. Customer Information</h2>
@@ -1250,8 +1248,7 @@ export const CheckoutPage: React.FC = () => {
                   </ul>
                 </div>
               )}
-            </motion.div>
-          </AnimatePresence>
+          </motion.div>
 
           {/* Step Navigation Controls */}
           <div className="pt-4 border-t border-[#E5E3DD] dark:border-[#2C2C28] flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">

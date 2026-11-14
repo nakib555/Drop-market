@@ -13,13 +13,13 @@ export const ScrollReveal: React.FC<ScrollRevealProps> = ({
   children,
   className = '',
   delay = 0,
-  yOffset = 14,
+  yOffset = 12,
 }) => (
   <motion.div
     initial={{ opacity: 0, y: yOffset }}
     whileInView={{ opacity: 1, y: 0 }}
-    viewport={{ once: true, amount: 0.12 }}
-    transition={{ duration: MOTION_DURATION.reveal, ease: ENTER_EASE, delay }}
+    viewport={{ once: true, amount: 'some' }}
+    transition={{ duration: MOTION_DURATION.moderate, ease: ENTER_EASE, delay }}
     className={className}
   >
     {children}
@@ -33,7 +33,7 @@ export const StaggerGrid: React.FC<{
   <motion.div
     initial="hidden"
     whileInView="visible"
-    viewport={{ once: true, amount: 0.08 }}
+    viewport={{ once: true, amount: 'some' }}
     variants={{
       hidden: {},
       visible: {

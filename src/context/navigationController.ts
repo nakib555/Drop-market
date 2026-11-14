@@ -298,10 +298,7 @@ export function useNavigationController(
     stack: [initialRoute],
     index: 0,
   });
-  const pendingHashCommitRef = useRef<{
-    hash: string;
-    direction: NavigationDirection;
-  } | null>(null);
+  const skipNextHashRef = useRef<string | null>(null);
   const [canGoBack, setCanGoBack] = useState(false);
 
   const commitRouteTransition = useCallback(
@@ -337,39 +334,37 @@ export function useNavigationController(
 
   useEffect(() => {
     const onHashChange = () => {
-      const next = parseHashToRoute();
       const currentHash = window.location.hash || '#/';
-      const pending = pendingHashCommitRef.current;
-
-      if (pending && pending.hash === currentHash) {
-        pendingHashCommitRef.current = null;
-        commitRouteTransition(next, pending.direction, true);
-      } else {
-        const nextKey = getRouteKey(next);
-        const history = historyRef.current;
-        let backIdx = -1;
-        for (let i = history.index - 1; i >= 0; i -= 1) {
-          if (getRouteKey(history.stack[i]) === nextKey) {
-            backIdx = i;
-            break;
-          }
-        }
-        const forwardIdx = history.stack
-          .slice(history.index + 1)
-          .findIndex((entry) => getRouteKey(entry) === nextKey);
-
-        if (backIdx !== -1) {
-          history.index = backIdx;
-          commitRouteTransition(next, -1, false);
-        } else if (forwardIdx !== -1) {
-          history.index = history.index + 1 + forwardIdx;
-          commitRouteTransition(next, 1, false);
-        } else {
-          commitRouteTransition(next, undefined, true);
-        }
+      if (skipNextHashRef.current === currentHash) {
+        skipNextHashRef.current = null;
+        return;
       }
 
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      const next = parseHashToRoute();
+      const nextKey = getRouteKey(next);
+      const history = historyRef.current;
+      let backIdx = -1;
+      for (let i = history.index - 1; i >= 0; i -= 1) {
+        if (getRouteKey(history.stack[i]) === nextKey) {
+          backIdx = i;
+          break;
+        }
+      }
+      const forwardIdx = history.stack
+        .slice(history.index + 1)
+        .findIndex((entry) => getRouteKey(entry) === nextKey);
+
+      if (backIdx !== -1) {
+        history.index = backIdx;
+        commitRouteTransition(next, -1, false);
+      } else if (forwardIdx !== -1) {
+        history.index = history.index + 1 + forwardIdx;
+        commitRouteTransition(next, 1, false);
+      } else {
+        commitRouteTransition(next, undefined, true);
+      }
+
+      window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
     };
 
     window.addEventListener('hashchange', onHashChange);
@@ -384,14 +379,16 @@ export function useNavigationController(
     (next: RouteState) => {
       const targetHash = serializeRouteToHash(next);
       const direction = computeRouteDirection(routeRef.current, next);
+      const currentHash = window.location.hash || '#/';
 
-      if (window.location.hash !== targetHash) {
-        pendingHashCommitRef.current = { hash: targetHash, direction };
+      if (currentHash !== targetHash) {
+        skipNextHashRef.current = targetHash;
         window.location.hash = targetHash;
+        commitRouteTransition(next, direction, true);
       } else {
         commitRouteTransition(next, direction, false);
       }
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
     },
     [commitRouteTransition]
   );
@@ -401,15 +398,14 @@ export function useNavigationController(
     if (history.index > 0) {
       const previous = history.stack[history.index - 1];
       const targetHash = serializeRouteToHash(previous);
+      const currentHash = window.location.hash || '#/';
       history.index -= 1;
-      pendingHashCommitRef.current = { hash: targetHash, direction: -1 };
-      if (window.location.hash !== targetHash) {
+      if (currentHash !== targetHash) {
+        skipNextHashRef.current = targetHash;
         window.location.hash = targetHash;
-      } else {
-        pendingHashCommitRef.current = null;
-        commitRouteTransition(previous, -1, false);
       }
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      commitRouteTransition(previous, -1, false);
+      window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
       return;
     }
     navigate({ name: 'home' });

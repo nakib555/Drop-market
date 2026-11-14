@@ -16,7 +16,6 @@ import {
   Package,
   Search,
   ShieldCheck,
-  ShoppingBag,
   Store,
   Sun,
   Trash2,
@@ -50,10 +49,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
     recentSearches,
     addRecentSearch,
     clearRecentSearches,
-    cartItemCount,
     wishlistIds,
     compareIds,
-    setCartDrawerOpen,
     profile,
     logoutDemo,
     notifications,
@@ -958,24 +955,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                   {wishlistIds.length}
                 </motion.span>
               )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setCartDrawerOpen(true)}
-              aria-label={`Shopping bag (${cartItemCount} items)`}
-              className="relative h-9 px-2.5 sm:px-3 rounded-md flex items-center gap-1.5 bg-[#171716] dark:bg-[#F4F3EF] text-white dark:text-[#171716] hover:bg-[#2E2D2A] dark:hover:bg-[#E2E0D8] transition-colors cursor-pointer"
-            >
-              <ShoppingBag className="w-4 h-4" />
-              <motion.span
-                key={cartItemCount}
-                initial={{ scale: 1.2 }}
-                animate={{ scale: 1 }}
-                transition={STUDIO_TRANSITION.fast}
-                className="text-xs font-mono-num font-medium"
-              >
-                {cartItemCount}
-              </motion.span>
             </button>
           </div>
         </div>

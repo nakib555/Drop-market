@@ -18,7 +18,7 @@ import {
   Truck,
   Wrench,
 } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { motion } from 'motion/react';
 import { ATELIER_CRAFT_IMAGE, BRAND_STUDIOS, HERO_IMAGE } from '../data/catalog';
 import { useStore } from '../context/StoreContext';
 import { STUDIO15_MIN_USD, formatCurrency } from '../utils/format';
@@ -214,7 +214,7 @@ export const HomePage: React.FC = () => {
               </p>
               <h1 className="font-display text-[clamp(2rem,3.6vw,3.35rem)] font-medium leading-[1.06] tracking-tight text-[#171716] dark:text-[#F4F3EF]">
                 Everything You Need.
-                <span className="block min-h-[1.14em] mt-1">
+                <span className="block w-full min-h-[1.14em] mt-1 [text-wrap:normal] transform-gpu">
                   <TypingGradientText phrases={HERO_TYPING_PHRASES} />
                 </span>
               </h1>
@@ -467,20 +467,17 @@ export const HomePage: React.FC = () => {
             label="Loading curated collection"
           />
         ) : (
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={STUDIO_TRANSITION.fast}
-              className="grid grid-cols-1 min-[390px]:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 lg:gap-8"
-            >
-              {collectionProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </motion.div>
-          </AnimatePresence>
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={STUDIO_TRANSITION.fast}
+            className="grid grid-cols-1 min-[390px]:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 lg:gap-8"
+          >
+            {collectionProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </motion.div>
         )}
 
         <div className="mt-10 text-center">
