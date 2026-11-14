@@ -361,8 +361,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
+  const apiProductsRef = React.useRef<Product[]>(apiProducts);
+  useEffect(() => {
+    apiProductsRef.current = apiProducts;
+  }, [apiProducts]);
+
   const hydrateOrderImages = useCallback(
-    (apiOrders: Order[], catalogList: Product[] = apiProducts): Order[] => {
+    (apiOrders: Order[], catalogList: Product[] = apiProductsRef.current): Order[] => {
       if (!Array.isArray(apiOrders)) return [];
       return apiOrders.map((ord) => ({
         ...ord,
@@ -377,7 +382,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }),
       }));
     },
-    [apiProducts]
+    []
   );
 
   const applySyncPayload = useCallback(
@@ -436,9 +441,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     let active = true;
+    const hasExistingCatalog = apiProductsRef.current.length > 0;
     async function initApi() {
       setAuthLoading(true);
-      setStorefrontLoading(true);
+      if (!hasExistingCatalog) {
+        setStorefrontLoading(true);
+      }
       try {
         const [catalogRes, accountsRes, meRes, syncRes, ordersRes] = await Promise.allSettled([
           fetchCatalogProductsApi(),
@@ -497,6 +505,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => {
       active = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applySyncPayload, hydrateOrderImages]);
 
   useEffect(() => {

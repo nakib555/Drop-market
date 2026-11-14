@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeftRight, Check, Eye, Heart, ShoppingBag, Star } from 'lucide-react';
+import { Check, Heart, ShoppingBag, Star } from 'lucide-react';
 import { Product } from '../../types/commerce';
 import { useStore } from '../../context/StoreContext';
 import { formatCurrency, getDiscountPercent, isProductOutOfStock } from '../../utils/format';
@@ -17,9 +17,6 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
     addToCart,
     wishlistIds,
     toggleWishlist,
-    compareIds,
-    toggleCompare,
-    setQuickViewProduct,
   } = useStore();
 
   const [selectedColorIdx, setSelectedColorIdx] = useState(0);
@@ -40,7 +37,6 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
   }, [product.id]);
 
   const isWishlisted = wishlistIds.includes(product.id);
-  const isCompared = compareIds.includes(product.id);
   const discount = getDiscountPercent(product.price, product.originalPrice);
   const outOfStock = isProductOutOfStock(product);
   const secondaryImage = product.images[1];
@@ -157,25 +153,6 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
               </button>
               <button
                 type="button"
-                onClick={() => toggleCompare(product)}
-                aria-label="Compare specifications"
-                className={`w-10 h-10 rounded-md border flex items-center justify-center transition-colors cursor-pointer ${
-                  isCompared
-                    ? 'border-[#171716] bg-[#171716] text-white dark:border-[#F4F3EF] dark:bg-[#F4F3EF] dark:text-[#171716]'
-                    : 'border-[#E5E3DD] dark:border-[#2C2C28] text-[#5C5B57] dark:text-[#B4B2AC] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
-                }`}
-              >
-                <ArrowLeftRight className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setQuickViewProduct(product)}
-                className="px-3.5 h-10 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] text-xs font-medium hover:border-[#171716] dark:hover:border-[#F4F3EF] transition-colors cursor-pointer"
-              >
-                Quick View
-              </button>
-              <button
-                type="button"
                 disabled={outOfStock}
                 onClick={handlePrimaryAdd}
                 className={`px-4 h-10 rounded-md text-xs font-medium inline-flex items-center gap-1.5 transition-[color,background-color,transform] duration-150 ${
@@ -265,65 +242,6 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
             }`}
           >
             <Heart className={`w-3.5 h-3.5 ${isWishlisted ? 'fill-current' : ''}`} />
-          </button>
-        </div>
-
-        {/* Mobile-accessible corner quick actions + Desktop hover bar */}
-        <div className="flex md:hidden absolute bottom-2 right-2 gap-1.5">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setQuickViewProduct(product);
-            }}
-            aria-label={`Quick view ${product.name}`}
-            className="w-10 h-10 rounded-md bg-white/92 dark:bg-[#191917]/92 text-[#171716] dark:text-[#F4F3EF] border border-[#E5E3DD]/70 dark:border-[#2C2C28] flex items-center justify-center shadow-xs cursor-pointer"
-          >
-            <Eye className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleCompare(product);
-            }}
-            aria-label={`Compare ${product.name}`}
-            className={`w-10 h-10 rounded-md border flex items-center justify-center shadow-xs cursor-pointer ${
-              isCompared
-                ? 'bg-[#8F6438] text-white border-[#8F6438] dark:bg-[#C89B67] dark:text-[#171716]'
-                : 'bg-white/92 dark:bg-[#191917]/92 text-[#171716] dark:text-[#F4F3EF] border-[#E5E3DD]/70 dark:border-[#2C2C28]'
-            }`}
-          >
-            <ArrowLeftRight className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="hidden md:flex absolute inset-x-3 bottom-3 gap-1.5 opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setQuickViewProduct(product);
-            }}
-            className="flex-1 h-9 rounded-md bg-white/95 dark:bg-[#191917]/95 text-[#171716] dark:text-[#F4F3EF] text-xs font-medium inline-flex items-center justify-center gap-1.5 hover:bg-white dark:hover:bg-[#191917] shadow-sm cursor-pointer"
-          >
-            <Eye className="w-3.5 h-3.5" />
-            <span>Quick View</span>
-          </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleCompare(product);
-            }}
-            aria-label={`Compare ${product.name}`}
-            className={`w-9 h-9 rounded-md flex items-center justify-center shadow-sm cursor-pointer transition-colors ${
-              isCompared
-                ? 'bg-[#8F6438] text-white dark:bg-[#C89B67] dark:text-[#171716]'
-                : 'bg-white/95 dark:bg-[#191917]/95 text-[#171716] dark:text-[#F4F3EF]'
-            }`}
-          >
-            <ArrowLeftRight className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

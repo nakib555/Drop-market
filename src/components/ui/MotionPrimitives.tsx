@@ -13,12 +13,12 @@ export const ScrollReveal: React.FC<ScrollRevealProps> = ({
   children,
   className = '',
   delay = 0,
-  yOffset = 12,
+  yOffset = 8,
 }) => (
   <motion.div
-    initial={{ opacity: 0, y: yOffset }}
+    initial={{ opacity: 0.96, y: yOffset }}
     whileInView={{ opacity: 1, y: 0 }}
-    viewport={{ once: true, amount: 'some' }}
+    viewport={{ once: true, amount: 0 }}
     transition={{ duration: MOTION_DURATION.moderate, ease: ENTER_EASE, delay }}
     className={className}
   >

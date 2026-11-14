@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowLeftRight,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -105,8 +104,6 @@ export const ProductDetailPage: React.FC = () => {
     addToCart,
     wishlistIds,
     toggleWishlist,
-    compareIds,
-    toggleCompare,
     recentlyViewedIds,
     recordProductView,
     submitProductReview,
@@ -196,7 +193,6 @@ export const ProductDetailPage: React.FC = () => {
   const maxSelectableQty = Math.max(1, product.stockCount);
   const discount = getDiscountPercent(product.price, product.originalPrice);
   const isWishlisted = wishlistIds.includes(product.id);
-  const isCompared = compareIds.includes(product.id);
   const questions = product.questions || [];
   const domainGuide = CATEGORY_BUYING_GUIDES[product.category] || {
     heading: `${product.categoryLabel} Advisory`,
@@ -525,18 +521,18 @@ export const ProductDetailPage: React.FC = () => {
 
           {/* Quantity + CTAs */}
           <div ref={primaryCtaRef} className="space-y-3 pt-2">
-            <div className="flex flex-col min-[390px]:flex-row items-stretch min-[390px]:items-center gap-3">
-              <div className="inline-flex items-center justify-between min-[390px]:justify-center border border-[#E5E3DD] dark:border-[#2C2C28] rounded-md h-12 shrink-0">
+            <div className="flex flex-col min-[375px]:flex-row items-stretch gap-2.5 sm:gap-3">
+              <div className="inline-flex items-center justify-between min-[375px]:justify-center border border-[#E5E3DD] dark:border-[#2C2C28] rounded-md h-12 shrink-0">
                 <button
                   type="button"
                   disabled={outOfStock || quantity <= 1}
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                   aria-label="Decrease quantity"
-                  className="w-11 h-full flex items-center justify-center hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className="w-10 sm:w-11 h-full flex items-center justify-center hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <Minus className="w-3.5 h-3.5" />
                 </button>
-                <span className="w-10 text-center text-sm font-mono-num">
+                <span className="w-8 sm:w-10 text-center text-sm font-mono-num tabular-nums">
                   {outOfStock ? 0 : quantity}
                 </span>
                 <button
@@ -544,31 +540,41 @@ export const ProductDetailPage: React.FC = () => {
                   disabled={outOfStock || quantity >= maxSelectableQty}
                   onClick={() => setQuantity((q) => Math.min(maxSelectableQty, q + 1))}
                   aria-label="Increase quantity"
-                  className="w-11 h-full flex items-center justify-center hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className="w-10 sm:w-11 h-full flex items-center justify-center hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              <Button
-                variant="primary"
-                size="lg"
-                fullWidth
-                disabled={outOfStock}
-                onClick={() => addToCart(product, color.name, color.hex, size, quantity, true)}
-              >
-                {outOfStock
-                  ? 'Out of Stock'
-                  : `Add to Bag · ${formatCurrency(product.price * quantity, currency)}`}
-              </Button>
+              <div className="flex-1 min-w-0">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  fullWidth
+                  disabled={outOfStock}
+                  className="h-12 !py-0 !px-3.5 sm:!px-6 whitespace-nowrap !text-[13px] sm:!text-sm"
+                  onClick={() => addToCart(product, color.name, color.hex, size, quantity, true)}
+                >
+                  {outOfStock ? (
+                    <span>Out of Stock</span>
+                  ) : (
+                    <span className="inline-flex items-center justify-center gap-1.5 min-w-0 truncate">
+                      <span>Add to Bag</span>
+                      <span aria-hidden="true">·</span>
+                      <span className="font-mono-num tabular-nums">
+                        {formatCurrency(product.price * quantity, currency)}
+                      </span>
+                    </span>
+                  )}
+                </Button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-2 gap-2.5">
               <Button
                 variant="secondary"
                 size="md"
                 disabled={outOfStock}
-                className="col-span-2 sm:col-span-1"
                 onClick={() => {
                   addToCart(product, color.name, color.hex, size, quantity, false);
                   navigate({ name: 'checkout' });
@@ -579,10 +585,6 @@ export const ProductDetailPage: React.FC = () => {
               <Button variant="outline" size="md" onClick={() => toggleWishlist(product)}>
                 <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-current text-[#8F6438]' : ''}`} />
                 <span>{isWishlisted ? 'Saved' : 'Wishlist'}</span>
-              </Button>
-              <Button variant="outline" size="md" onClick={() => toggleCompare(product)}>
-                <ArrowLeftRight className="w-4 h-4" />
-                <span>{isCompared ? 'Compared' : 'Compare'}</span>
               </Button>
             </div>
           </div>
