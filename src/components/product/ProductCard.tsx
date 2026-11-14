@@ -1,10 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeftRight, Check, Eye, Heart, ShoppingBag, Star } from 'lucide-react';
-import { motion } from 'motion/react';
 import { Product } from '../../types/commerce';
 import { useStore } from '../../context/StoreContext';
 import { formatCurrency, getDiscountPercent, isProductOutOfStock } from '../../utils/format';
-import { STUDIO_EASE, STUDIO_TRANSITION } from '../../utils/motion';
 import { ResilientImage } from '../ui/Primitives';
 
 interface ProductCardProps {
@@ -12,7 +10,7 @@ interface ProductCardProps {
   layout?: 'grid' | 'list';
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'grid' }) => {
+const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid' }) => {
   const {
     currency,
     navigate,
@@ -26,11 +24,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'gri
 
   const [selectedColorIdx, setSelectedColorIdx] = useState(0);
   const [justAdded, setJustAdded] = useState(false);
+  const [hoverMounted, setHoverMounted] = useState(false);
   const addedTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     setSelectedColorIdx(0);
     setJustAdded(false);
+    setHoverMounted(false);
     return () => {
       if (addedTimerRef.current) {
         window.clearTimeout(addedTimerRef.current);
@@ -64,6 +64,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'gri
       <article className="group flex flex-col sm:flex-row gap-5 sm:gap-6 p-4 sm:p-5 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] transition-[transform,box-shadow,border-color] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-0.5 hover:shadow-md">
         <div
           onClick={() => navigate({ name: 'product', slug: product.slug })}
+          onMouseEnter={() => {
+            if (secondaryImage && !hoverMounted) setHoverMounted(true);
+          }}
           className="relative w-full sm:w-60 md:w-64 aspect-[4/3] rounded-md overflow-hidden bg-[#F2F0EC] dark:bg-[#22221F] shrink-0 cursor-pointer"
         >
           <ResilientImage
@@ -72,7 +75,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'gri
             loading="lazy"
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
           />
-          {secondaryImage && (
+          {secondaryImage && hoverMounted && (
             <ResilientImage
               src={secondaryImage}
               alt={`${product.name} alternate view`}
@@ -208,6 +211,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'gri
     <article className="group flex flex-col rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] overflow-hidden transition-[transform,box-shadow,border-color] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-0.5 hover:shadow-md">
       <div
         onClick={() => navigate({ name: 'product', slug: product.slug })}
+        onMouseEnter={() => {
+          if (secondaryImage && !hoverMounted) setHoverMounted(true);
+        }}
         className="relative aspect-[4/3] overflow-hidden bg-[#F2F0EC] dark:bg-[#22221F] cursor-pointer"
       >
         <ResilientImage
@@ -216,7 +222,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'gri
           loading="lazy"
           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
         />
-        {secondaryImage && (
+        {secondaryImage && hoverMounted && (
           <ResilientImage
             src={secondaryImage}
             alt={`${product.name} studio detail`}
@@ -243,23 +249,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'gri
             <span />
           )}
 
-          <motion.button
+          <button
             type="button"
-            whileTap={{ scale: 0.88 }}
-            animate={
-              isWishlisted
-                ? {
-                    scale: [1, 1.15, 1],
-                    transition: {
-                      type: 'tween',
-                      duration: 0.28,
-                      times: [0, 0.45, 1],
-                      ease: STUDIO_EASE,
-                    },
-                  }
-                : { scale: 1 }
-            }
-            transition={STUDIO_TRANSITION.springPop}
             onClick={(e) => {
               e.stopPropagation();
               toggleWishlist(product);
@@ -267,14 +258,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'gri
             aria-label={
               isWishlisted ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`
             }
-            className={`pointer-events-auto w-9 h-9 rounded-md flex items-center justify-center backdrop-blur-sm border transition-colors cursor-pointer ${
+            className={`pointer-events-auto w-9 h-9 rounded-md flex items-center justify-center border transition-[color,background-color,transform] duration-150 active:scale-[0.88] cursor-pointer ${
               isWishlisted
                 ? 'bg-[#171716] text-white border-[#171716] dark:bg-[#F4F3EF] dark:text-[#171716] dark:border-[#F4F3EF]'
-                : 'bg-white/90 dark:bg-[#191917]/90 text-[#171716] dark:text-[#F4F3EF] border-[#E5E3DD]/70 dark:border-[#2C2C28] hover:bg-white dark:hover:bg-[#191917]'
+                : 'bg-white/95 dark:bg-[#191917]/95 text-[#171716] dark:text-[#F4F3EF] border-[#E5E3DD]/70 dark:border-[#2C2C28] hover:bg-white dark:hover:bg-[#191917]'
             }`}
           >
             <Heart className={`w-3.5 h-3.5 ${isWishlisted ? 'fill-current' : ''}`} />
-          </motion.button>
+          </button>
         </div>
 
         {/* Mobile-accessible corner quick actions + Desktop hover bar */}
@@ -432,3 +423,5 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'gri
     </article>
   );
 };
+
+export const ProductCard = React.memo(ProductCardInner);

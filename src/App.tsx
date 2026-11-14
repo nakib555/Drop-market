@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { MotionConfig, motion } from 'motion/react';
+import { MotionConfig } from 'motion/react';
 import { StoreProvider, useStore } from './context/StoreContext';
 import { getRouteKey } from './context/navigationController';
 import { ThemeProvider } from './context/ThemeContext';
-import { slideFadeVariants } from './utils/motion';
 import { Header } from './components/navigation/Header';
 import { SearchModal } from './components/navigation/SearchModal';
 import { StorefrontRouter } from './components/navigation/StorefrontRouter';
@@ -38,16 +37,12 @@ const AppShell: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-[#F9F8F6] dark:bg-[#111110] text-[#171716] dark:text-[#F4F3EF]">
       <Header onOpenSearch={() => setSearchOpen(true)} />
       <main className="flex-1 overflow-x-clip">
-        <motion.div
+        <div
           key={routeKey}
-          custom={navigationDirection}
-          variants={slideFadeVariants}
-          initial="initial"
-          animate="animate"
-          style={{ willChange: 'transform, opacity' }}
+          className={navigationDirection >= 0 ? 'page-enter-forward' : 'page-enter-back'}
         >
           <StorefrontRouter route={route} />
-        </motion.div>
+        </div>
       </main>
       <Footer />
       <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />

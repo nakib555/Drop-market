@@ -221,3 +221,248 @@ export const ProductDetailSkeleton: React.FC = () => (
     </section>
   </div>
 );
+
+interface RouteSkeletonShellProps {
+  label: string;
+  children: React.ReactNode;
+}
+
+const RouteSkeletonShell: React.FC<RouteSkeletonShellProps> = ({ label, children }) => {
+  const [visible, setVisible] = React.useState(false);
+
+  React.useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setVisible(true);
+    }, 90);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  return (
+    <div
+      role="status"
+      aria-busy="true"
+      aria-label={label}
+      className="min-h-[72vh]"
+    >
+      <span className="sr-only">{label}...</span>
+      <div
+        aria-hidden="true"
+        className={`transition-opacity duration-200 ease-out ${
+          visible ? 'opacity-85' : 'opacity-0'
+        }`}
+      >
+        {children}
+      </div>
+    </div>
+  );
+};
+
+const HomeRouteSkeleton: React.FC = () => (
+  <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 pt-4 sm:pt-6 lg:pt-8 space-y-12 sm:space-y-16">
+    {/* Split Hero Skeleton */}
+    <div className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-10 items-stretch">
+      <div className="md:col-span-6 lg:col-span-5 flex flex-col justify-between py-1 lg:py-4 space-y-6">
+        <div className="space-y-4">
+          <SkeletonLoader className="h-3.5 w-52" />
+          <div className="space-y-2.5">
+            <SkeletonLoader className="h-10 sm:h-12 w-4/5" />
+            <SkeletonLoader className="h-10 sm:h-12 w-3/5" />
+          </div>
+          <div className="space-y-2 pt-1 max-w-lg">
+            <SkeletonLoader className="h-4 w-full" />
+            <SkeletonLoader className="h-4 w-11/12" />
+            <SkeletonLoader className="h-4 w-3/4" />
+          </div>
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <SkeletonLoader className="h-11 w-48 rounded-md" />
+            <SkeletonLoader className="h-11 w-36 rounded-md" />
+          </div>
+        </div>
+        <div className="pt-4 border-t border-[#E5E3DD] dark:border-[#2C2C28] flex items-center justify-between gap-3">
+          <SkeletonLoader className="h-3.5 w-60" />
+          <SkeletonLoader className="h-3.5 w-24" />
+        </div>
+      </div>
+
+      <div className="md:col-span-6 lg:col-span-7">
+        <SkeletonLoader className="w-full h-56 sm:h-80 md:h-full md:min-h-[380px] lg:h-[430px] xl:h-[500px] rounded-lg" />
+      </div>
+    </div>
+
+    {/* Guarantees Strip Skeleton */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 py-4 px-5 sm:px-6 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]">
+      {Array.from({ length: 4 }).map((_, idx) => (
+        <div key={idx} className="space-y-2 py-0.5">
+          <SkeletonLoader className="h-4 w-40" />
+          <SkeletonLoader className="h-3 w-48" />
+        </div>
+      ))}
+    </div>
+
+    {/* Department Cards Skeleton */}
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-5">
+      {Array.from({ length: 5 }).map((_, idx) => (
+        <div
+          key={idx}
+          className="rounded-lg overflow-hidden bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]"
+        >
+          <SkeletonLoader className="w-full aspect-[4/3] rounded-none" />
+          <div className="p-3.5 sm:p-4 space-y-2">
+            <SkeletonLoader className="h-3 w-20" />
+            <SkeletonLoader className="h-4 w-3/4" />
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const ShopRouteSkeleton: React.FC = () => (
+  <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-10 space-y-8">
+    {/* Breadcrumb Skeleton */}
+    <div className="flex items-center gap-2">
+      <SkeletonLoader className="h-3.5 w-12" />
+      <SkeletonLoader className="h-3.5 w-28" />
+    </div>
+
+    {/* Collection Banner Split */}
+    <div className="grid grid-cols-1 lg:grid-cols-12 rounded-lg overflow-hidden bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]">
+      <div className="lg:col-span-7 p-6 sm:p-8 space-y-4">
+        <SkeletonLoader className="h-3 w-28" />
+        <SkeletonLoader className="h-9 sm:h-11 w-2/3" />
+        <SkeletonLoader className="h-4 w-full max-w-xl" />
+        <div className="flex flex-wrap gap-2 pt-2">
+          <SkeletonLoader className="h-8 w-24 rounded-md" />
+          <SkeletonLoader className="h-8 w-28 rounded-md" />
+          <SkeletonLoader className="h-8 w-24 rounded-md" />
+          <SkeletonLoader className="h-8 w-32 rounded-md" />
+        </div>
+      </div>
+      <div className="lg:col-span-5">
+        <SkeletonLoader className="w-full h-44 sm:h-52 lg:h-full rounded-none" />
+      </div>
+    </div>
+
+    {/* Toolbar + Product Grid */}
+    <div className="flex items-center justify-between gap-4">
+      <SkeletonLoader className="h-9 w-44 rounded-md" />
+      <SkeletonLoader className="h-9 w-36 rounded-md" />
+    </div>
+
+    <div className="grid grid-cols-1 min-[390px]:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <ProductCardSkeleton key={index} />
+      ))}
+    </div>
+  </div>
+);
+
+const WorkspaceRouteSkeleton: React.FC = () => (
+  <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-8">
+    <div className="flex items-center gap-2">
+      <SkeletonLoader className="h-3.5 w-12" />
+      <SkeletonLoader className="h-3.5 w-28" />
+    </div>
+
+    <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+      <div className="space-y-2.5">
+        <SkeletonLoader className="h-3 w-32" />
+        <SkeletonLoader className="h-9 sm:h-11 w-64" />
+      </div>
+      <SkeletonLoader className="h-9 w-36 rounded-md" />
+    </div>
+
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+      <div className="lg:col-span-4 p-5 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-3">
+        <SkeletonLoader className="h-5 w-36" />
+        <SkeletonLoader className="h-10 w-full rounded-md" />
+        <SkeletonLoader className="h-10 w-full rounded-md" />
+        <SkeletonLoader className="h-10 w-full rounded-md" />
+      </div>
+
+      <div className="lg:col-span-8 p-5 sm:p-8 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-5">
+        <SkeletonLoader className="h-6 w-48" />
+        <div className="space-y-3">
+          <SkeletonLoader className="h-20 w-full rounded-md" />
+          <SkeletonLoader className="h-20 w-full rounded-md" />
+          <SkeletonLoader className="h-20 w-full rounded-md" />
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const EditorialRouteSkeleton: React.FC = () => (
+  <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-10">
+    <div className="flex items-center gap-2">
+      <SkeletonLoader className="h-3.5 w-12" />
+      <SkeletonLoader className="h-3.5 w-28" />
+    </div>
+
+    <div className="max-w-2xl space-y-3 pb-6 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+      <SkeletonLoader className="h-3 w-28" />
+      <SkeletonLoader className="h-9 sm:h-11 w-3/4" />
+      <SkeletonLoader className="h-4 w-full" />
+      <SkeletonLoader className="h-4 w-4/5" />
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {Array.from({ length: 3 }).map((_, idx) => (
+        <div
+          key={idx}
+          className="p-6 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-4"
+        >
+          <SkeletonLoader className="h-3 w-24" />
+          <SkeletonLoader className="h-6 w-3/4" />
+          <SkeletonLoader className="h-4 w-full" />
+          <SkeletonLoader className="h-4 w-5/6" />
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+export const RouteSuspenseFallback: React.FC<{ routeName: string }> = ({ routeName }) => {
+  switch (routeName) {
+    case 'home':
+      return (
+        <RouteSkeletonShell label="Loading storefront">
+          <HomeRouteSkeleton />
+        </RouteSkeletonShell>
+      );
+    case 'shop':
+    case 'category':
+    case 'search':
+    case 'offers':
+      return (
+        <RouteSkeletonShell label="Loading catalog">
+          <ShopRouteSkeleton />
+        </RouteSkeletonShell>
+      );
+    case 'product':
+      return (
+        <RouteSkeletonShell label="Loading product details">
+          <ProductDetailSkeleton />
+        </RouteSkeletonShell>
+      );
+    case 'cart':
+    case 'checkout':
+    case 'account':
+    case 'login':
+    case 'seller':
+    case 'admin':
+    case 'track-order':
+      return (
+        <RouteSkeletonShell label="Loading workspace">
+          <WorkspaceRouteSkeleton />
+        </RouteSkeletonShell>
+      );
+    default:
+      return (
+        <RouteSkeletonShell label="Loading page">
+          <EditorialRouteSkeleton />
+        </RouteSkeletonShell>
+      );
+  }
+};
+

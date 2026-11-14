@@ -300,25 +300,22 @@ export const ProductDetailPage: React.FC = () => {
             onTouchEnd={handleGalleryTouchEnd}
             className="relative aspect-[4/3] rounded-lg overflow-hidden bg-[#F2F0EC] dark:bg-[#22221F] border border-[#E5E3DD] dark:border-[#2C2C28]"
           >
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={`${product.id}-${activeImageIdx}`}
-                initial={{ opacity: 0.4 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0.4 }}
-                transition={STUDIO_TRANSITION.fast}
-                className="w-full h-full"
-              >
-                <ResilientImage
-                  src={product.images[activeImageIdx]}
-                  alt={`${product.name} — view ${activeImageIdx + 1}`}
-                  onClick={() => setZoomed((z) => !z)}
-                  className={`w-full h-full object-cover transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-zoom-in ${
-                    zoomed ? 'scale-150 cursor-zoom-out' : 'scale-100'
-                  }`}
-                />
-              </motion.div>
-            </AnimatePresence>
+            <motion.div
+              key={`${product.id}-${activeImageIdx}`}
+              initial={{ opacity: 0.5 }}
+              animate={{ opacity: 1 }}
+              transition={STUDIO_TRANSITION.fast}
+              className="w-full h-full"
+            >
+              <ResilientImage
+                src={product.images[activeImageIdx]}
+                alt={`${product.name} — view ${activeImageIdx + 1}`}
+                onClick={() => setZoomed((z) => !z)}
+                className={`w-full h-full object-cover transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-zoom-in ${
+                  zoomed ? 'scale-150 cursor-zoom-out' : 'scale-100'
+                }`}
+              />
+            </motion.div>
 
             <button
               type="button"
@@ -649,14 +646,12 @@ export const ProductDetailPage: React.FC = () => {
           })}
         </div>
 
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={STUDIO_TRANSITION.fast}
-          >
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={STUDIO_TRANSITION.fast}
+        >
             {activeTab === 'specs' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-6">
@@ -976,7 +971,6 @@ export const ProductDetailPage: React.FC = () => {
               </div>
             )}
           </motion.div>
-        </AnimatePresence>
       </section>
 
       {/* Related & Recently Viewed */}

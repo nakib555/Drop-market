@@ -396,6 +396,7 @@ export {
   ProductCardSkeleton,
   ProductGridSkeleton,
   ProductDetailSkeleton,
+  RouteSuspenseFallback,
 } from './SkeletonLoaders';
 
 interface ResilientImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
@@ -407,6 +408,7 @@ export const ResilientImage: React.FC<ResilientImageProps> = ({
   alt,
   fallbackTitle,
   className = '',
+  decoding = 'async',
   ...rest
 }) => {
   const [failed, setFailed] = useState(false);
@@ -432,6 +434,7 @@ export const ResilientImage: React.FC<ResilientImageProps> = ({
     <img
       src={src}
       alt={alt}
+      decoding={decoding}
       referrerPolicy="no-referrer"
       onError={() => setFailed(true)}
       className={className}
