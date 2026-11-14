@@ -57,15 +57,38 @@ async function requestJson<T>(url: string, options: RequestInit = {}): Promise<T
     headers,
   });
 
-  const data = await res.json().catch(() => ({}));
+  const contentType = (res.headers.get('content-type') || '').toLowerCase();
+
   if (!res.ok) {
-    throw new Error((data as { error?: string }).error || `Request failed (${res.status})`);
+    const errBody = contentType.includes('application/json')
+      ? await res.json().catch(() => ({}))
+      : {};
+    throw new Error(
+      (errBody as { error?: string }).error || `Request failed (${res.status})`
+    );
+  }
+
+  if (!contentType.includes('application/json')) {
+    const text = await res.text().catch(() => '');
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      throw new Error('API endpoint returned non-JSON response');
+    }
+  }
+
+  const data = await res.json();
+  if (!data || typeof data !== 'object') {
+    throw new Error('Invalid JSON payload from API');
   }
   return data as T;
 }
 
 export async function fetchAuthAccounts(): Promise<AccountDirectoryEntry[]> {
-  const data = await requestJson<{ accounts: AccountDirectoryEntry[] }>('/api/auth/accounts');
+  const data = await requestJson<{ accounts?: AccountDirectoryEntry[] }>('/api/auth/accounts');
+  if (!Array.isArray(data.accounts)) {
+    throw new Error('Invalid accounts payload');
+  }
   return data.accounts;
 }
 
@@ -103,7 +126,10 @@ export async function registerWithApi(payload: {
 }
 
 export async function fetchCurrentUser(): Promise<AccountDirectoryEntry> {
-  const res = await requestJson<{ user: AccountDirectoryEntry }>('/api/auth/me');
+  const res = await requestJson<{ user?: AccountDirectoryEntry }>('/api/auth/me');
+  if (!res.user || typeof res.user !== 'object') {
+    throw new Error('Invalid current user payload');
+  }
   return res.user;
 }
 
@@ -150,7 +176,10 @@ export async function updateAdminCurrencyApi(updates: {
 }
 
 export async function fetchCategoriesTreeApi(): Promise<CategoryNode[]> {
-  const res = await requestJson<{ categories: CategoryNode[] }>('/api/categories');
+  const res = await requestJson<{ categories?: CategoryNode[] }>('/api/categories');
+  if (!Array.isArray(res.categories)) {
+    throw new Error('Invalid categories payload');
+  }
   return res.categories;
 }
 
@@ -253,9 +282,12 @@ export async function verifyPaymentApi(payload: {
 }
 
 export async function fetchNotificationsApi(role: UserRole): Promise<StoreNotification[]> {
-  const res = await requestJson<{ notifications: StoreNotification[] }>(
+  const res = await requestJson<{ notifications?: StoreNotification[] }>(
     `/api/notifications?role=${encodeURIComponent(role)}`
   );
+  if (!Array.isArray(res.notifications)) {
+    throw new Error('Invalid notifications payload');
+  }
   return res.notifications;
 }
 
@@ -264,7 +296,10 @@ export async function markNotificationReadApi(id: string): Promise<void> {
 }
 
 export async function fetchOrdersApi(): Promise<Order[]> {
-  const res = await requestJson<{ orders: Order[] }>('/api/orders');
+  const res = await requestJson<{ orders?: Order[] }>('/api/orders');
+  if (!Array.isArray(res.orders)) {
+    throw new Error('Invalid orders payload');
+  }
   return res.orders;
 }
 

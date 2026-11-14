@@ -358,10 +358,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const hydrateOrderImages = useCallback((apiOrders: Order[]): Order[] => {
+    if (!Array.isArray(apiOrders)) return [];
     return apiOrders.map((ord) => ({
       ...ord,
       paymentStatus: ord.paymentStatus || (ord.paymentMethod === 'cod' ? 'cod_pending' : 'paid'),
-      items: ord.items.map((item) => {
+      items: (Array.isArray(ord.items) ? ord.items : []).map((item) => {
         if (item.image) return item;
         const matched = PRODUCTS.find((p) => p.id === item.productId);
         return {
@@ -374,16 +375,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const applySyncPayload = useCallback(
     (sync: Awaited<ReturnType<typeof fetchStorefrontSync>>) => {
-      setProductOverrides(sync.productOverrides || {});
-      setSellerProducts(sync.sellerProducts || []);
+      if (!sync || typeof sync !== 'object') return;
+      if (sync.productOverrides && typeof sync.productOverrides === 'object') {
+        setProductOverrides(sync.productOverrides);
+      }
+      if (Array.isArray(sync.sellerProducts)) {
+        setSellerProducts(sync.sellerProducts);
+      }
       if (Array.isArray(sync.categoryTree) && sync.categoryTree.length > 0) {
         setCategoryNodes(sync.categoryTree);
       }
-      if (sync.currencyConfig) {
+      if (sync.currencyConfig?.rates?.BDT) {
         setCurrencyConfig(sync.currencyConfig);
         setGlobalBdtRate(sync.currencyConfig.rates.BDT);
       }
-      if (sync.shippingConfig) {
+      if (sync.shippingConfig && Array.isArray(sync.shippingConfig.zones)) {
         setShippingConfig(sync.shippingConfig);
       }
     },
@@ -402,7 +408,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const refreshOrders = useCallback(async () => {
     try {
       const apiOrders = await fetchOrdersApi();
-      setOrders(hydrateOrderImages(apiOrders));
+      if (Array.isArray(apiOrders)) {
+        setOrders(hydrateOrderImages(apiOrders));
+      }
     } catch {
       // Keep local cached orders
     }
@@ -411,9 +419,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const refreshNotifications = useCallback(async (role: CustomerProfile['role']) => {
     try {
       const list = await fetchNotificationsApi(role);
-      setNotifications(list);
+      if (Array.isArray(list)) {
+        setNotifications(list);
+      }
     } catch {
-      // Ignore if offline
+      // Ignore if offline or static deployment
     }
   }, []);
 
@@ -432,10 +442,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         if (!active) return;
 
-        if (accountsRes.status === 'fulfilled') {
+        if (accountsRes.status === 'fulfilled' && Array.isArray(accountsRes.value)) {
           setAuthAccounts(accountsRes.value);
         }
-        if (meRes.status === 'fulfilled' && Boolean(getStoredToken()) && profile.isAuthenticated) {
+        if (
+          meRes.status === 'fulfilled' &&
+          meRes.value &&
+          Boolean(getStoredToken()) &&
+          profile.isAuthenticated
+        ) {
           const u = meRes.value;
           setProfile({
             id: u.id,
@@ -448,10 +463,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             isAuthenticated: true,
           });
         }
-        if (syncRes.status === 'fulfilled') {
+        if (syncRes.status === 'fulfilled' && syncRes.value) {
           applySyncPayload(syncRes.value);
         }
-        if (ordersRes.status === 'fulfilled') {
+        if (ordersRes.status === 'fulfilled' && Array.isArray(ordersRes.value)) {
           setOrders(hydrateOrderImages(ordersRes.value));
         }
       } finally {
@@ -1356,7 +1371,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const unreadNotificationCount = useMemo(
-    () => notifications.filter((n) => !n.read).length,
+    () => (Array.isArray(notifications) ? notifications : []).filter((n) => !n.read).length,
     [notifications]
   );
 
