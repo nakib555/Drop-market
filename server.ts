@@ -1,4 +1,5 @@
 import express from 'express';
+import http from 'node:http';
 import path from 'node:path';
 import { createServer as createViteServer } from 'vite';
 import { db } from './server/mockDb.ts';
@@ -42,6 +43,7 @@ function formatOrderNotificationAmount(order: Order): string {
 
 async function startServer() {
   const app = express();
+  const httpServer = http.createServer(app);
   app.use(express.json({ limit: '1mb' }));
 
   app.get('/api/health', (_req, res) => {
@@ -1064,7 +1066,10 @@ async function startServer() {
   // Vite dev middleware OR static production dist
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        ws: { server: httpServer },
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
@@ -1076,7 +1081,7 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`Kinto Studio marketplace server running on http://0.0.0.0:${PORT}`);
   });
 }
