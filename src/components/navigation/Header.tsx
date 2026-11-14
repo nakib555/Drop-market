@@ -1,10 +1,13 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ArrowRight,
   Bell,
   ChevronDown,
   ChevronRight,
+  Clock,
   Globe,
   Heart,
+  Layers,
   LogIn,
   LogOut,
   MapPin,
@@ -16,27 +19,22 @@ import {
   ShoppingBag,
   Store,
   Sun,
+  Trash2,
   User,
   UserCheck,
   X,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
+import { BRAND_STUDIOS } from '../../data/catalog';
 import { useStore } from '../../context/StoreContext';
 import { useTheme } from '../../context/ThemeContext';
-import { formatCurrency } from '../../utils/format';
+import { formatCurrency, fuzzyScoreText } from '../../utils/format';
 import { STUDIO_TRANSITION } from '../../utils/motion';
-import { ScrollProgressHairline } from '../ui/MotionPrimitives';
-import { ResilientImage } from '../ui/Primitives';
+import { ResilientImage, useFocusTrap } from '../ui/Primitives';
 
 interface HeaderProps {
   onOpenSearch: () => void;
 }
-
-const ANNOUNCEMENTS = [
-  'Complimentary shipping on orders over $500 · Use code STUDIO15 for 15% off',
-  '8 Curated Departments: Tech, Fashion, Home, Beauty, Grocery, Outdoor, Office & Gifts',
-  'Nationwide & US Shipping · Instant BDT (৳) & USD ($) pricing toggle available',
-];
 
 export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
   const {
@@ -45,7 +43,13 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
     categories,
     products,
     currency,
+    currencyConfig,
+    shippingConfig,
+    setCurrency,
     toggleCurrency,
+    recentSearches,
+    addRecentSearch,
+    clearRecentSearches,
     cartItemCount,
     wishlistIds,
     compareIds,
@@ -59,19 +63,38 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
   const { theme, toggleTheme } = useTheme();
 
   const [announcementVisible, setAnnouncementVisible] = useState(true);
-  const [announcementIdx, setAnnouncementIdx] = useState(0);
   const [megaMenuOpen, setMegaMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [currencyMenuOpen, setCurrencyMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [hoveredCatSlug, setHoveredCatSlug] = useState<string>(
     categories[0]?.slug || 'electronics-tech'
   );
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileCategoriesExpanded, setMobileCategoriesExpanded] = useState(true);
+  const [expandedMobileDept, setExpandedMobileDept] = useState<string | null>('electronics-tech');
+
+  // Prominent inline live search dropdown state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchDropdownOpen, setSearchDropdownOpen] = useState(false);
+  const [searchActiveIdx, setSearchActiveIdx] = useState(-1);
+
   const closeTimeoutRef = useRef<number | null>(null);
   const notifContainerRef = useRef<HTMLDivElement | null>(null);
   const accountContainerRef = useRef<HTMLDivElement | null>(null);
+  const currencyContainerRef = useRef<HTMLDivElement | null>(null);
+  const searchContainerRef = useRef<HTMLDivElement | null>(null);
+  const desktopSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const mobileNavPanelRef = useRef<HTMLDivElement | null>(null);
+
+  useFocusTrap(mobileMenuOpen, mobileNavPanelRef);
+
+  const freeThresholdUsd = useMemo(
+    () =>
+      shippingConfig.zones.find((z) => z.zoneId === 'dhaka_metro')?.freeThresholdUsd ?? 120,
+    [shippingConfig]
+  );
 
   useEffect(() => {
     const onScroll = () => {
@@ -83,27 +106,49 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
   }, []);
 
   useEffect(() => {
-    if (!notifOpen && !accountMenuOpen) return;
+    if (!hoveredCatSlug && categories[0]?.slug) {
+      setHoveredCatSlug(categories[0].slug);
+    }
+  }, [categories, hoveredCatSlug]);
+
+  useEffect(() => {
+    if (!notifOpen && !accountMenuOpen && !currencyMenuOpen && !searchDropdownOpen && !megaMenuOpen) {
+      return;
+    }
     const onDocClick = (e: MouseEvent) => {
-      if (
-        notifOpen &&
-        notifContainerRef.current &&
-        !notifContainerRef.current.contains(e.target as Node)
-      ) {
+      const target = e.target as Node;
+      if (notifOpen && notifContainerRef.current && !notifContainerRef.current.contains(target)) {
         setNotifOpen(false);
       }
       if (
         accountMenuOpen &&
         accountContainerRef.current &&
-        !accountContainerRef.current.contains(e.target as Node)
+        !accountContainerRef.current.contains(target)
       ) {
         setAccountMenuOpen(false);
+      }
+      if (
+        currencyMenuOpen &&
+        currencyContainerRef.current &&
+        !currencyContainerRef.current.contains(target)
+      ) {
+        setCurrencyMenuOpen(false);
+      }
+      if (
+        searchDropdownOpen &&
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(target)
+      ) {
+        setSearchDropdownOpen(false);
       }
     };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setNotifOpen(false);
         setAccountMenuOpen(false);
+        setCurrencyMenuOpen(false);
+        setSearchDropdownOpen(false);
+        setMegaMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', onDocClick);
@@ -112,15 +157,72 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
       document.removeEventListener('mousedown', onDocClick);
       document.removeEventListener('keydown', onKeyDown);
     };
-  }, [notifOpen, accountMenuOpen]);
+  }, [notifOpen, accountMenuOpen, currencyMenuOpen, searchDropdownOpen, megaMenuOpen]);
 
   useEffect(() => {
-    if (!announcementVisible) return;
-    const timer = window.setInterval(() => {
-      setAnnouncementIdx((prev) => (prev + 1) % ANNOUNCEMENTS.length);
-    }, 5200);
-    return () => window.clearInterval(timer);
-  }, [announcementVisible]);
+    if (!mobileMenuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileMenuOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [mobileMenuOpen]);
+
+  const matchingSearchCategories = useMemo(() => {
+    const q = searchTerm.trim();
+    if (!q) return [];
+    return categories
+      .map((c) => {
+        const subNames = c.subcategories
+          .flatMap((s) => [s.name, ...(s.children?.map((ch) => ch.name) || [])])
+          .join(' ');
+        const score = Math.max(
+          fuzzyScoreText(q, c.name),
+          fuzzyScoreText(q, `${c.shortName} ${subNames}`)
+        );
+        return { cat: c, score };
+      })
+      .filter((entry) => entry.score >= 18)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map((e) => e.cat);
+  }, [categories, searchTerm]);
+
+  const matchingSearchBrands = useMemo(() => {
+    const q = searchTerm.trim();
+    if (!q) return [];
+    return BRAND_STUDIOS.map((b) => ({
+      brand: b,
+      score: Math.max(fuzzyScoreText(q, b.name), fuzzyScoreText(q, b.specialty)),
+    }))
+      .filter((entry) => entry.score >= 18)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 2)
+      .map((e) => e.brand);
+  }, [searchTerm]);
+
+  const searchSuggestions = useMemo(() => {
+    const q = searchTerm.trim();
+    if (!q) return [];
+    return products
+      .map((p) => {
+        const score = Math.max(
+          fuzzyScoreText(q, p.name) * 1.2,
+          fuzzyScoreText(q, p.brand),
+          fuzzyScoreText(q, `${p.categoryLabel} ${p.subcategoryLabel} ${p.tags.join(' ')}`),
+          fuzzyScoreText(q, p.shortDescription) * 0.6
+        );
+        return { product: p, score };
+      })
+      .filter((entry) => entry.score >= 16)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 6)
+      .map((e) => e.product);
+  }, [products, searchTerm]);
 
   const activeHoverCat =
     categories.find((c) => c.slug === hoveredCatSlug) || categories[0];
@@ -135,6 +237,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
       closeTimeoutRef.current = null;
     }
     if (slug) setHoveredCatSlug(slug);
+    setSearchDropdownOpen(false);
     setMegaMenuOpen(true);
   };
 
@@ -150,12 +253,46 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
     setMobileMenuOpen(false);
     setNotifOpen(false);
     setAccountMenuOpen(false);
+    setCurrencyMenuOpen(false);
+    setSearchDropdownOpen(false);
     navigate(next);
+  };
+
+  const submitHeaderSearch = (q: string) => {
+    const clean = q.trim();
+    if (!clean) return;
+    addRecentSearch(clean);
+    setSearchDropdownOpen(false);
+    navigate({ name: 'search', query: clean });
+  };
+
+  const handleHeaderSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      setSearchDropdownOpen(false);
+      desktopSearchInputRef.current?.blur();
+      return;
+    }
+    if (!searchDropdownOpen || searchSuggestions.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSearchActiveIdx((prev) => (prev + 1) % searchSuggestions.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSearchActiveIdx((prev) =>
+        prev <= 0 ? searchSuggestions.length - 1 : prev - 1
+      );
+    } else if (e.key === 'Enter' && searchActiveIdx >= 0 && searchSuggestions[searchActiveIdx]) {
+      e.preventDefault();
+      const chosen = searchSuggestions[searchActiveIdx];
+      addRecentSearch(searchTerm || chosen.name);
+      setSearchDropdownOpen(false);
+      navigate({ name: 'product', slug: chosen.slug });
+    }
   };
 
   return (
     <>
-      {/* Level 1: Rotating Announcement Bar */}
+      {/* Level 1: Calm Announcement Strip */}
       <AnimatePresence initial={false}>
         {announcementVisible && (
           <motion.div
@@ -167,51 +304,23 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
           >
             <div className="py-1.5 sm:py-2 px-3 sm:px-6 max-w-[1440px] mx-auto flex items-center justify-between gap-2 sm:gap-4">
               <span className="hidden lg:inline text-[#A3A19B] whitespace-nowrap">
-                Worldwide · US &amp; Bangladesh Hubs
+                Dhaka Hub &amp; 64 Districts · 1 USD = ৳{currencyConfig.rates.BDT.toFixed(1)}
               </span>
 
-              <div className="flex-1 min-w-0 text-center">
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.p
-                    key={announcementIdx}
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    transition={STUDIO_TRANSITION.instant}
-                    className="truncate"
-                  >
-                    {announcementIdx === 0 ? (
-                      <>
-                        Complimentary shipping $500+ · Code{' '}
-                        <span className="font-mono-num font-medium text-[#E2B887]">STUDIO15</span>{' '}
-                        for 15% off
-                      </>
-                    ) : (
-                      ANNOUNCEMENTS[announcementIdx]
-                    )}
-                  </motion.p>
-                </AnimatePresence>
-              </div>
+              <p className="flex-1 min-w-0 text-center truncate">
+                Complimentary Dhaka Metro shipping {formatCurrency(freeThresholdUsd, currency)}+ · Code{' '}
+                <span className="font-mono-num font-medium text-[#E2B887]">STUDIO15</span>{' '}
+                for 15% off
+              </p>
 
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={toggleCurrency}
-                  aria-label="Toggle display currency"
-                  className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-[11px] font-mono-num cursor-pointer transition-colors"
-                >
-                  <Globe className="w-3 h-3" />
-                  <span>{currency}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAnnouncementVisible(false)}
-                  aria-label="Dismiss announcement"
-                  className="text-[#A3A19B] hover:text-white p-1 cursor-pointer transition-colors"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setAnnouncementVisible(false)}
+                aria-label="Dismiss announcement"
+                className="text-[#A3A19B] hover:text-white p-1.5 -mr-1 cursor-pointer transition-colors shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
             </div>
           </motion.div>
         )}
@@ -262,22 +371,223 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
             KINTO STUDIO
           </a>
 
-          {/* Prominent Marketplace Search Trigger (Tablet & Desktop) */}
-          <button
-            type="button"
-            onClick={onOpenSearch}
-            className="hidden md:flex flex-1 max-w-xl h-9 lg:h-10 px-3.5 rounded-md bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] hover:border-[#8F6438] dark:hover:border-[#C89B67] items-center justify-between gap-3 text-left text-xs lg:text-sm text-[#84827B] transition-colors cursor-pointer"
-          >
-            <span className="inline-flex items-center gap-2.5 truncate">
+          {/* Prominent Central Inline Search Bar + Instant Live Suggestions Dropdown (Tablet & Desktop) */}
+          <div ref={searchContainerRef} className="hidden md:block relative flex-1 max-w-2xl">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                submitHeaderSearch(searchTerm);
+              }}
+              className={`flex items-center gap-2.5 h-9 lg:h-10 px-3.5 rounded-md bg-[#FFFFFF] dark:bg-[#191917] border transition-colors ${
+                searchDropdownOpen
+                  ? 'border-[#8F6438] dark:border-[#C89B67] ring-1 ring-[#8F6438]/20'
+                  : 'border-[#E5E3DD] dark:border-[#2C2C28] hover:border-[#8F6438] dark:hover:border-[#C89B67]'
+              }`}
+            >
               <Search className="w-4 h-4 shrink-0 text-[#5C5B57] dark:text-[#A3A19B]" />
-              <span className="truncate">
-                Search electronics, fashion, furniture, skincare, grocery, outdoor...
-              </span>
-            </span>
-            <kbd className="hidden lg:inline-block px-1.5 py-0.5 text-[10px] font-mono-num rounded border border-[#E5E3DD] dark:border-[#2C2C28] text-[#84827B]">
-              /
-            </kbd>
-          </button>
+              <input
+                ref={desktopSearchInputRef}
+                type="search"
+                value={searchTerm}
+                onFocus={() => setSearchDropdownOpen(true)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setSearchActiveIdx(-1);
+                  setSearchDropdownOpen(true);
+                }}
+                onKeyDown={handleHeaderSearchKeyDown}
+                placeholder="Search 10 departments — audio, apparel, furniture, tools, skincare..."
+                aria-label="Search marketplace catalog"
+                aria-expanded={searchDropdownOpen}
+                className="flex-1 min-w-0 bg-transparent text-xs lg:text-sm text-[#171716] dark:text-[#F4F3EF] placeholder:text-[#84827B] focus:outline-none"
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setSearchActiveIdx(-1);
+                    desktopSearchInputRef.current?.focus();
+                  }}
+                  aria-label="Clear search query"
+                  className="text-[11px] text-[#84827B] hover:text-[#171716] dark:hover:text-[#F4F3EF] px-1 cursor-pointer"
+                >
+                  Clear
+                </button>
+              )}
+              <button
+                type="submit"
+                className="px-2.5 py-1 rounded bg-[#171716] dark:bg-[#F4F3EF] text-white dark:text-[#171716] text-[11px] font-medium hover:opacity-90 cursor-pointer shrink-0"
+              >
+                Search
+              </button>
+            </form>
+
+            <AnimatePresence>
+              {searchDropdownOpen && (
+                <motion.div
+                  key="header-search-dropdown"
+                  initial={{ opacity: 0, y: 6, scale: 0.99 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 4, scale: 0.99 }}
+                  transition={STUDIO_TRANSITION.fast}
+                  className="absolute left-0 right-0 mt-2 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] shadow-2xl overflow-hidden z-50"
+                >
+                  <div className="p-4 max-h-[68vh] overflow-y-auto space-y-4">
+                    {searchTerm.trim() ? (
+                      <>
+                        {(matchingSearchCategories.length > 0 || matchingSearchBrands.length > 0) && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {matchingSearchCategories.map((cat) => (
+                              <button
+                                key={cat.slug}
+                                type="button"
+                                onClick={() => go({ name: 'category', category: cat.slug })}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#F2F0EC] dark:bg-[#22221F] text-xs font-medium hover:border-[#171716] border border-transparent cursor-pointer"
+                              >
+                                <Layers className="w-3 h-3 text-[#8F6438] dark:text-[#C89B67]" />
+                                <span>{cat.name}</span>
+                              </button>
+                            ))}
+                            {matchingSearchBrands.map((b) => (
+                              <button
+                                key={b.id}
+                                type="button"
+                                onClick={() =>
+                                  go({
+                                    name: 'shop',
+                                    category: b.categories[0] || 'all',
+                                    brand: b.name,
+                                  })
+                                }
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded border border-[#E5E3DD] dark:border-[#2C2C28] text-xs font-medium hover:border-[#171716] cursor-pointer"
+                              >
+                                <Store className="w-3 h-3 text-[#8F6438] dark:text-[#C89B67]" />
+                                <span>{b.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-[11px] uppercase tracking-wider text-[#84827B]">
+                              Instant Matches ({searchSuggestions.length})
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => submitHeaderSearch(searchTerm)}
+                              className="text-xs font-medium text-[#8F6438] dark:text-[#C89B67] inline-flex items-center gap-1 hover:underline cursor-pointer"
+                            >
+                              <span>View all results</span>
+                              <ArrowRight className="w-3 h-3" />
+                            </button>
+                          </div>
+                          {searchSuggestions.length === 0 ? (
+                            <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] py-2">
+                              No direct matches for &ldquo;{searchTerm}&rdquo;. Press Enter to search full descriptions.
+                            </p>
+                          ) : (
+                            <ul className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28]">
+                              {searchSuggestions.map((item, idx) => (
+                                <li key={item.id}>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      addRecentSearch(searchTerm.trim());
+                                      go({ name: 'product', slug: item.slug });
+                                    }}
+                                    className={`w-full py-2.5 px-2 flex items-center gap-3 text-left rounded-md transition-colors cursor-pointer ${
+                                      idx === searchActiveIdx
+                                        ? 'bg-[#F2F0EC] dark:bg-[#22221F]'
+                                        : 'hover:bg-[#F9F8F6] dark:hover:bg-[#22221F]'
+                                    }`}
+                                  >
+                                    <ResilientImage
+                                      src={item.images[0]}
+                                      alt={item.name}
+                                      className="w-12 h-9 object-cover rounded-sm shrink-0"
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs sm:text-sm font-medium truncate">
+                                        {item.name}
+                                      </p>
+                                      <p className="text-[11px] text-[#5C5B57] dark:text-[#A3A19B] truncate">
+                                        {item.brand} · {item.categoryLabel}
+                                      </p>
+                                    </div>
+                                    <span className="text-xs font-mono-num font-semibold shrink-0">
+                                      {formatCurrency(item.price, currency)}
+                                    </span>
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="space-y-3">
+                        {recentSearches.length > 0 && (
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-[11px] uppercase tracking-wider text-[#84827B]">
+                                Recent Searches
+                              </p>
+                              <button
+                                type="button"
+                                onClick={clearRecentSearches}
+                                className="text-[11px] text-[#84827B] hover:text-[#171716] dark:hover:text-[#F4F3EF] inline-flex items-center gap-1 cursor-pointer"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                <span>Clear</span>
+                              </button>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {recentSearches.map((q) => (
+                                <button
+                                  key={q}
+                                  type="button"
+                                  onClick={() => submitHeaderSearch(q)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-[#E5E3DD] dark:border-[#2C2C28] text-xs hover:border-[#171716] cursor-pointer"
+                                >
+                                  <Clock className="w-3 h-3 text-[#84827B]" />
+                                  <span>{q}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-[11px] uppercase tracking-wider text-[#84827B] mb-2">
+                            Popular Across 10 Departments
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {[
+                              'Wireless Headphones',
+                              'Brushless Drill',
+                              'Botanical Serum',
+                              'Montessori Toys',
+                              'Merino Overshirt',
+                            ].map((q) => (
+                              <button
+                                key={q}
+                                type="button"
+                                onClick={() => submitHeaderSearch(q)}
+                                className="px-2.5 py-1 rounded bg-[#F2F0EC] dark:bg-[#22221F] text-xs font-medium hover:bg-[#E5E3DD] dark:hover:bg-[#2E2E2A] cursor-pointer"
+                              >
+                                {q}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
           {/* Utility Controls */}
           <div className="flex items-center gap-0.5 sm:gap-1.5 shrink-0">
@@ -290,14 +600,68 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
               <Search className="w-[18px] h-[18px]" />
             </button>
 
-            <button
-              type="button"
-              onClick={toggleCurrency}
-              aria-label={`Switch currency (currently ${currency})`}
-              className="hidden sm:flex h-9 px-2.5 rounded-md items-center gap-1 text-xs font-mono-num font-medium border border-[#E5E3DD] dark:border-[#2C2C28] bg-[#FFFFFF] dark:bg-[#191917] hover:border-[#171716] dark:hover:border-[#F4F3EF] transition-colors cursor-pointer"
-            >
-              <span>{currency === 'USD' ? '$ USD' : '৳ BDT'}</span>
-            </button>
+            {/* BDT / USD Currency Switcher Dropdown */}
+            <div ref={currencyContainerRef} className="relative hidden sm:block">
+              <button
+                type="button"
+                onClick={() => setCurrencyMenuOpen((p) => !p)}
+                aria-label={`Select currency (currently ${currency})`}
+                aria-expanded={currencyMenuOpen}
+                className="flex h-9 px-2.5 rounded-md items-center gap-1.5 text-xs font-mono-num font-medium border border-[#E5E3DD] dark:border-[#2C2C28] bg-[#FFFFFF] dark:bg-[#191917] hover:border-[#8F6438] dark:hover:border-[#C89B67] transition-colors cursor-pointer"
+              >
+                <span>{currency === 'BDT' ? '৳ BDT' : '$ USD'}</span>
+                <ChevronDown className="w-3 h-3 text-[#84827B]" />
+              </button>
+
+              <AnimatePresence>
+                {currencyMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 4, scale: 0.98 }}
+                    transition={STUDIO_TRANSITION.fast}
+                    className="absolute right-0 mt-2 w-60 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] shadow-xl p-2 z-50 space-y-1"
+                  >
+                    <p className="px-2 py-1 text-[10px] uppercase tracking-wider text-[#84827B]">
+                      Display Currency
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrency('BDT');
+                        setCurrencyMenuOpen(false);
+                      }}
+                      className={`w-full px-2.5 py-2 rounded-md flex items-center justify-between text-xs cursor-pointer ${
+                        currency === 'BDT'
+                          ? 'bg-[#F2F0EC] dark:bg-[#22221F] font-semibold'
+                          : 'hover:bg-[#F9F8F6] dark:hover:bg-[#22221F]'
+                      }`}
+                    >
+                      <span>Bangladesh Taka (BDT)</span>
+                      <span className="font-mono-num">৳</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrency('USD');
+                        setCurrencyMenuOpen(false);
+                      }}
+                      className={`w-full px-2.5 py-2 rounded-md flex items-center justify-between text-xs cursor-pointer ${
+                        currency === 'USD'
+                          ? 'bg-[#F2F0EC] dark:bg-[#22221F] font-semibold'
+                          : 'hover:bg-[#F9F8F6] dark:hover:bg-[#22221F]'
+                      }`}
+                    >
+                      <span>US Dollar (USD)</span>
+                      <span className="font-mono-num">$</span>
+                    </button>
+                    <div className="px-2 pt-1.5 pb-0.5 border-t border-[#E5E3DD] dark:border-[#2C2C28] text-[10px] font-mono-num text-[#84827B]">
+                      1 USD = ৳{currencyConfig.rates.BDT.toFixed(2)} · Bangladesh orders settle in BDT
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
             <button
               type="button"
@@ -644,7 +1008,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
 
               <span className="h-3.5 w-px bg-[#E5E3DD] dark:bg-[#2C2C28] shrink-0" aria-hidden="true" />
 
-              {categories.slice(0, 6).map((cat) => {
+              {categories.slice(0, 5).map((cat) => {
                 const isActive =
                   (route.name === 'category' || route.name === 'shop') &&
                   route.category === cat.slug;
@@ -690,58 +1054,18 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
               </button>
             </nav>
 
-            <div className="hidden xl:flex items-center gap-4 text-xs text-[#5C5B57] dark:text-[#A3A19B] shrink-0">
-              {!profile.isAuthenticated ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => go({ name: 'login' })}
-                    className="font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
-                  >
-                    Sign In
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => go({ name: 'login', accountTab: 'register' })}
-                    className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
-                  >
-                    Create Account
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() =>
-                    go({
-                      name:
-                        profile.role === 'admin'
-                          ? 'admin'
-                          : profile.role === 'seller'
-                          ? 'seller'
-                          : 'account',
-                      accountTab: 'overview',
-                    })
-                  }
-                  className="font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
-                >
-                  {profile.role === 'admin'
-                    ? 'Admin Console'
-                    : profile.role === 'seller'
-                    ? 'Seller Studio'
-                    : 'My Account'}
-                </button>
-              )}
+            <div className="hidden xl:flex items-center gap-5 text-xs text-[#5C5B57] dark:text-[#A3A19B] shrink-0">
               <button
                 type="button"
                 onClick={() => go({ name: 'brands' })}
-                className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                className="hover:text-[#171716] dark:hover:text-[#F4F3EF] transition-colors cursor-pointer"
               >
                 Partner Brands
               </button>
               <button
                 type="button"
                 onClick={() => go({ name: 'track-order' })}
-                className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                className="hover:text-[#171716] dark:hover:text-[#F4F3EF] transition-colors cursor-pointer"
               >
                 Track Order
               </button>
@@ -813,7 +1137,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                             </button>
                           </li>
                           {activeHoverCat.subcategories.map((sub) => (
-                            <li key={sub.slug}>
+                            <li key={sub.slug} className="space-y-1">
                               <button
                                 type="button"
                                 onClick={() =>
@@ -823,10 +1147,31 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                                     subcategory: sub.slug,
                                   })
                                 }
-                                className="hover:text-[#171716] dark:hover:text-[#F4F3EF] transition-colors cursor-pointer"
+                                className="hover:text-[#171716] dark:hover:text-[#F4F3EF] font-medium transition-colors cursor-pointer"
                               >
                                 {sub.name}
                               </button>
+                              {sub.children && sub.children.length > 0 && (
+                                <ul className="pl-3 space-y-1 border-l border-[#E5E3DD] dark:border-[#2C2C28] text-xs text-[#84827B]">
+                                  {sub.children.map((child) => (
+                                    <li key={child.slug}>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          go({
+                                            name: 'category',
+                                            category: activeHoverCat.slug,
+                                            subcategory: child.slug,
+                                          })
+                                        }
+                                        className="hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                                      >
+                                        {child.name}
+                                      </button>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
                             </li>
                           ))}
                         </ul>
@@ -909,9 +1254,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* Scroll Progress Hairline */}
-        <ScrollProgressHairline />
       </header>
 
       {/* Mobile Navigation Drawer (< 768px) */}
@@ -930,12 +1272,14 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
             onClick={() => setMobileMenuOpen(false)}
           >
             <motion.div
+              ref={mobileNavPanelRef}
+              tabIndex={-1}
               key="mobile-nav-panel"
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={STUDIO_TRANSITION.drawer}
-              className="w-[86vw] max-w-sm h-full bg-[#FFFFFF] dark:bg-[#191917] text-[#171716] dark:text-[#F4F3EF] flex flex-col border-r border-[#E5E3DD] dark:border-[#2C2C28]"
+              className="w-[86vw] max-w-sm h-full bg-[#FFFFFF] dark:bg-[#191917] text-[#171716] dark:text-[#F4F3EF] flex flex-col border-r border-[#E5E3DD] dark:border-[#2C2C28] focus:outline-none"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between px-5 h-14 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
@@ -1017,17 +1361,61 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                         transition={STUDIO_TRANSITION.fast}
                         className="overflow-hidden"
                       >
-                        <div className="mt-2 space-y-1 pl-2">
-                          {categories.map((cat) => (
-                            <button
-                              key={cat.slug}
-                              type="button"
-                              onClick={() => go({ name: 'category', category: cat.slug })}
-                              className="w-full py-2 text-left text-sm text-[#5C5B57] dark:text-[#B4B2AC] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
-                            >
-                              {cat.name}
-                            </button>
-                          ))}
+                        <div className="mt-2 space-y-1.5 pl-1">
+                          {categories.map((cat) => {
+                            const isOpen = expandedMobileDept === cat.slug;
+                            return (
+                              <div key={cat.slug} className="space-y-1">
+                                <div className="flex items-center justify-between gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => go({ name: 'category', category: cat.slug })}
+                                    className="flex-1 py-2 text-left text-sm font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer truncate"
+                                  >
+                                    {cat.name}
+                                  </button>
+                                  {cat.subcategories.length > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setExpandedMobileDept((prev) =>
+                                          prev === cat.slug ? null : cat.slug
+                                        )
+                                      }
+                                      aria-label={`Toggle ${cat.name} subcategories`}
+                                      className="w-8 h-8 rounded-md flex items-center justify-center text-[#84827B] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] cursor-pointer"
+                                    >
+                                      <ChevronDown
+                                        className={`w-3.5 h-3.5 transition-transform duration-150 ${
+                                          isOpen ? 'rotate-180' : ''
+                                        }`}
+                                      />
+                                    </button>
+                                  )}
+                                </div>
+                                {isOpen && cat.subcategories.length > 0 && (
+                                  <div className="pl-3 space-y-1 border-l border-[#E5E3DD] dark:border-[#2C2C28]">
+                                    {cat.subcategories.map((sub) => (
+                                      <button
+                                        key={sub.slug}
+                                        type="button"
+                                        onClick={() =>
+                                          go({
+                                            name: 'category',
+                                            category: cat.slug,
+                                            subcategory: sub.slug,
+                                          })
+                                        }
+                                        className="w-full py-1.5 text-left text-xs text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                                      >
+                                        {sub.name}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       </motion.div>
                     )}

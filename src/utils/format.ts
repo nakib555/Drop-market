@@ -1,10 +1,44 @@
-export type CurrencyCode = 'USD' | 'BDT';
+import type { CurrencyCode, TypedAttributeValue } from '../types/commerce';
 
-export const BDT_RATE = 120;
+export type { CurrencyCode };
 
-export function formatCurrency(amountUsd: number, currency: CurrencyCode = 'USD'): string {
+export const DEFAULT_BDT_RATE = 120.5;
+export const BDT_RATE = DEFAULT_BDT_RATE;
+export const FREE_SHIPPING_THRESHOLD_USD = 500;
+export const STUDIO15_MIN_USD = 300;
+
+let activeBdtRate = DEFAULT_BDT_RATE;
+
+export function setGlobalBdtRate(rate: number): void {
+  if (typeof rate === 'number' && Number.isFinite(rate) && rate > 0) {
+    activeBdtRate = rate;
+  }
+}
+
+export function getGlobalBdtRate(): number {
+  return activeBdtRate;
+}
+
+export function isProductOutOfStock(product: { stockCount: number; availability?: string }): boolean {
+  return (
+    product.availability === 'out-of-stock' ||
+    !Number.isFinite(product.stockCount) ||
+    product.stockCount <= 0
+  );
+}
+
+/**
+ * Formats a base-USD amount into the active display currency using server-synced FX rate.
+ */
+export function formatCurrency(
+  amountUsd: number,
+  currency: CurrencyCode = 'BDT',
+  rateOverride?: number
+): string {
+  const safeUsd = Number.isFinite(amountUsd) ? amountUsd : 0;
   if (currency === 'BDT') {
-    const bdt = Math.round(amountUsd * BDT_RATE);
+    const rate = rateOverride && rateOverride > 0 ? rateOverride : activeBdtRate;
+    const bdt = Math.ceil(safeUsd * rate);
     return `৳${new Intl.NumberFormat('en-US', {
       maximumFractionDigits: 0,
     }).format(bdt)}`;
@@ -12,9 +46,48 @@ export function formatCurrency(amountUsd: number, currency: CurrencyCode = 'USD'
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
-    minimumFractionDigits: amountUsd % 1 === 0 ? 0 : 2,
+    minimumFractionDigits: safeUsd % 1 === 0 ? 0 : 2,
     maximumFractionDigits: 2,
-  }).format(amountUsd);
+  }).format(safeUsd);
+}
+
+/**
+ * Formats an already-settled currency amount (for immutable order currency snapshots).
+ */
+export function formatDirectCurrency(amount: number, currency: CurrencyCode): string {
+  const safe = Number.isFinite(amount) ? amount : 0;
+  if (currency === 'BDT') {
+    return `৳${new Intl.NumberFormat('en-US', {
+      maximumFractionDigits: 0,
+    }).format(Math.ceil(safe))}`;
+  }
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: safe % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(safe);
+}
+
+export function formatTypedAttributeValue(
+  value: TypedAttributeValue | undefined,
+  unitFallback?: string
+): string {
+  if (value === undefined || value === null) return '—';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'number') return unitFallback ? `${value} ${unitFallback}` : String(value);
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) return value.join(' · ');
+  if ('value' in value && 'unit' in value) {
+    return `${value.value} ${value.unit}`;
+  }
+  if ('min' in value && 'max' in value) {
+    const u = value.unit || unitFallback || '';
+    return value.min === value.max
+      ? `${value.min}${u ? ` ${u}` : ''}`
+      : `${value.min}–${value.max}${u ? ` ${u}` : ''}`;
+  }
+  return String(value);
 }
 
 export function getDiscountPercent(price: number, originalPrice?: number): number {

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, Heart, Minus, Plus, Star } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
-import { formatCurrency, getDiscountPercent } from '../../utils/format';
+import { formatCurrency, getDiscountPercent, isProductOutOfStock } from '../../utils/format';
 import { Button } from '../ui/Button';
 import { Modal, ResilientImage } from '../ui/Primitives';
 
@@ -28,8 +28,10 @@ export const QuickViewModal: React.FC = () => {
 
   if (!quickViewProduct) return null;
 
-  const color = quickViewProduct.colors[selectedColorIdx] || quickViewProduct.colors[0];
-  const size = quickViewProduct.sizes[selectedSizeIdx] || quickViewProduct.sizes[0];
+  const outOfStock = isProductOutOfStock(quickViewProduct);
+  const color = quickViewProduct.colors[selectedColorIdx] ||
+    quickViewProduct.colors[0] || { name: 'Standard', hex: '#84827B' };
+  const size = quickViewProduct.sizes[selectedSizeIdx] || quickViewProduct.sizes[0] || 'Standard';
   const isWishlisted = wishlistIds.includes(quickViewProduct.id);
   const discount = getDiscountPercent(quickViewProduct.price, quickViewProduct.originalPrice);
 
@@ -105,7 +107,7 @@ export const QuickViewModal: React.FC = () => {
                     type="button"
                     onClick={() => setSelectedColorIdx(idx)}
                     aria-label={c.name}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs cursor-pointer transition-colors ${
+                    className={`flex items-center gap-2 px-3 min-h-[40px] py-2 rounded-md border text-xs cursor-pointer transition-colors ${
                       idx === selectedColorIdx
                         ? 'border-[#171716] dark:border-[#F4F3EF] font-medium'
                         : 'border-[#E5E3DD] dark:border-[#2C2C28] text-[#5C5B57] dark:text-[#A3A19B]'
@@ -132,7 +134,7 @@ export const QuickViewModal: React.FC = () => {
                     key={s}
                     type="button"
                     onClick={() => setSelectedSizeIdx(idx)}
-                    className={`px-3 py-1.5 rounded-md border text-xs cursor-pointer transition-colors ${
+                    className={`px-3 min-h-[40px] py-2 rounded-md border text-xs cursor-pointer transition-colors ${
                       idx === selectedSizeIdx
                         ? 'bg-[#171716] text-white border-[#171716] dark:bg-[#F4F3EF] dark:text-[#171716] dark:border-[#F4F3EF] font-medium'
                         : 'border-[#E5E3DD] dark:border-[#2C2C28] text-[#5C5B57] dark:text-[#A3A19B]'
@@ -150,18 +152,24 @@ export const QuickViewModal: React.FC = () => {
               <div className="inline-flex items-center border border-[#DCD9D0] dark:border-[#2E2E2A] rounded-md h-11">
                 <button
                   type="button"
+                  disabled={outOfStock}
                   onClick={() => setQty((q) => Math.max(1, q - 1))}
                   aria-label="Decrease quantity"
-                  className="w-10 h-full flex items-center justify-center hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] cursor-pointer"
+                  className="w-10 h-full flex items-center justify-center hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
                 >
                   <Minus className="w-3.5 h-3.5" />
                 </button>
-                <span className="w-10 text-center text-sm font-mono-num">{qty}</span>
+                <span className="w-10 text-center text-sm font-mono-num">
+                  {outOfStock ? 0 : qty}
+                </span>
                 <button
                   type="button"
-                  onClick={() => setQty((q) => Math.min(quickViewProduct.stockCount, q + 1))}
+                  disabled={outOfStock}
+                  onClick={() =>
+                    setQty((q) => Math.min(Math.max(1, quickViewProduct.stockCount), q + 1))
+                  }
                   aria-label="Increase quantity"
-                  className="w-10 h-full flex items-center justify-center hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] cursor-pointer"
+                  className="w-10 h-full flex items-center justify-center hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
@@ -171,12 +179,13 @@ export const QuickViewModal: React.FC = () => {
                 variant="primary"
                 size="md"
                 fullWidth
+                disabled={outOfStock}
                 onClick={() => {
                   addToCart(quickViewProduct, color.name, color.hex, size, qty, true);
                   setQuickViewProduct(null);
                 }}
               >
-                Add to Bag
+                {outOfStock ? 'Out of Stock' : 'Add to Bag'}
               </Button>
 
               <button

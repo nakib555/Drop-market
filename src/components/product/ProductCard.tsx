@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeftRight, Check, Eye, Heart, ShoppingBag, Star } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Product } from '../../types/commerce';
 import { useStore } from '../../context/StoreContext';
-import { formatCurrency, getDiscountPercent } from '../../utils/format';
+import { formatCurrency, getDiscountPercent, isProductOutOfStock } from '../../utils/format';
 import { STUDIO_EASE, STUDIO_TRANSITION } from '../../utils/motion';
 import { ResilientImage } from '../ui/Primitives';
 
@@ -26,24 +26,35 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'gri
 
   const [selectedColorIdx, setSelectedColorIdx] = useState(0);
   const [justAdded, setJustAdded] = useState(false);
+  const addedTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     setSelectedColorIdx(0);
     setJustAdded(false);
+    return () => {
+      if (addedTimerRef.current) {
+        window.clearTimeout(addedTimerRef.current);
+        addedTimerRef.current = null;
+      }
+    };
   }, [product.id]);
 
   const isWishlisted = wishlistIds.includes(product.id);
   const isCompared = compareIds.includes(product.id);
   const discount = getDiscountPercent(product.price, product.originalPrice);
+  const outOfStock = isProductOutOfStock(product);
   const secondaryImage = product.images[1];
-  const activeColor = product.colors[selectedColorIdx] || product.colors[0];
+  const activeColor = product.colors[selectedColorIdx] ||
+    product.colors[0] || { name: 'Standard', hex: '#84827B' };
 
   const handlePrimaryAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const defaultSize = product.sizes[0];
+    if (outOfStock) return;
+    const defaultSize = product.sizes[0] || 'Standard';
     addToCart(product, activeColor.name, activeColor.hex, defaultSize, 1, false);
     setJustAdded(true);
-    window.setTimeout(() => setJustAdded(false), 1200);
+    if (addedTimerRef.current) window.clearTimeout(addedTimerRef.current);
+    addedTimerRef.current = window.setTimeout(() => setJustAdded(false), 1200);
   };
 
   const highlights = product.cardHighlights?.slice(0, 2) || [];
@@ -105,7 +116,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'gri
               ))}
               <span aria-hidden="true">·</span>
               <span>
-                {product.availability === 'in-stock'
+                {outOfStock
+                  ? 'Out of Stock'
+                  : product.availability === 'in-stock'
                   ? 'In Stock'
                   : product.availability === 'low-stock'
                   ? `Only ${product.stockCount} left`
@@ -160,14 +173,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'gri
               </button>
               <button
                 type="button"
+                disabled={outOfStock}
                 onClick={handlePrimaryAdd}
-                className={`px-4 h-10 rounded-md text-xs font-medium inline-flex items-center gap-1.5 transition-[color,background-color,transform] duration-150 active:scale-[0.97] cursor-pointer ${
-                  justAdded
-                    ? 'bg-[#1F6E43] text-white'
-                    : 'bg-[#171716] dark:bg-[#F4F3EF] text-white dark:text-[#171716] hover:bg-[#2E2D2A] dark:hover:bg-[#E2E0D8]'
+                className={`px-4 h-10 rounded-md text-xs font-medium inline-flex items-center gap-1.5 transition-[color,background-color,transform] duration-150 ${
+                  outOfStock
+                    ? 'bg-[#EAE7E0] dark:bg-[#262623] text-[#84827B] cursor-not-allowed'
+                    : justAdded
+                    ? 'bg-[#1F6E43] text-white active:scale-[0.97] cursor-pointer'
+                    : 'bg-[#171716] dark:bg-[#F4F3EF] text-white dark:text-[#171716] hover:bg-[#2E2D2A] dark:hover:bg-[#E2E0D8] active:scale-[0.97] cursor-pointer'
                 }`}
               >
-                {justAdded ? (
+                {outOfStock ? (
+                  <span>Out of Stock</span>
+                ) : justAdded ? (
                   <>
                     <Check className="w-3.5 h-3.5" />
                     <span>Added</span>
@@ -209,7 +227,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'gri
 
         {/* Top badge & wishlist icon */}
         <div className="absolute top-2.5 left-2.5 right-2.5 flex items-start justify-between pointer-events-none">
-          {discount > 0 ? (
+          {outOfStock ? (
+            <span className="px-2 py-0.5 rounded-md bg-[#171716]/85 text-[#FAF9F6] text-[11px] font-medium">
+              Out of Stock
+            </span>
+          ) : discount > 0 ? (
             <span className="px-2 py-0.5 rounded-md bg-[#171716]/85 text-[#FAF9F6] text-[11px] font-mono-num">
               -{discount}%
             </span>
@@ -264,9 +286,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'gri
               setQuickViewProduct(product);
             }}
             aria-label={`Quick view ${product.name}`}
-            className="w-8 h-8 rounded-md bg-white/92 dark:bg-[#191917]/92 text-[#171716] dark:text-[#F4F3EF] border border-[#E5E3DD]/70 dark:border-[#2C2C28] flex items-center justify-center shadow-xs cursor-pointer"
+            className="w-10 h-10 rounded-md bg-white/92 dark:bg-[#191917]/92 text-[#171716] dark:text-[#F4F3EF] border border-[#E5E3DD]/70 dark:border-[#2C2C28] flex items-center justify-center shadow-xs cursor-pointer"
           >
-            <Eye className="w-3.5 h-3.5" />
+            <Eye className="w-4 h-4" />
           </button>
           <button
             type="button"
@@ -275,13 +297,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'gri
               toggleCompare(product);
             }}
             aria-label={`Compare ${product.name}`}
-            className={`w-8 h-8 rounded-md border flex items-center justify-center shadow-xs cursor-pointer ${
+            className={`w-10 h-10 rounded-md border flex items-center justify-center shadow-xs cursor-pointer ${
               isCompared
                 ? 'bg-[#8F6438] text-white border-[#8F6438] dark:bg-[#C89B67] dark:text-[#171716]'
                 : 'bg-white/92 dark:bg-[#191917]/92 text-[#171716] dark:text-[#F4F3EF] border-[#E5E3DD]/70 dark:border-[#2C2C28]'
             }`}
           >
-            <ArrowLeftRight className="w-3.5 h-3.5" />
+            <ArrowLeftRight className="w-4 h-4" />
           </button>
         </div>
 
@@ -341,7 +363,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'gri
               {highlights.length > 0 ? highlights.join(' · ') : product.categoryLabel}
             </p>
             {product.colors.length > 1 && (
-              <div className="flex items-center gap-1 shrink-0" aria-label="Available variants">
+              <div className="flex items-center gap-0.5 shrink-0 -mr-1" aria-label="Available variants">
                 {product.colors.slice(0, 4).map((c, idx) => (
                   <button
                     key={c.name}
@@ -352,13 +374,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'gri
                       e.stopPropagation();
                       setSelectedColorIdx(idx);
                     }}
-                    className={`w-3 h-3 rounded-full border cursor-pointer transition-transform ${
-                      idx === selectedColorIdx
-                        ? 'scale-110 ring-1 ring-[#171716] dark:ring-[#F4F3EF] border-white dark:border-[#191917]'
-                        : 'border-black/20 dark:border-white/20 opacity-80 hover:opacity-100'
-                    }`}
-                    style={{ backgroundColor: c.hex }}
-                  />
+                    className="p-1.5 rounded-full cursor-pointer flex items-center justify-center"
+                  >
+                    <span
+                      className={`block w-3 h-3 rounded-full border transition-transform ${
+                        idx === selectedColorIdx
+                          ? 'scale-110 ring-1 ring-[#171716] dark:ring-[#F4F3EF] border-white dark:border-[#191917]'
+                          : 'border-black/20 dark:border-white/20 opacity-80 hover:opacity-100'
+                      }`}
+                      style={{ backgroundColor: c.hex }}
+                    />
+                  </button>
                 ))}
               </div>
             )}
@@ -379,15 +405,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, layout = 'gri
 
           <button
             type="button"
+            disabled={outOfStock}
             onClick={handlePrimaryAdd}
-            aria-label={`Add ${product.name} to bag`}
-            className={`px-3.5 h-9 rounded-md text-xs font-medium inline-flex items-center gap-1 transition-[color,background-color,transform] duration-150 active:scale-[0.96] whitespace-nowrap shrink-0 cursor-pointer ${
-              justAdded
-                ? 'bg-[#1F6E43] text-white'
-                : 'bg-[#171716] dark:bg-[#F4F3EF] text-white dark:text-[#171716] hover:bg-[#2E2D2A] dark:hover:bg-[#E2E0D8]'
+            aria-label={outOfStock ? `${product.name} out of stock` : `Add ${product.name} to bag`}
+            className={`px-3.5 h-10 rounded-md text-xs font-medium inline-flex items-center gap-1 transition-[color,background-color,transform] duration-150 whitespace-nowrap shrink-0 ${
+              outOfStock
+                ? 'bg-[#EAE7E0] dark:bg-[#262623] text-[#84827B] cursor-not-allowed'
+                : justAdded
+                ? 'bg-[#1F6E43] text-white active:scale-[0.96] cursor-pointer'
+                : 'bg-[#171716] dark:bg-[#F4F3EF] text-white dark:text-[#171716] hover:bg-[#2E2D2A] dark:hover:bg-[#E2E0D8] active:scale-[0.96] cursor-pointer'
             }`}
           >
-            {justAdded ? (
+            {outOfStock ? (
+              <span>Sold Out</span>
+            ) : justAdded ? (
               <>
                 <Check className="w-3.5 h-3.5" />
                 <span>Added</span>

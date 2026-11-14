@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Check, PackageSearch, RotateCcw, Truck, X } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { formatCurrency } from '../utils/format';
+import { formatCurrency, formatDirectCurrency } from '../utils/format';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/FormFields';
 import { Breadcrumb } from '../components/ui/Primitives';
@@ -12,6 +12,14 @@ export const OrderTrackingPage: React.FC = () => {
   const [contactVerify, setContactVerify] = useState('');
   const [lookupError, setLookupError] = useState('');
   const [activeOrderId, setActiveOrderId] = useState(route.orderId || orders[0]?.id || 'KS-10482');
+
+  useEffect(() => {
+    if (route.orderId) {
+      setOrderIdInput(route.orderId);
+      setActiveOrderId(route.orderId);
+      setLookupError('');
+    }
+  }, [route.orderId]);
 
   const trackedOrder = useMemo(
     () => orders.find((o) => o.id.toLowerCase() === activeOrderId.trim().toLowerCase()) || null,
@@ -242,11 +250,33 @@ export const OrderTrackingPage: React.FC = () => {
                 </p>
               </div>
               <div>
+                <p className="text-[#84827B]">Payment &amp; Gateway Status</p>
+                <p className="font-medium mt-0.5">
+                  {trackedOrder.paymentLabel} ·{' '}
+                  <span className="uppercase font-mono-num text-[#8F6438] dark:text-[#C89B67]">
+                    {trackedOrder.paymentStatus}
+                  </span>
+                </p>
+                {trackedOrder.transactionRef && (
+                  <p className="font-mono-num text-[11px] text-[#84827B] mt-0.5">
+                    Ref: {trackedOrder.transactionRef}
+                  </p>
+                )}
+              </div>
+              <div>
                 <p className="text-[#84827B]">Destination</p>
                 <p className="font-medium mt-0.5">{trackedOrder.shippingAddress.streetAddress}</p>
                 <p className="text-[#5C5B57] dark:text-[#A3A19B]">
-                  {trackedOrder.shippingAddress.city}, {trackedOrder.shippingAddress.state}{' '}
-                  {trackedOrder.shippingAddress.postalCode}
+                  {[
+                    trackedOrder.shippingAddress.area,
+                    trackedOrder.shippingAddress.upazila,
+                    trackedOrder.shippingAddress.city,
+                    trackedOrder.shippingAddress.state,
+                    trackedOrder.shippingAddress.postalCode,
+                  ]
+                    .filter(Boolean)
+                    .join(', ')}{' '}
+                  · {trackedOrder.shippingAddress.country}
                 </p>
               </div>
             </div>
@@ -265,8 +295,21 @@ export const OrderTrackingPage: React.FC = () => {
               ))}
               <div className="flex justify-between pt-2 border-t border-[#E5E3DD] dark:border-[#2C2C28] font-semibold">
                 <span>Order Total</span>
-                <span className="font-mono-num">{formatCurrency(trackedOrder.total, currency)}</span>
+                <span className="font-mono-num">
+                  {trackedOrder.currencySnapshot
+                    ? formatDirectCurrency(
+                        trackedOrder.currencySnapshot.chargedTotal,
+                        trackedOrder.currencySnapshot.transactionCurrency
+                      )
+                    : formatCurrency(trackedOrder.total, currency)}
+                </span>
               </div>
+              {trackedOrder.currencySnapshot && (
+                <p className="text-[11px] font-mono-num text-[#84827B]">
+                  FX Snapshot: 1 USD = ৳{trackedOrder.currencySnapshot.exchangeRate} ·{' '}
+                  {trackedOrder.currencySnapshot.rateSource}
+                </p>
+              )}
             </div>
           </aside>
         </div>

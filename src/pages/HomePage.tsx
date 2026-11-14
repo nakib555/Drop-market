@@ -1,22 +1,46 @@
 import React, { useMemo, useState } from 'react';
 import {
   ArrowRight,
+  Baby,
+  BookOpen,
   Check,
+  Coffee,
+  Compass,
+  Cpu,
+  Droplets,
+  HeartPulse,
   ShieldCheck,
+  Shirt,
+  Sofa,
   Sparkles,
   Star,
   Tag,
   Truck,
+  Wrench,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ATELIER_CRAFT_IMAGE, BRAND_STUDIOS, HERO_IMAGE } from '../data/catalog';
 import { useStore } from '../context/StoreContext';
+import { STUDIO15_MIN_USD, formatCurrency } from '../utils/format';
 import { STUDIO_TRANSITION } from '../utils/motion';
-import { ScrollReveal, StaggerGrid, StaggerItem } from '../components/ui/MotionPrimitives';
+import { ScrollReveal } from '../components/ui/MotionPrimitives';
 import { TypingGradientText } from '../components/ui/TypingGradientText';
 import { ProductCard } from '../components/product/ProductCard';
 import { Button } from '../components/ui/Button';
 import { ProductGridSkeleton, ResilientImage } from '../components/ui/Primitives';
+
+const DEPT_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  Cpu,
+  Shirt,
+  Sofa,
+  Droplets,
+  Coffee,
+  Compass,
+  BookOpen,
+  Wrench,
+  Baby,
+  HeartPulse,
+};
 
 type HomeCollectionTab =
   | 'all'
@@ -25,7 +49,8 @@ type HomeCollectionTab =
   | 'electronics'
   | 'fashion'
   | 'home-office'
-  | 'beauty-grocery';
+  | 'beauty-grocery'
+  | 'auto-kids-health';
 
 const CLIENT_TESTIMONIALS = [
   {
@@ -42,7 +67,7 @@ const CLIENT_TESTIMONIALS = [
   },
   {
     quote:
-      'Being able to order single-origin Yirgacheffe pour-over gear, cold-pressed botanical skincare, and solid oak living pieces from one trusted marketplace is effortless.',
+      'Being able to order single-origin coffee, cold-pressed skincare, workshop tools, and oak living pieces in BDT with next-day Dhaka Metro courier is effortless.',
     name: 'Nadia Rahman',
     role: 'Design Buyer, Dhaka & Portland',
   },
@@ -50,15 +75,29 @@ const CLIENT_TESTIMONIALS = [
 
 const HERO_TYPING_PHRASES = [
   'All in One Place.',
-  'Precision Audio & Tech.',
-  'Tailored Apparel.',
-  'Architectural Living.',
-  'Gourmet & Apothecary.',
+  'Audio, Tech & Smart Gear.',
+  'Tailored Fashion & Carry.',
+  'Home, Tools & Wellness.',
+  'Delivered Across Bangladesh.',
 ];
 
 export const HomePage: React.FC = () => {
-  const { categories, products, recentlyViewedIds, navigate, storefrontLoading } = useStore();
+  const {
+    categories,
+    products,
+    currency,
+    shippingConfig,
+    recentlyViewedIds,
+    navigate,
+    storefrontLoading,
+  } = useStore();
   const [activeTab, setActiveTab] = useState<HomeCollectionTab>('all');
+
+  const freeThresholdUsd = useMemo(
+    () =>
+      shippingConfig.zones.find((z) => z.zoneId === 'dhaka_metro')?.freeThresholdUsd ?? 120,
+    [shippingConfig]
+  );
 
   const trendingProducts = useMemo(() => {
     const trending = products.filter((p) => p.isTrending);
@@ -85,22 +124,37 @@ export const HomePage: React.FC = () => {
         return (best.length > 0 ? best : products).slice(0, 6);
       }
       case 'electronics':
-        return products
-          .filter(
-            (p) => p.category === 'electronics-tech' || p.category === 'toys-entertainment'
-          )
-          .slice(0, 6);
+        return products.filter((p) => p.category === 'electronics-tech').slice(0, 6);
       case 'fashion':
         return products
-          .filter((p) => p.category === 'fashion-apparel' || p.category === 'sports-outdoor')
+          .filter(
+            (p) =>
+              p.category === 'fashion-accessories' || p.category === 'sports-outdoors-travel'
+          )
           .slice(0, 6);
       case 'home-office':
         return products
-          .filter((p) => p.category === 'home-living' || p.category === 'books-office')
+          .filter(
+            (p) =>
+              p.category === 'home-furniture-kitchen' ||
+              p.category === 'books-stationery-office'
+          )
           .slice(0, 6);
       case 'beauty-grocery':
         return products
-          .filter((p) => p.category === 'beauty-care' || p.category === 'grocery-food')
+          .filter(
+            (p) =>
+              p.category === 'beauty-care' || p.category === 'grocery-food-household'
+          )
+          .slice(0, 6);
+      case 'auto-kids-health':
+        return products
+          .filter(
+            (p) =>
+              p.category === 'automotive-tools-industrial' ||
+              p.category === 'baby-kids-toys-hobbies' ||
+              p.category === 'health-wellness-pets'
+          )
           .slice(0, 6);
       case 'all':
       default: {
@@ -108,8 +162,8 @@ export const HomePage: React.FC = () => {
           'aeterna-ae1-studio-wireless-headphones',
           'kyoto-heavyweight-merino-overshirt',
           'aethel-botanical-facial-serum-duo',
-          'vanguard-22l-weatherproof-daypack-set',
-          'yirgacheffe-pourover-kettle-roast-set',
+          'solis-18v-brushless-drill-precision-kit',
+          'nordic-montessori-play-nursery-kit',
           'kuro-smoked-oak-lounge-chair',
         ];
         const picked = featuredSlugs
@@ -132,13 +186,16 @@ export const HomePage: React.FC = () => {
         navigate({ name: 'category', category: 'electronics-tech' });
         break;
       case 'fashion':
-        navigate({ name: 'category', category: 'fashion-apparel' });
+        navigate({ name: 'category', category: 'fashion-accessories' });
         break;
       case 'home-office':
-        navigate({ name: 'category', category: 'home-living' });
+        navigate({ name: 'category', category: 'home-furniture-kitchen' });
         break;
       case 'beauty-grocery':
         navigate({ name: 'category', category: 'beauty-care' });
+        break;
+      case 'auto-kids-health':
+        navigate({ name: 'category', category: 'automotive-tools-industrial' });
         break;
       default:
         navigate({ name: 'shop', category: 'all' });
@@ -149,11 +206,11 @@ export const HomePage: React.FC = () => {
     <div className="space-y-16 sm:space-y-20 lg:space-y-24">
       {/* 1. Editorial Split Hero */}
       <section className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 pt-4 sm:pt-6 lg:pt-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-stretch">
-          <div className="lg:col-span-5 flex flex-col justify-between py-1 lg:py-4 space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-10 items-stretch">
+          <div className="md:col-span-6 lg:col-span-5 flex flex-col justify-between py-1 lg:py-4 space-y-6">
             <div className="space-y-4">
               <p className="text-xs uppercase tracking-[0.16em] text-[#8F6438] dark:text-[#C89B67] font-medium">
-                Kinto Studio Multi-Category Marketplace
+                Kinto Studio 10-Department Marketplace
               </p>
               <h1 className="font-display text-[clamp(2rem,3.6vw,3.35rem)] font-medium leading-[1.06] tracking-tight text-[#171716] dark:text-[#F4F3EF]">
                 Everything You Need.
@@ -162,7 +219,7 @@ export const HomePage: React.FC = () => {
                 </span>
               </h1>
               <p className="text-sm sm:text-base lg:text-lg text-[#5C5B57] dark:text-[#B4B2AC] leading-relaxed max-w-lg">
-                Discover curated departments across electronics, tailored fashion, solid wood home living, botanical skincare, gourmet coffee, outdoor carry, office instruments, and gift sets.
+                Shop ten specialized departments—from electronics, tailored apparel, furniture, and skincare to grocery, outdoor gear, books, tools, baby, and wellness.
               </p>
               <div className="flex flex-wrap items-center gap-3 pt-1">
                 <Button
@@ -195,8 +252,8 @@ export const HomePage: React.FC = () => {
             </div>
           </div>
 
-          <div className="lg:col-span-7">
-            <div className="relative h-56 sm:h-80 lg:h-[430px] xl:h-[500px] rounded-lg overflow-hidden bg-[#F2F0EC] dark:bg-[#22221F]">
+          <div className="md:col-span-6 lg:col-span-7">
+            <div className="relative h-56 sm:h-80 md:h-full md:min-h-[380px] lg:h-[430px] xl:h-[500px] rounded-lg overflow-hidden bg-[#F2F0EC] dark:bg-[#22221F]">
               <ResilientImage
                 src={HERO_IMAGE}
                 alt="Curated living interior featuring Kinto Studio furniture, lighting, audio hardware, and daily objects"
@@ -211,51 +268,53 @@ export const HomePage: React.FC = () => {
           <div className="flex items-start gap-3">
             <Truck className="w-4 h-4 mt-0.5 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
             <div>
-              <p className="text-sm font-medium">Complimentary Shipping $500+</p>
+              <p className="text-sm font-medium">
+                Complimentary Shipping {formatCurrency(freeThresholdUsd, currency)}+
+              </p>
               <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5">
-                Fast insured parcel &amp; white-glove placement
+                Next-day Dhaka Metro &amp; 64-district Bangladesh delivery
               </p>
             </div>
           </div>
           <div className="flex items-start gap-3">
             <ShieldCheck className="w-4 h-4 mt-0.5 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
             <div>
-              <p className="text-sm font-medium">Verified Maker Warranties</p>
+              <p className="text-sm font-medium">bKash, Nagad, Cards &amp; COD</p>
               <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5">
-                Protected across tech, apparel, home &amp; outdoor
+                Server-verified payments &amp; Cash on Delivery
               </p>
             </div>
           </div>
           <div className="flex items-start gap-3">
             <Check className="w-4 h-4 mt-0.5 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
             <div>
-              <p className="text-sm font-medium">30-Day Returns &amp; Exchanges</p>
+              <p className="text-sm font-medium">30-Day Returns &amp; Warranties</p>
               <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5">
-                Easy size exchanges and quality guarantees
+                Protected across electronics, apparel, furniture &amp; tools
               </p>
             </div>
           </div>
           <div className="flex items-start gap-3">
             <Sparkles className="w-4 h-4 mt-0.5 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
             <div>
-              <p className="text-sm font-medium">USD ($) &amp; BDT (৳) Pricing</p>
+              <p className="text-sm font-medium">BDT (৳) &amp; USD ($) Pricing</p>
               <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5">
-                International &amp; Bangladesh checkout ready
+                Live FX header switch &amp; BDT Bangladesh settlement
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 2. Shop by Category — Responsive 2x4 mobile / 4x2 desktop (handles dynamic admin categories cleanly) */}
+      {/* 2. Shop by Department — Balanced 2-col mobile / 5-col desktop for 10 universal departments */}
       <ScrollReveal className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-7">
           <div>
             <p className="text-xs uppercase tracking-[0.14em] text-[#84827B]">
-              {categories.length} Marketplace Departments
+              {categories.length} Universal Departments
             </p>
             <h2 className="font-display text-3xl sm:text-4xl font-medium mt-1">
-              Shop by Category
+              Shop by Department
             </h2>
           </div>
           <button
@@ -268,32 +327,45 @@ export const HomePage: React.FC = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-5">
-          {categories.map((cat) => (
-            <button
-              key={cat.slug}
-              type="button"
-              onClick={() => navigate({ name: 'category', category: cat.slug })}
-              className="group text-left rounded-lg overflow-hidden bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
-            >
-              <div className="aspect-[4/3] overflow-hidden bg-[#F2F0EC] dark:bg-[#22221F]">
-                <ResilientImage
-                  src={cat.image}
-                  alt={cat.name}
-                  loading="lazy"
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
-                />
-              </div>
-              <div className="p-3.5 sm:p-4">
-                <p className="text-[11px] uppercase tracking-wider text-[#84827B] truncate">
-                  {cat.countLabel}
-                </p>
-                <p className="text-sm sm:text-base font-medium mt-0.5 group-hover:text-[#8F6438] dark:group-hover:text-[#C89B67] transition-colors truncate">
-                  {cat.name}
-                </p>
-              </div>
-            </button>
-          ))}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-5">
+          {categories.map((cat) => {
+            const IconComp = DEPT_ICON_MAP[cat.iconName] || Sparkles;
+            return (
+              <button
+                key={cat.slug}
+                type="button"
+                onClick={() => navigate({ name: 'category', category: cat.slug })}
+                className="group text-left rounded-lg overflow-hidden bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer flex flex-col"
+              >
+                <div className="relative aspect-[4/3] overflow-hidden bg-[#F2F0EC] dark:bg-[#22221F]">
+                  <ResilientImage
+                    src={cat.image}
+                    alt={cat.name}
+                    loading="lazy"
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+                  />
+                  <span className="absolute top-2.5 left-2.5 w-8 h-8 rounded-md bg-white/90 dark:bg-[#191917]/90 border border-[#E5E3DD]/70 dark:border-[#2C2C28] flex items-center justify-center text-[#171716] dark:text-[#F4F3EF]">
+                    <IconComp className="w-4 h-4" />
+                  </span>
+                </div>
+                <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between gap-1">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wider text-[#84827B] truncate">
+                      {cat.countLabel}
+                    </p>
+                    <p className="text-sm sm:text-[15px] font-medium mt-0.5 group-hover:text-[#8F6438] dark:group-hover:text-[#C89B67] transition-colors line-clamp-1">
+                      {cat.name}
+                    </p>
+                  </div>
+                  <p className="text-[11px] text-[#84827B] font-mono-num">
+                    {cat.subcategories.length > 0
+                      ? `${cat.subcategories.length} sub-collections`
+                      : 'Shop collection'}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </ScrollReveal>
 
@@ -323,13 +395,11 @@ export const HomePage: React.FC = () => {
             label="Loading trending products"
           />
         ) : (
-          <StaggerGrid className="grid grid-cols-1 min-[390px]:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 min-[390px]:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {trendingProducts.map((product) => (
-              <StaggerItem key={product.id}>
-                <ProductCard product={product} />
-              </StaggerItem>
+              <ProductCard key={product.id} product={product} />
             ))}
-          </StaggerGrid>
+          </div>
         )}
       </ScrollReveal>
 
@@ -359,6 +429,7 @@ export const HomePage: React.FC = () => {
                 { id: 'fashion', label: 'Fashion & Carry' },
                 { id: 'home-office', label: 'Home & Office' },
                 { id: 'beauty-grocery', label: 'Beauty & Grocery' },
+                { id: 'auto-kids-health', label: 'Tools, Baby & Wellness' },
               ] as const
             ).map((tab) => {
               const isSelected = activeTab === tab.id;
@@ -392,7 +463,7 @@ export const HomePage: React.FC = () => {
         {storefrontLoading ? (
           <ProductGridSkeleton
             count={6}
-            className="grid grid-cols-1 min-[390px]:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8"
+            className="grid grid-cols-1 min-[390px]:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 lg:gap-8"
             label="Loading curated collection"
           />
         ) : (
@@ -403,7 +474,7 @@ export const HomePage: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={STUDIO_TRANSITION.fast}
-              className="grid grid-cols-1 min-[390px]:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8"
+              className="grid grid-cols-1 min-[390px]:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 lg:gap-8"
             >
               {collectionProducts.map((product) => (
                 <ProductCard key={product.id} product={product} />
@@ -428,7 +499,8 @@ export const HomePage: React.FC = () => {
               <Tag className="w-3.5 h-3.5" /> Seasonal Marketplace Privilege
             </span>
             <h2 className="font-display text-3xl sm:text-4xl font-medium leading-tight">
-              Save 15% across any category on orders over $300 with code{' '}
+              Save 15% across any category on orders over{' '}
+              {formatCurrency(STUDIO15_MIN_USD, currency)} with code{' '}
               <span className="font-mono-num text-[#E2B887]">STUDIO15</span>
             </h2>
             <p className="text-sm text-[#B4B2AC]">

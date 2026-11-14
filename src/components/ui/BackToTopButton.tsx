@@ -29,7 +29,7 @@ export const BackToTopButton: React.FC = () => {
           whileTap={{ scale: 0.95 }}
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           aria-label="Scroll back to top"
-          className="fixed bottom-14 lg:bottom-6 right-4 sm:right-6 z-30 w-10 h-10 rounded-md bg-[#171716]/90 dark:bg-[#F4F3EF]/90 text-white dark:text-[#171716] border border-[#2C2C28]/20 dark:border-[#E5E3DD]/20 shadow-lg backdrop-blur-sm flex items-center justify-center cursor-pointer"
+          className="fixed bottom-20 lg:bottom-6 right-4 sm:right-6 z-30 w-10 h-10 rounded-md bg-[#171716]/90 dark:bg-[#F4F3EF]/90 text-white dark:text-[#171716] border border-[#2C2C28]/20 dark:border-[#E5E3DD]/20 shadow-lg backdrop-blur-sm flex items-center justify-center cursor-pointer"
         >
           <ArrowUp className="w-4 h-4" />
         </motion.button>

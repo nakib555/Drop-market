@@ -1,8 +1,64 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, Package, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { STUDIO_TRANSITION } from '../../utils/motion';
 import { Button } from './Button';
+
+export function useFocusTrap(
+  open: boolean,
+  containerRef: React.RefObject<HTMLElement | null>
+): void {
+  useEffect(() => {
+    if (!open) return;
+    const prevFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    const getFocusable = () => {
+      const root = containerRef.current;
+      if (!root) return [] as HTMLElement[];
+      return Array.from(
+        root.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((el) => el.offsetParent !== null || el === document.activeElement);
+    };
+
+    const focusTimer = window.setTimeout(() => {
+      const list = getFocusable();
+      if (list.length > 0) {
+        list[0].focus();
+      } else {
+        containerRef.current?.focus();
+      }
+    }, 20);
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const list = getFocusable();
+      if (list.length === 0) return;
+      const first = list[0];
+      const last = list[list.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first || !containerRef.current?.contains(document.activeElement)) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else if (document.activeElement === last || !containerRef.current?.contains(document.activeElement)) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.clearTimeout(focusTimer);
+      window.removeEventListener('keydown', onKeyDown);
+      if (prevFocused && document.contains(prevFocused)) {
+        prevFocused.focus();
+      }
+    };
+  }, [open, containerRef]);
+}
 
 export interface BreadcrumbItem {
   label: string;
@@ -161,6 +217,9 @@ export const Modal: React.FC<ModalProps> = ({
   maxWidthClass = 'max-w-3xl',
   children,
 }) => {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(open, panelRef);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -190,12 +249,14 @@ export const Modal: React.FC<ModalProps> = ({
           onClick={onClose}
         >
           <motion.div
+            ref={panelRef}
+            tabIndex={-1}
             key="modal-panel"
             initial={{ opacity: 0, scale: 0.97, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: 6 }}
             transition={STUDIO_TRANSITION.base}
-            className={`relative w-full ${maxWidthClass} max-h-[90vh] overflow-y-auto rounded-lg bg-[#FFFFFF] dark:bg-[#191917] text-[#171716] dark:text-[#F4F3EF] border border-[#E5E3DD] dark:border-[#2C2C28] shadow-2xl`}
+            className={`relative w-full ${maxWidthClass} max-h-[90vh] overflow-y-auto rounded-lg bg-[#FFFFFF] dark:bg-[#191917] text-[#171716] dark:text-[#F4F3EF] border border-[#E5E3DD] dark:border-[#2C2C28] shadow-2xl focus:outline-none`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 bg-[#FFFFFF]/95 dark:bg-[#191917]/95 backdrop-blur-sm border-b border-[#E5E3DD] dark:border-[#2C2C28]">
@@ -204,7 +265,7 @@ export const Modal: React.FC<ModalProps> = ({
                 type="button"
                 onClick={onClose}
                 aria-label="Close modal"
-                className="w-9 h-9 rounded-md flex items-center justify-center text-[#5C5B57] dark:text-[#B4B2AC] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer transition-colors"
+                className="w-10 h-10 -mr-1 rounded-md flex items-center justify-center text-[#5C5B57] dark:text-[#B4B2AC] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -232,6 +293,9 @@ export const Drawer: React.FC<DrawerProps> = ({
   side = 'right',
   children,
 }) => {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(open, panelRef);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -261,12 +325,14 @@ export const Drawer: React.FC<DrawerProps> = ({
           onClick={onClose}
         >
           <motion.div
+            ref={panelRef}
+            tabIndex={-1}
             key="drawer-panel"
             initial={{ x: side === 'right' ? '100%' : '-100%' }}
             animate={{ x: 0 }}
             exit={{ x: side === 'right' ? '100%' : '-100%' }}
             transition={STUDIO_TRANSITION.drawer}
-            className={`relative w-full max-w-md h-full bg-[#FFFFFF] dark:bg-[#191917] text-[#171716] dark:text-[#F4F3EF] border-[#E5E3DD] dark:border-[#2C2C28] shadow-2xl flex flex-col ${
+            className={`relative w-full max-w-md h-full bg-[#FFFFFF] dark:bg-[#191917] text-[#171716] dark:text-[#F4F3EF] border-[#E5E3DD] dark:border-[#2C2C28] shadow-2xl flex flex-col focus:outline-none ${
               side === 'right' ? 'ml-auto border-l' : 'mr-auto border-r'
             }`}
             onClick={(e) => e.stopPropagation()}
@@ -277,7 +343,7 @@ export const Drawer: React.FC<DrawerProps> = ({
                 type="button"
                 onClick={onClose}
                 aria-label={`Close ${title}`}
-                className="w-9 h-9 rounded-md flex items-center justify-center text-[#5C5B57] dark:text-[#B4B2AC] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] cursor-pointer transition-colors"
+                className="w-10 h-10 -mr-1 rounded-md flex items-center justify-center text-[#5C5B57] dark:text-[#B4B2AC] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] cursor-pointer transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -344,6 +410,10 @@ export const ResilientImage: React.FC<ResilientImageProps> = ({
   ...rest
 }) => {
   const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
 
   if (failed || !src) {
     return (

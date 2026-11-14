@@ -1,25 +1,42 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Building2,
   CheckCircle2,
   CreditCard,
+  Globe,
   Lock,
+  RefreshCw,
+  ShieldCheck,
   ShoppingBag,
   Smartphone,
+  Tag,
   Truck,
-  Wallet,
+  X,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { BANGLADESH_DIVISIONS } from '../data/catalog';
+import { BANGLADESH_GEO_TREE, type BangladeshDivisionEntry } from '../../server/shared/marketplaceSchema';
 import { useStore } from '../context/StoreContext';
-import { DeliveryMethodId, Order, PaymentMethodId } from '../types/commerce';
-import { formatCurrency } from '../utils/format';
+import {
+  fetchShippingLocationsApi,
+  initiatePaymentApi,
+  quoteCheckoutApi,
+  verifyPaymentApi,
+} from '../services/api';
+import type {
+  CheckoutQuoteResponse,
+  DeliveryMethodId,
+  Order,
+  PaymentMethodId,
+  PaymentSession,
+} from '../types/commerce';
+import { formatCurrency, formatDirectCurrency } from '../utils/format';
 import { STUDIO_TRANSITION } from '../utils/motion';
 import { Button } from '../components/ui/Button';
 import { Input, Select, Textarea } from '../components/ui/FormFields';
-import { EmptyState, ResilientImage } from '../components/ui/Primitives';
+import { EmptyState, Modal, ResilientImage } from '../components/ui/Primitives';
 
 const STEPS = [
   'Customer',
@@ -30,21 +47,110 @@ const STEPS = [
   'Confirmation',
 ] as const;
 
+const PAYMENT_CHANNEL_META: Array<{
+  id: PaymentMethodId;
+  label: string;
+  sub: string;
+  group: 'mfs' | 'card' | 'other';
+}> = [
+  {
+    id: 'bkash',
+    label: 'bKash Mobile Wallet',
+    sub: 'Instant tokenized checkout via bKash Merchant PGW',
+    group: 'mfs',
+  },
+  {
+    id: 'nagad',
+    label: 'Nagad MFS Wallet',
+    sub: 'Server-verified Nagad e-commerce gateway',
+    group: 'mfs',
+  },
+  {
+    id: 'rocket',
+    label: 'Rocket (DBBL)',
+    sub: 'Dutch-Bangla Bank Rocket mobile account settlement',
+    group: 'mfs',
+  },
+  {
+    id: 'visa',
+    label: 'Visa Debit / Credit Card',
+    sub: 'Local BDT & Global 3DS Secure authorization',
+    group: 'card',
+  },
+  {
+    id: 'mastercard',
+    label: 'Mastercard',
+    sub: 'Mastercard Identity Check 3DS verification',
+    group: 'card',
+  },
+  {
+    id: 'sslcommerz',
+    label: 'SSLCommerz Unified Gateway',
+    sub: 'Cards, NetBanking & local wallets in one portal',
+    group: 'other',
+  },
+  {
+    id: 'bank-transfer',
+    label: 'Bank Transfer (NPSB / BEFTN)',
+    sub: 'Verified local interbank & wire settlement',
+    group: 'other',
+  },
+  {
+    id: 'cod',
+    label: 'Cash on Delivery (COD)',
+    sub: 'Pay courier in cash upon parcel inspection in Bangladesh',
+    group: 'other',
+  },
+];
+
+function createIdempotencyKey(): string {
+  return `ks-idem-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 export const CheckoutPage: React.FC = () => {
   const {
     currency,
+    currencyConfig,
+    shippingConfig,
     cart,
     cartSubtotal,
     cartDiscount,
     cartTax,
     appliedPromo,
+    applyPromoCode,
+    removePromoCode,
     profile,
     addresses,
-    placeOrder,
+    commitVerifiedOrder,
+    showToast,
     navigate,
   } = useStore();
 
-  const defaultAddr = addresses.find((a) => a.isDefault) || addresses[0];
+  const defaultAddr = useMemo(
+    () =>
+      addresses.find((a) => a.isDefault && a.country === 'Bangladesh') ||
+      addresses.find((a) => a.isDefault) ||
+      addresses[0],
+    [addresses]
+  );
+
+  const [geoTree, setGeoTree] = useState<BangladeshDivisionEntry[]>(BANGLADESH_GEO_TREE);
+
+  useEffect(() => {
+    let active = true;
+    fetchShippingLocationsApi()
+      .then((res) => {
+        if (active && Array.isArray(res.divisions) && res.divisions.length > 0) {
+          setGeoTree(res.divisions);
+        }
+      })
+      .catch(() => {
+        // Fallback to static BANGLADESH_GEO_TREE
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const [step, setStep] = useState<number>(1);
   const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
@@ -54,25 +160,216 @@ export const CheckoutPage: React.FC = () => {
   const [fullName, setFullName] = useState(profile.fullName || '');
   const [phone, setPhone] = useState(profile.phone || '');
 
-  // Step 2: Shipping Info
-  const [country, setCountry] = useState(defaultAddr?.country || 'United States');
-  const [stateDiv, setStateDiv] = useState(defaultAddr?.state || '');
-  const [city, setCity] = useState(defaultAddr?.city || '');
-  const [area, setArea] = useState(defaultAddr?.area || '');
-  const [streetAddress, setStreetAddress] = useState(defaultAddr?.streetAddress || '');
-  const [postalCode, setPostalCode] = useState(defaultAddr?.postalCode || '');
+  // Step 2: 5-Level Hierarchical Address (Country -> Division -> District -> Upazila -> Area)
+  const initialCountry = defaultAddr?.country || 'Bangladesh';
+  const defaultDiv = geoTree[0];
+  const defaultDist = defaultDiv.districts[0];
+  const defaultUpa = defaultDist.upazilas[0];
+  const defaultArea = defaultUpa.areas[0];
+
+  const [country, setCountry] = useState(initialCountry);
+  const [stateDiv, setStateDiv] = useState(
+    initialCountry === 'Bangladesh' ? defaultAddr?.state || defaultDiv.name : defaultAddr?.state || ''
+  );
+  const [city, setCity] = useState(
+    initialCountry === 'Bangladesh' ? defaultAddr?.city || defaultDist.name : defaultAddr?.city || ''
+  );
+  const [upazila, setUpazila] = useState(
+    initialCountry === 'Bangladesh' ? defaultAddr?.upazila || defaultUpa.name : defaultAddr?.upazila || ''
+  );
+  const [area, setArea] = useState(
+    initialCountry === 'Bangladesh' ? defaultAddr?.area || defaultArea.name : defaultAddr?.area || ''
+  );
+  const [streetAddress, setStreetAddress] = useState(
+    defaultAddr?.streetAddress || 'House 18, Road 7, Block F'
+  );
+  const [postalCode, setPostalCode] = useState(defaultAddr?.postalCode || defaultArea.postalCode);
   const [instructions, setInstructions] = useState('');
 
-  // Step 3: Delivery Method
+  // Step 3 & 4: Delivery & Payment
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethodId>('standard');
-
-  // Step 4: Payment Method
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>('card');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>('bkash');
   const [cardLast4Input, setCardLast4Input] = useState('4242');
   const [cardExpiryInput, setCardExpiryInput] = useState('08/29');
-  const [mobileWalletNumber, setMobileWalletNumber] = useState('01700-000000');
+  const [mobileWalletNumber, setMobileWalletNumber] = useState('01711-000194');
+  const [allowInternationalUsd, setAllowInternationalUsd] = useState(true);
 
+  const [promoInput, setPromoInput] = useState('');
+  const [promoFeedback, setPromoFeedback] = useState<{ ok: boolean; text: string } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Server-authoritative Quote & Gateway Session State
+  const [quote, setQuote] = useState<CheckoutQuoteResponse | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState<boolean>(false);
+  const [quoteError, setQuoteError] = useState<string>('');
+  const [idempotencyKey, setIdempotencyKey] = useState<string>(() => createIdempotencyKey());
+  const [initiatingPayment, setInitiatingPayment] = useState<boolean>(false);
+  const [verifyingPayment, setVerifyingPayment] = useState<boolean>(false);
+  const [paymentSession, setPaymentSession] = useState<PaymentSession | null>(null);
+  const [paymentBanner, setPaymentBanner] = useState<{
+    type: 'error' | 'cancelled';
+    message: string;
+    ref?: string;
+  } | null>(null);
+
+  const isBangladesh = country === 'Bangladesh';
+
+  // Hierarchical Location Selectors for Bangladesh
+  const activeDivEntry = useMemo(
+    () => geoTree.find((d) => d.name === stateDiv) || geoTree[0],
+    [geoTree, stateDiv]
+  );
+  const activeDistEntry = useMemo(
+    () => activeDivEntry.districts.find((d) => d.name === city) || activeDivEntry.districts[0],
+    [activeDivEntry, city]
+  );
+  const activeUpaEntry = useMemo(
+    () =>
+      activeDistEntry.upazilas.find((u) => u.name === upazila) || activeDistEntry.upazilas[0],
+    [activeDistEntry, upazila]
+  );
+  const areaOptions = activeUpaEntry.areas;
+
+  const handleCountryChange = (nextCountry: string) => {
+    setCountry(nextCountry);
+    setPaymentBanner(null);
+    if (nextCountry === 'Bangladesh') {
+      const div = geoTree[0];
+      const dist = div.districts[0];
+      const upa = dist.upazilas[0];
+      const ar = upa.areas[0];
+      setStateDiv(div.name);
+      setCity(dist.name);
+      setUpazila(upa.name);
+      setArea(ar.name);
+      setPostalCode(ar.postalCode);
+      if (!['bkash', 'nagad', 'rocket', 'visa', 'mastercard', 'cod', 'sslcommerz', 'bank-transfer'].includes(paymentMethod)) {
+        setPaymentMethod('bkash');
+      }
+    } else {
+      setStateDiv('');
+      setCity('');
+      setUpazila('');
+      setArea('');
+      setPostalCode('');
+      if (['bkash', 'nagad', 'rocket', 'cod'].includes(paymentMethod)) {
+        setPaymentMethod('visa');
+      }
+    }
+  };
+
+  const handleDivisionChange = (divName: string) => {
+    const div = geoTree.find((d) => d.name === divName) || geoTree[0];
+    const dist = div.districts[0];
+    const upa = dist.upazilas[0];
+    const ar = upa.areas[0];
+    setStateDiv(div.name);
+    setCity(dist.name);
+    setUpazila(upa.name);
+    setArea(ar.name);
+    setPostalCode(ar.postalCode);
+  };
+
+  const handleDistrictChange = (distName: string) => {
+    const dist =
+      activeDivEntry.districts.find((d) => d.name === distName) || activeDivEntry.districts[0];
+    const upa = dist.upazilas[0];
+    const ar = upa.areas[0];
+    setCity(dist.name);
+    setUpazila(upa.name);
+    setArea(ar.name);
+    setPostalCode(ar.postalCode);
+  };
+
+  const handleUpazilaChange = (upaName: string) => {
+    const upa =
+      activeDistEntry.upazilas.find((u) => u.name === upaName) || activeDistEntry.upazilas[0];
+    const ar = upa.areas[0];
+    setUpazila(upa.name);
+    setArea(ar.name);
+    setPostalCode(ar.postalCode);
+  };
+
+  const handleAreaChange = (areaName: string) => {
+    setArea(areaName);
+    const matched = areaOptions.find((a) => a.name === areaName);
+    if (matched) {
+      setPostalCode(matched.postalCode);
+    }
+  };
+
+  // Authoritative Server Quote Sync
+  useEffect(() => {
+    if (cart.length === 0 || step >= 6) return;
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setQuoteLoading(true);
+      setQuoteError('');
+      try {
+        const res = await quoteCheckoutApi({
+          items: cart.map((item) => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            color: item.color,
+            colorHex: item.colorHex,
+            size: item.size,
+          })),
+          address: {
+            country,
+            state: stateDiv,
+            city,
+            upazila,
+            area,
+          },
+          deliveryMethod,
+          promoCode: appliedPromo?.code,
+          requestedCurrency: currency,
+          allowInternationalUsd,
+        });
+        if (!cancelled) {
+          setQuote(res);
+          // Auto-reconcile delivery method if zone does not support current choice
+          const selectedOpt = res.shippingQuote.options.find((o) => o.id === deliveryMethod);
+          if (selectedOpt && !selectedOpt.available) {
+            const fallbackOpt = res.shippingQuote.options.find((o) => o.available);
+            if (fallbackOpt) setDeliveryMethod(fallbackOpt.id);
+          }
+          // Auto-reconcile payment method if disabled (e.g., COD capped or non-BD)
+          if (!res.allowedPaymentMethods.includes(paymentMethod)) {
+            setPaymentMethod(res.allowedPaymentMethods[0] || 'visa');
+          }
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setQuoteError(
+            err instanceof Error ? err.message : 'Unable to fetch server shipping & tax quote.'
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setQuoteLoading(false);
+        }
+      }
+    }, 150);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [
+    cart,
+    country,
+    stateDiv,
+    city,
+    upazila,
+    area,
+    deliveryMethod,
+    appliedPromo?.code,
+    currency,
+    allowInternationalUsd,
+    paymentMethod,
+    step,
+  ]);
 
   if (cart.length === 0 && step < 6) {
     return (
@@ -81,7 +378,7 @@ export const CheckoutPage: React.FC = () => {
           <EmptyState
             icon={<ShoppingBag className="w-6 h-6" />}
             title="Your bag is empty"
-            description="Add electronics, fashion, skincare, coffee, outdoor gear, or home objects before checking out."
+            description="Add items from any of our 10 departments before checking out."
             actionLabel="Browse Catalog"
             onAction={() => navigate({ name: 'shop', category: 'all' })}
           />
@@ -90,57 +387,31 @@ export const CheckoutPage: React.FC = () => {
     );
   }
 
-  const deliveryOptions: {
-    id: DeliveryMethodId;
-    title: string;
-    eta: string;
-    cost: number;
-    description: string;
-  }[] = [
+  const shippingOptions = quote?.shippingQuote.options || [
     {
-      id: 'standard',
-      title: 'Standard Ground Delivery',
-      eta: 'Arrives Nov 20 – Nov 22, 2026',
-      cost: cartSubtotal >= 500 || appliedPromo?.discountType === 'shipping' ? 0 : 28,
-      description: 'Insured doorstep delivery with live tracking updates.',
-    },
-    {
-      id: 'express',
-      title: 'Express Insured Courier',
-      eta: 'Arrives Nov 16 – Nov 17, 2026',
-      cost: appliedPromo?.discountType === 'shipping' ? 0 : 48,
-      description: 'Priority air & regional hub dispatch.',
-    },
-    {
-      id: 'white-glove',
-      title: 'White-Glove Room Placement',
-      eta: 'Scheduled Nov 21 – Nov 25, 2026',
-      cost: 125,
-      description: 'In-home placement, assembly, and packaging removal.',
+      id: 'standard' as DeliveryMethodId,
+      title: 'Standard Tracked Courier',
+      eta: '24–48 Hours',
+      courier: 'Steadfast & Pathao Studio Ground',
+      costUsd: shippingConfig.zones[0]?.standardFeeUsd ?? 0.7,
+      costDisplay: 0,
+      available: true,
     },
   ];
 
   const selectedDelivery =
-    deliveryOptions.find((d) => d.id === deliveryMethod) || deliveryOptions[0];
-  const finalTotal = Math.max(
-    0,
-    Number((cartSubtotal - cartDiscount + cartTax + selectedDelivery.cost).toFixed(2))
-  );
-
-  const isBangladesh = country === 'Bangladesh';
-  const divisionNames = Object.keys(BANGLADESH_DIVISIONS);
-  const activeDivision = divisionNames.includes(stateDiv) ? stateDiv : divisionNames[0];
-  const districtOptions = BANGLADESH_DIVISIONS[activeDivision] || [];
-
-  const handleCountryChange = (nextCountry: string) => {
-    setCountry(nextCountry);
-    if (nextCountry === 'Bangladesh') {
-      const firstDiv = divisionNames[0];
-      setStateDiv(firstDiv);
-      setCity(BANGLADESH_DIVISIONS[firstDiv][0]);
-      setPostalCode('1212');
-    }
-  };
+    shippingOptions.find((d) => d.id === deliveryMethod) || shippingOptions[0];
+  const isRestrictedZone = Boolean(quote?.shippingQuote.restricted);
+  const summarySubtotalUsd = quote?.subtotalUsd ?? cartSubtotal;
+  const summaryDiscountUsd = quote?.discountUsd ?? cartDiscount;
+  const summaryTaxUsd = quote?.taxUsd ?? cartTax;
+  const summaryShippingUsd = quote?.shippingUsd ?? selectedDelivery.costUsd;
+  const summaryTotalUsd =
+    quote?.totalUsd ??
+    Math.max(
+      0,
+      Number((summarySubtotalUsd - summaryDiscountUsd + summaryTaxUsd + summaryShippingUsd).toFixed(2))
+    );
 
   const validateStep = (targetStep: number): boolean => {
     const nextErrors: Record<string, string> = {};
@@ -155,10 +426,30 @@ export const CheckoutPage: React.FC = () => {
     }
     if (targetStep === 2) {
       if (!country.trim()) nextErrors.country = 'Country is required.';
-      if (!stateDiv.trim()) nextErrors.stateDiv = 'State or division is required.';
-      if (!city.trim()) nextErrors.city = 'City or district is required.';
+      if (!stateDiv.trim()) nextErrors.stateDiv = 'Division / State is required.';
+      if (!city.trim()) nextErrors.city = 'District / City is required.';
+      if (isBangladesh && !upazila.trim()) nextErrors.upazila = 'City / Upazila is required.';
+      if (isBangladesh && !area.trim()) nextErrors.area = 'Area is required.';
       if (!streetAddress.trim()) nextErrors.streetAddress = 'Street address is required.';
       if (!postalCode.trim()) nextErrors.postalCode = 'Postal code is required.';
+    }
+    if (targetStep === 4) {
+      if (paymentMethod === 'visa' || paymentMethod === 'mastercard' || paymentMethod === 'card') {
+        if (!/^\d{4}$/.test(cardLast4Input.trim())) {
+          nextErrors.cardLast4 = 'Enter the 4 ending digits of your card.';
+        }
+        if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(cardExpiryInput.trim())) {
+          nextErrors.cardExpiry = 'Enter expiration in MM/YY format.';
+        }
+      }
+      if (
+        (paymentMethod === 'bkash' ||
+          paymentMethod === 'nagad' ||
+          paymentMethod === 'rocket') &&
+        mobileWalletNumber.replace(/\D/g, '').length < 10
+      ) {
+        nextErrors.mobileWallet = 'Enter a valid 11-digit Bangladesh mobile wallet number.';
+      }
     }
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -166,31 +457,139 @@ export const CheckoutPage: React.FC = () => {
 
   const handleNext = () => {
     if (!validateStep(step)) return;
+    if (step === 2 && isRestrictedZone) {
+      showToast(
+        'Delivery Area Restricted',
+        quote?.shippingQuote.restrictionReason || 'Select a serviceable area to proceed.',
+        'error'
+      );
+      return;
+    }
     setStep((s) => Math.min(5, s + 1));
   };
 
-  const handleCompleteOrder = () => {
-    const created = placeOrder({
-      customerName: fullName.trim(),
-      email: email.trim(),
-      phone: phone.trim(),
-      shippingAddress: {
-        country: country.trim(),
-        state: stateDiv.trim(),
-        city: city.trim(),
-        area: area.trim() || city.trim(),
-        streetAddress: streetAddress.trim(),
-        postalCode: postalCode.trim(),
-        instructions: instructions.trim() || undefined,
-      },
-      deliveryMethod,
-      paymentMethod,
-    });
-    setPlacedOrder(created);
-    setStep(6);
+  const handlePromoSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = applyPromoCode(promoInput);
+    setPromoFeedback({ ok: res.ok, text: res.message });
+    if (res.ok) setPromoInput('');
+  };
+
+  const handleInitiateCheckout = async () => {
+    if (isRestrictedZone) {
+      showToast('Restricted delivery zone', 'Please choose a serviceable area first.', 'error');
+      return;
+    }
+    setInitiatingPayment(true);
+    setPaymentBanner(null);
+    try {
+      const res = await initiatePaymentApi({
+        idempotencyKey,
+        paymentMethod,
+        customerName: fullName.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        shippingAddress: {
+          country: country.trim(),
+          state: stateDiv.trim(),
+          city: city.trim(),
+          upazila: upazila.trim() || undefined,
+          area: area.trim() || city.trim(),
+          streetAddress: streetAddress.trim(),
+          postalCode: postalCode.trim(),
+          instructions: instructions.trim() || undefined,
+        },
+        deliveryMethod,
+        items: cart.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          color: item.color,
+          colorHex: item.colorHex,
+          size: item.size,
+          name: item.name,
+          brand: item.brand,
+          category: item.category,
+          slug: item.slug,
+        })),
+        promoCode: appliedPromo?.code,
+        requestedCurrency: currency,
+        allowInternationalUsd,
+      });
+      setQuote(res.quote);
+      setPaymentSession(res.session);
+    } catch (err) {
+      showToast(
+        'Unable to start payment session',
+        err instanceof Error ? err.message : 'Please review delivery & payment selection.',
+        'error'
+      );
+    } finally {
+      setInitiatingPayment(false);
+    }
+  };
+
+  const handleVerifyGateway = async (outcome: 'paid' | 'failed' | 'cancelled' | 'cod_confirmed') => {
+    if (!paymentSession) return;
+    setVerifyingPayment(true);
+    try {
+      const res = await verifyPaymentApi({
+        sessionId: paymentSession.id,
+        outcome,
+        walletNumber:
+          paymentMethod === 'bkash' || paymentMethod === 'nagad' || paymentMethod === 'rocket'
+            ? mobileWalletNumber.trim()
+            : cardLast4Input.trim(),
+      });
+
+      if (
+        res.order &&
+        (res.session.status === 'paid' || res.session.status === 'cod_pending')
+      ) {
+        commitVerifiedOrder(res.order);
+        setPaymentSession(null);
+        setPlacedOrder(res.order);
+        setStep(6);
+        showToast(
+          res.session.status === 'cod_pending' ? 'COD Order Confirmed' : 'Payment Verified',
+          `Order #${res.order.id} · Ref ${res.session.transactionRef}`,
+          'success'
+        );
+      } else {
+        setPaymentSession(null);
+        setIdempotencyKey(createIdempotencyKey());
+        const isCancelled = res.session.status === 'cancelled';
+        setPaymentBanner({
+          type: isCancelled ? 'cancelled' : 'error',
+          message:
+            res.session.failureReason ||
+            (isCancelled
+              ? 'Payment cancelled before gateway settlement.'
+              : 'Payment gateway declined authorization. No order was placed.'),
+          ref: res.session.transactionRef,
+        });
+        showToast(
+          isCancelled ? 'Payment Cancelled' : 'Payment Failed',
+          'Your bag remains intact — retry or pick another payment channel.',
+          isCancelled ? 'info' : 'error'
+        );
+      }
+    } catch (err) {
+      showToast(
+        'Verification error',
+        err instanceof Error ? err.message : 'Gateway verification failed.',
+        'error'
+      );
+    } finally {
+      setVerifyingPayment(false);
+    }
   };
 
   if (step === 6 && placedOrder) {
+    const snap = placedOrder.currencySnapshot;
+    const settledDisplay = snap
+      ? formatDirectCurrency(snap.chargedTotal, snap.transactionCurrency)
+      : formatCurrency(placedOrder.total, currency);
+
     return (
       <motion.div
         initial={{ opacity: 0, y: 8 }}
@@ -204,13 +603,14 @@ export const CheckoutPage: React.FC = () => {
           </div>
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-[0.14em] text-[#84827B] font-mono-num">
-              Order #{placedOrder.id} Confirmed
+              Order #{placedOrder.id} ·{' '}
+              {placedOrder.paymentStatus === 'cod_pending' ? 'COD Docket Confirmed' : 'Payment Verified'}
             </p>
             <h1 className="font-display text-3xl sm:text-5xl font-medium">
               Thank you, {placedOrder.customerName.split(' ')[0]}.
             </h1>
             <p className="text-sm text-[#5C5B57] dark:text-[#B4B2AC] max-w-md mx-auto">
-              Your simulated order is recorded locally and ready to track in your Order History and Order Tracking view.
+              Server-verified receipt &amp; immutable currency snapshot recorded. You can monitor dispatch live in Order Tracking.
             </p>
           </div>
 
@@ -218,16 +618,25 @@ export const CheckoutPage: React.FC = () => {
             <div>
               <p className="text-[#84827B]">Delivery Estimate</p>
               <p className="font-medium mt-1 text-sm">{placedOrder.estimatedArrival}</p>
-            </div>
-            <div>
-              <p className="text-[#84827B]">Payment Method</p>
-              <p className="font-medium mt-1 text-sm">{placedOrder.paymentLabel}</p>
-            </div>
-            <div>
-              <p className="text-[#84827B]">Order Total</p>
-              <p className="font-mono-num font-semibold mt-1 text-sm">
-                {formatCurrency(placedOrder.total, currency)}
+              <p className="text-[11px] text-[#5C5B57] dark:text-[#A3A19B] mt-0.5">
+                {placedOrder.courierName}
               </p>
+            </div>
+            <div>
+              <p className="text-[#84827B]">Payment &amp; Gateway Ref</p>
+              <p className="font-medium mt-1 text-sm">{placedOrder.paymentLabel}</p>
+              <p className="text-[11px] font-mono-num text-[#8F6438] dark:text-[#C89B67] mt-0.5">
+                {placedOrder.transactionRef || placedOrder.paymentStatus}
+              </p>
+            </div>
+            <div>
+              <p className="text-[#84827B]">Settled Order Total</p>
+              <p className="font-mono-num font-semibold mt-1 text-sm">{settledDisplay}</p>
+              {snap && (
+                <p className="text-[11px] font-mono-num text-[#84827B] mt-0.5">
+                  Base ${snap.baseTotalUsd.toFixed(2)} USD · 1 USD = {snap.exchangeRate} BDT
+                </p>
+              )}
             </div>
           </div>
 
@@ -241,7 +650,14 @@ export const CheckoutPage: React.FC = () => {
                     <span className="text-xs text-[#84827B]">({item.color})</span>
                   </span>
                   <span className="font-mono-num font-medium">
-                    {formatCurrency(item.price * item.quantity, currency)}
+                    {snap
+                      ? formatDirectCurrency(
+                          snap.transactionCurrency === 'BDT'
+                            ? item.price * item.quantity * snap.exchangeRate
+                            : item.price * item.quantity,
+                          snap.transactionCurrency
+                        )
+                      : formatCurrency(item.price * item.quantity, currency)}
                   </span>
                 </li>
               ))}
@@ -273,12 +689,14 @@ export const CheckoutPage: React.FC = () => {
     <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
         <div>
-          <p className="text-xs text-[#84827B] uppercase tracking-wider">Distraction-Free Checkout</p>
+          <p className="text-xs text-[#84827B] uppercase tracking-wider">
+            Server-Verified Checkout · {isBangladesh ? 'Bangladesh (BDT Settlement)' : 'International Dispatch'}
+          </p>
           <h1 className="font-display text-3xl sm:text-4xl font-medium mt-1">Complete Your Order</h1>
         </div>
         <div className="inline-flex items-center gap-2 text-xs text-[#5C5B57] dark:text-[#A3A19B]">
           <Lock className="w-3.5 h-3.5 text-[#8F6438] dark:text-[#C89B67]" />
-          <span>Simulated Local Checkout Preview (No Real Charge)</span>
+          <span>Authoritative Server Quote &amp; Gateway Verification</span>
         </div>
       </div>
 
@@ -320,6 +738,51 @@ export const CheckoutPage: React.FC = () => {
         </nav>
       </div>
 
+      {paymentBanner && (
+        <div
+          role="alert"
+          className="p-4 rounded-lg border border-[#B91C1C]/40 dark:border-[#F87171]/40 bg-[#FEF2F2] dark:bg-[#2B1717] flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+        >
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-[#B91C1C] dark:text-[#F87171] shrink-0 mt-0.5" />
+            <div className="text-xs space-y-0.5">
+              <p className="font-semibold text-[#B91C1C] dark:text-[#F87171]">
+                {paymentBanner.type === 'cancelled'
+                  ? 'Payment Cancelled Before Settlement'
+                  : 'Payment Gateway Declined Authorization'}
+              </p>
+              <p className="text-[#5C5B57] dark:text-[#D5D3CD]">{paymentBanner.message}</p>
+              {paymentBanner.ref && (
+                <p className="font-mono-num text-[11px] text-[#84827B]">
+                  Gateway Ref: {paymentBanner.ref}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={() => {
+                setPaymentBanner(null);
+                setStep(4);
+              }}
+            >
+              Switch Channel
+            </Button>
+            <Button
+              variant="primary"
+              size="xs"
+              onClick={handleInitiateCheckout}
+              disabled={initiatingPayment}
+            >
+              <RefreshCw className="w-3 h-3" />
+              <span>Retry</span>
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
         <div className="lg:col-span-7 p-5 sm:p-8 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-6">
           <AnimatePresence mode="wait" initial={false}>
@@ -340,7 +803,7 @@ export const CheckoutPage: React.FC = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     error={errors.email}
-                    helperText="We will link your order confirmation to this email."
+                    helperText="Order confirmation and gateway receipt will be linked to this email."
                     placeholder="name@domain.com"
                   />
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -350,7 +813,7 @@ export const CheckoutPage: React.FC = () => {
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       error={errors.fullName}
-                      placeholder="Alex Mercer"
+                      placeholder="Nadia Rahman"
                     />
                     <Input
                       label="Phone Number"
@@ -359,7 +822,7 @@ export const CheckoutPage: React.FC = () => {
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       error={errors.phone}
-                      placeholder="+880 1700-000000"
+                      placeholder="+880 1711-000194"
                     />
                   </div>
                 </div>
@@ -368,7 +831,12 @@ export const CheckoutPage: React.FC = () => {
               {step === 2 && (
                 <div className="space-y-5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h2 className="font-display text-2xl font-medium">2. Shipping Information</h2>
+                    <div>
+                      <h2 className="font-display text-2xl font-medium">2. Hierarchical Shipping Address</h2>
+                      <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5">
+                        Country → Division → District → City/Upazila → Area
+                      </p>
+                    </div>
                     {addresses.length > 0 && (
                       <select
                         aria-label="Fill from saved address"
@@ -378,6 +846,7 @@ export const CheckoutPage: React.FC = () => {
                             setCountry(found.country);
                             setStateDiv(found.state);
                             setCity(found.city);
+                            setUpazila(found.upazila || '');
                             setArea(found.area);
                             setStreetAddress(found.streetAddress);
                             setPostalCode(found.postalCode);
@@ -388,7 +857,7 @@ export const CheckoutPage: React.FC = () => {
                         <option value="">Load saved address...</option>
                         {addresses.map((a) => (
                           <option key={a.id} value={a.id}>
-                            {a.label} — {a.city}
+                            {a.label} — {a.area || a.city} ({a.country})
                           </option>
                         ))}
                       </select>
@@ -397,13 +866,13 @@ export const CheckoutPage: React.FC = () => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Select
-                      label="Country / Region"
+                      label="1. Country / Region"
                       required
                       value={country}
                       onChange={(e) => handleCountryChange(e.target.value)}
                       options={[
+                        { value: 'Bangladesh', label: 'Bangladesh (BDT Settlement)' },
                         { value: 'United States', label: 'United States' },
-                        { value: 'Bangladesh', label: 'Bangladesh' },
                         { value: 'Canada', label: 'Canada' },
                         { value: 'United Kingdom', label: 'United Kingdom' },
                       ]}
@@ -411,19 +880,15 @@ export const CheckoutPage: React.FC = () => {
 
                     {isBangladesh ? (
                       <Select
-                        label="Division"
+                        label="2. Division"
                         required
-                        value={activeDivision}
-                        onChange={(e) => {
-                          const div = e.target.value;
-                          setStateDiv(div);
-                          setCity(BANGLADESH_DIVISIONS[div][0]);
-                        }}
-                        options={divisionNames.map((d) => ({ value: d, label: d }))}
+                        value={activeDivEntry.name}
+                        onChange={(e) => handleDivisionChange(e.target.value)}
+                        options={geoTree.map((d) => ({ value: d.name, label: d.name }))}
                       />
                     ) : (
                       <Input
-                        label="State / Province"
+                        label="2. State / Province"
                         required
                         value={stateDiv}
                         onChange={(e) => setStateDiv(e.target.value)}
@@ -433,37 +898,94 @@ export const CheckoutPage: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {isBangladesh ? (
+                  {isBangladesh ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <Select
-                        label="District / City"
+                        label="3. District"
                         required
-                        value={districtOptions.includes(city) ? city : districtOptions[0]}
-                        onChange={(e) => setCity(e.target.value)}
-                        options={districtOptions.map((d) => ({ value: d, label: d }))}
+                        value={activeDistEntry.name}
+                        onChange={(e) => handleDistrictChange(e.target.value)}
+                        options={activeDivEntry.districts.map((d) => ({
+                          value: d.name,
+                          label: d.name,
+                        }))}
                       />
-                    ) : (
+                      <Select
+                        label="4. City / Upazila"
+                        required
+                        value={activeUpaEntry.name}
+                        onChange={(e) => handleUpazilaChange(e.target.value)}
+                        options={activeDistEntry.upazilas.map((u) => ({
+                          value: u.name,
+                          label: u.name,
+                        }))}
+                      />
+                      <Select
+                        label="5. Delivery Area"
+                        required
+                        value={areaOptions.some((a) => a.name === area) ? area : areaOptions[0]?.name || ''}
+                        onChange={(e) => handleAreaChange(e.target.value)}
+                        options={areaOptions.map((a) => ({
+                          value: a.name,
+                          label: a.restricted ? `${a.name} (Restricted)` : a.name,
+                        }))}
+                      />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <Input
-                        label="City"
+                        label="3. City"
                         required
                         value={city}
                         onChange={(e) => setCity(e.target.value)}
                         error={errors.city}
                         placeholder="San Francisco"
                       />
-                    )}
-                    <Input
-                      label="Area / Neighborhood"
-                      value={area}
-                      onChange={(e) => setArea(e.target.value)}
-                      placeholder={isBangladesh ? 'Banani / Gulshan / Dhanmondi' : 'Pacific Heights'}
-                    />
-                  </div>
+                      <Input
+                        label="4. Neighborhood / Area"
+                        value={area}
+                        onChange={(e) => setArea(e.target.value)}
+                        placeholder="Pacific Heights"
+                      />
+                    </div>
+                  )}
+
+                  {isRestrictedZone && (
+                    <div
+                      role="alert"
+                      className="p-4 rounded-md border border-[#B91C1C]/40 dark:border-[#F87171]/40 bg-[#FEF2F2] dark:bg-[#2B1717] flex items-start gap-3 text-xs"
+                    >
+                      <AlertTriangle className="w-4 h-4 text-[#B91C1C] dark:text-[#F87171] shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <p className="font-semibold text-[#B91C1C] dark:text-[#F87171]">
+                          Restricted Delivery Zone Detected
+                        </p>
+                        <p className="text-[#5C5B57] dark:text-[#D5D3CD]">
+                          {quote?.shippingQuote.restrictionReason ||
+                            'Selected offshore / char area is currently restricted for parcel dispatch. Choose another City/Upazila or District to proceed.'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {!isBangladesh && (
+                    <label className="flex items-center gap-2.5 p-3 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] text-xs cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={allowInternationalUsd}
+                        onChange={(e) => setAllowInternationalUsd(e.target.checked)}
+                        className="accent-[#171716] dark:accent-[#F4F3EF]"
+                      />
+                      <span>
+                        Settle international order in USD (uncheck to process at live BDT equivalent)
+                      </span>
+                    </label>
+                  )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="sm:col-span-2">
                       <Input
-                        label="Street Address"
+                        label="Street Address / House & Road"
                         required
                         value={streetAddress}
                         onChange={(e) => setStreetAddress(e.target.value)}
@@ -490,144 +1012,153 @@ export const CheckoutPage: React.FC = () => {
                     rows={2}
                     value={instructions}
                     onChange={(e) => setInstructions(e.target.value)}
-                    placeholder="Elevator access, gate code, or concierge desk instructions..."
+                    placeholder="Gate security pass, elevator floor, or preferred call window..."
                   />
                 </div>
               )}
 
               {step === 3 && (
                 <div className="space-y-4">
-                  <h2 className="font-display text-2xl font-medium">3. Delivery Method</h2>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="font-display text-2xl font-medium">3. Delivery Method</h2>
+                    {quote && (
+                      <span className="text-xs font-mono-num text-[#8F6438] dark:text-[#C89B67]">
+                        Zone: {quote.shippingQuote.zoneLabel} · {quote.shippingQuote.totalWeightKg} kg
+                        {quote.shippingQuote.hasBulkyItems ? ' · Bulky Handling' : ''}
+                      </span>
+                    )}
+                  </div>
+
                   <div className="space-y-3">
-                    {deliveryOptions.map((opt) => (
-                      <label
-                        key={opt.id}
-                        className={`flex items-start justify-between gap-4 p-4 rounded-lg border cursor-pointer transition-colors ${
-                          deliveryMethod === opt.id
-                            ? 'border-[#171716] dark:border-[#F4F3EF] bg-[#F9F8F6] dark:bg-[#22221F]'
-                            : 'border-[#E5E3DD] dark:border-[#2C2C28]'
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <input
-                            type="radio"
-                            name="delivery-method"
-                            checked={deliveryMethod === opt.id}
-                            onChange={() => setDeliveryMethod(opt.id)}
-                            className="mt-1 accent-[#171716] dark:accent-[#F4F3EF]"
-                          />
-                          <div>
-                            <p className="text-sm font-semibold">{opt.title}</p>
-                            <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5">
-                              {opt.description}
-                            </p>
-                            <p className="text-xs font-medium text-[#8F6438] dark:text-[#C89B67] mt-1">
-                              {opt.eta}
-                            </p>
+                    {shippingOptions.map((opt) => {
+                      const active = deliveryMethod === opt.id;
+                      return (
+                        <label
+                          key={opt.id}
+                          className={`flex items-start justify-between gap-4 p-4 rounded-lg border transition-colors ${
+                            !opt.available
+                              ? 'opacity-55 cursor-not-allowed border-[#E5E3DD] dark:border-[#2C2C28] bg-[#F9F8F6] dark:bg-[#141413]'
+                              : active
+                              ? 'cursor-pointer border-[#171716] dark:border-[#F4F3EF] bg-[#F9F8F6] dark:bg-[#22221F]'
+                              : 'cursor-pointer border-[#E5E3DD] dark:border-[#2C2C28]'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <input
+                              type="radio"
+                              name="delivery-method"
+                              disabled={!opt.available}
+                              checked={active}
+                              onChange={() => opt.available && setDeliveryMethod(opt.id)}
+                              className="mt-1 accent-[#171716] dark:accent-[#F4F3EF]"
+                            />
+                            <div>
+                              <p className="text-sm font-semibold">{opt.title}</p>
+                              <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5">
+                                Courier: {opt.courier}
+                              </p>
+                              <p className="text-xs font-medium text-[#8F6438] dark:text-[#C89B67] mt-1">
+                                {opt.available ? opt.eta : opt.reason || 'Unavailable for this route'}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                        <span className="text-sm font-mono-num font-semibold shrink-0">
-                          {opt.cost === 0
-                            ? 'Complimentary'
-                            : formatCurrency(opt.cost, currency)}
-                        </span>
-                      </label>
-                    ))}
+                          <span className="text-sm font-mono-num font-semibold shrink-0">
+                            {!opt.available
+                              ? 'N/A'
+                              : opt.costUsd === 0
+                              ? 'Complimentary'
+                              : formatCurrency(opt.costUsd, currency)}
+                          </span>
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
               {step === 4 && (
                 <div className="space-y-5">
-                  <h2 className="font-display text-2xl font-medium">4. Payment Method</h2>
-                  <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B]">
-                    Select a simulated payment channel. Mobile wallet methods (bKash, Nagad, Rocket) and international cards run in local preview mode with zero live charge.
-                  </p>
-                  <div className="space-y-2.5">
-                    {(
-                      [
-                        {
-                          id: 'card',
-                          label: 'Credit / Debit Card',
-                          sub: 'Visa, Mastercard, Amex',
-                          Icon: CreditCard,
-                        },
-                        {
-                          id: 'bkash',
-                          label: 'bKash Mobile Wallet (Demo)',
-                          sub: 'Instant local mobile payment preview',
-                          Icon: Smartphone,
-                        },
-                        {
-                          id: 'nagad',
-                          label: 'Nagad Mobile Wallet (Demo)',
-                          sub: 'Instant local MFS confirmation preview',
-                          Icon: Smartphone,
-                        },
-                        {
-                          id: 'rocket',
-                          label: 'Rocket Mobile Banking (Demo)',
-                          sub: 'DBBL Rocket mobile channel preview',
-                          Icon: Smartphone,
-                        },
-                        {
-                          id: 'wallet',
-                          label: 'Apple Pay / Express Wallet',
-                          sub: 'One-tap digital wallet preview',
-                          Icon: Wallet,
-                        },
-                        {
-                          id: 'bank-transfer',
-                          label: 'Direct Bank Transfer',
-                          sub: 'ACH / SWIFT / BEFTN wire reference',
-                          Icon: Building2,
-                        },
-                        {
-                          id: 'cod',
-                          label: 'Cash on Delivery (COD)',
-                          sub: 'Pay courier upon doorstep inspection',
-                          Icon: Truck,
-                        },
-                      ] as const
-                    ).map(({ id, label, sub, Icon }) => (
-                      <label
-                        key={id}
-                        className={`flex items-center justify-between gap-4 p-3.5 rounded-lg border cursor-pointer transition-colors ${
-                          paymentMethod === id
-                            ? 'border-[#171716] dark:border-[#F4F3EF] bg-[#F9F8F6] dark:bg-[#22221F]'
-                            : 'border-[#E5E3DD] dark:border-[#2C2C28]'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="radio"
-                            name="payment-method"
-                            checked={paymentMethod === id}
-                            onChange={() => setPaymentMethod(id)}
-                            className="accent-[#171716] dark:accent-[#F4F3EF]"
-                          />
-                          <Icon className="w-4 h-4 text-[#8F6438] dark:text-[#C89B67]" />
-                          <div>
-                            <p className="text-sm font-medium">{label}</p>
-                            <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B]">{sub}</p>
-                          </div>
-                        </div>
-                      </label>
-                    ))}
+                  <div>
+                    <h2 className="font-display text-2xl font-medium">4. Payment Method</h2>
+                    <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-1">
+                      Provider-based gateway checkout. Bangladesh deliveries settle in BDT (৳) with server-side idempotency and verification.
+                    </p>
                   </div>
 
-                  {paymentMethod === 'card' && (
+                  {!quote?.shippingQuote.codEligible && quote?.shippingQuote.codReason && (
+                    <div className="p-3 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] text-xs text-[#B45309] dark:text-[#FBBF24]">
+                      COD Notice: {quote.shippingQuote.codReason}
+                    </div>
+                  )}
+
+                  <div className="space-y-2.5">
+                    {PAYMENT_CHANNEL_META.map(({ id, label, sub, group }) => {
+                      const allowed = quote ? quote.allowedPaymentMethods.includes(id) : true;
+                      const Icon =
+                        group === 'mfs'
+                          ? Smartphone
+                          : group === 'card'
+                          ? CreditCard
+                          : id === 'cod'
+                          ? Truck
+                          : id === 'bank-transfer'
+                          ? Building2
+                          : Globe;
+                      return (
+                        <label
+                          key={id}
+                          className={`flex items-center justify-between gap-4 p-3.5 rounded-lg border transition-colors ${
+                            !allowed
+                              ? 'opacity-50 cursor-not-allowed border-[#E5E3DD] dark:border-[#2C2C28]'
+                              : paymentMethod === id
+                              ? 'cursor-pointer border-[#171716] dark:border-[#F4F3EF] bg-[#F9F8F6] dark:bg-[#22221F]'
+                              : 'cursor-pointer border-[#E5E3DD] dark:border-[#2C2C28]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="radio"
+                              name="payment-method"
+                              disabled={!allowed}
+                              checked={paymentMethod === id}
+                              onChange={() => {
+                                if (!allowed) return;
+                                setPaymentMethod(id);
+                                setPaymentBanner(null);
+                                setErrors({});
+                              }}
+                              className="accent-[#171716] dark:accent-[#F4F3EF]"
+                            />
+                            <Icon className="w-4 h-4 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
+                            <div>
+                              <p className="text-sm font-medium">{label}</p>
+                              <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B]">
+                                {allowed ? sub : 'Unavailable for selected region / order tier'}
+                              </p>
+                            </div>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  {(paymentMethod === 'visa' ||
+                    paymentMethod === 'mastercard' ||
+                    paymentMethod === 'card') && (
                     <div className="p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <Input
-                        label="Demo Card Ending (4 digits)"
+                        label="Card Ending (4 digits)"
                         value={cardLast4Input}
                         maxLength={4}
-                        onChange={(e) => setCardLast4Input(e.target.value)}
+                        onChange={(e) => setCardLast4Input(e.target.value.replace(/\D/g, ''))}
+                        error={errors.cardLast4}
                       />
                       <Input
-                        label="Expiration"
+                        label="Expiration (MM/YY)"
                         value={cardExpiryInput}
+                        placeholder="08/29"
                         onChange={(e) => setCardExpiryInput(e.target.value)}
+                        error={errors.cardExpiry}
                       />
                     </div>
                   )}
@@ -637,10 +1168,11 @@ export const CheckoutPage: React.FC = () => {
                     paymentMethod === 'rocket') && (
                     <div className="p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28]">
                       <Input
-                        label="Demo Mobile Wallet Number"
+                        label="Bangladesh Mobile Wallet Number"
                         value={mobileWalletNumber}
                         onChange={(e) => setMobileWalletNumber(e.target.value)}
-                        helperText="Simulated wallet entry — no real OTP or charge occurs."
+                        error={errors.mobileWallet}
+                        helperText="Tokenized via server payment session — no secret merchant keys on client."
                       />
                     </div>
                   )}
@@ -649,7 +1181,7 @@ export const CheckoutPage: React.FC = () => {
 
               {step === 5 && (
                 <div className="space-y-6">
-                  <h2 className="font-display text-2xl font-medium">5. Order Review</h2>
+                  <h2 className="font-display text-2xl font-medium">5. Server-Verified Order Review</h2>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                     <div className="p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-1">
@@ -657,24 +1189,43 @@ export const CheckoutPage: React.FC = () => {
                       <p className="font-medium">{fullName}</p>
                       <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B]">{streetAddress}</p>
                       <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B]">
-                        {city}, {stateDiv} {postalCode} · {country}
+                        {[area, upazila, city, stateDiv, postalCode].filter(Boolean).join(', ')} ·{' '}
+                        {country}
                       </p>
                       <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B]">{phone}</p>
                     </div>
 
                     <div className="p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-1">
                       <p className="text-xs uppercase tracking-wider text-[#84827B]">
-                        Delivery &amp; Payment
+                        Delivery &amp; Gateway Channel
                       </p>
                       <p className="font-medium">{selectedDelivery.title}</p>
                       <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B]">
-                        {selectedDelivery.eta}
+                        {selectedDelivery.eta} · {selectedDelivery.courier}
                       </p>
-                      <p className="text-xs text-[#8F6438] dark:text-[#C89B67] pt-1 uppercase font-mono-num">
-                        Method: {paymentMethod.replace('-', ' ')}
+                      <p className="text-xs text-[#8F6438] dark:text-[#C89B67] pt-1 font-medium">
+                        {PAYMENT_CHANNEL_META.find((p) => p.id === paymentMethod)?.label ||
+                          paymentMethod}
                       </p>
                     </div>
                   </div>
+
+                  {quote && (
+                    <div className="p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] text-xs space-y-1.5">
+                      <div className="flex items-center justify-between font-medium">
+                        <span className="inline-flex items-center gap-1.5">
+                          <ShieldCheck className="w-3.5 h-3.5 text-[#1F6E43] dark:text-[#4ADE80]" />
+                          Authoritative Currency Settlement ({quote.currency})
+                        </span>
+                        <span className="font-mono-num font-semibold">
+                          {formatDirectCurrency(quote.totalCharged, quote.currency)}
+                        </span>
+                      </div>
+                      <p className="text-[#5C5B57] dark:text-[#A3A19B] font-mono-num">
+                        FX: 1 USD = ৳{quote.currencySnapshot.exchangeRate} ({quote.currencySnapshot.rateSource})
+                      </p>
+                    </div>
+                  )}
 
                   <ul className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] border-y border-[#E5E3DD] dark:border-[#2C2C28]">
                     {cart.map((item) => (
@@ -687,7 +1238,8 @@ export const CheckoutPage: React.FC = () => {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{item.name}</p>
                           <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B]">
-                            {item.color} · {item.size} · Qty {item.quantity}
+                            {item.color} · {item.size} · Qty {item.quantity} ·{' '}
+                            {((item.weightKg || 1) * item.quantity).toFixed(1)} kg
                           </p>
                         </div>
                         <span className="text-sm font-mono-num font-medium">
@@ -715,13 +1267,37 @@ export const CheckoutPage: React.FC = () => {
             )}
 
             {step < 5 ? (
-              <Button variant="primary" size="md" onClick={handleNext}>
+              <Button
+                variant="primary"
+                size="md"
+                onClick={handleNext}
+                disabled={step === 2 && isRestrictedZone}
+              >
                 <span>Continue</span>
                 <ArrowRight className="w-4 h-4" />
               </Button>
             ) : (
-              <Button variant="primary" size="lg" onClick={handleCompleteOrder}>
-                <span>Place Order · {formatCurrency(finalTotal, currency)}</span>
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={handleInitiateCheckout}
+                disabled={initiatingPayment || isRestrictedZone || quoteLoading}
+              >
+                <span>
+                  {initiatingPayment
+                    ? 'Initiating Gateway...'
+                    : paymentMethod === 'cod'
+                    ? `Verify COD Order · ${
+                        quote
+                          ? formatDirectCurrency(quote.totalCharged, quote.currency)
+                          : formatCurrency(summaryTotalUsd, currency)
+                      }`
+                    : `Proceed to Gateway · ${
+                        quote
+                          ? formatDirectCurrency(quote.totalCharged, quote.currency)
+                          : formatCurrency(summaryTotalUsd, currency)
+                      }`}
+                </span>
               </Button>
             )}
           </div>
@@ -729,8 +1305,20 @@ export const CheckoutPage: React.FC = () => {
 
         {/* Sticky Bag Summary Sidebar */}
         <aside className="lg:col-span-5 lg:sticky lg:top-28 p-6 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-5">
-          <h3 className="font-display text-2xl font-medium">In Your Bag ({cart.length})</h3>
-          <ul className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] max-h-72 overflow-y-auto">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="font-display text-2xl font-medium">In Your Bag ({cart.length})</h3>
+            {quoteLoading && (
+              <span className="text-[11px] font-mono-num text-[#8F6438] dark:text-[#C89B67]">
+                Calculating...
+              </span>
+            )}
+          </div>
+
+          {quoteError && (
+            <p className="text-xs text-[#B91C1C] dark:text-[#F87171]">{quoteError}</p>
+          )}
+
+          <ul className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] max-h-64 overflow-y-auto">
             {cart.map((item) => (
               <li key={item.key} className="py-3 flex items-center gap-3">
                 <ResilientImage
@@ -751,36 +1339,186 @@ export const CheckoutPage: React.FC = () => {
             ))}
           </ul>
 
+          <form
+            onSubmit={handlePromoSubmit}
+            className="space-y-2 pt-4 border-t border-[#E5E3DD] dark:border-[#2C2C28]"
+          >
+            <div className="flex gap-2">
+              <input
+                type="text"
+                aria-label="Promo code"
+                value={promoInput}
+                onChange={(e) => setPromoInput(e.target.value)}
+                placeholder="Promo code (STUDIO15, FREESHIP)"
+                className="flex-1 min-w-0 h-10 px-3 text-xs rounded-md bg-white dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] uppercase"
+              />
+              <Button type="submit" variant="outline" size="sm">
+                Apply
+              </Button>
+            </div>
+            {promoFeedback && (
+              <p
+                className={`text-[11px] ${
+                  promoFeedback.ok
+                    ? 'text-[#1F6E43] dark:text-[#4ADE80]'
+                    : 'text-[#B91C1C] dark:text-[#F87171]'
+                }`}
+              >
+                {promoFeedback.text}
+              </p>
+            )}
+            {appliedPromo && (
+              <div className="flex items-center justify-between px-2.5 py-1.5 rounded-md bg-[#F2F0EC] dark:bg-[#22221F] text-xs">
+                <span className="inline-flex items-center gap-1.5 font-mono-num font-medium">
+                  <Tag className="w-3.5 h-3.5 text-[#8F6438] dark:text-[#C89B67]" />
+                  {appliedPromo.code}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    removePromoCode();
+                    setPromoFeedback(null);
+                  }}
+                  aria-label="Remove promo code"
+                  className="w-8 h-8 rounded flex items-center justify-center text-[#5C5B57] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </form>
+
           <div className="space-y-2 text-sm pt-4 border-t border-[#E5E3DD] dark:border-[#2C2C28]">
             <div className="flex justify-between text-[#5C5B57] dark:text-[#A3A19B]">
               <span>Subtotal</span>
-              <span className="font-mono-num">{formatCurrency(cartSubtotal, currency)}</span>
+              <span className="font-mono-num">{formatCurrency(summarySubtotalUsd, currency)}</span>
             </div>
-            {cartDiscount > 0 && (
+            {summaryDiscountUsd > 0 && (
               <div className="flex justify-between text-[#1F6E43] dark:text-[#4ADE80]">
                 <span>Promo ({appliedPromo?.code})</span>
-                <span className="font-mono-num">-{formatCurrency(cartDiscount, currency)}</span>
+                <span className="font-mono-num">
+                  -{formatCurrency(summaryDiscountUsd, currency)}
+                </span>
               </div>
             )}
             <div className="flex justify-between text-[#5C5B57] dark:text-[#A3A19B]">
-              <span>Estimated Tax (5%)</span>
-              <span className="font-mono-num">{formatCurrency(cartTax, currency)}</span>
+              <span>VAT / Tax (5%)</span>
+              <span className="font-mono-num">{formatCurrency(summaryTaxUsd, currency)}</span>
             </div>
             <div className="flex justify-between text-[#5C5B57] dark:text-[#A3A19B]">
               <span>Shipping ({selectedDelivery.title})</span>
               <span className="font-mono-num">
-                {selectedDelivery.cost === 0
+                {isRestrictedZone
+                  ? 'Restricted'
+                  : summaryShippingUsd === 0
                   ? 'Complimentary'
-                  : formatCurrency(selectedDelivery.cost, currency)}
+                  : formatCurrency(summaryShippingUsd, currency)}
               </span>
             </div>
+
             <div className="flex justify-between pt-3 border-t border-[#E5E3DD] dark:border-[#2C2C28] text-base font-semibold">
               <span>Total</span>
-              <span className="font-mono-num">{formatCurrency(finalTotal, currency)}</span>
+              <span className="font-mono-num">{formatCurrency(summaryTotalUsd, currency)}</span>
             </div>
+
+            {quote && quote.currency !== currency && (
+              <div className="flex justify-between text-xs font-mono-num text-[#8F6438] dark:text-[#C89B67] pt-1">
+                <span>Authoritative Settlement ({quote.currency})</span>
+                <span>{formatDirectCurrency(quote.totalCharged, quote.currency)}</span>
+              </div>
+            )}
+
+            <p className="text-[11px] text-[#84827B] pt-1">
+              FX Rate: 1 USD = ৳{currencyConfig.rates.BDT.toFixed(2)} ·{' '}
+              {quote?.shippingQuote.zoneLabel || 'Dhaka Metro'}
+            </p>
           </div>
         </aside>
       </div>
+
+      {/* Server-Side Gateway Verification Modal */}
+      <Modal
+        open={Boolean(paymentSession)}
+        onClose={() => {
+          if (!verifyingPayment) {
+            handleVerifyGateway('cancelled');
+          }
+        }}
+        title={paymentSession ? paymentSession.provider : 'Gateway Verification'}
+        maxWidthClass="max-w-lg"
+      >
+        {paymentSession && (
+          <div className="space-y-5 text-sm">
+            <div className="p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-2">
+              <div className="flex items-center justify-between text-xs text-[#84827B]">
+                <span>Transaction Reference</span>
+                <span className="font-mono-num font-semibold text-[#171716] dark:text-[#F4F3EF]">
+                  {paymentSession.transactionRef}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-[#84827B]">
+                <span>Settlement Amount</span>
+                <span className="font-mono-num text-base font-semibold text-[#8F6438] dark:text-[#C89B67]">
+                  {formatDirectCurrency(paymentSession.amount, paymentSession.currency)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-[#84827B]">
+                <span>Status</span>
+                <span className="font-mono-num uppercase">{paymentSession.status}</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-[#5C5B57] dark:text-[#B4B2AC] leading-relaxed">
+              {paymentSession.gatewayInstructions}
+            </p>
+
+            <div className="space-y-2.5 pt-2">
+              <Button
+                variant="primary"
+                size="lg"
+                fullWidth
+                disabled={verifyingPayment}
+                onClick={() =>
+                  handleVerifyGateway(
+                    paymentSession.paymentMethod === 'cod' ? 'cod_confirmed' : 'paid'
+                  )
+                }
+              >
+                {verifyingPayment
+                  ? 'Verifying with Server...'
+                  : paymentSession.paymentMethod === 'cod'
+                  ? 'Confirm Cash on Delivery Docket'
+                  : `Authorize & Verify ${formatDirectCurrency(
+                      paymentSession.amount,
+                      paymentSession.currency
+                    )}`}
+              </Button>
+
+              {paymentSession.paymentMethod !== 'cod' && (
+                <div className="grid grid-cols-2 gap-2.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={verifyingPayment}
+                    onClick={() => handleVerifyGateway('failed')}
+                    className="text-[#B91C1C] dark:text-[#F87171]"
+                  >
+                    Simulate Failed
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={verifyingPayment}
+                    onClick={() => handleVerifyGateway('cancelled')}
+                  >
+                    Cancel Payment
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

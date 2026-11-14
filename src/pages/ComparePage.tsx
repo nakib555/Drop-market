@@ -1,7 +1,7 @@
 import React from 'react';
 import { ArrowLeftRight, Plus, Star, Trash2 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { formatCurrency } from '../utils/format';
+import { formatCurrency, isProductOutOfStock } from '../utils/format';
 import { Button } from '../components/ui/Button';
 import { Breadcrumb, EmptyState, ResilientImage } from '../components/ui/Primitives';
 
@@ -87,84 +87,100 @@ export const ComparePage: React.FC = () => {
 
           {/* Mobile Stacked Cards (< 640px) */}
           <div className="sm:hidden space-y-4">
-            {compared.map((item) => (
-              <article
-                key={item.id}
-                className="p-4 rounded-lg border border-[#E5E3DD] dark:border-[#2C2C28] bg-[#FFFFFF] dark:bg-[#191917] space-y-4"
-              >
-                <div className="flex items-start gap-3">
-                  <ResilientImage
-                    src={item.images[0]}
-                    alt={item.name}
-                    onClick={() => navigate({ name: 'product', slug: item.slug })}
-                    className="w-24 aspect-[4/3] rounded-md object-cover shrink-0 cursor-pointer"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] uppercase tracking-wider text-[#84827B]">{item.brand}</p>
-                    <h3
-                      onClick={() => navigate({ name: 'product', slug: item.slug })}
-                      className="text-base font-semibold truncate cursor-pointer"
-                    >
-                      {item.name}
-                    </h3>
-                    <p className="text-sm font-mono-num font-semibold mt-1">
-                      {formatCurrency(item.price, currency)}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => toggleCompare(item)}
-                    aria-label={`Remove ${item.name} from comparison`}
-                    className="w-9 h-9 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] flex items-center justify-center text-[#5C5B57] hover:text-[#B91C1C] cursor-pointer shrink-0"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <dl className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] border-y border-[#E5E3DD] dark:border-[#2C2C28] text-xs">
-                  <div className="py-2 flex justify-between gap-3">
-                    <dt className="text-[#84827B]">Highlights</dt>
-                    <dd className="text-right">{item.cardHighlights?.join(' · ') || '—'}</dd>
-                  </div>
-                  <div className="py-2 flex justify-between gap-3">
-                    <dt className="text-[#84827B]">Rating</dt>
-                    <dd className="font-mono-num">
-                      {item.rating.toFixed(1)} ({item.reviewCount})
-                    </dd>
-                  </div>
-                  <div className="py-2 flex justify-between gap-3">
-                    <dt className="text-[#84827B]">Availability</dt>
-                    <dd className="capitalize">{item.availability.replace('-', ' ')}</dd>
-                  </div>
-                  <div className="py-2 flex justify-between gap-3">
-                    <dt className="text-[#84827B]">Key Spec</dt>
-                    <dd className="font-mono-num text-right">{item.specifications[0]?.value || '—'}</dd>
-                  </div>
-                  <div className="py-2 flex justify-between gap-3">
-                    <dt className="text-[#84827B]">Warranty</dt>
-                    <dd className="text-right">{item.warranty}</dd>
-                  </div>
-                </dl>
-
-                <Button
-                  variant="primary"
-                  size="sm"
-                  fullWidth
-                  onClick={() =>
-                    addToCart(
-                      item,
-                      item.colors[0].name,
-                      item.colors[0].hex,
-                      item.sizes[0],
-                      1,
-                      true
-                    )
-                  }
+            {compared.map((item) => {
+              const outOfStock = isProductOutOfStock(item);
+              const primaryColor = item.colors[0] || { name: 'Standard', hex: '#84827B' };
+              const primarySize = item.sizes[0] || 'Standard';
+              return (
+                <article
+                  key={item.id}
+                  className="p-4 rounded-lg border border-[#E5E3DD] dark:border-[#2C2C28] bg-[#FFFFFF] dark:bg-[#191917] space-y-4"
                 >
-                  Add to Bag
-                </Button>
-              </article>
-            ))}
+                  <div className="flex items-start gap-3">
+                    <ResilientImage
+                      src={item.images[0]}
+                      alt={item.name}
+                      onClick={() => navigate({ name: 'product', slug: item.slug })}
+                      className="w-24 aspect-[4/3] rounded-md object-cover shrink-0 cursor-pointer"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] uppercase tracking-wider text-[#84827B]">{item.brand}</p>
+                      <h3
+                        onClick={() => navigate({ name: 'product', slug: item.slug })}
+                        className="text-base font-semibold truncate cursor-pointer"
+                      >
+                        {item.name}
+                      </h3>
+                      <p className="text-sm font-mono-num font-semibold mt-1">
+                        {formatCurrency(item.price, currency)}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleCompare(item)}
+                      aria-label={`Remove ${item.name} from comparison`}
+                      className="w-10 h-10 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] flex items-center justify-center text-[#5C5B57] hover:text-[#B91C1C] cursor-pointer shrink-0"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <dl className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] border-y border-[#E5E3DD] dark:border-[#2C2C28] text-xs">
+                    <div className="py-2 flex justify-between gap-3">
+                      <dt className="text-[#84827B]">Highlights</dt>
+                      <dd className="text-right">{item.cardHighlights?.join(' · ') || '—'}</dd>
+                    </div>
+                    <div className="py-2 flex justify-between gap-3">
+                      <dt className="text-[#84827B]">Rating</dt>
+                      <dd className="font-mono-num">
+                        {item.rating.toFixed(1)} ({item.reviewCount})
+                      </dd>
+                    </div>
+                    <div className="py-2 flex justify-between gap-3">
+                      <dt className="text-[#84827B]">Availability</dt>
+                      <dd
+                        className={
+                          outOfStock ? 'text-[#B91C1C] dark:text-[#F87171] font-medium' : 'capitalize'
+                        }
+                      >
+                        {outOfStock ? 'Out of Stock' : item.availability.replace('-', ' ')}
+                      </dd>
+                    </div>
+                    <div className="py-2 flex justify-between gap-3">
+                      <dt className="text-[#84827B]">Shipping &amp; COD</dt>
+                      <dd className="font-mono-num text-right">
+                        {item.weightKg ? `${item.weightKg} kg · ` : ''}
+                        {item.codEligible === false ? 'Prepaid Only' : 'COD Eligible'}
+                      </dd>
+                    </div>
+                    <div className="py-2 flex justify-between gap-3">
+                      <dt className="text-[#84827B]">Key Spec</dt>
+                      <dd className="font-mono-num text-right">
+                        {item.specifications[0]
+                          ? `${item.specifications[0].label}: ${item.specifications[0].value}`
+                          : '—'}
+                      </dd>
+                    </div>
+                    <div className="py-2 flex justify-between gap-3">
+                      <dt className="text-[#84827B]">Warranty</dt>
+                      <dd className="text-right">{item.warranty}</dd>
+                    </div>
+                  </dl>
+
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    fullWidth
+                    disabled={outOfStock}
+                    onClick={() =>
+                      addToCart(item, primaryColor.name, primaryColor.hex, primarySize, 1, true)
+                    }
+                  >
+                    {outOfStock ? 'Out of Stock' : 'Add to Bag'}
+                  </Button>
+                </article>
+              );
+            })}
           </div>
 
           {/* Tablet & Desktop Matrix Table (>= 640px) */}
@@ -189,9 +205,9 @@ export const ComparePage: React.FC = () => {
                             type="button"
                             onClick={() => toggleCompare(item)}
                             aria-label={`Remove ${item.name} from comparison`}
-                            className="absolute top-2 right-2 w-8 h-8 rounded-md bg-white/90 dark:bg-[#191917]/90 flex items-center justify-center text-[#5C5B57] hover:text-[#B91C1C] cursor-pointer"
+                            className="absolute top-2 right-2 w-10 h-10 rounded-md bg-white/90 dark:bg-[#191917]/90 flex items-center justify-center text-[#5C5B57] hover:text-[#B91C1C] cursor-pointer"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                         <p className="text-[11px] uppercase tracking-wider text-[#84827B]">
@@ -232,19 +248,45 @@ export const ComparePage: React.FC = () => {
                   <td className="p-4 px-5 text-xs uppercase tracking-wider text-[#84827B]">
                     Availability
                   </td>
+                  {compared.map((item) => {
+                    const outOfStock = isProductOutOfStock(item);
+                    return (
+                      <td key={item.id} className="p-4 px-5 text-xs">
+                        <span
+                          className={
+                            outOfStock ? 'text-[#B91C1C] dark:text-[#F87171] font-medium' : 'capitalize'
+                          }
+                        >
+                          {outOfStock ? 'Out of Stock' : item.availability.replace('-', ' ')}
+                        </span>
+                      </td>
+                    );
+                  })}
+                </tr>
+                <tr>
+                  <td className="p-4 px-5 text-xs uppercase tracking-wider text-[#84827B]">
+                    Parcel &amp; COD
+                  </td>
                   {compared.map((item) => (
-                    <td key={item.id} className="p-4 px-5 capitalize text-xs">
-                      {item.availability.replace('-', ' ')}
+                    <td key={item.id} className="p-4 px-5 text-xs font-mono-num">
+                      {item.weightKg ? `${item.weightKg} kg` : 'Standard'} ·{' '}
+                      {item.sizeTier || 'medium'} ·{' '}
+                      {item.codEligible === false ? 'Prepaid Only' : 'COD Eligible'}
                     </td>
                   ))}
                 </tr>
                 <tr>
                   <td className="p-4 px-5 text-xs uppercase tracking-wider text-[#84827B]">
-                    Dimensions / Key Spec
+                    Key Specifications
                   </td>
                   {compared.map((item) => (
                     <td key={item.id} className="p-4 px-5 text-xs font-mono-num">
-                      {item.specifications[0]?.value || '—'}
+                      {item.specifications.length > 0
+                        ? item.specifications
+                            .slice(0, 2)
+                            .map((s) => `${s.label}: ${s.value}`)
+                            .join(' · ')
+                        : '—'}
                     </td>
                   ))}
                 </tr>
@@ -270,26 +312,32 @@ export const ComparePage: React.FC = () => {
                 </tr>
                 <tr>
                   <td className="p-4 px-5 text-xs uppercase tracking-wider text-[#84827B]">Action</td>
-                  {compared.map((item) => (
-                    <td key={item.id} className="p-4 px-5">
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={() =>
-                          addToCart(
-                            item,
-                            item.colors[0].name,
-                            item.colors[0].hex,
-                            item.sizes[0],
-                            1,
-                            true
-                          )
-                        }
-                      >
-                        Add to Bag
-                      </Button>
-                    </td>
-                  ))}
+                  {compared.map((item) => {
+                    const outOfStock = isProductOutOfStock(item);
+                    const primaryColor = item.colors[0] || { name: 'Standard', hex: '#84827B' };
+                    const primarySize = item.sizes[0] || 'Standard';
+                    return (
+                      <td key={item.id} className="p-4 px-5">
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          disabled={outOfStock}
+                          onClick={() =>
+                            addToCart(
+                              item,
+                              primaryColor.name,
+                              primaryColor.hex,
+                              primarySize,
+                              1,
+                              true
+                            )
+                          }
+                        >
+                          {outOfStock ? 'Out of Stock' : 'Add to Bag'}
+                        </Button>
+                      </td>
+                    );
+                  })}
                 </tr>
               </tbody>
             </table>

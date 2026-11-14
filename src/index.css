@@ -57,11 +57,17 @@
   }
 
   html.theme-transitioning,
-  html.theme-transitioning * {
+  html.theme-transitioning body,
+  html.theme-transitioning header,
+  html.theme-transitioning main,
+  html.theme-transitioning footer,
+  html.theme-transitioning section,
+  html.theme-transitioning aside,
+  html.theme-transitioning article {
     transition:
       background-color 220ms cubic-bezier(0.2, 0, 0, 1),
       border-color 220ms cubic-bezier(0.2, 0, 0, 1),
-      color 180ms cubic-bezier(0.2, 0, 0, 1) !important;
+      color 180ms cubic-bezier(0.2, 0, 0, 1);
   }
 
   body {

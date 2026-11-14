@@ -106,12 +106,12 @@ export const CartPage: React.FC = () => {
                     </div>
 
                     <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
-                      <div className="inline-flex items-center border border-[#DCD9D0] dark:border-[#2E2E2A] rounded-md h-9">
+                      <div className="inline-flex items-center border border-[#DCD9D0] dark:border-[#2E2E2A] rounded-md h-10">
                         <button
                           type="button"
                           onClick={() => updateCartQty(item.key, item.quantity - 1)}
                           aria-label="Decrease quantity"
-                          className="w-8 h-full flex items-center justify-center hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] cursor-pointer"
+                          className="w-10 h-full flex items-center justify-center hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] cursor-pointer"
                         >
                           <Minus className="w-3.5 h-3.5" />
                         </button>
@@ -120,17 +120,17 @@ export const CartPage: React.FC = () => {
                           type="button"
                           onClick={() => updateCartQty(item.key, item.quantity + 1)}
                           aria-label="Increase quantity"
-                          className="w-8 h-full flex items-center justify-center hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] cursor-pointer"
+                          className="w-10 h-full flex items-center justify-center hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] cursor-pointer"
                         >
                           <Plus className="w-3.5 h-3.5" />
                         </button>
                       </div>
 
-                      <div className="flex items-center gap-4 text-xs">
+                      <div className="flex items-center gap-3 text-xs">
                         <button
                           type="button"
                           onClick={() => saveItemForLater(item.key)}
-                          className="inline-flex items-center gap-1.5 text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                          className="inline-flex items-center gap-1.5 min-h-[36px] py-1.5 px-1 text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
                         >
                           <Bookmark className="w-3.5 h-3.5" />
                           <span>Save for later</span>
@@ -138,7 +138,7 @@ export const CartPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => removeFromCart(item.key)}
-                          className="inline-flex items-center gap-1.5 text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#B91C1C] dark:hover:text-[#F87171] cursor-pointer"
+                          className="inline-flex items-center gap-1.5 min-h-[36px] py-1.5 px-1 text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#B91C1C] dark:hover:text-[#F87171] cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                           <span>Remove</span>
@@ -193,7 +193,7 @@ export const CartPage: React.FC = () => {
                     type="button"
                     onClick={removePromoCode}
                     aria-label="Remove promo code"
-                    className="text-[#5C5B57] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="w-8 h-8 rounded flex items-center justify-center text-[#5C5B57] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>

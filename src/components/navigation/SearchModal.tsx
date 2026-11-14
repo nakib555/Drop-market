@@ -5,7 +5,7 @@ import { BRAND_STUDIOS } from '../../data/catalog';
 import { useStore } from '../../context/StoreContext';
 import { formatCurrency, fuzzyScoreText } from '../../utils/format';
 import { STUDIO_TRANSITION } from '../../utils/motion';
-import { ResilientImage } from '../ui/Primitives';
+import { ResilientImage, useFocusTrap } from '../ui/Primitives';
 
 interface SearchModalProps {
   open: boolean;
@@ -34,19 +34,28 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
   const [term, setTerm] = useState('');
   const [activeIndex, setActiveIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useFocusTrap(open, panelRef);
 
   useEffect(() => {
     setActiveIndex(-1);
   }, [term, open]);
 
   useEffect(() => {
-    if (!open) return;
-    setTimeout(() => inputRef.current?.focus(), 40);
+    if (!open) {
+      setTerm('');
+      return;
+    }
+    const timer = window.setTimeout(() => inputRef.current?.focus(), 40);
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('keydown', onKey);
+    };
   }, [open, onClose]);
 
   const matchingCategories = useMemo(() => {
@@ -140,12 +149,14 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
           onClick={onClose}
         >
           <motion.div
+            ref={panelRef}
+            tabIndex={-1}
             key="search-panel"
             initial={{ opacity: 0, scale: 0.97, y: -8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: -6 }}
             transition={STUDIO_TRANSITION.base}
-            className="w-full max-w-2xl rounded-lg bg-[#FFFFFF] dark:bg-[#191917] text-[#171716] dark:text-[#F4F3EF] border border-[#E5E3DD] dark:border-[#2C2C28] shadow-2xl overflow-hidden"
+            className="w-full max-w-2xl rounded-lg bg-[#FFFFFF] dark:bg-[#191917] text-[#171716] dark:text-[#F4F3EF] border border-[#E5E3DD] dark:border-[#2C2C28] shadow-2xl overflow-hidden focus:outline-none"
             onClick={(e) => e.stopPropagation()}
           >
             <form
@@ -171,7 +182,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
                   type="button"
                   onClick={() => setTerm('')}
                   aria-label="Clear search query"
-                  className="text-xs text-[#84827B] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                  className="text-xs text-[#84827B] hover:text-[#171716] dark:hover:text-[#F4F3EF] px-2 py-1 cursor-pointer"
                 >
                   Clear
                 </button>
@@ -180,7 +191,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
                 type="button"
                 onClick={onClose}
                 aria-label="Close search"
-                className="w-8 h-8 rounded-md flex items-center justify-center text-[#5C5B57] dark:text-[#A3A19B] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] cursor-pointer"
+                className="w-10 h-10 -mr-1 rounded-md flex items-center justify-center text-[#5C5B57] dark:text-[#A3A19B] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>

@@ -1,27 +1,95 @@
 export type CoreCategorySlug =
   | 'electronics-tech'
-  | 'fashion-apparel'
-  | 'home-living'
+  | 'fashion-accessories'
+  | 'home-furniture-kitchen'
   | 'beauty-care'
-  | 'grocery-food'
-  | 'sports-outdoor'
-  | 'books-office'
-  | 'toys-entertainment';
+  | 'grocery-food-household'
+  | 'sports-outdoors-travel'
+  | 'books-stationery-office'
+  | 'automotive-tools-industrial'
+  | 'baby-kids-toys-hobbies'
+  | 'health-wellness-pets';
 
 export type CategorySlug = CoreCategorySlug | (string & {});
 
-export type AvailabilityStatus = 'in-stock' | 'low-stock' | 'made-to-order';
+export type AvailabilityStatus = 'in-stock' | 'low-stock' | 'made-to-order' | 'out-of-stock';
 
 export type UserRole = 'customer' | 'seller' | 'admin';
 
+export type CurrencyCode = 'BDT' | 'USD';
+
+export type AttributeType =
+  | 'text'
+  | 'number'
+  | 'boolean'
+  | 'single_select'
+  | 'multi_select'
+  | 'range'
+  | 'color'
+  | 'size'
+  | 'measurement'
+  | 'date';
+
+export interface MeasurementValue {
+  value: number;
+  unit: string;
+}
+
+export interface RangeValue {
+  min: number;
+  max: number;
+  unit?: string;
+}
+
+export type TypedAttributeValue =
+  | string
+  | number
+  | boolean
+  | string[]
+  | MeasurementValue
+  | RangeValue;
+
 export interface SubcategoryMeta {
+  id?: string;
   slug: string;
   name: string;
+  parentId?: string | null;
+  depth?: number;
+  children?: SubcategoryMeta[];
 }
 
 export interface CategoryFacetConfig {
   key: string;
   label: string;
+  type: AttributeType;
+  unit?: string;
+  options?: string[];
+  min?: number;
+  max?: number;
+  step?: number;
+  filterable?: boolean;
+}
+
+export interface CategoryNode {
+  id: string;
+  slug: CategorySlug;
+  name: string;
+  shortName: string;
+  parentId: string | null;
+  depth: number;
+  pathSlugs: string[];
+  description: string;
+  bannerTagline: string;
+  iconName: string;
+  imagePresetKey: string;
+  countLabel: string;
+  sortOrder: number;
+  isActive: boolean;
+  seoTitle: string;
+  seoDescription: string;
+  collectionIds: string[];
+  featuredBrands: string[];
+  filterFacets: CategoryFacetConfig[];
 }
 
 export interface CategoryMeta {
@@ -29,12 +97,22 @@ export interface CategoryMeta {
   slug: CategorySlug;
   name: string;
   shortName: string;
+  parentId: string | null;
+  depth: number;
+  pathSlugs: string[];
   description: string;
   bannerTagline: string;
+  iconName: string;
   image: string;
   imagePresetKey?: string;
   countLabel: string;
+  sortOrder: number;
+  isActive: boolean;
+  seoTitle: string;
+  seoDescription: string;
+  collectionIds: string[];
   subcategories: SubcategoryMeta[];
+  descendantSlugs: string[];
   featuredBrands: string[];
   filterFacets: CategoryFacetConfig[];
 }
@@ -69,6 +147,8 @@ export interface ProductSpec {
   value: string;
 }
 
+export type ProductSizeTier = 'small' | 'medium' | 'bulky' | 'freight';
+
 export interface Product {
   id: string;
   slug: string;
@@ -80,6 +160,11 @@ export interface Product {
   categoryLabel: string;
   subcategory: string;
   subcategoryLabel: string;
+  categoryIds?: string[];
+  collectionIds?: string[];
+  weightKg?: number;
+  sizeTier?: ProductSizeTier;
+  codEligible?: boolean;
   price: number;
   originalPrice?: number;
   rating: number;
@@ -96,6 +181,7 @@ export interface Product {
   variantSizeLabel?: string;
   cardHighlights: string[];
   attributes: Record<string, string>;
+  typedAttributes?: Record<string, TypedAttributeValue>;
   specifications: ProductSpec[];
   careNote?: string;
   deliveryEstimate: string;
@@ -125,6 +211,8 @@ export interface CartItem {
   size: string;
   quantity: number;
   stockCount: number;
+  weightKg?: number;
+  sizeTier?: ProductSizeTier;
 }
 
 export interface PromoCode {
@@ -138,13 +226,143 @@ export interface PromoCode {
 export type DeliveryMethodId = 'standard' | 'express' | 'white-glove';
 
 export type PaymentMethodId =
-  | 'card'
-  | 'wallet'
   | 'bkash'
   | 'nagad'
   | 'rocket'
+  | 'visa'
+  | 'mastercard'
+  | 'cod'
+  | 'sslcommerz'
   | 'bank-transfer'
-  | 'cod';
+  | 'card'
+  | 'wallet';
+
+export type PaymentStatus =
+  | 'unpaid'
+  | 'pending'
+  | 'paid'
+  | 'failed'
+  | 'cancelled'
+  | 'cod_pending';
+
+export interface OrderCurrencySnapshot {
+  baseCurrency: 'USD';
+  transactionCurrency: CurrencyCode;
+  exchangeRate: number;
+  rateSource: string;
+  rateTimestamp: string;
+  roundingRule: string;
+  baseSubtotalUsd: number;
+  baseTotalUsd: number;
+  chargedTotal: number;
+}
+
+export interface CurrencyRateState {
+  baseCurrency: 'USD';
+  defaultCurrency: CurrencyCode;
+  rates: Record<CurrencyCode, number>;
+  source: string;
+  updateFrequencyMinutes: number;
+  updatedAt: string;
+  roundingRules: Record<CurrencyCode, { decimals: number; mode: string }>;
+}
+
+export type ShippingZoneId =
+  | 'dhaka_metro'
+  | 'dhaka_suburbs'
+  | 'chattogram_sylhet_metro'
+  | 'nationwide_district'
+  | 'remote_restricted'
+  | 'international';
+
+export interface ShippingZoneRule {
+  zoneId: ShippingZoneId;
+  label: string;
+  standardFeeUsd: number;
+  expressFeeUsd: number;
+  expressAvailable: boolean;
+  whiteGloveFeeUsd: number;
+  whiteGloveAvailable: boolean;
+  freeThresholdUsd: number;
+  baseWeightAllowanceKg: number;
+  perExtraKgUsd: number;
+  bulkySurchargeUsd: number;
+  freightSurchargeUsd: number;
+  standardEta: string;
+  expressEta: string;
+  whiteGloveEta: string;
+  codEligible: boolean;
+  codMaxOrderUsd: number;
+  isRestricted: boolean;
+  restrictionReason?: string;
+}
+
+export interface ShippingRuleConfig {
+  zones: ShippingZoneRule[];
+  restrictedAreaKeywords: string[];
+  updatedAt: string;
+}
+
+export interface ShippingQuoteOption {
+  id: DeliveryMethodId;
+  title: string;
+  eta: string;
+  courier: string;
+  costUsd: number;
+  costDisplay: number;
+  available: boolean;
+  reason?: string;
+}
+
+export interface ShippingQuoteResponse {
+  zoneId: ShippingZoneId;
+  zoneLabel: string;
+  restricted: boolean;
+  restrictionReason?: string;
+  codEligible: boolean;
+  codReason?: string;
+  totalWeightKg: number;
+  hasBulkyItems: boolean;
+  freeShippingThresholdUsd: number;
+  freeShippingRemainingUsd: number;
+  options: ShippingQuoteOption[];
+}
+
+export interface CheckoutQuoteResponse {
+  currency: CurrencyCode;
+  currencySnapshot: OrderCurrencySnapshot;
+  shippingQuote: ShippingQuoteResponse;
+  subtotalUsd: number;
+  discountUsd: number;
+  taxUsd: number;
+  shippingUsd: number;
+  totalUsd: number;
+  subtotalCharged: number;
+  discountCharged: number;
+  taxCharged: number;
+  shippingCharged: number;
+  totalCharged: number;
+  promoApplied?: string;
+  allowedPaymentMethods: PaymentMethodId[];
+}
+
+export interface PaymentSession {
+  id: string;
+  idempotencyKey: string;
+  transactionRef: string;
+  provider: string;
+  paymentMethod: PaymentMethodId;
+  status: PaymentStatus;
+  amount: number;
+  currency: CurrencyCode;
+  baseAmountUsd: number;
+  currencySnapshot: OrderCurrencySnapshot;
+  createdAt: string;
+  updatedAt: string;
+  failureReason?: string;
+  gatewayInstructions: string;
+  orderId?: string;
+}
 
 export interface Address {
   id: string;
@@ -154,6 +372,7 @@ export interface Address {
   country: string;
   state: string;
   city: string;
+  upazila?: string;
   area: string;
   streetAddress: string;
   postalCode: string;
@@ -187,6 +406,7 @@ export interface Order {
     country: string;
     state: string;
     city: string;
+    upazila?: string;
     area: string;
     streetAddress: string;
     postalCode: string;
@@ -199,6 +419,10 @@ export interface Order {
   trackingNumber: string;
   paymentMethod: PaymentMethodId;
   paymentLabel: string;
+  paymentStatus: PaymentStatus;
+  transactionRef?: string;
+  gatewayProvider?: string;
+  currencySnapshot?: OrderCurrencySnapshot;
   promoCode?: string;
   items: CartItem[];
   subtotal: number;
@@ -265,6 +489,9 @@ export interface ApiSellerProductRecord {
   categoryLabel: string;
   subcategory: string;
   subcategoryLabel: string;
+  weightKg?: number;
+  sizeTier?: ProductSizeTier;
+  codEligible?: boolean;
   price: number;
   originalPrice?: number;
   rating: number;
@@ -279,6 +506,7 @@ export interface ApiSellerProductRecord {
   sizes: string[];
   cardHighlights: string[];
   attributes: Record<string, string>;
+  typedAttributes?: Record<string, TypedAttributeValue>;
   specifications: ProductSpec[];
   deliveryEstimate: string;
   returnPolicy: string;
@@ -293,10 +521,18 @@ export interface DynamicCategoryRecord {
   slug: CategorySlug;
   name: string;
   shortName: string;
+  parentId?: string | null;
+  depth?: number;
   description: string;
   bannerTagline: string;
+  iconName?: string;
   imagePresetKey: string;
   countLabel: string;
+  sortOrder?: number;
+  isActive?: boolean;
+  seoTitle?: string;
+  seoDescription?: string;
+  collectionIds?: string[];
   subcategories: SubcategoryMeta[];
   featuredBrands: string[];
   filterFacets: CategoryFacetConfig[];
@@ -357,7 +593,9 @@ export interface AdminDashboardData {
   users: AccountDirectoryEntry[];
   sellerApplications: SellerApplicationRecord[];
   orders: Order[];
-  categories: DynamicCategoryRecord[];
+  categories: CategoryNode[];
+  currencyConfig: CurrencyRateState;
+  shippingConfig: ShippingRuleConfig;
 }
 
 export interface PaymentMethodRecord {

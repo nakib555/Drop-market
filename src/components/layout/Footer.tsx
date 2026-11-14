@@ -4,7 +4,7 @@ import { useStore } from '../../context/StoreContext';
 import { Button } from '../ui/Button';
 
 export const Footer: React.FC = () => {
-  const { categories, currency, toggleCurrency, navigate, showToast } = useStore();
+  const { categories, currency, currencyConfig, toggleCurrency, navigate, showToast } = useStore();
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
 
@@ -28,7 +28,7 @@ export const Footer: React.FC = () => {
             <div>
               <p className="font-display text-2xl font-semibold tracking-[0.08em]">KINTO STUDIO</p>
               <p className="text-sm text-[#5C5B57] dark:text-[#A3A19B] mt-2 max-w-sm leading-relaxed">
-                Curated multi-department marketplace across electronics, fashion, home living, botanical skincare, gourmet coffee, outdoor gear, office instruments, and gift sets.
+                Universal 10-department marketplace across electronics, fashion, furniture, beauty, grocery, outdoors, books, tools, baby, and wellness—settled securely in BDT and USD.
               </p>
             </div>
             <form onSubmit={handleSubscribe} className="max-w-md space-y-2" noValidate>
@@ -56,18 +56,23 @@ export const Footer: React.FC = () => {
                 <p className="text-xs text-[#B91C1C] dark:text-[#F87171]">{emailError}</p>
               )}
             </form>
+            <p className="text-[11px] font-mono-num text-[#84827B]">
+              FX Reference: 1 USD = ৳{currencyConfig.rates.BDT.toFixed(2)} ({currencyConfig.source})
+            </p>
           </div>
 
           {/* Link Columns */}
           <div className="lg:col-span-7 grid grid-cols-2 sm:grid-cols-4 gap-8 text-sm">
-            <div className="space-y-3">
-              <p className="text-xs uppercase tracking-wider text-[#84827B]">Departments</p>
-              <ul className="space-y-2 text-[#5C5B57] dark:text-[#B4B2AC]">
+            <div className="space-y-3 col-span-2 sm:col-span-1">
+              <p className="text-xs uppercase tracking-wider text-[#84827B]">
+                Departments ({categories.length})
+              </p>
+              <ul className="space-y-1.5 text-xs sm:text-sm text-[#5C5B57] dark:text-[#B4B2AC]">
                 <li>
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'shop', category: 'all' })}
-                    className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer text-left"
+                    className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer text-left font-medium"
                   >
                     All Products
                   </button>
@@ -233,10 +238,10 @@ export const Footer: React.FC = () => {
         </div>
 
         <div className="pt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-[#5C5B57] dark:text-[#A3A19B]">
-          <p>© 2026 Kinto Studio LLC · Portland · New York · Dhaka Hub.</p>
+          <p>© 2026 Kinto Studio LLC · Dhaka Hub · Portland · New York.</p>
           <div className="flex flex-wrap items-center gap-3">
             <span className="hidden md:inline text-[#84827B]">
-              Channels: Card · bKash · Nagad · Rocket · Bank · COD
+              Payments: bKash · Nagad · Rocket · Visa · Mastercard · COD
             </span>
             <span className="hidden md:inline" aria-hidden="true">
               ·
@@ -246,7 +251,7 @@ export const Footer: React.FC = () => {
               onClick={toggleCurrency}
               className="font-mono-num hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
             >
-              Currency: {currency === 'USD' ? 'USD ($)' : 'BDT (৳)'}
+              Currency: {currency === 'BDT' ? 'BDT (৳)' : 'USD ($)'}
             </button>
             <span aria-hidden="true">·</span>
             <button

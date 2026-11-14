@@ -385,7 +385,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
             </div>
           ) : primaryRoleAccounts.length === 0 ? (
             <div className="p-4 rounded-md bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] text-xs text-[#5C5B57] dark:text-[#A3A19B]">
-              Account directory unavailable offline. Use the form on the left or ensure the Express backend server is running.
+              Marketplace account directory is temporarily unavailable. Use the sign-in form on the left or try refreshing shortly.
             </div>
           ) : (
             <div className="space-y-3">
@@ -445,7 +445,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
         </div>
 
         <p className="text-[11px] text-[#84827B] pt-3 border-t border-[#DCD9D0] dark:border-[#2C2C28]">
-          All sessions synchronize via Express <span className="font-mono-num">/api/auth/*</span> and persist across pages.
+          Sessions stay synchronized securely across storefront, seller, and admin workspaces.
         </p>
       </div>
     </div>

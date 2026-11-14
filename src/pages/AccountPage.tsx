@@ -24,11 +24,17 @@ import { AdminDashboard } from '../components/account/AdminDashboard';
 import { SellerDashboard } from '../components/account/SellerDashboard';
 import { AuthPanel } from '../components/auth/AuthPanel';
 import { Button } from '../components/ui/Button';
-import { Checkbox, Input } from '../components/ui/FormFields';
-import { Breadcrumb, Modal, ResilientImage } from '../components/ui/Primitives';
+import { Checkbox, Input, Select } from '../components/ui/FormFields';
+import { Breadcrumb, EmptyState, Modal, ResilientImage } from '../components/ui/Primitives';
+import { BANGLADESH_GEO_TREE } from '../../server/shared/marketplaceSchema';
 import { useStore } from '../context/StoreContext';
 import { Order } from '../types/commerce';
-import { formatCurrency, formatShortDate } from '../utils/format';
+import {
+  formatCurrency,
+  formatDirectCurrency,
+  formatShortDate,
+  isProductOutOfStock,
+} from '../utils/format';
 import { STUDIO_TRANSITION } from '../utils/motion';
 
 type AccountSection =
@@ -117,18 +123,28 @@ export const AccountPage: React.FC = () => {
   const [confirmPwd, setConfirmPwd] = useState('');
   const [pwdError, setPwdError] = useState('');
 
-  // Add address form
+  // Add address form (defaults to Bangladesh 5-level hierarchy)
+  const bdDefaultDiv = BANGLADESH_GEO_TREE[0];
+  const bdDefaultDist = bdDefaultDiv.districts[0];
+  const bdDefaultUpa = bdDefaultDist.upazilas[0];
+  const bdDefaultArea = bdDefaultUpa.areas[0];
+
   const [showAddrForm, setShowAddrForm] = useState(false);
   const [addrLabel, setAddrLabel] = useState('');
+  const [addrCountry, setAddrCountry] = useState('Bangladesh');
   const [addrStreet, setAddrStreet] = useState('');
-  const [addrCity, setAddrCity] = useState('');
-  const [addrState, setAddrState] = useState('');
-  const [addrZip, setAddrZip] = useState('');
+  const [addrState, setAddrState] = useState(bdDefaultDiv.name);
+  const [addrCity, setAddrCity] = useState(bdDefaultDist.name);
+  const [addrUpazila, setAddrUpazila] = useState(bdDefaultUpa.name);
+  const [addrArea, setAddrArea] = useState(bdDefaultArea.name);
+  const [addrZip, setAddrZip] = useState(bdDefaultArea.postalCode);
+  const [addrError, setAddrError] = useState('');
 
   // Add payment card form
   const [cardBrand, setCardBrand] = useState('Visa');
   const [cardLast4, setCardLast4] = useState('');
   const [cardExp, setCardExp] = useState('');
+  const [cardError, setCardError] = useState('');
 
   const wishlistedProducts = products.filter((p) => wishlistIds.includes(p.id));
   const authoredReviews = products.flatMap((p) =>
@@ -555,30 +571,42 @@ export const AccountPage: React.FC = () => {
                     View all orders
                   </button>
                 </div>
-                <div className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] border-y border-[#E5E3DD] dark:border-[#2C2C28]">
-                  {orders.slice(0, 3).map((ord) => (
-                    <div key={ord.id} className="py-4 flex flex-wrap items-center justify-between gap-4">
-                      <div>
-                        <p className="text-sm font-mono-num font-semibold">Order #{ord.id}</p>
-                        <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5">
-                          {formatShortDate(ord.createdAt)} · {ord.currentStage}
-                        </p>
+                {orders.length === 0 ? (
+                  <p className="text-sm text-[#5C5B57] dark:text-[#A3A19B] py-4 border-y border-[#E5E3DD] dark:border-[#2C2C28]">
+                    No orders recorded yet. Explore the marketplace catalog to place your first order.
+                  </p>
+                ) : (
+                  <div className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] border-y border-[#E5E3DD] dark:border-[#2C2C28]">
+                    {orders.slice(0, 3).map((ord) => (
+                      <div key={ord.id} className="py-4 flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-mono-num font-semibold">Order #{ord.id}</p>
+                          <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5">
+                            {formatShortDate(ord.createdAt)} · {ord.currentStage} ·{' '}
+                            <span className="uppercase font-mono-num">{ord.paymentStatus}</span>
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-sm font-mono-num font-medium">
+                            {ord.currencySnapshot
+                              ? formatDirectCurrency(
+                                  ord.currencySnapshot.chargedTotal,
+                                  ord.currencySnapshot.transactionCurrency
+                                )
+                              : formatCurrency(ord.total, currency)}
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            onClick={() => navigate({ name: 'track-order', orderId: ord.id })}
+                          >
+                            Track
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-sm font-mono-num font-medium">
-                          {formatCurrency(ord.total, currency)}
-                        </span>
-                        <Button
-                          variant="outline"
-                          size="xs"
-                          onClick={() => navigate({ name: 'track-order', orderId: ord.id })}
-                        >
-                          Track
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -688,60 +716,198 @@ export const AccountPage: React.FC = () => {
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    if (!addrLabel.trim() || !addrStreet.trim() || !addrCity.trim()) return;
+                    if (!addrLabel.trim() || !addrStreet.trim() || !addrCity.trim()) {
+                      setAddrError('Label, street address, and city/district are required.');
+                      return;
+                    }
+                    setAddrError('');
                     saveAddress({
                       label: addrLabel.trim(),
                       fullName: profile.fullName,
                       phone: profile.phone,
-                      country: 'United States',
-                      state: addrState.trim() || 'CA',
+                      country: addrCountry,
+                      state: addrState.trim() || (addrCountry === 'Bangladesh' ? 'Dhaka' : 'CA'),
                       city: addrCity.trim(),
-                      area: addrCity.trim(),
+                      upazila: addrCountry === 'Bangladesh' ? addrUpazila.trim() : undefined,
+                      area: addrArea.trim() || addrCity.trim(),
                       streetAddress: addrStreet.trim(),
-                      postalCode: addrZip.trim() || '94115',
+                      postalCode: addrZip.trim() || (addrCountry === 'Bangladesh' ? '1213' : '94115'),
                       isDefault: false,
                     });
                     setAddrLabel('');
                     setAddrStreet('');
-                    setAddrCity('');
-                    setAddrState('');
-                    setAddrZip('');
                     setShowAddrForm(false);
                   }}
                   className="p-5 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-4"
                 >
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Input
-                      label="Label (e.g., Residence, Loft)"
+                      label="Label (e.g., Dhaka Studio, Residence)"
                       required
                       value={addrLabel}
-                      onChange={(e) => setAddrLabel(e.target.value)}
+                      onChange={(e) => {
+                        setAddrLabel(e.target.value);
+                        setAddrError('');
+                      }}
                     />
+                    <Select
+                      label="Country / Region"
+                      value={addrCountry}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setAddrCountry(next);
+                        setAddrError('');
+                        if (next === 'Bangladesh') {
+                          setAddrState(bdDefaultDiv.name);
+                          setAddrCity(bdDefaultDist.name);
+                          setAddrUpazila(bdDefaultUpa.name);
+                          setAddrArea(bdDefaultArea.name);
+                          setAddrZip(bdDefaultArea.postalCode);
+                        } else {
+                          setAddrState('');
+                          setAddrCity('');
+                          setAddrUpazila('');
+                          setAddrArea('');
+                          setAddrZip('');
+                        }
+                      }}
+                      options={[
+                        { value: 'Bangladesh', label: 'Bangladesh' },
+                        { value: 'United States', label: 'United States' },
+                        { value: 'Canada', label: 'Canada' },
+                        { value: 'United Kingdom', label: 'United Kingdom' },
+                      ]}
+                    />
+
+                    {addrCountry === 'Bangladesh' ? (
+                      <>
+                        {(() => {
+                          const divObj =
+                            BANGLADESH_GEO_TREE.find((d) => d.name === addrState) ||
+                            BANGLADESH_GEO_TREE[0];
+                          const distObj =
+                            divObj.districts.find((d) => d.name === addrCity) || divObj.districts[0];
+                          const upaObj =
+                            distObj.upazilas.find((u) => u.name === addrUpazila) ||
+                            distObj.upazilas[0];
+                          return (
+                            <>
+                              <Select
+                                label="Division"
+                                value={divObj.name}
+                                onChange={(e) => {
+                                  const d =
+                                    BANGLADESH_GEO_TREE.find((x) => x.name === e.target.value) ||
+                                    BANGLADESH_GEO_TREE[0];
+                                  const dist = d.districts[0];
+                                  const upa = dist.upazilas[0];
+                                  const ar = upa.areas[0];
+                                  setAddrState(d.name);
+                                  setAddrCity(dist.name);
+                                  setAddrUpazila(upa.name);
+                                  setAddrArea(ar.name);
+                                  setAddrZip(ar.postalCode);
+                                }}
+                                options={BANGLADESH_GEO_TREE.map((d) => ({
+                                  value: d.name,
+                                  label: d.name,
+                                }))}
+                              />
+                              <Select
+                                label="District"
+                                value={distObj.name}
+                                onChange={(e) => {
+                                  const dist =
+                                    divObj.districts.find((x) => x.name === e.target.value) ||
+                                    divObj.districts[0];
+                                  const upa = dist.upazilas[0];
+                                  const ar = upa.areas[0];
+                                  setAddrCity(dist.name);
+                                  setAddrUpazila(upa.name);
+                                  setAddrArea(ar.name);
+                                  setAddrZip(ar.postalCode);
+                                }}
+                                options={divObj.districts.map((d) => ({
+                                  value: d.name,
+                                  label: d.name,
+                                }))}
+                              />
+                              <Select
+                                label="City / Upazila"
+                                value={upaObj.name}
+                                onChange={(e) => {
+                                  const upa =
+                                    distObj.upazilas.find((x) => x.name === e.target.value) ||
+                                    distObj.upazilas[0];
+                                  const ar = upa.areas[0];
+                                  setAddrUpazila(upa.name);
+                                  setAddrArea(ar.name);
+                                  setAddrZip(ar.postalCode);
+                                }}
+                                options={distObj.upazilas.map((u) => ({
+                                  value: u.name,
+                                  label: u.name,
+                                }))}
+                              />
+                              <Select
+                                label="Area / Neighborhood"
+                                value={
+                                  upaObj.areas.some((a) => a.name === addrArea)
+                                    ? addrArea
+                                    : upaObj.areas[0]?.name || ''
+                                }
+                                onChange={(e) => {
+                                  const ar = upaObj.areas.find((x) => x.name === e.target.value);
+                                  setAddrArea(e.target.value);
+                                  if (ar) setAddrZip(ar.postalCode);
+                                }}
+                                options={upaObj.areas.map((a) => ({
+                                  value: a.name,
+                                  label: a.name,
+                                }))}
+                              />
+                            </>
+                          );
+                        })()}
+                      </>
+                    ) : (
+                      <>
+                        <Input
+                          label="State / Province"
+                          value={addrState}
+                          onChange={(e) => setAddrState(e.target.value)}
+                        />
+                        <Input
+                          label="City"
+                          required
+                          value={addrCity}
+                          onChange={(e) => {
+                            setAddrCity(e.target.value);
+                            setAddrArea(e.target.value);
+                            setAddrError('');
+                          }}
+                        />
+                      </>
+                    )}
+
                     <Input
                       label="Street Address"
                       required
                       value={addrStreet}
-                      onChange={(e) => setAddrStreet(e.target.value)}
+                      onChange={(e) => {
+                        setAddrStreet(e.target.value);
+                        setAddrError('');
+                      }}
                     />
                     <Input
-                      label="City"
-                      required
-                      value={addrCity}
-                      onChange={(e) => setAddrCity(e.target.value)}
+                      label="Postal Code"
+                      value={addrZip}
+                      onChange={(e) => setAddrZip(e.target.value)}
                     />
-                    <div className="grid grid-cols-2 gap-3">
-                      <Input
-                        label="State"
-                        value={addrState}
-                        onChange={(e) => setAddrState(e.target.value)}
-                      />
-                      <Input
-                        label="Postal Code"
-                        value={addrZip}
-                        onChange={(e) => setAddrZip(e.target.value)}
-                      />
-                    </div>
                   </div>
+                  {addrError && (
+                    <p className="text-xs text-[#B91C1C] dark:text-[#F87171]">{addrError}</p>
+                  )}
                   <Button type="submit" variant="primary" size="sm">
                     Save Address
                   </Button>
@@ -765,7 +931,10 @@ export const AccountPage: React.FC = () => {
                       </div>
                       <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B]">{addr.streetAddress}</p>
                       <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B]">
-                        {addr.city}, {addr.state} {addr.postalCode}
+                        {[addr.area, addr.upazila, addr.city, addr.state, addr.postalCode]
+                          .filter(Boolean)
+                          .join(', ')}{' '}
+                        · {addr.country}
                       </p>
                     </div>
                     <div className="flex items-center gap-3 pt-2 border-t border-[#E5E3DD] dark:border-[#2C2C28] text-xs">
@@ -795,72 +964,88 @@ export const AccountPage: React.FC = () => {
           {section === 'orders' && (
             <div className="space-y-6">
               <h2 className="font-display text-2xl font-medium">Order History</h2>
-              <div className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] border-y border-[#E5E3DD] dark:border-[#2C2C28]">
-                {orders.map((ord) => {
-                  const canCancel = ['Confirmed', 'Processing'].includes(ord.currentStage);
-                  const canReturn = ord.currentStage === 'Delivered';
-                  return (
-                    <div key={ord.id} className="py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="space-y-1">
-                        <p className="text-sm font-mono-num font-semibold">Order #{ord.id}</p>
-                        <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B]">
-                          Placed {formatShortDate(ord.createdAt)} · {ord.items.length} item(s) ·{' '}
-                          <span
-                            className={`font-medium ${
-                              ord.currentStage === 'Cancelled'
-                                ? 'text-[#B91C1C] dark:text-[#F87171]'
-                                : ord.currentStage === 'Return Requested'
-                                ? 'text-[#B45309] dark:text-[#FBBF24]'
-                                : 'text-[#171716] dark:text-[#F4F3EF]'
-                            }`}
-                          >
-                            {ord.currentStage}
+              {orders.length === 0 ? (
+                <EmptyState
+                  icon={<Package className="w-5 h-5" />}
+                  title="No orders placed yet"
+                  description="Completed marketplace orders and shipment tracking details will appear here."
+                  actionLabel="Browse Catalog"
+                  onAction={() => navigate({ name: 'shop', category: 'all' })}
+                />
+              ) : (
+                <div className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] border-y border-[#E5E3DD] dark:border-[#2C2C28]">
+                  {orders.map((ord) => {
+                    const canCancel = ['Confirmed', 'Processing'].includes(ord.currentStage);
+                    const canReturn = ord.currentStage === 'Delivered';
+                    return (
+                      <div key={ord.id} className="py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="space-y-1">
+                          <p className="text-sm font-mono-num font-semibold">Order #{ord.id}</p>
+                          <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B]">
+                            Placed {formatShortDate(ord.createdAt)} · {ord.items.length} item(s) ·{' '}
+                            <span
+                              className={`font-medium ${
+                                ord.currentStage === 'Cancelled'
+                                  ? 'text-[#B91C1C] dark:text-[#F87171]'
+                                  : ord.currentStage === 'Return Requested'
+                                  ? 'text-[#B45309] dark:text-[#FBBF24]'
+                                  : 'text-[#171716] dark:text-[#F4F3EF]'
+                              }`}
+                            >
+                              {ord.currentStage}
+                            </span>{' '}
+                            · <span className="uppercase font-mono-num">{ord.paymentStatus}</span>
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-mono-num font-semibold mr-1">
+                            {ord.currencySnapshot
+                              ? formatDirectCurrency(
+                                  ord.currencySnapshot.chargedTotal,
+                                  ord.currencySnapshot.transactionCurrency
+                                )
+                              : formatCurrency(ord.total, currency)}
                           </span>
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-mono-num font-semibold mr-1">
-                          {formatCurrency(ord.total, currency)}
-                        </span>
-                        <Button variant="outline" size="xs" onClick={() => setSelectedOrder(ord)}>
-                          Details
-                        </Button>
-                        <Button variant="outline" size="xs" onClick={() => reorderFromOrder(ord)}>
-                          Reorder
-                        </Button>
-                        {canCancel && (
-                          <Button
-                            variant="outline"
-                            size="xs"
-                            onClick={() => cancelOrder(ord.id)}
-                            className="text-[#B91C1C] dark:text-[#F87171]"
-                          >
-                            <XCircle className="w-3 h-3" />
-                            <span>Cancel</span>
+                          <Button variant="outline" size="xs" onClick={() => setSelectedOrder(ord)}>
+                            Details
                           </Button>
-                        )}
-                        {canReturn && (
-                          <Button
-                            variant="outline"
-                            size="xs"
-                            onClick={() => requestOrderReturn(ord.id)}
-                          >
-                            <RotateCcw className="w-3 h-3" />
-                            <span>Return</span>
+                          <Button variant="outline" size="xs" onClick={() => reorderFromOrder(ord)}>
+                            Reorder
                           </Button>
-                        )}
-                        <Button
-                          variant="primary"
-                          size="xs"
-                          onClick={() => navigate({ name: 'track-order', orderId: ord.id })}
-                        >
-                          Track
-                        </Button>
+                          {canCancel && (
+                            <Button
+                              variant="outline"
+                              size="xs"
+                              onClick={() => cancelOrder(ord.id)}
+                              className="text-[#B91C1C] dark:text-[#F87171]"
+                            >
+                              <XCircle className="w-3 h-3" />
+                              <span>Cancel</span>
+                            </Button>
+                          )}
+                          {canReturn && (
+                            <Button
+                              variant="outline"
+                              size="xs"
+                              onClick={() => requestOrderReturn(ord.id)}
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              <span>Return</span>
+                            </Button>
+                          )}
+                          <Button
+                            variant="primary"
+                            size="xs"
+                            onClick={() => navigate({ name: 'track-order', orderId: ord.id })}
+                          >
+                            Track
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -880,56 +1065,62 @@ export const AccountPage: React.FC = () => {
                 </p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {wishlistedProducts.map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-4 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] flex gap-4 items-center"
-                    >
-                      <ResilientImage
-                        src={item.images[0]}
-                        alt={item.name}
-                        onClick={() => navigate({ name: 'product', slug: item.slug })}
-                        className="w-20 h-16 rounded-sm object-cover shrink-0 cursor-pointer"
-                      />
-                      <div className="flex-1 min-w-0 space-y-1.5">
-                        <p
+                  {wishlistedProducts.map((item) => {
+                    const outOfStock = isProductOutOfStock(item);
+                    const primaryColor = item.colors[0] || { name: 'Standard', hex: '#84827B' };
+                    const primarySize = item.sizes[0] || 'Standard';
+                    return (
+                      <div
+                        key={item.id}
+                        className="p-4 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] flex gap-4 items-center"
+                      >
+                        <ResilientImage
+                          src={item.images[0]}
+                          alt={item.name}
                           onClick={() => navigate({ name: 'product', slug: item.slug })}
-                          className="text-sm font-medium truncate cursor-pointer hover:text-[#8F6438] dark:hover:text-[#C89B67]"
-                        >
-                          {item.name}
-                        </p>
-                        <p className="text-xs font-mono-num font-semibold">
-                          {formatCurrency(item.price, currency)}
-                        </p>
-                        <div className="flex items-center gap-2 pt-1">
-                          <Button
-                            variant="primary"
-                            size="xs"
-                            onClick={() =>
-                              addToCart(
-                                item,
-                                item.colors[0].name,
-                                item.colors[0].hex,
-                                item.sizes[0],
-                                1,
-                                true
-                              )
-                            }
+                          className="w-20 h-16 rounded-sm object-cover shrink-0 cursor-pointer"
+                        />
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          <p
+                            onClick={() => navigate({ name: 'product', slug: item.slug })}
+                            className="text-sm font-medium truncate cursor-pointer hover:text-[#8F6438] dark:hover:text-[#C89B67]"
                           >
-                            <ShoppingBag className="w-3 h-3" />
-                            <span>Add</span>
-                          </Button>
-                          <button
-                            type="button"
-                            onClick={() => toggleWishlist(item)}
-                            className="text-xs text-[#84827B] hover:text-[#B91C1C] cursor-pointer"
-                          >
-                            Remove
-                          </button>
+                            {item.name}
+                          </p>
+                          <p className="text-xs font-mono-num font-semibold">
+                            {formatCurrency(item.price, currency)}
+                          </p>
+                          <div className="flex items-center gap-2 pt-1">
+                            <Button
+                              variant="primary"
+                              size="xs"
+                              disabled={outOfStock}
+                              onClick={() =>
+                                addToCart(
+                                  item,
+                                  primaryColor.name,
+                                  primaryColor.hex,
+                                  primarySize,
+                                  1,
+                                  true
+                                )
+                              }
+                            >
+                              <ShoppingBag className="w-3 h-3" />
+                              <span>{outOfStock ? 'Out of Stock' : 'Add'}</span>
+                            </Button>
+                            <button
+                              type="button"
+                              onClick={() => toggleWishlist(item)}
+                              className="text-xs text-[#84827B] hover:text-[#B91C1C] cursor-pointer min-h-[32px] px-1.5"
+                            >
+                              Remove
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -938,24 +1129,34 @@ export const AccountPage: React.FC = () => {
           {section === 'reviews' && (
             <div className="space-y-4">
               <h2 className="font-display text-2xl font-medium">Community &amp; Verified Reviews</h2>
-              <div className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28]">
-                {authoredReviews.slice(0, 6).map((rev) => (
-                  <div key={rev.id} className="py-4 space-y-1">
-                    <div className="flex items-center justify-between text-xs text-[#84827B]">
-                      <button
-                        type="button"
-                        onClick={() => navigate({ name: 'product', slug: rev.productSlug })}
-                        className="font-medium text-[#8F6438] dark:text-[#C89B67] hover:underline cursor-pointer"
-                      >
-                        {rev.productName}
-                      </button>
-                      <span className="font-mono-num">{rev.rating}.0 / 5.0</span>
+              {authoredReviews.length === 0 ? (
+                <EmptyState
+                  icon={<Star className="w-5 h-5" />}
+                  title="No product reviews yet"
+                  description="Reviews submitted on any Kinto Studio product page will appear here."
+                  actionLabel="Explore Catalog"
+                  onAction={() => navigate({ name: 'shop', category: 'all' })}
+                />
+              ) : (
+                <div className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28]">
+                  {authoredReviews.slice(0, 6).map((rev) => (
+                    <div key={rev.id} className="py-4 space-y-1">
+                      <div className="flex items-center justify-between text-xs text-[#84827B]">
+                        <button
+                          type="button"
+                          onClick={() => navigate({ name: 'product', slug: rev.productSlug })}
+                          className="font-medium text-[#8F6438] dark:text-[#C89B67] hover:underline cursor-pointer"
+                        >
+                          {rev.productName}
+                        </button>
+                        <span className="font-mono-num">{rev.rating}.0 / 5.0</span>
+                      </div>
+                      <p className="text-sm font-medium">{rev.title}</p>
+                      <p className="text-xs text-[#5C5B57] dark:text-[#B4B2AC]">{rev.comment}</p>
                     </div>
-                    <p className="text-sm font-medium">{rev.title}</p>
-                    <p className="text-xs text-[#5C5B57] dark:text-[#B4B2AC]">{rev.comment}</p>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -990,7 +1191,7 @@ export const AccountPage: React.FC = () => {
                         type="button"
                         onClick={() => deletePaymentMethod(pm.id)}
                         aria-label="Remove payment card"
-                        className="text-[#84827B] hover:text-[#B91C1C] cursor-pointer p-1"
+                        className="w-10 h-10 rounded-md flex items-center justify-center text-[#84827B] hover:text-[#B91C1C] cursor-pointer"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -1002,36 +1203,62 @@ export const AccountPage: React.FC = () => {
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (cardLast4.length !== 4 || !cardExp.trim()) return;
+                  if (!/^\d{4}$/.test(cardLast4.trim())) {
+                    setCardError('Enter exact 4 ending digits (e.g., 9012).');
+                    return;
+                  }
+                  if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(cardExp.trim())) {
+                    setCardError('Enter valid expiry in MM/YY format.');
+                    return;
+                  }
+                  setCardError('');
                   addPaymentMethod({
-                    brand: cardBrand,
-                    last4: cardLast4,
-                    expiry: cardExp,
+                    brand: cardBrand.trim() || 'Visa',
+                    last4: cardLast4.trim(),
+                    expiry: cardExp.trim(),
                     holderName: profile.fullName,
                     isDefault: false,
                   });
                   setCardLast4('');
                   setCardExp('');
                 }}
-                className="p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] grid grid-cols-1 sm:grid-cols-4 gap-3 items-end"
+                className="p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-3"
               >
-                <Input label="Card Network" value={cardBrand} onChange={(e) => setCardBrand(e.target.value)} />
-                <Input
-                  label="Last 4 Digits"
-                  maxLength={4}
-                  placeholder="9012"
-                  value={cardLast4}
-                  onChange={(e) => setCardLast4(e.target.value.replace(/\D/g, ''))}
-                />
-                <Input
-                  label="Expiry (MM/YY)"
-                  placeholder="09/29"
-                  value={cardExp}
-                  onChange={(e) => setCardExp(e.target.value)}
-                />
-                <Button type="submit" variant="primary" size="md">
-                  Add Card
-                </Button>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                  <Input
+                    label="Card Network"
+                    value={cardBrand}
+                    onChange={(e) => {
+                      setCardBrand(e.target.value);
+                      setCardError('');
+                    }}
+                  />
+                  <Input
+                    label="Last 4 Digits"
+                    maxLength={4}
+                    placeholder="9012"
+                    value={cardLast4}
+                    onChange={(e) => {
+                      setCardLast4(e.target.value.replace(/\D/g, ''));
+                      setCardError('');
+                    }}
+                  />
+                  <Input
+                    label="Expiry (MM/YY)"
+                    placeholder="09/29"
+                    value={cardExp}
+                    onChange={(e) => {
+                      setCardExp(e.target.value);
+                      setCardError('');
+                    }}
+                  />
+                  <Button type="submit" variant="primary" size="md">
+                    Add Card
+                  </Button>
+                </div>
+                {cardError && (
+                  <p className="text-xs text-[#B91C1C] dark:text-[#F87171]">{cardError}</p>
+                )}
               </form>
             </div>
           )}
@@ -1113,13 +1340,26 @@ export const AccountPage: React.FC = () => {
                 <p className="font-mono-num text-[#5C5B57] dark:text-[#A3A19B]">
                   {selectedOrder.trackingNumber}
                 </p>
+                {selectedOrder.transactionRef && (
+                  <p className="font-mono-num text-[#8F6438] dark:text-[#C89B67] mt-1">
+                    Ref: {selectedOrder.transactionRef} ({selectedOrder.paymentStatus})
+                  </p>
+                )}
               </div>
               <div>
                 <p className="text-[#84827B]">Shipping Destination</p>
                 <p className="font-medium mt-0.5">{selectedOrder.shippingAddress.streetAddress}</p>
                 <p className="text-[#5C5B57] dark:text-[#A3A19B]">
-                  {selectedOrder.shippingAddress.city}, {selectedOrder.shippingAddress.state}{' '}
-                  {selectedOrder.shippingAddress.postalCode}
+                  {[
+                    selectedOrder.shippingAddress.area,
+                    selectedOrder.shippingAddress.upazila,
+                    selectedOrder.shippingAddress.city,
+                    selectedOrder.shippingAddress.state,
+                    selectedOrder.shippingAddress.postalCode,
+                  ]
+                    .filter(Boolean)
+                    .join(', ')}{' '}
+                  · {selectedOrder.shippingAddress.country}
                 </p>
               </div>
             </div>
@@ -1137,9 +1377,24 @@ export const AccountPage: React.FC = () => {
               ))}
             </ul>
 
-            <div className="flex justify-between font-semibold text-base">
-              <span>Total Paid ({selectedOrder.paymentLabel})</span>
-              <span className="font-mono-num">{formatCurrency(selectedOrder.total, currency)}</span>
+            <div className="space-y-1">
+              <div className="flex justify-between font-semibold text-base">
+                <span>Settled Total ({selectedOrder.paymentLabel})</span>
+                <span className="font-mono-num">
+                  {selectedOrder.currencySnapshot
+                    ? formatDirectCurrency(
+                        selectedOrder.currencySnapshot.chargedTotal,
+                        selectedOrder.currencySnapshot.transactionCurrency
+                      )
+                    : formatCurrency(selectedOrder.total, currency)}
+                </span>
+              </div>
+              {selectedOrder.currencySnapshot && (
+                <p className="text-[11px] font-mono-num text-[#84827B]">
+                  Snapshot: 1 USD = ৳{selectedOrder.currencySnapshot.exchangeRate} ·{' '}
+                  {selectedOrder.currencySnapshot.rateSource}
+                </p>
+              )}
             </div>
           </div>
         )}

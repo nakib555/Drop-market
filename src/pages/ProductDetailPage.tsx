@@ -18,7 +18,13 @@ import {
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useStore } from '../context/StoreContext';
-import { formatCurrency, formatShortDate, getDiscountPercent } from '../utils/format';
+import {
+  formatCurrency,
+  formatShortDate,
+  formatTypedAttributeValue,
+  getDiscountPercent,
+  isProductOutOfStock,
+} from '../utils/format';
 import { STUDIO_TRANSITION } from '../utils/motion';
 import { ProductCard } from '../components/product/ProductCard';
 import { Button } from '../components/ui/Button';
@@ -31,11 +37,69 @@ import {
   ResilientImage,
 } from '../components/ui/Primitives';
 
+const CATEGORY_BUYING_GUIDES: Record<
+  string,
+  { heading: string; note: string; specFocus: string }
+> = {
+  'electronics-tech': {
+    heading: 'Power, Acoustics & Regional Compatibility',
+    note: 'Supports 100–240V universal USB-C / AC power standards with 24–36 month hardware protection and firmware support.',
+    specFocus: 'Verify processor/DSP support, port bandwidth, RAM/storage specs, and OS compatibility below.',
+  },
+  'fashion-accessories': {
+    heading: 'Garment Fit, Horology & Fabric Care',
+    note: 'Pre-washed architectural silhouettes and sapphire-crystal horology. Consult the Size Guide for flat garment dimensions.',
+    specFocus: 'Check material weave, fit profile, and wash/strap care instructions.',
+  },
+  'home-furniture-kitchen': {
+    heading: 'Spatial Placement & Surface Care',
+    note: 'Includes protective floor glides and doorway clearance dimensions; white-glove room placement is available at checkout.',
+    specFocus: 'Measure entryways and stairwells against listed dimensions and parcel size tier before delivery.',
+  },
+  'beauty-care': {
+    heading: 'Formulation & Daily Regimen',
+    note: 'Dermatologist-tested, cold-processed botanicals sealed in UV-shielded amber glass. Patch test before first full application.',
+    specFocus: 'Review net volume, skin type suitability, and active ingredient concentrations.',
+  },
+  'grocery-food-household': {
+    heading: 'Freshness Window & Storage Instructions',
+    note: 'Small-batch roasted and hermetically sealed for peak aroma retention across pour-over, espresso, or pantry storage.',
+    specFocus: 'Check best-before freshness date, net weight, and dietary profile below.',
+  },
+  'sports-outdoors-travel': {
+    heading: 'Field Capacity & Weather Sealing',
+    note: 'Abrasion-tested hardware and DWR weatherproofing built for multi-day pack loads and wet alpine transitions.',
+    specFocus: 'Confirm pack liter volume, waterproofing rating, and intended activity below.',
+  },
+  'books-stationery-office': {
+    heading: 'Archival Binding & Desk Ergonomics',
+    note: 'Smyth-sewn lay-flat binding on heavyweight acid-free stock and precision-milled metal desk instruments.',
+    specFocus: 'Review page count, archival rating, and format specifications.',
+  },
+  'automotive-tools-industrial': {
+    heading: 'Torque Spec, Voltage & Workshop Safety',
+    note: 'Industrial-grade optical sensors and brushless drivers calibrated for automotive diagnostics and heavy workshop torque.',
+    specFocus: 'Verify voltage, peak torque rating, and safety certification compliance.',
+  },
+  'baby-kids-toys-hobbies': {
+    heading: 'Child-Safe Finishes & Age Certification',
+    note: 'EN71-certified non-toxic water-based coatings and smoothed solid wood geometry designed for tactile development.',
+    specFocus: 'Confirm recommended age bracket and safety certifications below.',
+  },
+  'health-wellness-pets': {
+    heading: 'Supplement Purity & Pet Material Safety',
+    note: 'Third-party lab verified vegan formulations and lead-free porcelain pet vessels safe for everyday home use.',
+    specFocus: 'Review dosage/serving count, allergen-free verification, and dishwasher safety.',
+  },
+};
+
 export const ProductDetailPage: React.FC = () => {
   const {
     route,
     currency,
     products,
+    shippingConfig,
+    getCategoryNodeBySlug,
     navigate,
     addToCart,
     wishlistIds,
@@ -73,11 +137,13 @@ export const ProductDetailPage: React.FC = () => {
   const [reviewTitle, setReviewTitle] = useState('');
   const [reviewComment, setReviewComment] = useState('');
   const [reviewError, setReviewError] = useState('');
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
 
   // Q&A submission state
   const [qaAuthor, setQaAuthor] = useState('');
   const [qaQuestion, setQaQuestion] = useState('');
   const [qaError, setQaError] = useState('');
+  const [qaSubmitted, setQaSubmitted] = useState(false);
 
   useEffect(() => {
     if (!product) return;
@@ -87,6 +153,8 @@ export const ProductDetailPage: React.FC = () => {
     setSelectedSizeIdx(0);
     setQuantity(1);
     setActiveTab('specs');
+    setReviewSubmitted(false);
+    setQaSubmitted(false);
     recordProductView(product.id);
   }, [product?.id, recordProductView]);
 
@@ -120,12 +188,20 @@ export const ProductDetailPage: React.FC = () => {
     );
   }
 
-  const color = product.colors[selectedColorIdx] || product.colors[0];
-  const size = product.sizes[selectedSizeIdx] || product.sizes[0];
+  const color = product.colors[selectedColorIdx] ||
+    product.colors[0] || { name: 'Standard', hex: '#84827B' };
+  const size = product.sizes[selectedSizeIdx] || product.sizes[0] || 'Standard';
+  const outOfStock = isProductOutOfStock(product);
+  const maxSelectableQty = Math.max(1, product.stockCount);
   const discount = getDiscountPercent(product.price, product.originalPrice);
   const isWishlisted = wishlistIds.includes(product.id);
   const isCompared = compareIds.includes(product.id);
   const questions = product.questions || [];
+  const domainGuide = CATEGORY_BUYING_GUIDES[product.category] || {
+    heading: `${product.categoryLabel} Advisory`,
+    note: product.careNote || 'Inspected prior to dispatch with 30-day home trial coverage.',
+    specFocus: 'Review listed dimensions, materials, and warranty coverage below.',
+  };
 
   const relatedProducts = products
     .filter(
@@ -177,6 +253,7 @@ export const ProductDetailPage: React.FC = () => {
     setReviewRating(5);
     setReviewTitle('');
     setReviewComment('');
+    setReviewSubmitted(true);
   };
 
   const handleQuestionSubmit = (e: React.FormEvent) => {
@@ -189,6 +266,7 @@ export const ProductDetailPage: React.FC = () => {
     submitProductQuestion(product.id, qaAuthor || 'Guest Shopper', qaQuestion);
     setQaQuestion('');
     setQaAuthor('');
+    setQaSubmitted(true);
   };
 
   return (
@@ -345,13 +423,17 @@ export const ProductDetailPage: React.FC = () => {
               </span>
               <span
                 className={`text-xs font-medium inline-flex items-center gap-1 ${
-                  product.availability === 'low-stock'
+                  outOfStock
+                    ? 'text-[#B91C1C] dark:text-[#F87171]'
+                    : product.availability === 'low-stock'
                     ? 'text-[#B45309] dark:text-[#FBBF24]'
                     : 'text-[#1F6E43] dark:text-[#4ADE80]'
                 }`}
               >
-                <Check className="w-3.5 h-3.5" />
-                {product.availability === 'in-stock'
+                {!outOfStock && <Check className="w-3.5 h-3.5" />}
+                {outOfStock
+                  ? 'Out of Stock'
+                  : product.availability === 'in-stock'
                   ? `In Stock (${product.stockCount} ready)`
                   : product.availability === 'low-stock'
                   ? `Low Stock (${product.stockCount} remaining)`
@@ -414,7 +496,7 @@ export const ProductDetailPage: React.FC = () => {
               <p className="text-xs font-medium">
                 {product.variantSizeLabel || 'Edition / Size'}
               </p>
-              {product.category === 'fashion-apparel' && (
+              {product.category === 'fashion-accessories' && (
                 <button
                   type="button"
                   onClick={() => setSizeGuideOpen(true)}
@@ -449,18 +531,22 @@ export const ProductDetailPage: React.FC = () => {
               <div className="inline-flex items-center justify-between min-[390px]:justify-center border border-[#E5E3DD] dark:border-[#2C2C28] rounded-md h-12 shrink-0">
                 <button
                   type="button"
+                  disabled={outOfStock || quantity <= 1}
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                   aria-label="Decrease quantity"
-                  className="w-11 h-full flex items-center justify-center hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] cursor-pointer"
+                  className="w-11 h-full flex items-center justify-center hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <Minus className="w-3.5 h-3.5" />
                 </button>
-                <span className="w-10 text-center text-sm font-mono-num">{quantity}</span>
+                <span className="w-10 text-center text-sm font-mono-num">
+                  {outOfStock ? 0 : quantity}
+                </span>
                 <button
                   type="button"
-                  onClick={() => setQuantity((q) => Math.min(product.stockCount, q + 1))}
+                  disabled={outOfStock || quantity >= maxSelectableQty}
+                  onClick={() => setQuantity((q) => Math.min(maxSelectableQty, q + 1))}
                   aria-label="Increase quantity"
-                  className="w-11 h-full flex items-center justify-center hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] cursor-pointer"
+                  className="w-11 h-full flex items-center justify-center hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
@@ -470,9 +556,12 @@ export const ProductDetailPage: React.FC = () => {
                 variant="primary"
                 size="lg"
                 fullWidth
+                disabled={outOfStock}
                 onClick={() => addToCart(product, color.name, color.hex, size, quantity, true)}
               >
-                Add to Bag · {formatCurrency(product.price * quantity, currency)}
+                {outOfStock
+                  ? 'Out of Stock'
+                  : `Add to Bag · ${formatCurrency(product.price * quantity, currency)}`}
               </Button>
             </div>
 
@@ -480,13 +569,14 @@ export const ProductDetailPage: React.FC = () => {
               <Button
                 variant="secondary"
                 size="md"
+                disabled={outOfStock}
                 className="col-span-2 sm:col-span-1"
                 onClick={() => {
                   addToCart(product, color.name, color.hex, size, quantity, false);
                   navigate({ name: 'checkout' });
                 }}
               >
-                Buy Now
+                {outOfStock ? 'Unavailable' : 'Buy Now'}
               </Button>
               <Button variant="outline" size="md" onClick={() => toggleWishlist(product)}>
                 <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-current text-[#8F6438]' : ''}`} />
@@ -569,18 +659,52 @@ export const ProductDetailPage: React.FC = () => {
           >
             {activeTab === 'specs' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <dl className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] border-y border-[#E5E3DD] dark:border-[#2C2C28]">
-                  {product.specifications.map((spec) => (
-                    <div
-                      key={spec.label}
-                      className="py-3.5 flex items-center justify-between gap-4 text-sm"
-                    >
-                      <dt className="text-[#5C5B57] dark:text-[#A3A19B]">{spec.label}</dt>
-                      <dd className="font-medium text-right font-mono-num">{spec.value}</dd>
+                <div className="space-y-6">
+                  <dl className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] border-y border-[#E5E3DD] dark:border-[#2C2C28]">
+                    {product.specifications.map((spec) => (
+                      <div
+                        key={spec.label}
+                        className="py-3.5 flex items-center justify-between gap-4 text-sm"
+                      >
+                        <dt className="text-[#5C5B57] dark:text-[#A3A19B]">{spec.label}</dt>
+                        <dd className="font-medium text-right font-mono-num">{spec.value}</dd>
+                      </div>
+                    ))}
+                    {product.typedAttributes &&
+                      Object.entries(product.typedAttributes).map(([attrKey, attrVal]) => {
+                        const catFacets = getCategoryNodeBySlug(product.category)?.filterFacets || [];
+                        const facetMeta = catFacets.find((f) => f.key === attrKey);
+                        const label =
+                          facetMeta?.label ||
+                          attrKey.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase());
+                        return (
+                          <div
+                            key={`typed-${attrKey}`}
+                            className="py-3.5 flex items-center justify-between gap-4 text-sm"
+                          >
+                            <dt className="text-[#5C5B57] dark:text-[#A3A19B]">{label}</dt>
+                            <dd className="font-medium text-right font-mono-num">
+                              {formatTypedAttributeValue(attrVal, facetMeta?.unit)}
+                            </dd>
+                          </div>
+                        );
+                      })}
+                    <div className="py-3.5 flex items-center justify-between gap-4 text-sm">
+                      <dt className="text-[#5C5B57] dark:text-[#A3A19B]">Shipping Weight &amp; Tier</dt>
+                      <dd className="font-medium text-right font-mono-num capitalize">
+                        {product.weightKg ? `${product.weightKg} kg · ` : ''}
+                        {product.sizeTier || 'medium'} parcel
+                      </dd>
                     </div>
-                  ))}
-                </dl>
-                <div className="p-6 rounded-lg bg-[#F2F0EC] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-4">
+                    <div className="py-3.5 flex items-center justify-between gap-4 text-sm">
+                      <dt className="text-[#5C5B57] dark:text-[#A3A19B]">Cash on Delivery</dt>
+                      <dd className="font-medium text-right font-mono-num">
+                        {product.codEligible === false ? 'Prepaid Only' : 'Eligible (Bangladesh)'}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+                <div className="p-6 rounded-lg bg-[#F2F0EC] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-4 h-fit">
                   <div className="space-y-2">
                     <h3 className="font-display text-2xl font-medium">
                       Maker Provenance &amp; Care
@@ -600,6 +724,15 @@ export const ProductDetailPage: React.FC = () => {
                       </p>
                     </div>
                   )}
+                  <div className="pt-3 border-t border-[#DCD9D0] dark:border-[#2C2C28] space-y-1">
+                    <p className="text-xs uppercase tracking-wider text-[#8F6438] dark:text-[#C89B67] font-medium">
+                      {domainGuide.heading}
+                    </p>
+                    <p className="text-sm text-[#5C5B57] dark:text-[#B4B2AC] leading-relaxed">
+                      {domainGuide.note}
+                    </p>
+                    <p className="text-xs text-[#84827B]">{domainGuide.specFocus}</p>
+                  </div>
                 </div>
               </div>
             )}
@@ -649,27 +782,44 @@ export const ProductDetailPage: React.FC = () => {
                       label="Your Name"
                       required
                       value={reviewAuthor}
-                      onChange={(e) => setReviewAuthor(e.target.value)}
+                      onChange={(e) => {
+                        setReviewAuthor(e.target.value);
+                        setReviewSubmitted(false);
+                      }}
                       placeholder="Alex Mercer"
                     />
                     <Input
                       label="City / Country"
                       value={reviewLocation}
-                      onChange={(e) => setReviewLocation(e.target.value)}
+                      onChange={(e) => {
+                        setReviewLocation(e.target.value);
+                        setReviewSubmitted(false);
+                      }}
                       placeholder="Dhaka / Portland"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <span className="text-xs font-medium">Rating</span>
-                    <div className="flex items-center gap-1.5">
+                    <span id="pdp-rating-label" className="text-xs font-medium block">
+                      Rating
+                    </span>
+                    <div
+                      role="radiogroup"
+                      aria-labelledby="pdp-rating-label"
+                      className="flex items-center gap-1"
+                    >
                       {[1, 2, 3, 4, 5].map((star) => (
                         <button
                           key={star}
                           type="button"
-                          onClick={() => setReviewRating(star)}
-                          aria-label={`${star} stars`}
-                          className="p-1.5 cursor-pointer"
+                          role="radio"
+                          aria-checked={star === reviewRating}
+                          onClick={() => {
+                            setReviewRating(star);
+                            setReviewSubmitted(false);
+                          }}
+                          aria-label={`${star} ${star === 1 ? 'star' : 'stars'}`}
+                          className="w-10 h-10 rounded-md flex items-center justify-center hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] cursor-pointer"
                         >
                           <Star
                             className={`w-5 h-5 ${
@@ -687,7 +837,10 @@ export const ProductDetailPage: React.FC = () => {
                     label="Headline"
                     required
                     value={reviewTitle}
-                    onChange={(e) => setReviewTitle(e.target.value)}
+                    onChange={(e) => {
+                      setReviewTitle(e.target.value);
+                      setReviewSubmitted(false);
+                    }}
                     placeholder="Summarize your impression"
                   />
                   <Textarea
@@ -695,11 +848,19 @@ export const ProductDetailPage: React.FC = () => {
                     required
                     rows={3}
                     value={reviewComment}
-                    onChange={(e) => setReviewComment(e.target.value)}
+                    onChange={(e) => {
+                      setReviewComment(e.target.value);
+                      setReviewSubmitted(false);
+                    }}
                     placeholder="Share notes on finish, performance, sizing, or delivery..."
                   />
                   {reviewError && (
                     <p className="text-xs text-[#B91C1C] dark:text-[#F87171]">{reviewError}</p>
+                  )}
+                  {reviewSubmitted && !reviewError && (
+                    <p className="text-xs text-[#1F6E43] dark:text-[#4ADE80]">
+                      Your review has been added to this product page.
+                    </p>
                   )}
                   <Button type="submit" variant="primary" size="md" fullWidth>
                     Publish Review
@@ -755,7 +916,10 @@ export const ProductDetailPage: React.FC = () => {
                   <Input
                     label="Your Name"
                     value={qaAuthor}
-                    onChange={(e) => setQaAuthor(e.target.value)}
+                    onChange={(e) => {
+                      setQaAuthor(e.target.value);
+                      setQaSubmitted(false);
+                    }}
                     placeholder="Alex Mercer"
                   />
                   <Textarea
@@ -763,11 +927,19 @@ export const ProductDetailPage: React.FC = () => {
                     required
                     rows={3}
                     value={qaQuestion}
-                    onChange={(e) => setQaQuestion(e.target.value)}
+                    onChange={(e) => {
+                      setQaQuestion(e.target.value);
+                      setQaSubmitted(false);
+                    }}
                     placeholder="Ask about compatibility, materials, sizing, or delivery..."
                   />
                   {qaError && (
                     <p className="text-xs text-[#B91C1C] dark:text-[#F87171]">{qaError}</p>
+                  )}
+                  {qaSubmitted && !qaError && (
+                    <p className="text-xs text-[#1F6E43] dark:text-[#4ADE80]">
+                      Question posted — specialist response is now visible in the Q&amp;A thread.
+                    </p>
                   )}
                   <Button type="submit" variant="primary" size="md" fullWidth>
                     Post Question
@@ -779,9 +951,14 @@ export const ProductDetailPage: React.FC = () => {
             {activeTab === 'shipping' && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
                 <div className="p-5 rounded-lg border border-[#E5E3DD] dark:border-[#2C2C28] space-y-2">
-                  <p className="font-medium">Dispatch &amp; Transit</p>
+                  <p className="font-medium">Dispatch &amp; Bangladesh Coverage</p>
                   <p className="text-[#5C5B57] dark:text-[#B4B2AC] leading-relaxed">
-                    {product.deliveryEstimate}. Orders over $500 (৳60,000) qualify for complimentary insured shipping.
+                    {product.deliveryEstimate}. Dhaka Metro orders over{' '}
+                    {formatCurrency(
+                      shippingConfig.zones.find((z) => z.zoneId === 'dhaka_metro')?.freeThresholdUsd ?? 120,
+                      currency
+                    )}{' '}
+                    qualify for complimentary insured courier delivery.
                   </p>
                 </div>
                 <div className="p-5 rounded-lg border border-[#E5E3DD] dark:border-[#2C2C28] space-y-2">
@@ -896,9 +1073,10 @@ export const ProductDetailPage: React.FC = () => {
             <Button
               variant="primary"
               size="xs"
+              disabled={outOfStock}
               onClick={() => addToCart(product, color.name, color.hex, size, quantity, true)}
             >
-              Add to Bag
+              {outOfStock ? 'Out of Stock' : 'Add to Bag'}
             </Button>
           </motion.div>
         )}

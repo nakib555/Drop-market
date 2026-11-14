@@ -8,12 +8,12 @@ import {
   updateOrderStatusApi,
   updateSellerProductApi,
 } from '../../services/api';
-import { OrderStage, SellerDashboardData } from '../../types/commerce';
+import { OrderStage, ProductSizeTier, SellerDashboardData } from '../../types/commerce';
 import { formatCurrency } from '../../utils/format';
 import { IMAGE_PRESET_OPTIONS, resolveImagePreset } from '../../utils/imagePresets';
 import { STUDIO_TRANSITION } from '../../utils/motion';
 import { Button } from '../ui/Button';
-import { Input, Textarea } from '../ui/FormFields';
+import { Input, Select, Textarea } from '../ui/FormFields';
 import { Modal, ResilientImage, SkeletonLoader } from '../ui/Primitives';
 
 export const SellerDashboard: React.FC = () => {
@@ -36,6 +36,9 @@ export const SellerDashboard: React.FC = () => {
   const [newCategory, setNewCategory] = useState(categories[0]?.slug || 'electronics-tech');
   const [newPrice, setNewPrice] = useState('185');
   const [newStock, setNewStock] = useState('14');
+  const [newWeightKg, setNewWeightKg] = useState('1.4');
+  const [newSizeTier, setNewSizeTier] = useState<ProductSizeTier>('small');
+  const [newCodEligible, setNewCodEligible] = useState(true);
   const [newPreset, setNewPreset] = useState('headphones');
   const [newDesc, setNewDesc] = useState('');
   const [newHighlight1, setNewHighlight1] = useState('Studio Edition');
@@ -122,11 +125,14 @@ export const SellerDashboard: React.FC = () => {
         name: newName,
         brand: data?.studioName,
         category: newCategory,
-        categoryLabel: catMeta?.name || 'Electronics & Tech',
+        categoryLabel: catMeta?.name || 'Electronics & Technology',
         subcategory: catMeta?.subcategories[0]?.slug || 'featured',
         subcategoryLabel: catMeta?.subcategories[0]?.name || 'Studio Release',
         price: Number(newPrice),
         stockCount: Number(newStock),
+        weightKg: Number(newWeightKg) > 0 ? Number(newWeightKg) : 1.2,
+        sizeTier: newSizeTier,
+        codEligible: newCodEligible,
         shortDescription: newDesc,
         imagePresetKey: newPreset,
         highlightOne: newHighlight1,
@@ -244,7 +250,7 @@ export const SellerDashboard: React.FC = () => {
       {/* 6-Month Revenue Strip */}
       <div className="p-5 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] bg-[#F9F8F6] dark:bg-[#141413] space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold">Monthly Studio Volume (USD)</h3>
+          <h3 className="text-sm font-semibold">Monthly Studio Volume ({currency})</h3>
           <span className="text-xs font-mono-num text-[#84827B]">Jun – Nov 2026</span>
         </div>
         <div className="grid grid-cols-6 gap-2 sm:gap-4 items-end h-28 pt-2">
@@ -253,12 +259,12 @@ export const SellerDashboard: React.FC = () => {
             return (
               <div key={point.month} className="flex flex-col items-center gap-1.5 h-full justify-end">
                 <span className="text-[10px] font-mono-num text-[#5C5B57] dark:text-[#A3A19B] hidden sm:inline">
-                  ${Math.round(point.gmv / 1000)}k
+                  {formatCurrency(point.gmv, currency)}
                 </span>
                 <div
                   className="w-full max-w-[40px] rounded-t-sm bg-[#8F6438] dark:bg-[#C89B67] transition-all duration-300"
                   style={{ height: `${pct}%` }}
-                  title={`${point.month}: $${point.gmv.toLocaleString()}`}
+                  title={`${point.month}: ${formatCurrency(point.gmv, currency)}`}
                 />
                 <span className="text-[11px] font-mono-num text-[#84827B]">{point.month}</span>
               </div>
@@ -327,100 +333,116 @@ export const SellerDashboard: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28]">
-                {filteredInventory.map((item) => {
-                  const isEditing = editingId === item.id;
-                  return (
-                    <tr key={item.id} className="hover:bg-[#F9F8F6]/70 dark:hover:bg-[#1F1F1C]/60">
-                      <td className="py-2.5 px-3">
-                        <div className="flex items-center gap-2.5 min-w-[200px]">
-                          <ResilientImage
-                            src={resolveImagePreset(item.imagePresetKey, item.category)}
-                            alt={item.name}
-                            className="w-9 h-7 rounded-sm object-cover shrink-0"
-                          />
-                          <div className="min-w-0">
-                            <p className="font-medium text-[#171716] dark:text-[#F4F3EF] truncate max-w-[220px]">
-                              {item.name}
-                            </p>
-                            <p className="text-[11px] text-[#84827B]">{item.categoryLabel}</p>
+                {filteredInventory.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 px-3 text-center text-xs text-[#84827B]">
+                      No inventory listings match your search filter.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredInventory.map((item) => {
+                    const isEditing = editingId === item.id;
+                    return (
+                      <tr key={item.id} className="hover:bg-[#F9F8F6]/70 dark:hover:bg-[#1F1F1C]/60">
+                        <td className="py-2.5 px-3">
+                          <div className="flex items-center gap-2.5 min-w-[200px]">
+                            <ResilientImage
+                              src={resolveImagePreset(item.imagePresetKey, item.category)}
+                              alt={item.name}
+                              className="w-9 h-7 rounded-sm object-cover shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <p className="font-medium text-[#171716] dark:text-[#F4F3EF] truncate max-w-[220px]">
+                                {item.name}
+                              </p>
+                              <p className="text-[11px] text-[#84827B]">{item.categoryLabel}</p>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-3 font-mono-num text-[#5C5B57] dark:text-[#A3A19B] whitespace-nowrap">
-                        {item.sku}
-                      </td>
-                      <td className="py-2.5 px-3 font-mono-num text-right whitespace-nowrap">
-                        {isEditing ? (
-                          <input
-                            type="number"
-                            value={editPrice}
-                            onChange={(e) => setEditPrice(e.target.value)}
-                            className="w-20 h-7 px-2 text-right rounded border border-[#171716] dark:border-[#F4F3EF] bg-white dark:bg-[#141413]"
-                          />
-                        ) : (
-                          formatCurrency(item.price, currency)
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3 font-mono-num text-right whitespace-nowrap">
-                        {isEditing ? (
-                          <input
-                            type="number"
-                            value={editStock}
-                            onChange={(e) => setEditStock(e.target.value)}
-                            className="w-16 h-7 px-2 text-right rounded border border-[#171716] dark:border-[#F4F3EF] bg-white dark:bg-[#141413]"
-                          />
-                        ) : (
-                          item.stockCount
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3 whitespace-nowrap">
-                        <span
-                          className={`font-medium ${
-                            item.stockCount <= 8
-                              ? 'text-[#B45309] dark:text-[#FBBF24]'
-                              : 'text-[#1F6E43] dark:text-[#4ADE80]'
-                          }`}
-                        >
-                          {item.stockCount <= 8 ? 'Low Stock' : 'In Stock'}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3 text-right whitespace-nowrap">
-                        {isEditing ? (
-                          <div className="inline-flex items-center gap-1.5">
-                            <Button
-                              variant="primary"
-                              size="xs"
-                              disabled={savingId === item.id}
-                              onClick={() => handleSaveInline(item.id)}
-                            >
-                              <Check className="w-3 h-3" />
-                              <span>Save</span>
-                            </Button>
+                        </td>
+                        <td className="py-2.5 px-3 font-mono-num text-[#5C5B57] dark:text-[#A3A19B] whitespace-nowrap">
+                          {item.sku}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono-num text-right whitespace-nowrap">
+                          {isEditing ? (
+                            <input
+                              type="number"
+                              aria-label={`Price for ${item.name}`}
+                              value={editPrice}
+                              onChange={(e) => setEditPrice(e.target.value)}
+                              className="w-20 h-7 px-2 text-right rounded border border-[#171716] dark:border-[#F4F3EF] bg-white dark:bg-[#141413]"
+                            />
+                          ) : (
+                            formatCurrency(item.price, currency)
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono-num text-right whitespace-nowrap">
+                          {isEditing ? (
+                            <input
+                              type="number"
+                              aria-label={`Stock for ${item.name}`}
+                              value={editStock}
+                              onChange={(e) => setEditStock(e.target.value)}
+                              className="w-16 h-7 px-2 text-right rounded border border-[#171716] dark:border-[#F4F3EF] bg-white dark:bg-[#141413]"
+                            />
+                          ) : (
+                            item.stockCount
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 whitespace-nowrap">
+                          <span
+                            className={`font-medium ${
+                              item.stockCount <= 0
+                                ? 'text-[#B91C1C] dark:text-[#F87171]'
+                                : item.stockCount <= 8
+                                ? 'text-[#B45309] dark:text-[#FBBF24]'
+                                : 'text-[#1F6E43] dark:text-[#4ADE80]'
+                            }`}
+                          >
+                            {item.stockCount <= 0
+                              ? 'Out of Stock'
+                              : item.stockCount <= 8
+                              ? 'Low Stock'
+                              : 'In Stock'}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                          {isEditing ? (
+                            <div className="inline-flex items-center gap-1.5">
+                              <Button
+                                variant="primary"
+                                size="xs"
+                                disabled={savingId === item.id}
+                                onClick={() => handleSaveInline(item.id)}
+                              >
+                                <Check className="w-3 h-3" />
+                                <span>Save</span>
+                              </Button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingId(null)}
+                                className="text-[#84827B] hover:text-[#171716] dark:hover:text-[#F4F3EF] px-1.5 cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
                             <button
                               type="button"
-                              onClick={() => setEditingId(null)}
-                              className="text-[#84827B] hover:text-[#171716] dark:hover:text-[#F4F3EF] px-1.5 cursor-pointer"
+                              onClick={() => {
+                                setEditingId(item.id);
+                                setEditPrice(String(item.price));
+                                setEditStock(String(item.stockCount));
+                              }}
+                              className="text-xs font-medium text-[#8F6438] dark:text-[#C89B67] hover:underline cursor-pointer"
                             >
-                              Cancel
+                              Edit Stock / Price
                             </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingId(item.id);
-                              setEditPrice(String(item.price));
-                              setEditStock(String(item.stockCount));
-                            }}
-                            className="text-xs font-medium text-[#8F6438] dark:text-[#C89B67] hover:underline cursor-pointer"
-                          >
-                            Edit Stock / Price
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
@@ -442,56 +464,64 @@ export const SellerDashboard: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28]">
-              {data.fulfillmentQueue.map((ord) => {
-                const nextAction: { stage: OrderStage; label: string } | null =
-                  ord.currentStage === 'Confirmed'
-                    ? { stage: 'Processing', label: 'Start Processing' }
-                    : ord.currentStage === 'Processing'
-                    ? { stage: 'Packed', label: 'Mark Packed' }
-                    : ord.currentStage === 'Packed'
-                    ? { stage: 'Shipped', label: 'Dispatch Parcel' }
-                    : null;
+              {data.fulfillmentQueue.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-8 px-3 text-center text-xs text-[#84827B]">
+                    All orders in your fulfillment queue have been dispatched.
+                  </td>
+                </tr>
+              ) : (
+                data.fulfillmentQueue.map((ord) => {
+                  const nextAction: { stage: OrderStage; label: string } | null =
+                    ord.currentStage === 'Confirmed'
+                      ? { stage: 'Processing', label: 'Start Processing' }
+                      : ord.currentStage === 'Processing'
+                      ? { stage: 'Packed', label: 'Mark Packed' }
+                      : ord.currentStage === 'Packed'
+                      ? { stage: 'Shipped', label: 'Dispatch Parcel' }
+                      : null;
 
-                return (
-                  <tr key={ord.id} className="hover:bg-[#F9F8F6]/70 dark:hover:bg-[#1F1F1C]/60">
-                    <td className="py-2.5 px-3 font-mono-num font-semibold whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={() => navigate({ name: 'track-order', orderId: ord.id })}
-                        className="hover:underline cursor-pointer"
-                      >
-                        #{ord.id}
-                      </button>
-                    </td>
-                    <td className="py-2.5 px-3 whitespace-nowrap">{ord.customerName}</td>
-                    <td className="py-2.5 px-3 text-[#5C5B57] dark:text-[#A3A19B] whitespace-nowrap">
-                      {ord.shippingAddress.city}, {ord.shippingAddress.country}
-                    </td>
-                    <td className="py-2.5 px-3 font-mono-num text-right whitespace-nowrap">
-                      {formatCurrency(ord.total, currency)}
-                    </td>
-                    <td className="py-2.5 px-3 whitespace-nowrap font-medium">{ord.currentStage}</td>
-                    <td className="py-2.5 px-3 text-right whitespace-nowrap">
-                      {nextAction ? (
-                        <Button
-                          variant="outline"
-                          size="xs"
-                          disabled={savingId === ord.id}
-                          onClick={() => handleAdvanceOrder(ord.id, nextAction.stage)}
+                  return (
+                    <tr key={ord.id} className="hover:bg-[#F9F8F6]/70 dark:hover:bg-[#1F1F1C]/60">
+                      <td className="py-2.5 px-3 font-mono-num font-semibold whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => navigate({ name: 'track-order', orderId: ord.id })}
+                          className="hover:underline cursor-pointer"
                         >
-                          <Truck className="w-3 h-3" />
-                          <span>{nextAction.label}</span>
-                        </Button>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[#84827B]">
-                          <Package className="w-3 h-3" />
-                          <span>{ord.currentStage}</span>
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+                          #{ord.id}
+                        </button>
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap">{ord.customerName}</td>
+                      <td className="py-2.5 px-3 text-[#5C5B57] dark:text-[#A3A19B] whitespace-nowrap">
+                        {ord.shippingAddress.city}, {ord.shippingAddress.country}
+                      </td>
+                      <td className="py-2.5 px-3 font-mono-num text-right whitespace-nowrap">
+                        {formatCurrency(ord.total, currency)}
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap font-medium">{ord.currentStage}</td>
+                      <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                        {nextAction ? (
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            disabled={savingId === ord.id}
+                            onClick={() => handleAdvanceOrder(ord.id, nextAction.stage)}
+                          >
+                            <Truck className="w-3 h-3" />
+                            <span>{nextAction.label}</span>
+                          </Button>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[#84827B]">
+                            <Package className="w-3 h-3" />
+                            <span>{ord.currentStage}</span>
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -545,7 +575,7 @@ export const SellerDashboard: React.FC = () => {
             </label>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <Input
               label="Unit Price (USD)"
               type="number"
@@ -555,14 +585,42 @@ export const SellerDashboard: React.FC = () => {
               onChange={(e) => setNewPrice(e.target.value)}
             />
             <Input
-              label="Initial Stock Qty"
+              label="Initial Stock"
               type="number"
               required
               min={1}
               value={newStock}
               onChange={(e) => setNewStock(e.target.value)}
             />
+            <Input
+              label="Weight (kg)"
+              type="number"
+              step="0.1"
+              min="0.1"
+              value={newWeightKg}
+              onChange={(e) => setNewWeightKg(e.target.value)}
+            />
+            <Select
+              label="Parcel Tier"
+              value={newSizeTier}
+              onChange={(e) => setNewSizeTier(e.target.value as ProductSizeTier)}
+              options={[
+                { value: 'small', label: 'Small' },
+                { value: 'medium', label: 'Medium' },
+                { value: 'bulky', label: 'Bulky' },
+                { value: 'freight', label: 'Freight' },
+              ]}
+            />
           </div>
+
+          <label className="inline-flex items-center gap-2 text-xs cursor-pointer">
+            <input
+              type="checkbox"
+              checked={newCodEligible}
+              onChange={(e) => setNewCodEligible(e.target.checked)}
+            />
+            <span>Eligible for Bangladesh Cash on Delivery (COD)</span>
+          </label>
 
           <div className="grid grid-cols-2 gap-4">
             <Input

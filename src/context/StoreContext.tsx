@@ -1,11 +1,13 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
-  CATEGORIES,
   INITIAL_ADDRESSES,
+  INITIAL_CATEGORY_TREE,
   INITIAL_ORDERS,
   INITIAL_PAYMENT_METHODS,
   PRODUCTS,
   PROMO_CODES,
+  buildCategoryMetasFromNodes,
+  getDescendantCategorySlugs,
 } from '../data/catalog';
 import {
   clearStoredToken,
@@ -29,10 +31,11 @@ import {
   ApiSellerProductRecord,
   CartItem,
   CategoryMeta,
-  CategorySlug,
+  CategoryNode,
+  CurrencyCode,
+  CurrencyRateState,
   CustomerProfile,
   DeliveryMethodId,
-  DynamicCategoryRecord,
   NotificationPrefs,
   Order,
   PaymentMethodId,
@@ -43,10 +46,16 @@ import {
   ProductQuestion,
   ProductReview,
   PromoCode,
-  RouteName,
+  ShippingRuleConfig,
   StoreNotification,
 } from '../types/commerce';
-import { CurrencyCode, formatCurrency } from '../utils/format';
+import {
+  DEFAULT_BDT_RATE,
+  FREE_SHIPPING_THRESHOLD_USD,
+  formatCurrency,
+  isProductOutOfStock,
+  setGlobalBdtRate,
+} from '../utils/format';
 import { resolveImagePreset } from '../utils/imagePresets';
 import {
   NavigationDirection,
@@ -71,6 +80,7 @@ interface CheckoutPayload {
     country: string;
     state: string;
     city: string;
+    upazila?: string;
     area: string;
     streetAddress: string;
     postalCode: string;
@@ -78,7 +88,48 @@ interface CheckoutPayload {
   };
   deliveryMethod: DeliveryMethodId;
   paymentMethod: PaymentMethodId;
+  paymentReference?: string;
 }
+
+const DEFAULT_CURRENCY_STATE: CurrencyRateState = {
+  baseCurrency: 'USD',
+  defaultCurrency: 'BDT',
+  rates: { USD: 1, BDT: DEFAULT_BDT_RATE },
+  source: 'Bangladesh Bank & OpenFX Studio Reference Feed',
+  updateFrequencyMinutes: 30,
+  updatedAt: new Date().toISOString(),
+  roundingRules: {
+    BDT: { decimals: 0, mode: 'ceil_integer_taka' },
+    USD: { decimals: 2, mode: 'half_even_cents' },
+  },
+};
+
+const DEFAULT_SHIPPING_CONFIG: ShippingRuleConfig = {
+  zones: [
+    {
+      zoneId: 'dhaka_metro',
+      label: 'Dhaka Metro (North & South City)',
+      standardFeeUsd: 0.7,
+      expressFeeUsd: 1.65,
+      expressAvailable: true,
+      whiteGloveFeeUsd: 12,
+      whiteGloveAvailable: true,
+      freeThresholdUsd: 120,
+      baseWeightAllowanceKg: 3,
+      perExtraKgUsd: 0.25,
+      bulkySurchargeUsd: 3.5,
+      freightSurchargeUsd: 15,
+      standardEta: '24–48 Hours (Next-Day Metro)',
+      expressEta: 'Same-Day / 4–8 Hours Dispatch',
+      whiteGloveEta: 'Scheduled 2-Person Room Assembly',
+      codEligible: true,
+      codMaxOrderUsd: 650,
+      isRestricted: false,
+    },
+  ],
+  restrictedAreaKeywords: ['sandwip', 'saint martin', 'st. martin', 'monpura'],
+  updatedAt: new Date().toISOString(),
+};
 
 interface StoreContextValue {
   route: RouteState;
@@ -87,9 +138,14 @@ interface StoreContextValue {
   navigate: (next: RouteState) => void;
   goBack: () => void;
   storefrontLoading: boolean;
+  categoryNodes: CategoryNode[];
   categories: CategoryMeta[];
+  getCategoryNodeBySlug: (slug: string) => CategoryNode | undefined;
+  getDescendantSlugs: (slug: string) => string[];
   products: Product[];
   currency: CurrencyCode;
+  currencyConfig: CurrencyRateState;
+  shippingConfig: ShippingRuleConfig;
   setCurrency: (next: CurrencyCode) => void;
   toggleCurrency: () => void;
   cart: CartItem[];
@@ -140,6 +196,7 @@ interface StoreContextValue {
   ) => void;
   submitProductQuestion: (productId: string, author: string, question: string) => void;
   orders: Order[];
+  commitVerifiedOrder: (order: Order) => void;
   placeOrder: (payload: CheckoutPayload) => Order;
   reorderFromOrder: (order: Order) => void;
   cancelOrder: (orderId: string) => Promise<void>;
@@ -187,8 +244,11 @@ const StoreContext = createContext<StoreContextValue | undefined>(undefined);
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currency, setCurrencyState] = useState<CurrencyCode>(() =>
-    readStorage<CurrencyCode>('kinto-currency', 'USD')
+    readStorage<CurrencyCode>('kinto-currency', 'BDT')
   );
+  const [currencyConfig, setCurrencyConfig] = useState<CurrencyRateState>(DEFAULT_CURRENCY_STATE);
+  const [shippingConfig, setShippingConfig] = useState<ShippingRuleConfig>(DEFAULT_SHIPPING_CONFIG);
+
   const [cart, setCart] = useState<CartItem[]>(() => readStorage('kinto-cart', []));
   const [savedForLater, setSavedForLater] = useState<CartItem[]>(() =>
     readStorage('kinto-saved', [])
@@ -207,7 +267,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [recentSearches, setRecentSearches] = useState<string[]>(() =>
     readStorage('kinto-recent-searches', [
       'Wireless Headphones',
-      'Merino Overshirt',
+      'Brushless Drill',
       'Botanical Serum',
     ])
   );
@@ -233,7 +293,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       id: 'guest',
       fullName: 'Guest Visitor',
       email: 'alex.mercer@studio.example',
-      phone: '+1 (415) 555-0194',
+      phone: '+880 1711-000194',
       role: 'customer',
       studioRole: 'Guest Visitor',
       isAuthenticated: false,
@@ -242,7 +302,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [notifications, setNotifications] = useState<StoreNotification[]>([]);
   const [productOverrides, setProductOverrides] = useState<Record<string, ProductOverride>>({});
   const [sellerProducts, setSellerProducts] = useState<ApiSellerProductRecord[]>([]);
-  const [customCategories, setCustomCategories] = useState<DynamicCategoryRecord[]>([]);
+  const [categoryNodes, setCategoryNodes] = useState<CategoryNode[]>(INITIAL_CATEGORY_TREE);
 
   const [addresses, setAddresses] = useState<Address[]>(() =>
     readStorage('kinto-addresses', INITIAL_ADDRESSES)
@@ -273,6 +333,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const hydrateOrderImages = useCallback((apiOrders: Order[]): Order[] => {
     return apiOrders.map((ord) => ({
       ...ord,
+      paymentStatus: ord.paymentStatus || (ord.paymentMethod === 'cod' ? 'cod_pending' : 'paid'),
       items: ord.items.map((item) => {
         if (item.image) return item;
         const matched = PRODUCTS.find((p) => p.id === item.productId);
@@ -284,16 +345,32 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }));
   }, []);
 
+  const applySyncPayload = useCallback(
+    (sync: Awaited<ReturnType<typeof fetchStorefrontSync>>) => {
+      setProductOverrides(sync.productOverrides || {});
+      setSellerProducts(sync.sellerProducts || []);
+      if (Array.isArray(sync.categoryTree) && sync.categoryTree.length > 0) {
+        setCategoryNodes(sync.categoryTree);
+      }
+      if (sync.currencyConfig) {
+        setCurrencyConfig(sync.currencyConfig);
+        setGlobalBdtRate(sync.currencyConfig.rates.BDT);
+      }
+      if (sync.shippingConfig) {
+        setShippingConfig(sync.shippingConfig);
+      }
+    },
+    []
+  );
+
   const refreshStorefrontSync = useCallback(async () => {
     try {
       const sync = await fetchStorefrontSync();
-      setProductOverrides(sync.productOverrides || {});
-      setSellerProducts(sync.sellerProducts || []);
-      setCustomCategories(sync.customCategories || []);
+      applySyncPayload(sync);
     } catch {
       // Static deploy fallback uses base bundled catalog
     }
-  }, []);
+  }, [applySyncPayload]);
 
   const refreshOrders = useCallback(async () => {
     try {
@@ -313,7 +390,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, []);
 
-  // Hydrate multi-role accounts, active user session, storefront sync, and API orders on mount
   useEffect(() => {
     let active = true;
     async function initApi() {
@@ -346,9 +422,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           });
         }
         if (syncRes.status === 'fulfilled') {
-          setProductOverrides(syncRes.value.productOverrides || {});
-          setSellerProducts(syncRes.value.sellerProducts || []);
-          setCustomCategories(syncRes.value.customCategories || []);
+          applySyncPayload(syncRes.value);
         }
         if (ordersRes.status === 'fulfilled') {
           setOrders(hydrateOrderImages(ordersRes.value));
@@ -364,29 +438,27 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => {
       active = false;
     };
-  }, [hydrateOrderImages]);
+  }, [applySyncPayload, hydrateOrderImages]);
 
   useEffect(() => {
     refreshNotifications(profile.role || 'customer');
   }, [profile.role, refreshNotifications]);
 
-  // Merge base categories + admin-added dynamic categories
-  const categories = useMemo<CategoryMeta[]>(() => {
-    const mappedDynamic: CategoryMeta[] = customCategories.map((dc) => ({
-      id: dc.id,
-      slug: dc.slug,
-      name: dc.name,
-      shortName: dc.shortName,
-      description: dc.description,
-      bannerTagline: dc.bannerTagline,
-      image: resolveImagePreset(dc.imagePresetKey, dc.slug),
-      countLabel: dc.countLabel,
-      subcategories: dc.subcategories,
-      featuredBrands: dc.featuredBrands,
-      filterFacets: dc.filterFacets,
-    }));
-    return [...CATEGORIES, ...mappedDynamic];
-  }, [customCategories]);
+  // Derive 10-Department Metadata Tree with nested subcategories & active flags
+  const categories = useMemo<CategoryMeta[]>(
+    () => buildCategoryMetasFromNodes(categoryNodes),
+    [categoryNodes]
+  );
+
+  const getCategoryNodeBySlug = useCallback(
+    (slug: string) => categoryNodes.find((c) => c.slug === slug),
+    [categoryNodes]
+  );
+
+  const getDescendantSlugs = useCallback(
+    (slug: string) => getDescendantCategorySlugs(categoryNodes, slug),
+    [categoryNodes]
+  );
 
   // Merge base catalog + live API seller overrides + API-created seller products
   const products = useMemo(() => {
@@ -403,6 +475,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         categoryLabel: sp.categoryLabel,
         subcategory: sp.subcategory,
         subcategoryLabel: sp.subcategoryLabel,
+        weightKg: sp.weightKg ?? 1.2,
+        sizeTier: sp.sizeTier ?? 'small',
+        codEligible: sp.codEligible ?? true,
         price: sp.price,
         originalPrice: sp.originalPrice,
         rating: sp.rating,
@@ -417,6 +492,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         sizes: sp.sizes,
         cardHighlights: sp.cardHighlights,
         attributes: sp.attributes,
+        typedAttributes: sp.typedAttributes,
         specifications: sp.specifications,
         deliveryEstimate: sp.deliveryEstimate,
         returnPolicy: sp.returnPolicy,
@@ -519,15 +595,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setCurrencyState(next);
       showToast(
         `Display currency set to ${next}`,
-        next === 'BDT' ? 'Showing approximate BDT (৳) equivalents.' : 'Showing prices in USD ($).',
+        next === 'BDT'
+          ? `Bangladesh Taka (৳) at 1 USD = ৳${currencyConfig.rates.BDT}`
+          : 'Display prices in USD ($). Bangladesh checkout settles in BDT.',
         'info'
       );
     },
-    [showToast]
+    [currencyConfig.rates.BDT, showToast]
   );
 
   const toggleCurrency = useCallback(() => {
-    setCurrency(currency === 'USD' ? 'BDT' : 'USD');
+    setCurrency(currency === 'BDT' ? 'USD' : 'BDT');
   }, [currency, setCurrency]);
 
   const addToCart = useCallback(
@@ -539,6 +617,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       quantity = 1,
       openDrawer = true
     ) => {
+      if (isProductOutOfStock(product)) {
+        showToast('Out of stock', `${product.name} is currently unavailable.`, 'error');
+        return;
+      }
+
       const key = `${product.id}::${color}::${size}`;
       const existing = cart.find((i) => i.key === key);
       const currentQty = existing ? existing.quantity : 0;
@@ -576,6 +659,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             size,
             quantity: targetQty,
             stockCount: product.stockCount,
+            weightKg: product.weightKg ?? 1.0,
+            sizeTier: product.sizeTier ?? 'small',
           },
         ];
       });
@@ -644,19 +729,34 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     (key: string) => {
       const item = savedForLater.find((i) => i.key === key);
       if (!item) return;
+      const liveProduct = products.find((p) => p.id === item.productId);
+      const availableStock = liveProduct ? liveProduct.stockCount : item.stockCount;
+      if (availableStock <= 0) {
+        showToast('Out of stock', `${item.name} is currently out of stock.`, 'error');
+        return;
+      }
       setSavedForLater((prev) => prev.filter((i) => i.key !== key));
       setCart((prev) => {
         const existing = prev.find((i) => i.key === key);
         if (existing) {
           return prev.map((i) =>
-            i.key === key ? { ...i, quantity: Math.min(i.stockCount, i.quantity + item.quantity) } : i
+            i.key === key
+              ? {
+                  ...i,
+                  stockCount: availableStock,
+                  quantity: Math.min(availableStock, i.quantity + item.quantity),
+                }
+              : i
           );
         }
-        return [...prev, item];
+        return [
+          ...prev,
+          { ...item, stockCount: availableStock, quantity: Math.min(availableStock, item.quantity) },
+        ];
       });
       showToast('Moved to bag', item.name, 'success');
     },
-    [savedForLater, showToast]
+    [products, savedForLater, showToast]
   );
 
   const removeSavedItem = useCallback((key: string) => {
@@ -696,7 +796,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ok: false,
           message: `Code ${found.code} requires a minimum subtotal of ${formatCurrency(
             found.minSubtotal,
-            currency
+            currency,
+            currencyConfig.rates.BDT
           )}.`,
         };
       }
@@ -704,7 +805,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       showToast('Promo code applied', found.description, 'success');
       return { ok: true, message: found.description };
     },
-    [cartSubtotal, currency, showToast]
+    [cartSubtotal, currency, currencyConfig.rates.BDT, showToast]
   );
 
   const removePromoCode = useCallback(() => {
@@ -715,8 +816,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const estimatedShipping = useMemo(() => {
     if (cart.length === 0) return 0;
     if (appliedPromo?.discountType === 'shipping') return 0;
-    return cartSubtotal >= 500 ? 0 : 28;
-  }, [cart.length, cartSubtotal, appliedPromo]);
+    const dhakaZone = shippingConfig.zones.find((z) => z.zoneId === 'dhaka_metro');
+    const threshold = dhakaZone?.freeThresholdUsd ?? 120;
+    const baseFee = dhakaZone?.standardFeeUsd ?? 0.7;
+    return cartSubtotal >= threshold ? 0 : baseFee;
+  }, [cart.length, cartSubtotal, appliedPromo, shippingConfig.zones]);
 
   const cartDiscount = useMemo(() => {
     if (!appliedPromo || cartSubtotal < appliedPromo.minSubtotal) return 0;
@@ -830,6 +934,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [products, showToast]
   );
 
+  const commitVerifiedOrder = useCallback(
+    (verifiedOrder: Order) => {
+      const hydrated = hydrateOrderImages([verifiedOrder])[0];
+      setOrders((prev) => [hydrated, ...prev.filter((o) => o.id !== hydrated.id)]);
+      clearCart();
+      refreshStorefrontSync();
+      refreshNotifications(profile.role);
+    },
+    [clearCart, hydrateOrderImages, profile.role, refreshNotifications, refreshStorefrontSync]
+  );
+
   const placeOrder = useCallback(
     (payload: CheckoutPayload): Order => {
       const deliveryLabels: Record<
@@ -837,33 +952,39 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         { label: string; cost: number; eta: string; courier: string }
       > = {
         standard: {
-          label: 'Standard Ground Delivery',
-          cost: cartSubtotal >= 500 || appliedPromo?.discountType === 'shipping' ? 0 : 28,
-          eta: 'Nov 20 – Nov 22, 2026',
-          courier: 'UPS / Kinto Regional Ground',
+          label: 'Standard Tracked Courier',
+          cost:
+            cartSubtotal >= FREE_SHIPPING_THRESHOLD_USD || appliedPromo?.discountType === 'shipping'
+              ? 0
+              : 1.5,
+          eta: '2–4 Business Days',
+          courier: 'Steadfast & Pathao Studio Ground',
         },
         express: {
-          label: 'Express Insured Courier',
-          cost: appliedPromo?.discountType === 'shipping' ? 0 : 48,
-          eta: 'Nov 16 – Nov 17, 2026',
-          courier: 'Priority Express Courier',
+          label: 'Express Priority Dispatch',
+          cost: appliedPromo?.discountType === 'shipping' ? 0 : 2.9,
+          eta: 'Next Business Day',
+          courier: 'RedX Priority Air & Same-Day',
         },
         'white-glove': {
           label: 'White-Glove Room Placement',
-          cost: 125,
-          eta: 'Nov 21 – Nov 25, 2026',
-          courier: 'Kinto Dedicated White-Glove',
+          cost: 12,
+          eta: 'Scheduled 2–5 Days',
+          courier: 'Kinto Atelier Specialist Fleet',
         },
       };
 
       const paymentLabels: Record<PaymentMethodId, string> = {
-        card: 'Credit / Debit Card',
-        wallet: 'Digital Wallet',
-        bkash: 'bKash Mobile Wallet (Demo)',
-        nagad: 'Nagad Mobile Wallet (Demo)',
-        rocket: 'Rocket Mobile Banking (Demo)',
+        bkash: 'bKash Mobile Wallet',
+        nagad: 'Nagad Mobile Wallet',
+        rocket: 'Rocket (DBBL)',
+        visa: 'Visa Card',
+        mastercard: 'Mastercard',
+        cod: 'Cash on Delivery (Bangladesh)',
+        sslcommerz: 'SSLCommerz Multi-Channel',
         'bank-transfer': 'Direct Bank Transfer',
-        cod: 'Cash on Delivery (COD)',
+        card: payload.paymentReference ? `Card ending in ${payload.paymentReference}` : 'Credit / Debit Card',
+        wallet: 'Digital Wallet',
       };
 
       const delivery = deliveryLabels[payload.deliveryMethod];
@@ -880,6 +1001,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         minute: '2-digit',
       }).format(new Date());
 
+      const isBd = payload.shippingAddress.country.toLowerCase() === 'bangladesh';
+      const settleCurrency: CurrencyCode = isBd ? 'BDT' : currency;
+      const rate = settleCurrency === 'BDT' ? currencyConfig.rates.BDT : 1;
+      const chargedTotal =
+        settleCurrency === 'BDT' ? Math.ceil(finalTotal * rate) : finalTotal;
+
       const newOrder: Order = {
         id: orderId,
         createdAt: new Date().toISOString(),
@@ -894,6 +1021,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         trackingNumber: `KS-TRK-${Math.floor(1000000 + Math.random() * 8999999)}`,
         paymentMethod: payload.paymentMethod,
         paymentLabel: paymentLabels[payload.paymentMethod],
+        paymentStatus: payload.paymentMethod === 'cod' ? 'cod_pending' : 'paid',
+        transactionRef: `KS-LOCAL-${Math.floor(100000 + Math.random() * 899999)}`,
+        gatewayProvider: 'Kinto Checkout Ledger',
+        currencySnapshot: {
+          baseCurrency: 'USD',
+          transactionCurrency: settleCurrency,
+          exchangeRate: rate,
+          rateSource: currencyConfig.source,
+          rateTimestamp: currencyConfig.updatedAt,
+          roundingRule: currencyConfig.roundingRules[settleCurrency].mode,
+          baseSubtotalUsd: cartSubtotal,
+          baseTotalUsd: finalTotal,
+          chargedTotal,
+        },
         promoCode: appliedPromo?.code,
         items: [...cart],
         subtotal: cartSubtotal,
@@ -906,7 +1047,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           {
             stage: 'Confirmed',
             timestamp: nowLabel,
-            note: 'Order received and confirmed (simulated checkout)',
+            note: 'Order received and verified',
             completed: true,
           },
           {
@@ -946,12 +1087,24 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       createOrderApi(newOrder)
         .then(() => refreshNotifications(profile.role))
         .catch(() => {
-          // Keep optimistic local order
+          showToast('Order saved locally for preview', 'Offline tracking remains active.', 'info');
         });
       clearCart();
       return newOrder;
     },
-    [appliedPromo, cart, cartDiscount, cartSubtotal, cartTax, clearCart, profile.role, refreshNotifications]
+    [
+      appliedPromo,
+      cart,
+      cartDiscount,
+      cartSubtotal,
+      cartTax,
+      clearCart,
+      currency,
+      currencyConfig,
+      profile.role,
+      refreshNotifications,
+      showToast,
+    ]
   );
 
   const reorderFromOrder = useCallback(
@@ -1258,9 +1411,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     navigate,
     goBack,
     storefrontLoading,
+    categoryNodes,
     categories,
+    getCategoryNodeBySlug,
+    getDescendantSlugs,
     products,
     currency,
+    currencyConfig,
+    shippingConfig,
     setCurrency,
     toggleCurrency,
     cart,
@@ -1301,6 +1459,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     submitProductReview,
     submitProductQuestion,
     orders,
+    commitVerifiedOrder,
     placeOrder,
     reorderFromOrder,
     cancelOrder,
@@ -1342,6 +1501,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
 export function useStore(): StoreContextValue {
   const ctx = useContext(StoreContext);
-  if (!ctx) throw new Error('useStore must be used within StoreProvider');
+  if (!ctx) {
+    throw new Error('useStore must be used within a StoreProvider');
+  }
   return ctx;
 }

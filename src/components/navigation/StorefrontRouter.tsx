@@ -1,5 +1,7 @@
 import React from 'react';
+import { useStore } from '../../context/StoreContext';
 import { RouteState } from '../../context/navigationController';
+import { formatCurrency } from '../../utils/format';
 import { HomePage } from '../../pages/HomePage';
 import { ShopPage } from '../../pages/ShopPage';
 import { ProductDetailPage } from '../../pages/ProductDetailPage';
@@ -25,6 +27,9 @@ interface StorefrontRouterProps {
 }
 
 export const StorefrontRouter: React.FC<StorefrontRouterProps> = ({ route }) => {
+  const { currency, shippingConfig } = useStore();
+  const dhakaThresholdUsd =
+    shippingConfig.zones.find((z) => z.zoneId === 'dhaka_metro')?.freeThresholdUsd ?? 120;
   switch (route.name) {
     case 'home':
       return <HomePage />;
@@ -66,20 +71,23 @@ export const StorefrontRouter: React.FC<StorefrontRouterProps> = ({ route }) => 
     case 'shipping-policy':
       return (
         <PolicyPage
-          title="Shipping & White-Glove Policy"
-          subtitle="Effective November 2026 · Contiguous United States & Canada"
+          title="Bangladesh & International Shipping Policy"
+          subtitle="Effective November 2026 · Dhaka Hub, All 64 Districts & Global Freight"
           sections={[
             {
-              heading: '1. Standard Ground & Complimentary Threshold',
-              body: 'Orders totaling $500 USD or more qualify for complimentary insured ground shipping across the 48 contiguous United States. In-stock lighting, ceramics, and textiles dispatch from our Portland fulfillment studio within 24 to 48 business hours.',
+              heading: '1. Hierarchical Bangladesh Coverage & Complimentary Threshold',
+              body: `Dhaka Metro orders totaling ${formatCurrency(
+                dhakaThresholdUsd,
+                currency
+              )} or more qualify for complimentary standard courier delivery (excluding oversized freight furniture). Weight-based and bulky-item handling rates scale transparently by Division, District, Upazila, and Area during checkout.`,
             },
             {
-              heading: '2. White-Glove Room Placement',
-              body: 'Monolithic stone tables, credenzas, and lounge chairs travel via dedicated blanket-wrap and crated furniture carriers. Our two-person delivery team schedules a two-hour arrival window, places each piece in your desired room, levels feet if required, and removes all crating materials.',
+              heading: '2. Express & White-Glove Room Placement',
+              body: 'Express same-day and next-day air dispatch operates across Dhaka Metro, Suburbs, Chattogram, and Sylhet city hubs. Two-person White-Glove assembly is available for travertine tables and hardwood seating.',
             },
             {
-              heading: '3. Transit Inspection',
-              body: 'Every shipment is fully insured against transit damage. Please inspect crated stone and timber surfaces upon arrival and note any exterior carton concerns on the carrier bill of lading.',
+              heading: '3. Cash on Delivery & Restricted Maritime Zones',
+              body: 'Cash on Delivery (COD) is available across eligible mainland Bangladesh zones up to zone order limits. Remote offshore marine routes (such as Sandwip, Saint Martin, and Monpura) are automatically flagged during checkout.',
             },
           ]}
         />
@@ -134,7 +142,7 @@ export const StorefrontRouter: React.FC<StorefrontRouterProps> = ({ route }) => 
             },
             {
               heading: '2. Pricing & Promotional Codes',
-              body: 'All prices are listed in US Dollars (USD). Promotional privileges such as STUDIO15 apply per eligible subtotal and cannot be combined retroactively after order dispatch.',
+              body: 'Catalog base pricing is anchored in US Dollars (USD) with live BDT (৳) display equivalents available anytime in the header. Promotional codes such as STUDIO15 apply per eligible subtotal and cannot be combined retroactively after order dispatch.',
             },
           ]}
         />

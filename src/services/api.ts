@@ -3,15 +3,28 @@ import type {
   AdminDashboardData,
   ApiSellerProductRecord,
   AvailabilityStatus,
+  CategoryFacetConfig,
+  CategoryNode,
+  CheckoutQuoteResponse,
+  CurrencyCode,
+  CurrencyRateState,
+  DeliveryMethodId,
   DynamicCategoryRecord,
   Order,
   OrderStage,
+  PaymentMethodId,
+  PaymentSession,
   ProductOverride,
   SellerApplicationRecord,
   SellerDashboardData,
+  ShippingQuoteResponse,
+  ShippingRuleConfig,
+  ShippingZoneId,
+  ShippingZoneRule,
   StoreNotification,
   UserRole,
 } from '../types/commerce';
+import type { BangladeshDivisionEntry } from '../../server/shared/marketplaceSchema';
 import { readStorage, writeStorage } from './storage';
 
 const TOKEN_STORAGE_KEY = 'kinto-api-token';
@@ -108,9 +121,132 @@ export async function updateProfileApi(updates: {
 export async function fetchStorefrontSync(): Promise<{
   productOverrides: Record<string, ProductOverride>;
   sellerProducts: ApiSellerProductRecord[];
+  categoryTree: CategoryNode[];
   customCategories: DynamicCategoryRecord[];
+  currencyConfig: CurrencyRateState;
+  shippingConfig: ShippingRuleConfig;
 }> {
   return requestJson('/api/storefront/state');
+}
+
+export async function fetchCurrencyRatesApi(): Promise<CurrencyRateState> {
+  const res = await requestJson<{ currencyConfig: CurrencyRateState }>('/api/currency/rates');
+  return res.currencyConfig;
+}
+
+export async function updateAdminCurrencyApi(updates: {
+  bdtRate?: number;
+  defaultCurrency?: CurrencyCode;
+  source?: string;
+  updateFrequencyMinutes?: number;
+}): Promise<CurrencyRateState> {
+  const res = await requestJson<{ currencyConfig: CurrencyRateState }>('/api/admin/currency', {
+    method: 'PATCH',
+    body: JSON.stringify(updates),
+  });
+  return res.currencyConfig;
+}
+
+export async function fetchCategoriesTreeApi(): Promise<CategoryNode[]> {
+  const res = await requestJson<{ categories: CategoryNode[] }>('/api/categories');
+  return res.categories;
+}
+
+export async function fetchShippingLocationsApi(): Promise<{
+  divisions: BangladeshDivisionEntry[];
+  restrictedAreaKeywords: string[];
+}> {
+  return requestJson('/api/shipping/locations');
+}
+
+export async function quoteShippingApi(payload: {
+  items: Array<{ productId: string; quantity: number }>;
+  address: { country?: string; state?: string; city?: string; upazila?: string; area?: string };
+  promoCode?: string;
+  currency?: CurrencyCode;
+}): Promise<ShippingQuoteResponse> {
+  const res = await requestJson<{ quote: ShippingQuoteResponse }>('/api/shipping/quote', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return res.quote;
+}
+
+export async function updateAdminShippingRulesApi(payload: {
+  zoneId?: ShippingZoneId;
+  updates?: Partial<ShippingZoneRule>;
+  restrictedAreaKeywords?: string[];
+}): Promise<ShippingRuleConfig> {
+  const res = await requestJson<{ shippingConfig: ShippingRuleConfig }>(
+    '/api/admin/shipping-rules',
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }
+  );
+  return res.shippingConfig;
+}
+
+export async function quoteCheckoutApi(payload: {
+  items: Array<{
+    productId: string;
+    quantity: number;
+    color?: string;
+    colorHex?: string;
+    size?: string;
+  }>;
+  address: { country: string; state: string; city: string; upazila?: string; area: string };
+  deliveryMethod: DeliveryMethodId;
+  promoCode?: string;
+  requestedCurrency?: CurrencyCode;
+  allowInternationalUsd?: boolean;
+}): Promise<CheckoutQuoteResponse> {
+  const res = await requestJson<{ quote: CheckoutQuoteResponse }>('/api/checkout/quote', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return res.quote;
+}
+
+export async function initiatePaymentApi(payload: {
+  idempotencyKey: string;
+  paymentMethod: PaymentMethodId;
+  customerName: string;
+  email: string;
+  phone: string;
+  shippingAddress: Order['shippingAddress'];
+  deliveryMethod: DeliveryMethodId;
+  items: Array<{
+    productId: string;
+    quantity: number;
+    color?: string;
+    colorHex?: string;
+    size?: string;
+    name?: string;
+    brand?: string;
+    category?: string;
+    slug?: string;
+  }>;
+  promoCode?: string;
+  requestedCurrency?: CurrencyCode;
+  allowInternationalUsd?: boolean;
+}): Promise<{ session: PaymentSession; quote: CheckoutQuoteResponse }> {
+  return requestJson('/api/payments/initiate', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function verifyPaymentApi(payload: {
+  sessionId: string;
+  outcome: 'paid' | 'failed' | 'cancelled' | 'cod_confirmed';
+  walletNumber?: string;
+  failureReason?: string;
+}): Promise<{ session: PaymentSession; order?: Order }> {
+  return requestJson('/api/payments/verify', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function fetchNotificationsApi(role: UserRole): Promise<StoreNotification[]> {
@@ -180,6 +316,9 @@ export async function createSellerProductApi(payload: {
   subcategoryLabel?: string;
   price: number;
   stockCount: number;
+  weightKg?: number;
+  sizeTier?: 'small' | 'medium' | 'bulky' | 'freight';
+  codEligible?: boolean;
   shortDescription: string;
   imagePresetKey: string;
   highlightOne?: string;
@@ -238,22 +377,42 @@ export async function updateSellerStatusApi(
   return res.application;
 }
 
-export async function createCategoryApi(payload: {
+export async function createCategoryNodeApi(payload: {
   name: string;
   shortName?: string;
+  parentId?: string | null;
   description?: string;
-  subcategoryName?: string;
+  bannerTagline?: string;
+  iconName?: string;
   imagePresetKey?: string;
-}): Promise<DynamicCategoryRecord> {
-  const res = await requestJson<{ category: DynamicCategoryRecord }>('/api/admin/categories', {
+  sortOrder?: number;
+  seoTitle?: string;
+  seoDescription?: string;
+  collectionIds?: string[];
+  featuredBrands?: string[];
+  filterFacets?: CategoryFacetConfig[];
+  subcategoryName?: string;
+}): Promise<{ category: CategoryNode; categoryTree: CategoryNode[] }> {
+  return requestJson('/api/admin/categories', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
-  return res.category;
 }
 
-export async function deleteCategoryApi(slug: string): Promise<void> {
-  await requestJson(`/api/admin/categories/${encodeURIComponent(slug)}`, {
+export async function updateCategoryNodeApi(
+  id: string,
+  updates: Partial<CategoryNode>
+): Promise<{ category: CategoryNode; categoryTree: CategoryNode[] }> {
+  return requestJson(`/api/admin/categories/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(updates),
+  });
+}
+
+export async function deleteCategoryNodeApi(
+  idOrSlug: string
+): Promise<{ ok: boolean; removedCount: number; categoryTree: CategoryNode[] }> {
+  return requestJson(`/api/admin/categories/${encodeURIComponent(idOrSlug)}`, {
     method: 'DELETE',
   });
 }

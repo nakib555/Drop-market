@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CategoryMeta, CategorySlug, Product, RouteName } from '../types/commerce';
+import { normalizeCategorySlug } from '../../server/shared/marketplaceSchema';
 
 export type NavigationDirection = 1 | -1;
 
@@ -100,19 +101,6 @@ const PEER_ROUTE_ORDER: Partial<Record<RouteName, number>> = {
   terms: 23,
 };
 
-const LEGACY_CATEGORY_MAP: Record<string, CategorySlug> = {
-  seating: 'home-living',
-  lighting: 'home-living',
-  'tables-storage': 'home-living',
-  'ceramics-glass': 'home-living',
-  'textiles-objects': 'home-living',
-  'electronics-audio': 'electronics-tech',
-  'apparel-accessories': 'fashion-apparel',
-  'beauty-wellness': 'beauty-care',
-  'outdoor-travel': 'sports-outdoor',
-  'pantry-coffee': 'grocery-food',
-};
-
 const VALID_ROUTES: RouteName[] = [
   'home',
   'shop',
@@ -141,11 +129,6 @@ const VALID_ROUTES: RouteName[] = [
   'maintenance',
   'not-found',
 ];
-
-function normalizeCategorySlug(raw: string | null | undefined): CategorySlug | 'all' {
-  if (!raw || raw === 'all') return 'all';
-  return LEGACY_CATEGORY_MAP[raw] || (raw as CategorySlug);
-}
 
 export function getRouteKey(route: RouteState): string {
   return [
@@ -231,7 +214,7 @@ export function serializeRouteToHash(route: RouteState): string {
       if (route.subcategory) p.set('sub', route.subcategory);
       if (route.brand) p.set('brand', route.brand);
       const qs = p.toString();
-      const base = `#/category/${route.category || 'home-living'}`;
+      const base = `#/category/${route.category || 'home-furniture-kitchen'}`;
       return qs ? `${base}?${qs}` : base;
     }
     case 'shop': {
@@ -289,7 +272,7 @@ export function resolveDocumentTitle(
   }
   if (route.name === 'category' && route.category) {
     const foundCat = categories.find((c) => c.slug === route.category);
-    return foundCat ? `${foundCat.name} — KINTO STUDIO` : PAGE_TITLES.category;
+    return foundCat ? foundCat.seoTitle || `${foundCat.name} — KINTO STUDIO` : PAGE_TITLES.category;
   }
   return PAGE_TITLES[route.name] || PAGE_TITLES.home;
 }
@@ -362,7 +345,6 @@ export function useNavigationController(
         pendingHashCommitRef.current = null;
         commitRouteTransition(next, pending.direction, true);
       } else {
-        // Browser Back / Forward or manual hash edit
         const nextKey = getRouteKey(next);
         const history = historyRef.current;
         let backIdx = -1;

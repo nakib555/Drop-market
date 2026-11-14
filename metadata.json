@@ -1,6 +1,6 @@
 {
   "name": "KINTO STUDIO",
-  "description": "Curated multi-department marketplace spanning home & living, electronics & audio, apparel, botanical skincare, outdoor gear, and specialty coffee.",
+  "description": "Universal 10-department marketplace spanning electronics, fashion, home & kitchen, beauty, grocery, sports, books, automotive tools, baby & toys, and health & pets with BDT/USD pricing and Bangladesh logistics.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
