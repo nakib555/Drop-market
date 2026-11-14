@@ -48,7 +48,7 @@ export const Button: React.FC<ButtonProps> = ({
     <button
       type={type}
       disabled={disabled || loading}
-      className={`inline-flex items-center justify-center gap-2 font-medium tracking-tight rounded-md transition-[color,background-color,border-color,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.985] cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed disabled:active:scale-100 ${
+      className={`inline-flex items-center justify-center gap-2 font-medium tracking-tight leading-snug rounded-md transition-[color,background-color,border-color,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.985] cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed disabled:active:scale-100 ${
         fullWidth ? 'w-full text-center' : 'whitespace-nowrap shrink-0'
       } ${VARIANT_CLASSES[variant]} ${SIZE_CLASSES[size]} ${className}`}
       {...rest}

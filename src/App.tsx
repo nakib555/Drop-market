@@ -11,6 +11,9 @@ import { CartDrawer } from './components/cart/CartDrawer';
 import { QuickViewModal } from './components/product/QuickViewModal';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { BackToTopButton } from './components/ui/BackToTopButton';
+import { PWAStatusBanners } from './components/pwa/PWAStatusBanners';
+import { CookieConsentBanner } from './components/legal/CookieConsentBanner';
+import { LegalModalPreview } from './components/legal/LegalModalPreview';
 
 const AppShell: React.FC = () => {
   const { route, navigationDirection } = useStore();
@@ -49,6 +52,9 @@ const AppShell: React.FC = () => {
       <CartDrawer />
       <QuickViewModal />
       <BackToTopButton />
+      <CookieConsentBanner />
+      <LegalModalPreview />
+      <PWAStatusBanners />
       <ToastContainer />
     </div>
   );

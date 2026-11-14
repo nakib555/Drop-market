@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useStore } from '../context/StoreContext';
+import { getDepartmentSafetyNotice } from '../data/legalPolicies';
 import {
   formatCurrency,
   formatShortDate,
@@ -439,7 +440,7 @@ export const ProductDetailPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-baseline gap-3 pb-4 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+          <div className="flex items-baseline flex-wrap gap-x-3 gap-y-1 pb-4 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
             <span className="text-2xl sm:text-3xl font-mono-num font-semibold">
               {formatCurrency(product.price, currency)}
             </span>
@@ -587,19 +588,49 @@ export const ProductDetailPage: React.FC = () => {
           </div>
 
           {/* Delivery, Return, Warranty Summary */}
-          <div className="pt-4 border-t border-[#E5E3DD] dark:border-[#2C2C28] space-y-2.5 text-xs text-[#5C5B57] dark:text-[#A3A19B]">
+          <div className="pt-4 border-t border-[#E5E3DD] dark:border-[#2C2C28] space-y-2.5 text-xs leading-snug text-[#5C5B57] dark:text-[#A3A19B]">
             <div className="flex items-start gap-2.5">
-              <Truck className="w-4 h-4 text-[#8F6438] dark:text-[#C89B67] shrink-0 mt-0.5" />
+              <Truck className="w-4 h-4 text-[#8F6438] dark:text-[#C89B67] shrink-0 mt-[2px]" />
               <span>{product.deliveryEstimate}</span>
             </div>
             <div className="flex items-start gap-2.5">
-              <RotateCcw className="w-4 h-4 text-[#8F6438] dark:text-[#C89B67] shrink-0 mt-0.5" />
+              <RotateCcw className="w-4 h-4 text-[#8F6438] dark:text-[#C89B67] shrink-0 mt-[2px]" />
               <span>{product.returnPolicy}</span>
             </div>
             <div className="flex items-start gap-2.5">
-              <ShieldCheck className="w-4 h-4 text-[#8F6438] dark:text-[#C89B67] shrink-0 mt-0.5" />
+              <ShieldCheck className="w-4 h-4 text-[#8F6438] dark:text-[#C89B67] shrink-0 mt-[2px]" />
               <span>{product.warranty}</span>
             </div>
+
+            {(() => {
+              const safetyNotice = getDepartmentSafetyNotice(product.category);
+              return (
+                <div className="mt-3 p-3.5 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-1.5">
+                  <p className="text-xs font-semibold text-[#171716] dark:text-[#F4F3EF]">
+                    {safetyNotice.title}
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-[#5C5B57] dark:text-[#A3A19B]">
+                    {safetyNotice.summary}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => navigate({ name: 'product-safety' })}
+                      className="underline font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                    >
+                      Safety Disclaimers
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate({ name: 'return-policy' })}
+                      className="underline text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    >
+                      Return Eligibility
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>
@@ -627,7 +658,7 @@ export const ProductDetailPage: React.FC = () => {
                 role="tab"
                 aria-selected={isSelected}
                 onClick={() => setActiveTab(tab.id)}
-                className={`relative pb-3.5 text-sm font-medium whitespace-nowrap transition-colors cursor-pointer ${
+                className={`relative pb-3.5 text-sm font-medium whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
                   isSelected
                     ? 'text-[#171716] dark:text-[#F4F3EF]'
                     : 'text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
@@ -659,10 +690,12 @@ export const ProductDetailPage: React.FC = () => {
                     {product.specifications.map((spec) => (
                       <div
                         key={spec.label}
-                        className="py-3.5 flex items-center justify-between gap-4 text-sm"
+                        className="py-3.5 flex items-baseline justify-between gap-4 text-sm"
                       >
-                        <dt className="text-[#5C5B57] dark:text-[#A3A19B]">{spec.label}</dt>
-                        <dd className="font-medium text-right font-mono-num">{spec.value}</dd>
+                        <dt className="text-[#5C5B57] dark:text-[#A3A19B] min-w-0">{spec.label}</dt>
+                        <dd className="font-medium text-right font-mono-num max-w-[60%] leading-snug">
+                          {spec.value}
+                        </dd>
                       </div>
                     ))}
                     {product.typedAttributes &&
@@ -675,25 +708,29 @@ export const ProductDetailPage: React.FC = () => {
                         return (
                           <div
                             key={`typed-${attrKey}`}
-                            className="py-3.5 flex items-center justify-between gap-4 text-sm"
+                            className="py-3.5 flex items-baseline justify-between gap-4 text-sm"
                           >
-                            <dt className="text-[#5C5B57] dark:text-[#A3A19B]">{label}</dt>
-                            <dd className="font-medium text-right font-mono-num">
+                            <dt className="text-[#5C5B57] dark:text-[#A3A19B] min-w-0">{label}</dt>
+                            <dd className="font-medium text-right font-mono-num max-w-[60%] leading-snug">
                               {formatTypedAttributeValue(attrVal, facetMeta?.unit)}
                             </dd>
                           </div>
                         );
                       })}
-                    <div className="py-3.5 flex items-center justify-between gap-4 text-sm">
-                      <dt className="text-[#5C5B57] dark:text-[#A3A19B]">Shipping Weight &amp; Tier</dt>
-                      <dd className="font-medium text-right font-mono-num capitalize">
+                    <div className="py-3.5 flex items-baseline justify-between gap-4 text-sm">
+                      <dt className="text-[#5C5B57] dark:text-[#A3A19B] min-w-0">
+                        Shipping Weight &amp; Tier
+                      </dt>
+                      <dd className="font-medium text-right font-mono-num capitalize max-w-[60%] leading-snug">
                         {product.weightKg ? `${product.weightKg} kg · ` : ''}
                         {product.sizeTier || 'medium'} parcel
                       </dd>
                     </div>
-                    <div className="py-3.5 flex items-center justify-between gap-4 text-sm">
-                      <dt className="text-[#5C5B57] dark:text-[#A3A19B]">Cash on Delivery</dt>
-                      <dd className="font-medium text-right font-mono-num">
+                    <div className="py-3.5 flex items-baseline justify-between gap-4 text-sm">
+                      <dt className="text-[#5C5B57] dark:text-[#A3A19B] min-w-0">
+                        Cash on Delivery
+                      </dt>
+                      <dd className="font-medium text-right font-mono-num max-w-[60%] leading-snug">
                         {product.codEligible === false ? 'Prepaid Only' : 'Eligible (Bangladesh)'}
                       </dd>
                     </div>
@@ -878,9 +915,9 @@ export const ProductDetailPage: React.FC = () => {
                         className="p-5 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-3"
                       >
                         <div className="space-y-1">
-                          <div className="flex items-center justify-between text-xs text-[#84827B]">
-                            <span>Question from {qa.author}</span>
-                            <span className="font-mono-num">{formatShortDate(qa.date)}</span>
+                          <div className="flex items-baseline justify-between gap-2 text-xs text-[#84827B]">
+                            <span className="min-w-0 truncate">Question from {qa.author}</span>
+                            <span className="font-mono-num shrink-0">{formatShortDate(qa.date)}</span>
                           </div>
                           <p className="text-sm font-semibold">{qa.question}</p>
                         </div>
@@ -1007,39 +1044,39 @@ export const ProductDetailPage: React.FC = () => {
             Measurements reflect relaxed garment dimensions laid flat. Select your normal size for intended layering room.
           </p>
           <div className="overflow-x-auto rounded-md border border-[#E5E3DD] dark:border-[#2C2C28]">
-            <table className="w-full text-left text-xs font-mono-num">
+            <table className="w-full text-left text-xs font-mono-num tabular-nums">
               <thead className="bg-[#F9F8F6] dark:bg-[#141413] border-b border-[#E5E3DD] dark:border-[#2C2C28]">
                 <tr>
-                  <th className="p-3 font-medium">Size</th>
-                  <th className="p-3 font-medium">Chest (in)</th>
-                  <th className="p-3 font-medium">Shoulder (in)</th>
-                  <th className="p-3 font-medium">Length (in)</th>
+                  <th className="p-3 font-medium text-left">Size</th>
+                  <th className="p-3 font-medium text-right">Chest (in)</th>
+                  <th className="p-3 font-medium text-right">Shoulder (in)</th>
+                  <th className="p-3 font-medium text-right">Length (in)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28]">
                 <tr>
-                  <td className="p-3 font-semibold">S</td>
-                  <td className="p-3">41.5</td>
-                  <td className="p-3">18.2</td>
-                  <td className="p-3">27.5</td>
+                  <td className="p-3 font-semibold text-left">S</td>
+                  <td className="p-3 text-right">41.5</td>
+                  <td className="p-3 text-right">18.2</td>
+                  <td className="p-3 text-right">27.5</td>
                 </tr>
                 <tr>
-                  <td className="p-3 font-semibold">M</td>
-                  <td className="p-3">43.5</td>
-                  <td className="p-3">19.0</td>
-                  <td className="p-3">28.5</td>
+                  <td className="p-3 font-semibold text-left">M</td>
+                  <td className="p-3 text-right">43.5</td>
+                  <td className="p-3 text-right">19.0</td>
+                  <td className="p-3 text-right">28.5</td>
                 </tr>
                 <tr>
-                  <td className="p-3 font-semibold">L</td>
-                  <td className="p-3">46.0</td>
-                  <td className="p-3">19.8</td>
-                  <td className="p-3">29.5</td>
+                  <td className="p-3 font-semibold text-left">L</td>
+                  <td className="p-3 text-right">46.0</td>
+                  <td className="p-3 text-right">19.8</td>
+                  <td className="p-3 text-right">29.5</td>
                 </tr>
                 <tr>
-                  <td className="p-3 font-semibold">XL</td>
-                  <td className="p-3">48.5</td>
-                  <td className="p-3">20.6</td>
-                  <td className="p-3">30.5</td>
+                  <td className="p-3 font-semibold text-left">XL</td>
+                  <td className="p-3 text-right">48.5</td>
+                  <td className="p-3 text-right">20.6</td>
+                  <td className="p-3 text-right">30.5</td>
                 </tr>
               </tbody>
             </table>
@@ -1058,7 +1095,7 @@ export const ProductDetailPage: React.FC = () => {
             transition={STUDIO_TRANSITION.base}
             className="lg:hidden fixed bottom-0 inset-x-0 z-30 h-12 px-3 sm:px-4 bg-[#FFFFFF]/95 dark:bg-[#191917]/95 backdrop-blur-md border-t border-[#E5E3DD] dark:border-[#2C2C28] flex items-center justify-between gap-3"
           >
-            <div className="min-w-0 flex items-center gap-2">
+            <div className="min-w-0 flex-1 flex items-center gap-2">
               <span className="text-xs font-medium truncate">{product.name}</span>
               <span className="text-xs font-mono-num font-semibold shrink-0">
                 {formatCurrency(product.price, currency)}
@@ -1068,6 +1105,7 @@ export const ProductDetailPage: React.FC = () => {
               variant="primary"
               size="xs"
               disabled={outOfStock}
+              className="whitespace-nowrap shrink-0"
               onClick={() => addToCart(product, color.name, color.hex, size, quantity, true)}
             >
               {outOfStock ? 'Out of Stock' : 'Add to Bag'}

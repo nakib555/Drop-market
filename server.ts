@@ -20,6 +20,7 @@ import type {
   CategoryNode,
   CurrencyCode,
   DeliveryMethodId,
+  LegalAcceptanceRecord,
   Order,
   OrderStage,
   PaymentMethodId,
@@ -90,18 +91,27 @@ async function startServer() {
 
   // Register a new Customer or Seller account
   app.post('/api/auth/register', (req, res) => {
-    const { fullName, email, phone, password, role, studioName } = (req.body || {}) as {
-      fullName?: string;
-      email?: string;
-      phone?: string;
-      password?: string;
-      role?: UserRole;
-      studioName?: string;
-    };
+    const { fullName, email, phone, password, role, studioName, acceptedPolicies } =
+      (req.body || {}) as {
+        fullName?: string;
+        email?: string;
+        phone?: string;
+        password?: string;
+        role?: UserRole;
+        studioName?: string;
+        acceptedPolicies?: LegalAcceptanceRecord;
+      };
 
     const cleanEmail = (email || '').trim().toLowerCase();
     if (!fullName?.trim() || !cleanEmail || !cleanEmail.includes('@')) {
       res.status(400).json({ error: 'Valid full name and email address are required.' });
+      return;
+    }
+
+    if (!acceptedPolicies?.accepted || !acceptedPolicies.version) {
+      res.status(400).json({
+        error: 'You must accept the Terms of Service and Privacy Policy to create an account.',
+      });
       return;
     }
 
@@ -125,6 +135,10 @@ async function startServer() {
       location: 'Dhaka & Global Hub',
       demoPasswordHint: password?.trim() || 'studio2026',
       password: password?.trim() || 'studio2026',
+      policyAcceptance: {
+        ...acceptedPolicies,
+        acceptedAt: acceptedPolicies.acceptedAt || new Date().toISOString(),
+      },
     };
 
     db.users.unshift(newUser);
@@ -380,7 +394,16 @@ async function startServer() {
         promoCode?: string;
         requestedCurrency?: CurrencyCode;
         allowInternationalUsd?: boolean;
+        acceptedPolicies?: LegalAcceptanceRecord;
       };
+
+      if (!body.acceptedPolicies?.accepted || !body.acceptedPolicies.version) {
+        res.status(400).json({
+          error:
+            'Please confirm the Terms of Service, Return Policy, and Product Disclaimers before proceeding.',
+        });
+        return;
+      }
 
       if (!body.customerName?.trim() || !body.email?.includes('@') || !body.shippingAddress?.streetAddress?.trim()) {
         res.status(400).json({ error: 'Complete customer name, email, and delivery address are required.' });
@@ -424,6 +447,7 @@ async function startServer() {
         currencyState: db.currencyConfig,
         shippingConfig: db.shippingConfig,
         existingSessions: db.paymentSessions,
+        policyAcceptance: body.acceptedPolicies,
       });
 
       res.status(201).json({
@@ -696,7 +720,16 @@ async function startServer() {
       imagePresetKey?: string;
       highlightOne?: string;
       highlightTwo?: string;
+      acceptedPolicies?: LegalAcceptanceRecord;
     };
+
+    if (!body.acceptedPolicies?.accepted || !body.acceptedPolicies.version) {
+      res.status(400).json({
+        error:
+          'Seller Marketplace Agreement & Prohibited Items Policy attestation is required before publishing.',
+      });
+      return;
+    }
 
     if (!body.name?.trim() || typeof body.price !== 'number' || body.price <= 0) {
       res.status(400).json({ error: 'Product name and valid positive price are required.' });
@@ -760,6 +793,7 @@ async function startServer() {
       tags: ['seller listing', 'new arrival', body.categoryLabel || 'marketplace'],
       sellerId: user?.id || 'usr-seller-elena',
       isNewArrival: true,
+      policyAcceptance: body.acceptedPolicies,
     };
 
     db.sellerCreatedProducts.unshift(newProduct);

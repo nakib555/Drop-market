@@ -9,6 +9,7 @@ import type {
   CurrencyCode,
   CurrencyRateState,
   DeliveryMethodId,
+  LegalAcceptanceRecord,
   Order,
   OrderStage,
   PaymentMethodId,
@@ -315,6 +316,7 @@ export interface PendingSessionContext {
     shippingAddress: Order['shippingAddress'];
     deliveryMethod: DeliveryMethodId;
   };
+  policyAcceptance?: LegalAcceptanceRecord;
 }
 
 export function createPaymentSession(params: {
@@ -327,6 +329,7 @@ export function createPaymentSession(params: {
   currencyState: CurrencyRateState;
   shippingConfig: ShippingRuleConfig;
   existingSessions: Map<string, PendingSessionContext>;
+  policyAcceptance?: LegalAcceptanceRecord;
 }): PendingSessionContext {
   const cleanKey = params.idempotencyKey.trim();
   for (const ctx of params.existingSessions.values()) {
@@ -399,6 +402,7 @@ export function createPaymentSession(params: {
     quote,
     items: resolvedItems,
     customer: params.customer,
+    policyAcceptance: params.policyAcceptance,
   };
 
   params.existingSessions.set(id, context);
@@ -486,6 +490,7 @@ export function buildVerifiedOrderFromSession(
     discountAmount: ctx.quote.discountUsd,
     total: ctx.quote.totalUsd,
     currentStage: 'Confirmed',
+    policyAcceptance: ctx.policyAcceptance,
     timeline: [
       {
         stage: 'Confirmed',

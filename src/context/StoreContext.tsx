@@ -32,10 +32,13 @@ import {
   CartItem,
   CategoryMeta,
   CategoryNode,
+  CookieConsentState,
   CurrencyCode,
   CurrencyRateState,
   CustomerProfile,
   DeliveryMethodId,
+  LegalAcceptanceRecord,
+  LegalDocumentId,
   NotificationPrefs,
   Order,
   PaymentMethodId,
@@ -49,6 +52,7 @@ import {
   ShippingRuleConfig,
   StoreNotification,
 } from '../types/commerce';
+import { LEGAL_VERSION } from '../data/legalPolicies';
 import {
   DEFAULT_BDT_RATE,
   FREE_SHIPPING_THRESHOLD_USD,
@@ -222,6 +226,7 @@ interface StoreContextValue {
     password?: string;
     role: 'customer' | 'seller';
     studioName?: string;
+    acceptedPolicies: LegalAcceptanceRecord;
   }) => Promise<AccountDirectoryEntry | null>;
   notifications: StoreNotification[];
   unreadNotificationCount: number;
@@ -238,6 +243,16 @@ interface StoreContextValue {
   setNotificationPrefs: (prefs: NotificationPrefs) => void;
   privacyPrefs: PrivacyPrefs;
   setPrivacyPrefs: (prefs: PrivacyPrefs) => void;
+  cookieConsent: CookieConsentState;
+  cookieModalOpen: boolean;
+  openCookiePreferences: () => void;
+  closeCookiePreferences: () => void;
+  acceptAllCookies: () => void;
+  rejectNonEssentialCookies: () => void;
+  saveCookiePreferences: (prefs: PrivacyPrefs) => void;
+  previewPolicyId: LegalDocumentId | null;
+  openPolicyPreview: (id: LegalDocumentId) => void;
+  closePolicyPreview: () => void;
 }
 
 const StoreContext = createContext<StoreContextValue | undefined>(undefined);
@@ -325,6 +340,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       analyticsOptIn: false,
     })
   );
+  const [cookieConsent, setCookieConsent] = useState<CookieConsentState>(() =>
+    readStorage<CookieConsentState>('kinto-cookie-consent', {
+      version: LEGAL_VERSION,
+      status: 'unset',
+      necessary: true,
+      saveSearchHistory: true,
+      personalizedCatalog: true,
+      analyticsOptIn: false,
+    })
+  );
+  const [cookieModalOpen, setCookieModalOpen] = useState(false);
+  const [previewPolicyId, setPreviewPolicyId] = useState<LegalDocumentId | null>(null);
 
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
@@ -560,6 +587,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => writeStorage('kinto-payment-methods', paymentMethods), [paymentMethods]);
   useEffect(() => writeStorage('kinto-notif-prefs', notificationPrefs), [notificationPrefs]);
   useEffect(() => writeStorage('kinto-privacy-prefs', privacyPrefs), [privacyPrefs]);
+  useEffect(() => writeStorage('kinto-cookie-consent', cookieConsent), [cookieConsent]);
 
   const { route, navigationDirection, canGoBack, navigate, goBack } = useNavigationController(
     products,
@@ -879,12 +907,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const clearCompare = useCallback(() => setCompareIds([]), []);
 
-  const recordProductView = useCallback((productId: string) => {
-    setRecentlyViewedIds((prev) => {
-      if (prev[0] === productId) return prev;
-      return [productId, ...prev.filter((id) => id !== productId)].slice(0, 8);
-    });
-  }, []);
+  const recordProductView = useCallback(
+    (productId: string) => {
+      if (!privacyPrefs.personalizedCatalog) return;
+      setRecentlyViewedIds((prev) => {
+        if (prev[0] === productId) return prev;
+        return [productId, ...prev.filter((id) => id !== productId)].slice(0, 8);
+      });
+    },
+    [privacyPrefs.personalizedCatalog]
+  );
 
   const addRecentSearch = useCallback(
     (query: string) => {
@@ -1280,6 +1312,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       password?: string;
       role: 'customer' | 'seller';
       studioName?: string;
+      acceptedPolicies: LegalAcceptanceRecord;
     }): Promise<AccountDirectoryEntry | null> => {
       try {
         const { user } = await registerWithApi(payload);
@@ -1402,10 +1435,84 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const setPrivacyPrefs = useCallback(
     (prefs: PrivacyPrefs) => {
       setPrivacyPrefsState(prefs);
+      setCookieConsent({
+        version: LEGAL_VERSION,
+        status: 'custom',
+        decidedAt: new Date().toISOString(),
+        necessary: true,
+        saveSearchHistory: prefs.saveSearchHistory,
+        personalizedCatalog: prefs.personalizedCatalog,
+        analyticsOptIn: prefs.analyticsOptIn,
+      });
+      if (!prefs.saveSearchHistory) {
+        setRecentSearches([]);
+      }
       showToast('Privacy settings updated', undefined, 'success');
     },
     [showToast]
   );
+
+  const openCookiePreferences = useCallback(() => setCookieModalOpen(true), []);
+  const closeCookiePreferences = useCallback(() => setCookieModalOpen(false), []);
+
+  const acceptAllCookies = useCallback(() => {
+    const nextPrefs: PrivacyPrefs = {
+      saveSearchHistory: true,
+      personalizedCatalog: true,
+      analyticsOptIn: true,
+    };
+    setPrivacyPrefsState(nextPrefs);
+    setCookieConsent({
+      version: LEGAL_VERSION,
+      status: 'all',
+      decidedAt: new Date().toISOString(),
+      necessary: true,
+      ...nextPrefs,
+    });
+    setCookieModalOpen(false);
+    showToast('Cookie preferences saved', 'All optional storefront preferences enabled.', 'success');
+  }, [showToast]);
+
+  const rejectNonEssentialCookies = useCallback(() => {
+    const nextPrefs: PrivacyPrefs = {
+      saveSearchHistory: false,
+      personalizedCatalog: false,
+      analyticsOptIn: false,
+    };
+    setPrivacyPrefsState(nextPrefs);
+    setRecentSearches([]);
+    setCookieConsent({
+      version: LEGAL_VERSION,
+      status: 'essential-only',
+      decidedAt: new Date().toISOString(),
+      necessary: true,
+      ...nextPrefs,
+    });
+    setCookieModalOpen(false);
+    showToast('Essential cookies only', 'Non-essential personalization and diagnostics disabled.', 'info');
+  }, [showToast]);
+
+  const saveCookiePreferences = useCallback(
+    (prefs: PrivacyPrefs) => {
+      setPrivacyPrefsState(prefs);
+      if (!prefs.saveSearchHistory) {
+        setRecentSearches([]);
+      }
+      setCookieConsent({
+        version: LEGAL_VERSION,
+        status: 'custom',
+        decidedAt: new Date().toISOString(),
+        necessary: true,
+        ...prefs,
+      });
+      setCookieModalOpen(false);
+      showToast('Cookie preferences updated', undefined, 'success');
+    },
+    [showToast]
+  );
+
+  const openPolicyPreview = useCallback((id: LegalDocumentId) => setPreviewPolicyId(id), []);
+  const closePolicyPreview = useCallback(() => setPreviewPolicyId(null), []);
 
   const value = useMemo<StoreContextValue>(
     () => ({
@@ -1498,6 +1605,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setNotificationPrefs,
       privacyPrefs,
       setPrivacyPrefs,
+      cookieConsent,
+      cookieModalOpen,
+      openCookiePreferences,
+      closeCookiePreferences,
+      acceptAllCookies,
+      rejectNonEssentialCookies,
+      saveCookiePreferences,
+      previewPolicyId,
+      openPolicyPreview,
+      closePolicyPreview,
     }),
     [
       route,
@@ -1585,6 +1702,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setNotificationPrefs,
       privacyPrefs,
       setPrivacyPrefs,
+      cookieConsent,
+      cookieModalOpen,
+      openCookiePreferences,
+      closeCookiePreferences,
+      acceptAllCookies,
+      rejectNonEssentialCookies,
+      saveCookiePreferences,
+      previewPolicyId,
+      openPolicyPreview,
+      closePolicyPreview,
     ]
   );
 

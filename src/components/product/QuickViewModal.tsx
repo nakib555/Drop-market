@@ -74,7 +74,7 @@ export const QuickViewModal: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-baseline gap-3">
+            <div className="flex items-baseline flex-wrap gap-x-3 gap-y-1">
               <span className="text-2xl font-mono-num font-semibold">
                 {formatCurrency(quickViewProduct.price, currency)}
               </span>
@@ -114,7 +114,7 @@ export const QuickViewModal: React.FC = () => {
                     }`}
                   >
                     <span
-                      className="w-3.5 h-3.5 rounded-full border border-black/15"
+                      className="w-3.5 h-3.5 rounded-full border border-black/15 shrink-0"
                       style={{ backgroundColor: c.hex }}
                     />
                     <span>{c.name}</span>
@@ -148,8 +148,8 @@ export const QuickViewModal: React.FC = () => {
           </div>
 
           <div className="space-y-3 pt-4 border-t border-[#E5E3DD] dark:border-[#2C2C28]">
-            <div className="flex items-center gap-3">
-              <div className="inline-flex items-center border border-[#DCD9D0] dark:border-[#2E2E2A] rounded-md h-11">
+            <div className="flex flex-wrap min-[380px]:flex-nowrap items-center gap-2.5 sm:gap-3">
+              <div className="inline-flex items-center border border-[#DCD9D0] dark:border-[#2E2E2A] rounded-md h-11 shrink-0">
                 <button
                   type="button"
                   disabled={outOfStock}
@@ -175,18 +175,20 @@ export const QuickViewModal: React.FC = () => {
                 </button>
               </div>
 
-              <Button
-                variant="primary"
-                size="md"
-                fullWidth
-                disabled={outOfStock}
-                onClick={() => {
-                  addToCart(quickViewProduct, color.name, color.hex, size, qty, true);
-                  setQuickViewProduct(null);
-                }}
-              >
-                {outOfStock ? 'Out of Stock' : 'Add to Bag'}
-              </Button>
+              <div className="flex-1 min-w-[140px]">
+                <Button
+                  variant="primary"
+                  size="md"
+                  fullWidth
+                  disabled={outOfStock}
+                  onClick={() => {
+                    addToCart(quickViewProduct, color.name, color.hex, size, qty, true);
+                    setQuickViewProduct(null);
+                  }}
+                >
+                  {outOfStock ? 'Out of Stock' : 'Add to Bag'}
+                </Button>
+              </div>
 
               <button
                 type="button"

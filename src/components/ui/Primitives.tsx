@@ -66,7 +66,7 @@ export interface BreadcrumbItem {
 }
 
 export const Breadcrumb: React.FC<{ items: BreadcrumbItem[] }> = ({ items }) => (
-  <nav aria-label="Breadcrumb" className="flex items-center flex-wrap gap-2 text-xs text-[#5C5B57] dark:text-[#A3A19B]">
+  <nav aria-label="Breadcrumb" className="flex items-baseline flex-wrap gap-x-2 gap-y-1 text-xs text-[#5C5B57] dark:text-[#A3A19B]">
     {items.map((item, idx) => {
       const isLast = idx === items.length - 1;
       return (
@@ -80,7 +80,7 @@ export const Breadcrumb: React.FC<{ items: BreadcrumbItem[] }> = ({ items }) => 
             <button
               type="button"
               onClick={item.onClick}
-              className="hover:text-[#171716] dark:hover:text-[#F4F3EF] transition-colors cursor-pointer"
+              className="text-left hover:text-[#171716] dark:hover:text-[#F4F3EF] transition-colors cursor-pointer"
             >
               {item.label}
             </button>
@@ -164,18 +164,18 @@ export const Accordion: React.FC<{ items: AccordionItemData[] }> = ({ items }) =
               type="button"
               aria-expanded={isOpen}
               onClick={() => setOpenId(isOpen ? null : item.id)}
-              className="w-full py-5 flex items-center justify-between gap-4 text-left cursor-pointer group"
+              className="w-full py-5 flex items-start justify-between gap-4 text-left cursor-pointer group"
             >
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 min-w-0 flex-1">
                 {item.meta && (
                   <span className="text-xs text-[#84827B] dark:text-[#85837D]">{item.meta}</span>
                 )}
-                <span className="text-base font-medium text-[#171716] dark:text-[#F4F3EF] group-hover:text-[#8F6438] dark:group-hover:text-[#C89B67] transition-colors">
+                <span className="text-base font-medium leading-snug text-[#171716] dark:text-[#F4F3EF] group-hover:text-[#8F6438] dark:group-hover:text-[#C89B67] transition-colors">
                   {item.title}
                 </span>
               </div>
               <ChevronDown
-                className={`w-4 h-4 shrink-0 text-[#5C5B57] dark:text-[#A3A19B] transition-transform duration-200 ${
+                className={`w-4 h-4 shrink-0 mt-1 text-[#5C5B57] dark:text-[#A3A19B] transition-transform duration-200 ${
                   isOpen ? 'rotate-180' : ''
                 }`}
               />
@@ -259,13 +259,13 @@ export const Modal: React.FC<ModalProps> = ({
             className={`relative w-full ${maxWidthClass} max-h-[90vh] overflow-y-auto rounded-lg bg-[#FFFFFF] dark:bg-[#191917] text-[#171716] dark:text-[#F4F3EF] border border-[#E5E3DD] dark:border-[#2C2C28] shadow-2xl focus:outline-none`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 bg-[#FFFFFF]/95 dark:bg-[#191917]/95 backdrop-blur-sm border-b border-[#E5E3DD] dark:border-[#2C2C28]">
-              {title ? <h3 className="text-lg font-medium">{title}</h3> : <span />}
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-6 py-4 bg-[#FFFFFF]/95 dark:bg-[#191917]/95 backdrop-blur-sm border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+              {title ? <h3 className="text-lg font-medium leading-snug min-w-0 truncate">{title}</h3> : <span />}
               <button
                 type="button"
                 onClick={onClose}
                 aria-label="Close modal"
-                className="w-10 h-10 -mr-1 rounded-md flex items-center justify-center text-[#5C5B57] dark:text-[#B4B2AC] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer transition-colors"
+                className="w-10 h-10 -mr-1 shrink-0 rounded-md flex items-center justify-center text-[#5C5B57] dark:text-[#B4B2AC] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -337,13 +337,13 @@ export const Drawer: React.FC<DrawerProps> = ({
             }`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
-              <h2 className="font-display text-2xl font-medium tracking-tight">{title}</h2>
+            <div className="flex items-center justify-between gap-3 px-6 py-4 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+              <h2 className="font-display text-2xl font-medium tracking-tight min-w-0 truncate">{title}</h2>
               <button
                 type="button"
                 onClick={onClose}
                 aria-label={`Close ${title}`}
-                className="w-10 h-10 -mr-1 rounded-md flex items-center justify-center text-[#5C5B57] dark:text-[#B4B2AC] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] cursor-pointer transition-colors"
+                className="w-10 h-10 -mr-1 shrink-0 rounded-md flex items-center justify-center text-[#5C5B57] dark:text-[#B4B2AC] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] cursor-pointer transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>

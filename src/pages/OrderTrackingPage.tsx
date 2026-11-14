@@ -128,7 +128,7 @@ export const OrderTrackingPage: React.FC = () => {
       {trackedOrder ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           <div className="lg:col-span-8 p-6 sm:p-8 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-8">
-            <div className="flex flex-wrap items-center justify-between gap-4 pb-5 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
               <div>
                 <p className="text-xs text-[#84827B] font-mono-num">ORDER #{trackedOrder.id}</p>
                 <h2 className="font-display text-2xl sm:text-3xl font-medium mt-0.5">
@@ -207,8 +207,8 @@ export const OrderTrackingPage: React.FC = () => {
                         />
                       )}
                     </div>
-                    <div className="pb-2 flex-1">
-                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <div className="pb-2 flex-1 min-w-0">
+                      <div className="min-h-7 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 pt-0.5">
                         <p
                           className={`text-sm font-semibold ${
                             isCancelledEvent
@@ -222,9 +222,9 @@ export const OrderTrackingPage: React.FC = () => {
                         >
                           {event.stage}
                         </p>
-                        <span className="text-xs font-mono-num text-[#84827B]">{event.timestamp}</span>
+                        <span className="text-xs font-mono-num text-[#84827B] shrink-0">{event.timestamp}</span>
                       </div>
-                      <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-1">{event.note}</p>
+                      <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-1 leading-snug">{event.note}</p>
                     </div>
                   </li>
                 );
@@ -284,18 +284,18 @@ export const OrderTrackingPage: React.FC = () => {
             <div className="pt-4 border-t border-[#E5E3DD] dark:border-[#2C2C28] space-y-2.5">
               <p className="text-xs uppercase tracking-wider text-[#84827B]">Items in Shipment</p>
               {trackedOrder.items.map((item) => (
-                <div key={item.key} className="flex justify-between text-xs gap-3">
-                  <span className="truncate">
+                <div key={item.key} className="flex items-baseline justify-between text-xs gap-3">
+                  <span className="min-w-0 truncate">
                     {item.name} × {item.quantity}
                   </span>
-                  <span className="font-mono-num shrink-0">
+                  <span className="font-mono-num shrink-0 text-right">
                     {formatCurrency(item.price * item.quantity, currency)}
                   </span>
                 </div>
               ))}
-              <div className="flex justify-between pt-2 border-t border-[#E5E3DD] dark:border-[#2C2C28] font-semibold">
-                <span>Order Total</span>
-                <span className="font-mono-num">
+              <div className="flex items-baseline justify-between gap-3 pt-2 border-t border-[#E5E3DD] dark:border-[#2C2C28] font-semibold">
+                <span className="min-w-0">Order Total</span>
+                <span className="font-mono-num shrink-0 text-right">
                   {trackedOrder.currencySnapshot
                     ? formatDirectCurrency(
                         trackedOrder.currencySnapshot.chargedTotal,

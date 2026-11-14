@@ -662,6 +662,7 @@ export class MockMarketplaceDb {
       joinedAt: u.joinedAt,
       location: u.location,
       demoPasswordHint: u.demoPasswordHint,
+      policyAcceptance: u.policyAcceptance,
     };
   }
 

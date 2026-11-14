@@ -28,7 +28,7 @@ export const Input: React.FC<InputProps> = ({
     <div className="flex flex-col gap-1.5 w-full">
       <label
         htmlFor={inputId}
-        className="text-xs font-medium text-[#171716] dark:text-[#F4F3EF] flex items-center gap-1"
+        className="text-xs font-medium text-[#171716] dark:text-[#F4F3EF] inline-flex items-baseline gap-1"
       >
         <span>{label}</span>
         {required && (
@@ -50,8 +50,8 @@ export const Input: React.FC<InputProps> = ({
         {...rest}
       />
       {error && (
-        <p id={errorId} className="text-xs text-[#B91C1C] dark:text-[#F87171] flex items-center gap-1.5">
-          <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+        <p id={errorId} className="text-xs leading-snug text-[#B91C1C] dark:text-[#F87171] flex items-start gap-1.5">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-[2px]" aria-hidden="true" />
           <span>{error}</span>
         </p>
       )}
@@ -85,7 +85,7 @@ export const Select: React.FC<SelectProps> = ({
     <div className="flex flex-col gap-1.5 w-full">
       <label
         htmlFor={selectId}
-        className="text-xs font-medium text-[#171716] dark:text-[#F4F3EF] flex items-center gap-1"
+        className="text-xs font-medium text-[#171716] dark:text-[#F4F3EF] inline-flex items-baseline gap-1"
       >
         <span>{label}</span>
         {required && (
@@ -112,8 +112,8 @@ export const Select: React.FC<SelectProps> = ({
         ))}
       </select>
       {error && (
-        <p className="text-xs text-[#B91C1C] dark:text-[#F87171] flex items-center gap-1.5">
-          <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+        <p className="text-xs leading-snug text-[#B91C1C] dark:text-[#F87171] flex items-start gap-1.5">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-[2px]" aria-hidden="true" />
           <span>{error}</span>
         </p>
       )}
@@ -142,7 +142,7 @@ export const Textarea: React.FC<TextareaProps> = ({
     <div className="flex flex-col gap-1.5 w-full">
       <label
         htmlFor={areaId}
-        className="text-xs font-medium text-[#171716] dark:text-[#F4F3EF] flex items-center gap-1"
+        className="text-xs font-medium text-[#171716] dark:text-[#F4F3EF] inline-flex items-baseline gap-1"
       >
         <span>{label}</span>
         {required && (
@@ -163,8 +163,8 @@ export const Textarea: React.FC<TextareaProps> = ({
         {...rest}
       />
       {error && (
-        <p className="text-xs text-[#B91C1C] dark:text-[#F87171] flex items-center gap-1.5">
-          <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+        <p className="text-xs leading-snug text-[#B91C1C] dark:text-[#F87171] flex items-start gap-1.5">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-[2px]" aria-hidden="true" />
           <span>{error}</span>
         </p>
       )}
@@ -191,7 +191,7 @@ export const Checkbox: React.FC<CheckboxProps> = ({
   const id = useId();
   return (
     <label htmlFor={id} className="flex items-start gap-3 cursor-pointer select-none group min-h-[32px]">
-      <span className="relative flex items-center justify-center w-4 h-4 mt-0.5 shrink-0">
+      <span className="relative flex items-center justify-center w-4 h-4 mt-[3px] shrink-0">
         <input
           id={id}
           type="checkbox"

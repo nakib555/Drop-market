@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useStore } from '../../context/StoreContext';
+import { buildPolicyAcceptance } from '../../data/legalPolicies';
 import { AccountDirectoryEntry } from '../../types/commerce';
 import { STUDIO_TRANSITION } from '../../utils/motion';
 import { Button } from '../ui/Button';
@@ -62,6 +63,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
     switchDemoAccount,
     registerAccount,
     navigate,
+    openPolicyPreview,
   } = useStore();
 
   const [authMode, setAuthMode] = useState<'signin' | 'register'>(initialTab);
@@ -78,6 +80,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [regRole, setRegRole] = useState<'customer' | 'seller'>('customer');
   const [regStudioName, setRegStudioName] = useState('');
+  const [regAccepted, setRegAccepted] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [switchingId, setSwitchingId] = useState<string | null>(null);
@@ -129,7 +132,19 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
       setFormError('Password must be at least 6 characters.');
       return;
     }
+    if (!regAccepted) {
+      setFormError(
+        regRole === 'seller'
+          ? 'Please accept the Terms of Service, Privacy Policy, Seller Marketplace Agreement, and Prohibited Items Policy.'
+          : 'Please accept the Terms of Service, Privacy Policy, and Acceptable Use Policy.'
+      );
+      return;
+    }
     setSubmitting(true);
+    const scope =
+      regRole === 'seller'
+        ? ['terms', 'privacy-policy', 'acceptable-use', 'seller-agreement', 'prohibited-items']
+        : ['terms', 'privacy-policy', 'acceptable-use'];
     const user = await registerAccount({
       fullName: regName.trim(),
       email: regEmail.trim(),
@@ -137,6 +152,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
       password: regPassword,
       role: regRole,
       studioName: regRole === 'seller' ? regStudioName.trim() : undefined,
+      acceptedPolicies: buildPolicyAcceptance(scope),
     });
     setSubmitting(false);
     if (user) {
@@ -241,13 +257,13 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                     type="button"
                     onClick={() => setShowLoginPassword((p) => !p)}
                     aria-label={showLoginPassword ? 'Hide password' : 'Show password'}
-                    className="absolute right-2.5 top-[34px] w-7 h-7 rounded flex items-center justify-center text-[#84827B] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="absolute right-2.5 top-[29px] w-7 h-7 rounded flex items-center justify-center text-[#84827B] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
                   >
                     {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                <p className="text-[11px] text-[#84827B] flex items-center gap-1">
-                  <Lock className="w-3 h-3 shrink-0" />
+                <p className="text-[11px] leading-snug text-[#84827B] flex items-start gap-1">
+                  <Lock className="w-3 h-3 shrink-0 mt-[2px]" />
                   <span>Hints: studio2026 · seller2026 · admin2026</span>
                 </p>
               </div>
@@ -342,11 +358,73 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                     type="button"
                     onClick={() => setShowRegPassword((p) => !p)}
                     aria-label={showRegPassword ? 'Hide password' : 'Show password'}
-                    className="absolute right-2.5 top-[34px] w-7 h-7 rounded flex items-center justify-center text-[#84827B] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="absolute right-2.5 top-[29px] w-7 h-7 rounded flex items-center justify-center text-[#84827B] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
                   >
                     {showRegPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+              </div>
+
+              <div className="p-3.5 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-2">
+                <label className="flex items-start gap-2.5 cursor-pointer text-xs leading-relaxed text-[#5C5B57] dark:text-[#A3A19B] select-none">
+                  <input
+                    type="checkbox"
+                    checked={regAccepted}
+                    onChange={(e) => {
+                      setRegAccepted(e.target.checked);
+                      if (formError) setFormError('');
+                    }}
+                    className="mt-0.5 w-4 h-4 shrink-0 accent-[#171716] dark:accent-[#F4F3EF] cursor-pointer"
+                  />
+                  <span>
+                    I confirm I am 18+ and agree to Kinto Studio LLC&apos;s{' '}
+                    <button
+                      type="button"
+                      onClick={() => openPolicyPreview('terms')}
+                      className="underline font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                    >
+                      Terms of Service
+                    </button>
+                    ,{' '}
+                    <button
+                      type="button"
+                      onClick={() => openPolicyPreview('privacy-policy')}
+                      className="underline font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                    >
+                      Privacy Policy
+                    </button>
+                    , and{' '}
+                    <button
+                      type="button"
+                      onClick={() => openPolicyPreview('acceptable-use')}
+                      className="underline font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                    >
+                      Acceptable Use Policy
+                    </button>
+                    {regRole === 'seller' && (
+                      <>
+                        {' '}
+                        plus the{' '}
+                        <button
+                          type="button"
+                          onClick={() => openPolicyPreview('seller-agreement')}
+                          className="underline font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                        >
+                          Seller Marketplace Agreement
+                        </button>{' '}
+                        and{' '}
+                        <button
+                          type="button"
+                          onClick={() => openPolicyPreview('prohibited-items')}
+                          className="underline font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                        >
+                          Prohibited Items Policy
+                        </button>
+                      </>
+                    )}
+                    {' '}(governed by Bangladesh law &amp; Dhaka courts).
+                  </span>
+                </label>
               </div>
 
               {formError && (
@@ -434,7 +512,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                       </div>
                     </div>
 
-                    <span className="text-xs font-medium text-[#171716] dark:text-[#F4F3EF] group-hover:text-[#8F6438] dark:group-hover:text-[#C89B67] shrink-0 self-center transition-colors">
+                    <span className="text-xs font-medium text-[#171716] dark:text-[#F4F3EF] group-hover:text-[#8F6438] dark:group-hover:text-[#C89B67] shrink-0 self-start sm:self-center mt-0.5 sm:mt-0 whitespace-nowrap transition-colors">
                       {isBusy ? 'Opening...' : 'Enter →'}
                     </span>
                   </button>

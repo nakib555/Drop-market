@@ -1,10 +1,19 @@
 import React, { useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
+import { PWAInstallButton } from '../pwa/PWAInstallButton';
 import { Button } from '../ui/Button';
 
 export const Footer: React.FC = () => {
-  const { categories, currency, currencyConfig, toggleCurrency, navigate, showToast } = useStore();
+  const {
+    categories,
+    currency,
+    currencyConfig,
+    toggleCurrency,
+    navigate,
+    showToast,
+    openCookiePreferences,
+  } = useStore();
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
 
@@ -72,7 +81,7 @@ export const Footer: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'shop', category: 'all' })}
-                    className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer text-left font-medium"
+                    className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer text-left leading-snug font-medium"
                   >
                     All Products
                   </button>
@@ -82,7 +91,7 @@ export const Footer: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => navigate({ name: 'category', category: cat.slug })}
-                      className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer text-left"
+                      className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer text-left leading-snug"
                     >
                       {cat.shortName}
                     </button>
@@ -98,7 +107,7 @@ export const Footer: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'about' })}
-                    className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
                   >
                     About Us
                   </button>
@@ -107,7 +116,7 @@ export const Footer: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'brands' })}
-                    className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
                   >
                     Partner Makers
                   </button>
@@ -116,7 +125,7 @@ export const Footer: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'journal' })}
-                    className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
                   >
                     Journal
                   </button>
@@ -125,7 +134,7 @@ export const Footer: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'offers' })}
-                    className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
                   >
                     Special Offers
                   </button>
@@ -134,7 +143,7 @@ export const Footer: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'compare' })}
-                    className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
                   >
                     Compare Products
                   </button>
@@ -149,7 +158,7 @@ export const Footer: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'track-order' })}
-                    className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
                   >
                     Track Order
                   </button>
@@ -158,7 +167,7 @@ export const Footer: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'account', accountTab: 'overview' })}
-                    className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
                   >
                     Account &amp; Portals
                   </button>
@@ -167,7 +176,7 @@ export const Footer: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'seller' })}
-                    className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
                   >
                     Seller Studio
                   </button>
@@ -176,7 +185,7 @@ export const Footer: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'contact' })}
-                    className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
                   >
                     Contact Concierge
                   </button>
@@ -185,7 +194,7 @@ export const Footer: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'faq' })}
-                    className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
                   >
                     FAQ
                   </button>
@@ -194,13 +203,49 @@ export const Footer: React.FC = () => {
             </div>
 
             <div className="space-y-3">
-              <p className="text-xs uppercase tracking-wider text-[#84827B]">Policies</p>
-              <ul className="space-y-2.5 text-[#5C5B57] dark:text-[#B4B2AC]">
+              <p className="text-xs uppercase tracking-wider text-[#84827B]">Legal &amp; Policies</p>
+              <ul className="space-y-2 text-[#5C5B57] dark:text-[#B4B2AC]">
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => navigate({ name: 'legal' })}
+                    className="text-left font-medium text-[#171716] dark:text-[#F4F3EF] leading-snug hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                  >
+                    Legal Center
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => navigate({ name: 'terms' })}
+                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                  >
+                    Terms of Service
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => navigate({ name: 'privacy-policy' })}
+                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                  >
+                    Privacy Policy
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => navigate({ name: 'cookie-policy' })}
+                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                  >
+                    Cookie Policy
+                  </button>
+                </li>
                 <li>
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'shipping-policy' })}
-                    className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
                   >
                     Shipping Policy
                   </button>
@@ -209,7 +254,7 @@ export const Footer: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'return-policy' })}
-                    className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
                   >
                     Returns &amp; Refunds
                   </button>
@@ -217,19 +262,37 @@ export const Footer: React.FC = () => {
                 <li>
                   <button
                     type="button"
-                    onClick={() => navigate({ name: 'privacy-policy' })}
-                    className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    onClick={() => navigate({ name: 'seller-agreement' })}
+                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
                   >
-                    Privacy Policy
+                    Seller Agreement
                   </button>
                 </li>
                 <li>
                   <button
                     type="button"
-                    onClick={() => navigate({ name: 'terms' })}
-                    className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    onClick={() => navigate({ name: 'product-safety' })}
+                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
                   >
-                    Terms of Service
+                    Safety Disclaimers
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => navigate({ name: 'intellectual-property' })}
+                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                  >
+                    IP &amp; DMCA Policy
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => navigate({ name: 'accessibility' })}
+                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                  >
+                    Accessibility
                   </button>
                 </li>
               </ul>
@@ -238,29 +301,38 @@ export const Footer: React.FC = () => {
         </div>
 
         <div className="pt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-[#5C5B57] dark:text-[#A3A19B]">
-          <p>© 2026 Kinto Studio LLC · Dhaka Hub · Portland · New York.</p>
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="hidden md:inline text-[#84827B]">
+          <p>© 2026 Kinto Studio LLC · Bangladesh Law &amp; Dhaka Courts · legal@kintostudio.example</p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <span className="hidden lg:inline text-[#84827B]">
               Payments: bKash · Nagad · Rocket · Visa · Mastercard · COD
             </span>
-            <span className="hidden md:inline" aria-hidden="true">
+            <span className="hidden lg:inline" aria-hidden="true">
               ·
             </span>
             <button
               type="button"
               onClick={toggleCurrency}
-              className="font-mono-num hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+              className="font-mono-num text-left whitespace-nowrap hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
             >
               Currency: {currency === 'BDT' ? 'BDT (৳)' : 'USD ($)'}
             </button>
             <span aria-hidden="true">·</span>
             <button
               type="button"
+              onClick={openCookiePreferences}
+              className="text-left whitespace-nowrap hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+            >
+              Cookie Preferences
+            </button>
+            <span aria-hidden="true">·</span>
+            <button
+              type="button"
               onClick={() => navigate({ name: 'maintenance' })}
-              className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+              className="text-left whitespace-nowrap hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
             >
               Service Status
             </button>
+            <PWAInstallButton variant="footer" />
           </div>
         </div>
       </div>

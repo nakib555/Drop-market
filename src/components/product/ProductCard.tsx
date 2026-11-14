@@ -87,7 +87,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
 
         <div className="flex-1 min-w-0 flex flex-col justify-between gap-4">
           <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-baseline justify-between gap-2">
               <span className="text-xs uppercase tracking-wider text-[#84827B] truncate">
                 {product.brand} · {product.categoryLabel}
               </span>
@@ -106,9 +106,9 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
             <p className="text-sm text-[#5C5B57] dark:text-[#A3A19B] line-clamp-2 max-w-2xl">
               {product.shortDescription}
             </p>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#5C5B57] dark:text-[#A3A19B] pt-1">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-[#5C5B57] dark:text-[#A3A19B] pt-1">
               <span className="inline-flex items-center gap-1 font-mono-num">
-                <Star className="w-3.5 h-3.5 fill-[#8F6438] text-[#8F6438] dark:fill-[#C89B67] dark:text-[#C89B67]" />
+                <Star className="w-3.5 h-3.5 fill-[#8F6438] text-[#8F6438] dark:fill-[#C89B67] dark:text-[#C89B67] translate-y-[-0.5px]" />
                 {product.rating.toFixed(1)} ({product.reviewCount})
               </span>
               {highlights.map((h) => (
@@ -331,12 +331,12 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
       {/* Metadata & Price */}
       <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between gap-3">
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] uppercase tracking-wider text-[#84827B] truncate">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-[11px] uppercase tracking-wider text-[#84827B] min-w-0 truncate">
               {product.brand}
             </span>
             <span className="inline-flex items-center gap-1 text-xs font-mono-num text-[#5C5B57] dark:text-[#A3A19B] shrink-0">
-              <Star className="w-3 h-3 fill-[#8F6438] text-[#8F6438] dark:fill-[#C89B67] dark:text-[#C89B67]" />
+              <Star className="w-3 h-3 fill-[#8F6438] text-[#8F6438] dark:fill-[#C89B67] dark:text-[#C89B67] translate-y-[-0.5px]" />
               {product.rating.toFixed(1)}
             </span>
           </div>
@@ -383,7 +383,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-[#E5E3DD] dark:border-[#2C2C28]">
-          <div className="flex items-baseline gap-1.5 min-w-0">
+          <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 min-w-0">
             <span className="text-[15px] font-mono-num font-semibold text-[#171716] dark:text-[#F4F3EF]">
               {formatCurrency(product.price, currency)}
             </span>
@@ -399,7 +399,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
             disabled={outOfStock}
             onClick={handlePrimaryAdd}
             aria-label={outOfStock ? `${product.name} out of stock` : `Add ${product.name} to bag`}
-            className={`px-3.5 h-10 rounded-md text-xs font-medium inline-flex items-center gap-1 transition-[color,background-color,transform] duration-150 whitespace-nowrap shrink-0 ${
+            className={`ml-auto px-2.5 sm:px-3.5 h-9 sm:h-10 rounded-md text-xs font-medium inline-flex items-center gap-1 transition-[color,background-color,transform] duration-150 whitespace-nowrap shrink-0 ${
               outOfStock
                 ? 'bg-[#EAE7E0] dark:bg-[#262623] text-[#84827B] cursor-not-allowed'
                 : justAdded

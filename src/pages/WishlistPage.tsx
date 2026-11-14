@@ -83,16 +83,16 @@ export const WishlistPage: React.FC = () => {
 
                 <div className="p-5 flex-1 flex flex-col justify-between gap-4">
                   <div>
-                    <div className="flex items-center justify-between gap-2 text-xs text-[#84827B]">
-                      <span className="uppercase tracking-wider">{product.brand}</span>
+                    <div className="flex items-baseline justify-between gap-2 text-xs text-[#84827B]">
+                      <span className="uppercase tracking-wider min-w-0 truncate">{product.brand}</span>
                       <span
-                        className={
+                        className={`shrink-0 text-right ${
                           outOfStock
                             ? 'text-[#B91C1C] dark:text-[#F87171]'
                             : product.availability === 'low-stock'
                             ? 'text-[#B45309] dark:text-[#FBBF24]'
                             : 'text-[#1F6E43] dark:text-[#4ADE80]'
-                        }
+                        }`}
                       >
                         {outOfStock
                           ? 'Out of Stock'

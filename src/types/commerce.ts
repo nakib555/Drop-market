@@ -432,7 +432,41 @@ export interface Order {
   total: number;
   currentStage: OrderStage;
   timeline: OrderTimelineEvent[];
+  policyAcceptance?: LegalAcceptanceRecord;
 }
+
+export interface LegalAcceptanceRecord {
+  version: string;
+  accepted: boolean;
+  acceptedAt: string;
+  scope: string[];
+  jurisdiction: string;
+}
+
+export type CookieConsentStatus = 'unset' | 'essential-only' | 'custom' | 'all';
+
+export interface CookieConsentState {
+  version: string;
+  status: CookieConsentStatus;
+  decidedAt?: string;
+  necessary: true;
+  saveSearchHistory: boolean;
+  personalizedCatalog: boolean;
+  analyticsOptIn: boolean;
+}
+
+export type LegalDocumentId =
+  | 'terms'
+  | 'privacy-policy'
+  | 'cookie-policy'
+  | 'shipping-policy'
+  | 'return-policy'
+  | 'seller-agreement'
+  | 'prohibited-items'
+  | 'product-safety'
+  | 'acceptable-use'
+  | 'intellectual-property'
+  | 'accessibility';
 
 export interface AccountDirectoryEntry {
   id: string;
@@ -446,6 +480,7 @@ export interface AccountDirectoryEntry {
   joinedAt: string;
   location: string;
   demoPasswordHint: string;
+  policyAcceptance?: LegalAcceptanceRecord;
 }
 
 export interface CustomerProfile {
@@ -514,6 +549,7 @@ export interface ApiSellerProductRecord {
   tags: string[];
   sellerId: string;
   isNewArrival?: boolean;
+  policyAcceptance?: LegalAcceptanceRecord;
 }
 
 export interface DynamicCategoryRecord {
@@ -686,9 +722,17 @@ export type RouteName =
   | 'about'
   | 'contact'
   | 'faq'
+  | 'legal'
   | 'shipping-policy'
   | 'return-policy'
   | 'privacy-policy'
+  | 'cookie-policy'
   | 'terms'
+  | 'seller-agreement'
+  | 'prohibited-items'
+  | 'product-safety'
+  | 'acceptable-use'
+  | 'intellectual-property'
+  | 'accessibility'
   | 'maintenance'
   | 'not-found';

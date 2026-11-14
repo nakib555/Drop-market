@@ -240,14 +240,14 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
 
                   {/* Fuzzy-matched Products */}
                   <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-xs font-medium text-[#84827B]">
+                    <div className="flex items-baseline justify-between gap-3 mb-3">
+                      <p className="text-xs font-medium text-[#84827B] min-w-0">
                         Matching Products ({suggestions.length})
                       </p>
                       <button
                         type="button"
                         onClick={() => submitSearch(term)}
-                        className="text-xs font-medium text-[#8F6438] dark:text-[#C89B67] inline-flex items-center gap-1 hover:underline cursor-pointer"
+                        className="text-xs font-medium text-[#8F6438] dark:text-[#C89B67] inline-flex items-center gap-1 hover:underline cursor-pointer shrink-0 whitespace-nowrap"
                       >
                         <span>View all results</span>
                         <ArrowRight className="w-3 h-3" />
@@ -355,10 +355,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
                             onClose();
                             navigate({ name: 'category', category: cat.slug });
                           }}
-                          className="flex items-center justify-between p-2.5 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] hover:border-[#171716] dark:hover:border-[#F4F3EF] text-left cursor-pointer transition-colors"
+                          className="flex items-center justify-between gap-2 p-2.5 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] hover:border-[#171716] dark:hover:border-[#F4F3EF] text-left cursor-pointer transition-colors"
                         >
-                          <span className="text-sm font-medium">{cat.name}</span>
-                          <ArrowRight className="w-3.5 h-3.5 text-[#84827B]" />
+                          <span className="text-sm font-medium min-w-0 truncate">{cat.name}</span>
+                          <ArrowRight className="w-3.5 h-3.5 text-[#84827B] shrink-0" />
                         </button>
                       ))}
                     </div>

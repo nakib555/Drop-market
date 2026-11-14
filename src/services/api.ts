@@ -10,6 +10,7 @@ import type {
   CurrencyRateState,
   DeliveryMethodId,
   DynamicCategoryRecord,
+  LegalAcceptanceRecord,
   Order,
   OrderStage,
   PaymentMethodId,
@@ -88,6 +89,7 @@ export async function registerWithApi(payload: {
   password?: string;
   role: 'customer' | 'seller';
   studioName?: string;
+  acceptedPolicies: LegalAcceptanceRecord;
 }): Promise<{ token: string; user: AccountDirectoryEntry }> {
   const res = await requestJson<{ token: string; user: AccountDirectoryEntry }>(
     '/api/auth/register',
@@ -230,6 +232,7 @@ export async function initiatePaymentApi(payload: {
   promoCode?: string;
   requestedCurrency?: CurrencyCode;
   allowInternationalUsd?: boolean;
+  acceptedPolicies: LegalAcceptanceRecord;
 }): Promise<{ session: PaymentSession; quote: CheckoutQuoteResponse }> {
   return requestJson('/api/payments/initiate', {
     method: 'POST',
@@ -323,6 +326,7 @@ export async function createSellerProductApi(payload: {
   imagePresetKey: string;
   highlightOne?: string;
   highlightTwo?: string;
+  acceptedPolicies: LegalAcceptanceRecord;
 }): Promise<ApiSellerProductRecord> {
   const res = await requestJson<{ product: ApiSellerProductRecord }>('/api/seller/products', {
     method: 'POST',

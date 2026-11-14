@@ -81,6 +81,8 @@ export const AccountPage: React.FC = () => {
     setNotificationPrefs,
     privacyPrefs,
     setPrivacyPrefs,
+    cookieConsent,
+    openCookiePreferences,
     showToast,
   } = useStore();
 
@@ -299,8 +301,8 @@ export const AccountPage: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2">
           {primaryRoleAccounts.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-md bg-[#F2F0EC] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]">
-              <span className="text-[11px] text-[#84827B] px-2 inline-flex items-center gap-1">
-                <UserCheck className="w-3 h-3" /> Role:
+              <span className="text-[11px] leading-none text-[#84827B] px-2 inline-flex items-center gap-1">
+                <UserCheck className="w-3 h-3 shrink-0" /> Role:
               </span>
               {primaryRoleAccounts.map((acc) => {
                 const active = profile.role === acc.role;
@@ -542,14 +544,14 @@ export const AccountPage: React.FC = () => {
                         onClick={() => switchSection(id)}
                         className="group p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] hover:border-[#8F6438] dark:hover:border-[#C89B67] text-left transition-colors cursor-pointer flex items-start gap-3"
                       >
-                        <span className="w-8 h-8 rounded bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] flex items-center justify-center text-[#8F6438] dark:text-[#C89B67] shrink-0">
+                        <span className="w-8 h-8 mt-0.5 rounded bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] flex items-center justify-center text-[#8F6438] dark:text-[#C89B67] shrink-0">
                           <Icon className="w-4 h-4" />
                         </span>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium group-hover:text-[#8F6438] dark:group-hover:text-[#C89B67] transition-colors">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium leading-snug truncate group-hover:text-[#8F6438] dark:group-hover:text-[#C89B67] transition-colors">
                             {title}
                           </p>
-                          <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5 truncate">
+                          <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5 truncate leading-snug">
                             {desc}
                           </p>
                         </div>
@@ -576,15 +578,18 @@ export const AccountPage: React.FC = () => {
                 ) : (
                   <div className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] border-y border-[#E5E3DD] dark:border-[#2C2C28]">
                     {orders.slice(0, 3).map((ord) => (
-                      <div key={ord.id} className="py-4 flex flex-wrap items-center justify-between gap-4">
-                        <div>
+                      <div
+                        key={ord.id}
+                        className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4"
+                      >
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm font-mono-num font-semibold">Order #{ord.id}</p>
-                          <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5">
+                          <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5 leading-snug">
                             {formatShortDate(ord.createdAt)} · {ord.currentStage} ·{' '}
                             <span className="uppercase font-mono-num">{ord.paymentStatus}</span>
                           </p>
                         </div>
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex items-center gap-2.5 shrink-0">
                           <span className="text-sm font-mono-num font-medium">
                             {ord.currencySnapshot
                               ? formatDirectCurrency(
@@ -977,9 +982,9 @@ export const AccountPage: React.FC = () => {
                     const canReturn = ord.currentStage === 'Delivered';
                     return (
                       <div key={ord.id} className="py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0 flex-1">
                           <p className="text-sm font-mono-num font-semibold">Order #{ord.id}</p>
-                          <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B]">
+                          <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] leading-snug">
                             Placed {formatShortDate(ord.createdAt)} · {ord.items.length} item(s) ·{' '}
                             <span
                               className={`font-medium ${
@@ -995,7 +1000,7 @@ export const AccountPage: React.FC = () => {
                             · <span className="uppercase font-mono-num">{ord.paymentStatus}</span>
                           </p>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2 shrink-0">
                           <span className="text-sm font-mono-num font-semibold mr-1">
                             {ord.currencySnapshot
                               ? formatDirectCurrency(
@@ -1139,15 +1144,15 @@ export const AccountPage: React.FC = () => {
                 <div className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28]">
                   {authoredReviews.slice(0, 6).map((rev) => (
                     <div key={rev.id} className="py-4 space-y-1">
-                      <div className="flex items-center justify-between text-xs text-[#84827B]">
+                      <div className="flex items-baseline justify-between gap-3 text-xs text-[#84827B]">
                         <button
                           type="button"
                           onClick={() => navigate({ name: 'product', slug: rev.productSlug })}
-                          className="font-medium text-[#8F6438] dark:text-[#C89B67] hover:underline cursor-pointer"
+                          className="text-left min-w-0 truncate font-medium text-[#8F6438] dark:text-[#C89B67] hover:underline cursor-pointer"
                         >
                           {rev.productName}
                         </button>
-                        <span className="font-mono-num">{rev.rating}.0 / 5.0</span>
+                        <span className="font-mono-num shrink-0">{rev.rating}.0 / 5.0</span>
                       </div>
                       <p className="text-sm font-medium">{rev.title}</p>
                       <p className="text-xs text-[#5C5B57] dark:text-[#B4B2AC]">{rev.comment}</p>
@@ -1295,7 +1300,7 @@ export const AccountPage: React.FC = () => {
 
           {section === 'privacy' && (
             <div className="space-y-5 max-w-lg">
-              <h2 className="font-display text-2xl font-medium">Privacy Settings</h2>
+              <h2 className="font-display text-2xl font-medium">Privacy &amp; Cookie Settings</h2>
               <div className="space-y-4">
                 <Checkbox
                   label="Save Local Search History"
@@ -1315,6 +1320,36 @@ export const AccountPage: React.FC = () => {
                   checked={privacyPrefs.analyticsOptIn}
                   onChange={(v) => setPrivacyPrefs({ ...privacyPrefs, analyticsOptIn: v })}
                 />
+              </div>
+
+              <div className="p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-3 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-[#171716] dark:text-[#F4F3EF]">
+                    Cookie Consent Status
+                  </span>
+                  <span className="font-mono-num capitalize text-[#8F6438] dark:text-[#C89B67]">
+                    {cookieConsent.status === 'unset'
+                      ? 'Pending Selection'
+                      : cookieConsent.status.replace('-', ' ')}
+                  </span>
+                </div>
+                {cookieConsent.decidedAt && (
+                  <p className="text-[11px] font-mono-num text-[#84827B]">
+                    Recorded v{cookieConsent.version} · {cookieConsent.decidedAt.slice(0, 10)}
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button variant="outline" size="sm" onClick={openCookiePreferences}>
+                    Cookie Preferences
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate({ name: 'legal' })}
+                  >
+                    Open Legal Center
+                  </Button>
+                </div>
               </div>
             </div>
           )}
@@ -1363,11 +1398,11 @@ export const AccountPage: React.FC = () => {
 
             <ul className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] border-y border-[#E5E3DD] dark:border-[#2C2C28]">
               {selectedOrder.items.map((item) => (
-                <li key={item.key} className="py-3 flex justify-between gap-4">
-                  <span>
+                <li key={item.key} className="py-3 flex items-baseline justify-between gap-4">
+                  <span className="min-w-0">
                     {item.name} × {item.quantity} ({item.color})
                   </span>
-                  <span className="font-mono-num font-medium">
+                  <span className="font-mono-num font-medium shrink-0 text-right">
                     {formatCurrency(item.price * item.quantity, currency)}
                   </span>
                 </li>
@@ -1375,9 +1410,9 @@ export const AccountPage: React.FC = () => {
             </ul>
 
             <div className="space-y-1">
-              <div className="flex justify-between font-semibold text-base">
-                <span>Settled Total ({selectedOrder.paymentLabel})</span>
-                <span className="font-mono-num">
+              <div className="flex items-baseline justify-between gap-4 font-semibold text-base">
+                <span className="min-w-0">Settled Total ({selectedOrder.paymentLabel})</span>
+                <span className="font-mono-num shrink-0 text-right">
                   {selectedOrder.currencySnapshot
                     ? formatDirectCurrency(
                         selectedOrder.currencySnapshot.chargedTotal,

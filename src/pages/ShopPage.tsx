@@ -137,7 +137,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
         <button
           type="button"
           onClick={() => onCategoryChange('all')}
-          className={`w-full text-left py-1.5 text-sm cursor-pointer ${
+          className={`w-full text-left leading-snug py-1.5 text-sm cursor-pointer ${
             selectedCategory === 'all'
               ? 'font-semibold text-[#171716] dark:text-[#F4F3EF]'
               : 'text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
@@ -150,7 +150,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
             key={cat.slug}
             type="button"
             onClick={() => onCategoryChange(cat.slug)}
-            className={`w-full text-left py-1.5 text-sm cursor-pointer ${
+            className={`w-full text-left leading-snug py-1.5 text-sm cursor-pointer ${
               selectedCategory === cat.slug
                 ? 'font-semibold text-[#8F6438] dark:text-[#C89B67]'
                 : 'text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
@@ -423,15 +423,15 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
             { value: 'made-to-order', label: 'Made to Order' },
           ] as const
         ).map((opt) => (
-          <label key={opt.value} className="flex items-center gap-2.5 cursor-pointer py-0.5">
+          <label key={opt.value} className="flex items-start gap-2.5 cursor-pointer py-0.5">
             <input
               type="radio"
               name={`${idPrefix}-availability`}
               checked={availability === opt.value}
               onChange={() => onAvailabilityChange(opt.value)}
-              className="accent-[#171716] dark:accent-[#F4F3EF]"
+              className="mt-[3px] shrink-0 accent-[#171716] dark:accent-[#F4F3EF]"
             />
-            <span className="text-sm text-[#5C5B57] dark:text-[#B4B2AC]">{opt.label}</span>
+            <span className="text-sm leading-snug text-[#5C5B57] dark:text-[#B4B2AC]">{opt.label}</span>
           </label>
         ))}
       </div>
@@ -1182,8 +1182,8 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
                   ))}
                 </div>
               )}
-              <div className="flex flex-wrap items-center gap-2 text-xs text-[#84827B]">
-                <span>Featured brands:</span>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-[#84827B] leading-snug">
+                <span className="whitespace-nowrap">Featured brands:</span>
                 {activeCategoryMeta.featuredBrands.map((brand) => (
                   <button
                     key={brand}
@@ -1192,7 +1192,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
                       setSelectedBrand((prev) => (prev === brand ? 'all' : brand));
                       setPage(1);
                     }}
-                    className={`px-2 py-0.5 rounded border cursor-pointer transition-colors ${
+                    className={`px-2 py-0.5 rounded border whitespace-nowrap cursor-pointer transition-colors ${
                       selectedBrand === brand
                         ? 'border-[#8F6438] text-[#8F6438] dark:border-[#C89B67] dark:text-[#C89B67] font-medium'
                         : 'border-[#E5E3DD] dark:border-[#2C2C28] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
@@ -1294,8 +1294,8 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
       )}
 
       {/* Controls Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center justify-between sm:justify-start gap-3 min-w-0">
           <Button
             variant="outline"
             size="sm"
@@ -1307,21 +1307,21 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
               Filters{activeFilterChips.length > 0 ? ` (${activeFilterChips.length})` : ''}
             </span>
           </Button>
-          <p className="text-xs sm:text-sm text-[#5C5B57] dark:text-[#A3A19B] font-mono-num">
+          <p className="text-xs sm:text-sm text-[#5C5B57] dark:text-[#A3A19B] font-mono-num truncate">
             Showing {paginatedProducts.length} of {filteredProducts.length} products
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-2">
-            <label htmlFor="sort-select" className="text-xs text-[#84827B] hidden sm:inline">
+        <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0">
+          <div className="flex items-center gap-2 flex-1 sm:flex-initial">
+            <label htmlFor="sort-select" className="text-xs text-[#84827B] whitespace-nowrap">
               Sort by
             </label>
             <select
               id="sort-select"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="h-10 px-3 text-xs sm:text-sm rounded-md bg-white dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]"
+              className="flex-1 sm:flex-initial h-10 px-3 text-xs sm:text-sm rounded-md bg-white dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]"
             >
               <option value="featured">Featured</option>
               <option value="newest">Newest</option>
@@ -1335,7 +1335,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
           <div
             role="group"
             aria-label="View layout"
-            className="hidden sm:flex items-center border border-[#E5E3DD] dark:border-[#2C2C28] rounded-md overflow-hidden"
+            className="hidden sm:flex items-center border border-[#E5E3DD] dark:border-[#2C2C28] rounded-md overflow-hidden shrink-0"
           >
             <button
               type="button"

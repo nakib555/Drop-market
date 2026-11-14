@@ -29,6 +29,7 @@ import { useStore } from '../../context/StoreContext';
 import { useTheme } from '../../context/ThemeContext';
 import { formatCurrency, fuzzyScoreText } from '../../utils/format';
 import { STUDIO_TRANSITION } from '../../utils/motion';
+import { PWAInstallButton } from '../pwa/PWAInstallButton';
 import { ResilientImage, useFocusTrap } from '../ui/Primitives';
 
 interface HeaderProps {
@@ -299,12 +300,13 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
             transition={STUDIO_TRANSITION.fast}
             className="overflow-hidden bg-[#171716] dark:bg-[#191917] text-[#FAF9F6] text-[11px] sm:text-xs border-b border-white/10"
           >
-            <div className="py-1.5 sm:py-2 px-3 sm:px-6 max-w-[1440px] mx-auto flex items-center justify-between gap-2 sm:gap-4">
-              <span className="hidden lg:inline text-[#A3A19B] whitespace-nowrap">
+            <div className="py-1.5 sm:py-2 px-3 sm:px-6 max-w-[1440px] mx-auto grid grid-cols-[2rem_1fr_auto] lg:grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4">
+              <span className="lg:hidden w-8" aria-hidden="true" />
+              <span className="hidden lg:inline text-[#A3A19B] whitespace-nowrap justify-self-start truncate">
                 Dhaka Hub &amp; 64 Districts · 1 USD = ৳{currencyConfig.rates.BDT.toFixed(1)}
               </span>
 
-              <p className="flex-1 min-w-0 text-center truncate">
+              <p className="min-w-0 text-center truncate">
                 Complimentary Dhaka Metro shipping {formatCurrency(freeThresholdUsd, currency)}+ · Code{' '}
                 <span className="font-mono-num font-medium text-[#E2B887]">STUDIO15</span>{' '}
                 for 15% off
@@ -314,7 +316,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                 type="button"
                 onClick={() => setAnnouncementVisible(false)}
                 aria-label="Dismiss announcement"
-                className="text-[#A3A19B] hover:text-white p-1.5 -mr-1 cursor-pointer transition-colors shrink-0"
+                className="justify-self-end text-[#A3A19B] hover:text-white p-1.5 -mr-1 cursor-pointer transition-colors shrink-0"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -344,29 +346,28 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
             scrolled ? 'h-12 sm:h-14' : 'h-14 sm:h-16'
           }`}
         >
-          {/* Mobile menu trigger */}
-          <div className="flex items-center md:hidden shrink-0">
+          {/* Mobile menu trigger + Brand Wordmark */}
+          <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 shrink-0">
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
               aria-label="Open navigation menu"
-              className="w-10 h-10 -ml-1.5 rounded-md flex items-center justify-center text-[#171716] dark:text-[#F4F3EF] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] cursor-pointer"
+              className="md:hidden w-10 h-10 -ml-1.5 rounded-md flex items-center justify-center text-[#171716] dark:text-[#F4F3EF] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] cursor-pointer shrink-0"
             >
               <Menu className="w-5 h-5" />
             </button>
-          </div>
 
-          {/* Brand Wordmark */}
-          <a
-            href="#/"
-            onClick={(e) => {
-              e.preventDefault();
-              go({ name: 'home' });
-            }}
-            className="font-display text-base sm:text-xl lg:text-2xl font-semibold tracking-[0.04em] sm:tracking-[0.08em] text-[#171716] dark:text-[#F4F3EF] whitespace-nowrap shrink-0"
-          >
-            KINTO STUDIO
-          </a>
+            <a
+              href="#/"
+              onClick={(e) => {
+                e.preventDefault();
+                go({ name: 'home' });
+              }}
+              className="font-display text-base sm:text-xl lg:text-2xl font-semibold tracking-[0.04em] sm:tracking-[0.08em] text-[#171716] dark:text-[#F4F3EF] whitespace-nowrap truncate"
+            >
+              KINTO STUDIO
+            </a>
+          </div>
 
           {/* Prominent Central Inline Search Bar + Instant Live Suggestions Dropdown (Tablet & Desktop) */}
           <div ref={searchContainerRef} className="hidden md:block relative flex-1 max-w-2xl">
@@ -596,6 +597,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
             >
               <Search className="w-[18px] h-[18px]" />
             </button>
+
+            <PWAInstallButton variant="header" />
 
             {/* BDT / USD Currency Switcher Dropdown */}
             <div ref={currencyContainerRef} className="relative hidden sm:block">
@@ -971,7 +974,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                 onMouseEnter={() => openMegaMenu(categories[0]?.slug)}
                 onClick={() => setMegaMenuOpen((prev) => !prev)}
                 aria-expanded={megaMenuOpen}
-                className={`inline-flex items-center gap-1 whitespace-nowrap shrink-0 py-1.5 transition-colors cursor-pointer ${
+                className={`inline-flex items-center gap-1 whitespace-nowrap shrink-0 py-1.5 border-b-2 border-transparent leading-none transition-colors cursor-pointer ${
                   megaMenuOpen
                     ? 'text-[#8F6438] dark:text-[#C89B67]'
                     : 'text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67]'
@@ -997,7 +1000,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                     type="button"
                     onMouseEnter={() => openMegaMenu(cat.slug)}
                     onClick={() => go({ name: 'category', category: cat.slug })}
-                    className={`whitespace-nowrap shrink-0 py-1.5 border-b-2 transition-colors cursor-pointer ${
+                    className={`whitespace-nowrap shrink-0 py-1.5 border-b-2 leading-none transition-colors cursor-pointer ${
                       isActive
                         ? 'border-[#171716] dark:border-[#F4F3EF] text-[#171716] dark:text-[#F4F3EF]'
                         : 'border-transparent hover:text-[#171716] dark:hover:text-[#F4F3EF]'
@@ -1011,7 +1014,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
               <button
                 type="button"
                 onClick={() => go({ name: 'shop', collection: 'new-arrivals', category: 'all' })}
-                className={`whitespace-nowrap shrink-0 py-1.5 border-b-2 transition-colors cursor-pointer ${
+                className={`whitespace-nowrap shrink-0 py-1.5 border-b-2 leading-none transition-colors cursor-pointer ${
                   route.collection === 'new-arrivals'
                     ? 'border-[#171716] dark:border-[#F4F3EF] text-[#171716] dark:text-[#F4F3EF]'
                     : 'border-transparent hover:text-[#171716] dark:hover:text-[#F4F3EF]'
@@ -1023,7 +1026,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
               <button
                 type="button"
                 onClick={() => go({ name: 'offers' })}
-                className={`whitespace-nowrap shrink-0 py-1.5 border-b-2 transition-colors cursor-pointer ${
+                className={`whitespace-nowrap shrink-0 py-1.5 border-b-2 leading-none transition-colors cursor-pointer ${
                   route.name === 'offers'
                     ? 'border-[#8F6438] text-[#8F6438] dark:border-[#C89B67] dark:text-[#C89B67]'
                     : 'border-transparent text-[#8F6438] dark:text-[#C89B67] hover:opacity-80'
@@ -1037,14 +1040,14 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
               <button
                 type="button"
                 onClick={() => go({ name: 'brands' })}
-                className="hover:text-[#171716] dark:hover:text-[#F4F3EF] transition-colors cursor-pointer"
+                className="whitespace-nowrap shrink-0 hover:text-[#171716] dark:hover:text-[#F4F3EF] transition-colors cursor-pointer"
               >
                 Partner Brands
               </button>
               <button
                 type="button"
                 onClick={() => go({ name: 'track-order' })}
-                className="hover:text-[#171716] dark:hover:text-[#F4F3EF] transition-colors cursor-pointer"
+                className="whitespace-nowrap shrink-0 hover:text-[#171716] dark:hover:text-[#F4F3EF] transition-colors cursor-pointer"
               >
                 Track Order
               </button>
@@ -1110,7 +1113,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                               onClick={() =>
                                 go({ name: 'category', category: activeHoverCat.slug })
                               }
-                              className="font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                              className="text-left leading-snug font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
                             >
                               Shop All {activeHoverCat.shortName}
                             </button>
@@ -1126,7 +1129,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                                     subcategory: sub.slug,
                                   })
                                 }
-                                className="hover:text-[#171716] dark:hover:text-[#F4F3EF] font-medium transition-colors cursor-pointer"
+                                className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] font-medium transition-colors cursor-pointer"
                               >
                                 {sub.name}
                               </button>
@@ -1143,7 +1146,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                                             subcategory: child.slug,
                                           })
                                         }
-                                        className="hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                                        className="text-left leading-snug hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
                                       >
                                         {child.name}
                                       </button>
@@ -1172,7 +1175,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                                     brand,
                                   })
                                 }
-                                className="hover:text-[#8F6438] dark:hover:text-[#C89B67] transition-colors cursor-pointer"
+                                className="text-left leading-snug hover:text-[#8F6438] dark:hover:text-[#C89B67] transition-colors cursor-pointer"
                               >
                                 {brand}
                               </button>
@@ -1385,7 +1388,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                                             subcategory: sub.slug,
                                           })
                                         }
-                                        className="w-full py-1.5 text-left text-xs text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                                        className="w-full py-1.5 text-left leading-snug text-xs text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
                                       >
                                         {sub.name}
                                       </button>
@@ -1413,7 +1416,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                           onClick={() => {
                             go({ name: 'login' });
                           }}
-                          className="py-2 px-3 rounded-md bg-[#171716] dark:bg-[#F4F3EF] text-white dark:text-[#171716] text-xs font-medium cursor-pointer"
+                          className="inline-flex items-center justify-center py-2 px-3 rounded-md bg-[#171716] dark:bg-[#F4F3EF] text-white dark:text-[#171716] text-xs font-medium cursor-pointer"
                         >
                           Sign In
                         </button>
@@ -1422,7 +1425,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                           onClick={() => {
                             go({ name: 'login', accountTab: 'register' });
                           }}
-                          className="py-2 px-3 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] bg-[#FFFFFF] dark:bg-[#191917] text-xs font-medium cursor-pointer"
+                          className="inline-flex items-center justify-center py-2 px-3 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] bg-[#FFFFFF] dark:bg-[#191917] text-xs font-medium cursor-pointer"
                         >
                           Register
                         </button>
@@ -1452,37 +1455,37 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                         <button
                           type="button"
                           onClick={() => go({ name: 'account', accountTab: 'overview' })}
-                          className="w-full py-1.5 flex items-center justify-between text-xs font-medium cursor-pointer"
+                          className="w-full py-1.5 flex items-center justify-between gap-2 text-left text-xs font-medium cursor-pointer"
                         >
-                          <span>Account Overview</span>
-                          <User className="w-3.5 h-3.5 text-[#84827B]" />
+                          <span className="truncate">Account Overview</span>
+                          <User className="w-3.5 h-3.5 text-[#84827B] shrink-0" />
                         </button>
                         <button
                           type="button"
                           onClick={() => go({ name: 'account', accountTab: 'orders' })}
-                          className="w-full py-1.5 flex items-center justify-between text-xs font-medium cursor-pointer"
+                          className="w-full py-1.5 flex items-center justify-between gap-2 text-left text-xs font-medium cursor-pointer"
                         >
-                          <span>Order History</span>
-                          <Package className="w-3.5 h-3.5 text-[#84827B]" />
+                          <span className="truncate">Order History</span>
+                          <Package className="w-3.5 h-3.5 text-[#84827B] shrink-0" />
                         </button>
                         {(profile.role === 'seller' || profile.role === 'admin') && (
                           <button
                             type="button"
                             onClick={() => go({ name: 'seller' })}
-                            className="w-full py-1.5 flex items-center justify-between text-xs font-semibold text-[#8F6438] dark:text-[#C89B67] cursor-pointer"
+                            className="w-full py-1.5 flex items-center justify-between gap-2 text-left text-xs font-semibold text-[#8F6438] dark:text-[#C89B67] cursor-pointer"
                           >
-                            <span>Seller Studio Portal</span>
-                            <Store className="w-3.5 h-3.5" />
+                            <span className="truncate">Seller Studio Portal</span>
+                            <Store className="w-3.5 h-3.5 shrink-0" />
                           </button>
                         )}
                         {profile.role === 'admin' && (
                           <button
                             type="button"
                             onClick={() => go({ name: 'admin' })}
-                            className="w-full py-1.5 flex items-center justify-between text-xs font-semibold text-[#8F6438] dark:text-[#C89B67] cursor-pointer"
+                            className="w-full py-1.5 flex items-center justify-between gap-2 text-left text-xs font-semibold text-[#8F6438] dark:text-[#C89B67] cursor-pointer"
                           >
-                            <span>Admin Operations Console</span>
-                            <ShieldCheck className="w-3.5 h-3.5" />
+                            <span className="truncate">Admin Operations Console</span>
+                            <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
                           </button>
                         )}
                         <button
@@ -1492,10 +1495,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                             logoutDemo();
                             navigate({ name: 'login' });
                           }}
-                          className="w-full py-1.5 flex items-center justify-between text-xs text-[#B91C1C] dark:text-[#F87171] cursor-pointer"
+                          className="w-full py-1.5 flex items-center justify-between gap-2 text-left text-xs text-[#B91C1C] dark:text-[#F87171] cursor-pointer"
                         >
-                          <span>Sign Out</span>
-                          <LogOut className="w-3.5 h-3.5" />
+                          <span className="truncate">Sign Out</span>
+                          <LogOut className="w-3.5 h-3.5 shrink-0" />
                         </button>
                       </div>
                     </div>
@@ -1503,10 +1506,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                   <button
                     type="button"
                     onClick={() => go({ name: 'wishlist' })}
-                    className="w-full py-2.5 flex items-center justify-between text-sm font-medium cursor-pointer"
+                    className="w-full py-2.5 flex items-center justify-between gap-2 text-left text-sm font-medium cursor-pointer"
                   >
-                    <span>Wishlist ({wishlistIds.length})</span>
-                    <Heart className="w-4 h-4 text-[#84827B]" />
+                    <span className="truncate">Wishlist ({wishlistIds.length})</span>
+                    <Heart className="w-4 h-4 text-[#84827B] shrink-0" />
                   </button>
                   <button
                     type="button"
@@ -1536,6 +1539,9 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                   >
                     FAQ &amp; Support
                   </button>
+                  <div className="pt-2">
+                    <PWAInstallButton variant="drawer" onAction={() => setMobileMenuOpen(false)} />
+                  </div>
                 </div>
               </div>
 

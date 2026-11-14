@@ -190,31 +190,31 @@ export const CartDrawer: React.FC = () => {
             </form>
 
             <div className="space-y-1.5 text-sm">
-              <div className="flex justify-between text-[#5C5B57] dark:text-[#A3A19B]">
-                <span>Subtotal</span>
-                <span className="font-mono-num">{formatCurrency(cartSubtotal, currency)}</span>
+              <div className="flex items-baseline justify-between gap-4 text-[#5C5B57] dark:text-[#A3A19B]">
+                <span className="min-w-0">Subtotal</span>
+                <span className="font-mono-num shrink-0 text-right">{formatCurrency(cartSubtotal, currency)}</span>
               </div>
               {cartDiscount > 0 && (
-                <div className="flex justify-between text-[#1F6E43] dark:text-[#4ADE80]">
-                  <span>Discount ({appliedPromo?.code})</span>
-                  <span className="font-mono-num">-{formatCurrency(cartDiscount, currency)}</span>
+                <div className="flex items-baseline justify-between gap-4 text-[#1F6E43] dark:text-[#4ADE80]">
+                  <span className="min-w-0">Discount ({appliedPromo?.code})</span>
+                  <span className="font-mono-num shrink-0 text-right">-{formatCurrency(cartDiscount, currency)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-[#5C5B57] dark:text-[#A3A19B]">
-                <span>Estimated Tax (5%)</span>
-                <span className="font-mono-num">{formatCurrency(cartTax, currency)}</span>
+              <div className="flex items-baseline justify-between gap-4 text-[#5C5B57] dark:text-[#A3A19B]">
+                <span className="min-w-0">Estimated Tax (5%)</span>
+                <span className="font-mono-num shrink-0 text-right">{formatCurrency(cartTax, currency)}</span>
               </div>
-              <div className="flex justify-between text-[#5C5B57] dark:text-[#A3A19B]">
-                <span>Estimated Shipping</span>
-                <span className="font-mono-num">
+              <div className="flex items-baseline justify-between gap-4 text-[#5C5B57] dark:text-[#A3A19B]">
+                <span className="min-w-0">Estimated Shipping</span>
+                <span className="font-mono-num shrink-0 text-right">
                   {estimatedShipping === 0
                     ? 'Complimentary'
                     : formatCurrency(estimatedShipping, currency)}
                 </span>
               </div>
-              <div className="flex justify-between pt-2 border-t border-[#E5E3DD] dark:border-[#2C2C28] font-semibold">
-                <span>Estimated Total</span>
-                <span className="font-mono-num">{formatCurrency(cartTotal, currency)}</span>
+              <div className="flex items-baseline justify-between gap-4 pt-2 border-t border-[#E5E3DD] dark:border-[#2C2C28] font-semibold">
+                <span className="min-w-0">Estimated Total</span>
+                <span className="font-mono-num shrink-0 text-right">{formatCurrency(cartTotal, currency)}</span>
               </div>
             </div>
 

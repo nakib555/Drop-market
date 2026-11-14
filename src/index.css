@@ -54,6 +54,14 @@
     color: var(--color-text-primary);
     scroll-behavior: smooth;
     overflow-x: clip;
+    -webkit-tap-highlight-color: transparent;
+    --sab: env(safe-area-inset-bottom, 0px);
+  }
+
+  @media all and (display-mode: standalone) {
+    body {
+      overscroll-behavior-y: contain;
+    }
   }
 
   html.theme-transitioning,
@@ -76,9 +84,16 @@
     color: var(--color-text-primary);
   }
 
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+
   h1, h2, .font-display {
     font-family: 'Cormorant Garamond', Georgia, serif;
-    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
   }
 
   .font-mono-num {

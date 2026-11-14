@@ -19,6 +19,7 @@ import {
 import { motion } from 'motion/react';
 import { BANGLADESH_GEO_TREE, type BangladeshDivisionEntry } from '../../server/shared/marketplaceSchema';
 import { useStore } from '../context/StoreContext';
+import { buildPolicyAcceptance, getDepartmentSafetyNotice } from '../data/legalPolicies';
 import {
   fetchShippingLocationsApi,
   initiatePaymentApi,
@@ -124,6 +125,7 @@ export const CheckoutPage: React.FC = () => {
     commitVerifiedOrder,
     showToast,
     navigate,
+    openPolicyPreview,
   } = useStore();
 
   const defaultAddr = useMemo(
@@ -211,6 +213,8 @@ export const CheckoutPage: React.FC = () => {
     message: string;
     ref?: string;
   } | null>(null);
+  const [acceptedCheckoutTerms, setAcceptedCheckoutTerms] = useState(false);
+  const [checkoutConsentError, setCheckoutConsentError] = useState('');
 
   const isBangladesh = country === 'Bangladesh';
 
@@ -480,6 +484,14 @@ export const CheckoutPage: React.FC = () => {
       showToast('Restricted delivery zone', 'Please choose a serviceable area first.', 'error');
       return;
     }
+    if (!acceptedCheckoutTerms) {
+      const msg =
+        'Please confirm the Terms of Service, Returns Policy, Shipping Policy, and Product Safety Disclaimers before proceeding.';
+      setCheckoutConsentError(msg);
+      showToast('Agreement required', msg, 'error');
+      return;
+    }
+    setCheckoutConsentError('');
     setInitiatingPayment(true);
     setPaymentBanner(null);
     try {
@@ -514,6 +526,13 @@ export const CheckoutPage: React.FC = () => {
         promoCode: appliedPromo?.code,
         requestedCurrency: currency,
         allowInternationalUsd,
+        acceptedPolicies: buildPolicyAcceptance([
+          'terms',
+          'return-policy',
+          'shipping-policy',
+          'privacy-policy',
+          'product-safety',
+        ]),
       });
       setQuote(res.quote);
       setPaymentSession(res.session);
@@ -615,25 +634,25 @@ export const CheckoutPage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left p-5 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] text-xs">
-            <div>
-              <p className="text-[#84827B]">Delivery Estimate</p>
-              <p className="font-medium mt-1 text-sm">{placedOrder.estimatedArrival}</p>
-              <p className="text-[11px] text-[#5C5B57] dark:text-[#A3A19B] mt-0.5">
+            <div className="min-w-0">
+              <p className="text-[#84827B] leading-snug">Delivery Estimate</p>
+              <p className="font-medium mt-1 text-sm leading-snug">{placedOrder.estimatedArrival}</p>
+              <p className="text-[11px] text-[#5C5B57] dark:text-[#A3A19B] mt-0.5 leading-snug">
                 {placedOrder.courierName}
               </p>
             </div>
-            <div>
-              <p className="text-[#84827B]">Payment &amp; Gateway Ref</p>
-              <p className="font-medium mt-1 text-sm">{placedOrder.paymentLabel}</p>
-              <p className="text-[11px] font-mono-num text-[#8F6438] dark:text-[#C89B67] mt-0.5">
+            <div className="min-w-0">
+              <p className="text-[#84827B] leading-snug">Payment &amp; Gateway Ref</p>
+              <p className="font-medium mt-1 text-sm leading-snug">{placedOrder.paymentLabel}</p>
+              <p className="text-[11px] font-mono-num text-[#8F6438] dark:text-[#C89B67] mt-0.5 leading-snug break-all">
                 {placedOrder.transactionRef || placedOrder.paymentStatus}
               </p>
             </div>
-            <div>
-              <p className="text-[#84827B]">Settled Order Total</p>
-              <p className="font-mono-num font-semibold mt-1 text-sm">{settledDisplay}</p>
+            <div className="min-w-0">
+              <p className="text-[#84827B] leading-snug">Settled Order Total</p>
+              <p className="font-mono-num font-semibold mt-1 text-sm leading-snug">{settledDisplay}</p>
               {snap && (
-                <p className="text-[11px] font-mono-num text-[#84827B] mt-0.5">
+                <p className="text-[11px] font-mono-num text-[#84827B] mt-0.5 leading-snug">
                   Base ${snap.baseTotalUsd.toFixed(2)} USD · 1 USD = {snap.exchangeRate} BDT
                 </p>
               )}
@@ -644,12 +663,12 @@ export const CheckoutPage: React.FC = () => {
             <p className="text-xs uppercase tracking-wider text-[#84827B]">Itemized Receipt</p>
             <ul className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] border-y border-[#E5E3DD] dark:border-[#2C2C28]">
               {placedOrder.items.map((item) => (
-                <li key={item.key} className="py-3 flex items-center justify-between gap-4 text-sm">
-                  <span>
+                <li key={item.key} className="py-3 flex items-baseline justify-between gap-4 text-sm">
+                  <span className="min-w-0">
                     {item.name} × {item.quantity}{' '}
                     <span className="text-xs text-[#84827B]">({item.color})</span>
                   </span>
-                  <span className="font-mono-num font-medium">
+                  <span className="font-mono-num font-medium shrink-0 text-right">
                     {snap
                       ? formatDirectCurrency(
                           snap.transactionCurrency === 'BDT'
@@ -695,7 +714,7 @@ export const CheckoutPage: React.FC = () => {
           <h1 className="font-display text-3xl sm:text-4xl font-medium mt-1">Complete Your Order</h1>
         </div>
         <div className="inline-flex items-center gap-2 text-xs text-[#5C5B57] dark:text-[#A3A19B]">
-          <Lock className="w-3.5 h-3.5 text-[#8F6438] dark:text-[#C89B67]" />
+          <Lock className="w-3.5 h-3.5 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
           <span>Authoritative Server Quote &amp; Gateway Verification</span>
         </div>
       </div>
@@ -967,14 +986,14 @@ export const CheckoutPage: React.FC = () => {
                   )}
 
                   {!isBangladesh && (
-                    <label className="flex items-center gap-2.5 p-3 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] text-xs cursor-pointer">
+                    <label className="flex items-start gap-2.5 p-3 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] text-xs cursor-pointer">
                       <input
                         type="checkbox"
                         checked={allowInternationalUsd}
                         onChange={(e) => setAllowInternationalUsd(e.target.checked)}
-                        className="accent-[#171716] dark:accent-[#F4F3EF]"
+                        className="mt-[2px] shrink-0 accent-[#171716] dark:accent-[#F4F3EF]"
                       />
-                      <span>
+                      <span className="leading-snug">
                         Settle international order in USD (uncheck to process at live BDT equivalent)
                       </span>
                     </label>
@@ -1041,26 +1060,26 @@ export const CheckoutPage: React.FC = () => {
                               : 'cursor-pointer border-[#E5E3DD] dark:border-[#2C2C28]'
                           }`}
                         >
-                          <div className="flex items-start gap-3">
+                          <div className="flex items-start gap-3 min-w-0 flex-1">
                             <input
                               type="radio"
                               name="delivery-method"
                               disabled={!opt.available}
                               checked={active}
                               onChange={() => opt.available && setDeliveryMethod(opt.id)}
-                              className="mt-1 accent-[#171716] dark:accent-[#F4F3EF]"
+                              className="mt-[3px] shrink-0 accent-[#171716] dark:accent-[#F4F3EF]"
                             />
-                            <div>
-                              <p className="text-sm font-semibold">{opt.title}</p>
-                              <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold leading-snug">{opt.title}</p>
+                              <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5 leading-snug">
                                 Courier: {opt.courier}
                               </p>
-                              <p className="text-xs font-medium text-[#8F6438] dark:text-[#C89B67] mt-1">
+                              <p className="text-xs font-medium text-[#8F6438] dark:text-[#C89B67] mt-1 leading-snug">
                                 {opt.available ? opt.eta : opt.reason || 'Unavailable for this route'}
                               </p>
                             </div>
                           </div>
-                          <span className="text-sm font-mono-num font-semibold shrink-0">
+                          <span className="text-sm font-mono-num font-semibold shrink-0 text-right">
                             {!opt.available
                               ? 'N/A'
                               : opt.costUsd === 0
@@ -1105,7 +1124,7 @@ export const CheckoutPage: React.FC = () => {
                       return (
                         <label
                           key={id}
-                          className={`flex items-center justify-between gap-4 p-3.5 rounded-lg border transition-colors ${
+                          className={`flex items-start justify-between gap-4 p-3.5 rounded-lg border transition-colors ${
                             !allowed
                               ? 'opacity-50 cursor-not-allowed border-[#E5E3DD] dark:border-[#2C2C28]'
                               : paymentMethod === id
@@ -1113,7 +1132,7 @@ export const CheckoutPage: React.FC = () => {
                               : 'cursor-pointer border-[#E5E3DD] dark:border-[#2C2C28]'
                           }`}
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-start gap-3 min-w-0 flex-1">
                             <input
                               type="radio"
                               name="payment-method"
@@ -1125,12 +1144,12 @@ export const CheckoutPage: React.FC = () => {
                                 setPaymentBanner(null);
                                 setErrors({});
                               }}
-                              className="accent-[#171716] dark:accent-[#F4F3EF]"
+                              className="mt-[3px] shrink-0 accent-[#171716] dark:accent-[#F4F3EF]"
                             />
-                            <Icon className="w-4 h-4 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
-                            <div>
-                              <p className="text-sm font-medium">{label}</p>
-                              <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B]">
+                            <Icon className="w-4 h-4 mt-[2px] text-[#8F6438] dark:text-[#C89B67] shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium leading-snug">{label}</p>
+                              <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] leading-snug mt-0.5">
                                 {allowed ? sub : 'Unavailable for selected region / order tier'}
                               </p>
                             </div>
@@ -1210,16 +1229,16 @@ export const CheckoutPage: React.FC = () => {
 
                   {quote && (
                     <div className="p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] text-xs space-y-1.5">
-                      <div className="flex items-center justify-between font-medium">
-                        <span className="inline-flex items-center gap-1.5">
-                          <ShieldCheck className="w-3.5 h-3.5 text-[#1F6E43] dark:text-[#4ADE80]" />
-                          Authoritative Currency Settlement ({quote.currency})
+                      <div className="flex items-baseline justify-between gap-3 font-medium">
+                        <span className="inline-flex items-start gap-1.5 min-w-0 leading-snug">
+                          <ShieldCheck className="w-3.5 h-3.5 mt-[2px] text-[#1F6E43] dark:text-[#4ADE80] shrink-0" />
+                          <span>Authoritative Currency Settlement ({quote.currency})</span>
                         </span>
-                        <span className="font-mono-num font-semibold">
+                        <span className="font-mono-num font-semibold shrink-0 text-right">
                           {formatDirectCurrency(quote.totalCharged, quote.currency)}
                         </span>
                       </div>
-                      <p className="text-[#5C5B57] dark:text-[#A3A19B] font-mono-num">
+                      <p className="text-[#5C5B57] dark:text-[#A3A19B] font-mono-num leading-snug">
                         FX: 1 USD = ৳{quote.currencySnapshot.exchangeRate} ({quote.currencySnapshot.rateSource})
                       </p>
                     </div>
@@ -1240,12 +1259,109 @@ export const CheckoutPage: React.FC = () => {
                             {((item.weightKg || 1) * item.quantity).toFixed(1)} kg
                           </p>
                         </div>
-                        <span className="text-sm font-mono-num font-medium">
+                        <span className="text-sm font-mono-num font-medium shrink-0 text-right">
                           {formatCurrency(item.price * item.quantity, currency)}
                         </span>
                       </li>
                     ))}
                   </ul>
+
+                  {/* Department Safety Advisories for Cart Items */}
+                  {Array.from(new Set(cart.map((c) => c.category))).length > 0 && (
+                    <div className="p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-2">
+                      <p className="text-xs font-semibold text-[#171716] dark:text-[#F4F3EF]">
+                        Applicable Product Safety &amp; Import Disclosures
+                      </p>
+                      <ul className="space-y-1.5 text-xs text-[#5C5B57] dark:text-[#A3A19B] leading-snug">
+                        {Array.from(new Set(cart.map((c) => c.category)))
+                          .slice(0, 3)
+                          .map((cat) => {
+                            const notice = getDepartmentSafetyNotice(cat);
+                            return (
+                              <li key={cat}>
+                                <span className="font-medium text-[#171716] dark:text-[#F4F3EF]">
+                                  {notice.title}:
+                                </span>{' '}
+                                {notice.summary}
+                              </li>
+                            );
+                          })}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Mandatory Clickwrap Agreement */}
+                  <div
+                    className={`p-4 rounded-md border space-y-2 ${
+                      checkoutConsentError
+                        ? 'bg-[#B91C1C]/5 border-[#B91C1C] dark:border-[#F87171]'
+                        : 'bg-[#F9F8F6] dark:bg-[#141413] border-[#E5E3DD] dark:border-[#2C2C28]'
+                    }`}
+                  >
+                    <label className="flex items-start gap-2.5 cursor-pointer text-xs leading-relaxed text-[#5C5B57] dark:text-[#A3A19B] select-none">
+                      <input
+                        type="checkbox"
+                        checked={acceptedCheckoutTerms}
+                        onChange={(e) => {
+                          setAcceptedCheckoutTerms(e.target.checked);
+                          if (e.target.checked) setCheckoutConsentError('');
+                        }}
+                        aria-describedby={checkoutConsentError ? 'checkout-consent-err' : undefined}
+                        className="mt-0.5 w-4 h-4 shrink-0 accent-[#171716] dark:accent-[#F4F3EF] cursor-pointer"
+                      />
+                      <span>
+                        I confirm I am 18+ and agree to Kinto Studio LLC&apos;s{' '}
+                        <button
+                          type="button"
+                          onClick={() => openPolicyPreview('terms')}
+                          className="underline font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                        >
+                          Terms of Service
+                        </button>
+                        ,{' '}
+                        <button
+                          type="button"
+                          onClick={() => openPolicyPreview('return-policy')}
+                          className="underline font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                        >
+                          Returns &amp; Refunds
+                        </button>
+                        ,{' '}
+                        <button
+                          type="button"
+                          onClick={() => openPolicyPreview('shipping-policy')}
+                          className="underline font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                        >
+                          Shipping &amp; Customs Policy
+                        </button>
+                        ,{' '}
+                        <button
+                          type="button"
+                          onClick={() => openPolicyPreview('product-safety')}
+                          className="underline font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                        >
+                          Product Safety Disclaimers
+                        </button>
+                        , and{' '}
+                        <button
+                          type="button"
+                          onClick={() => openPolicyPreview('privacy-policy')}
+                          className="underline font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                        >
+                          Privacy Policy
+                        </button>{' '}
+                        under Bangladesh law (Dhaka courts).
+                      </span>
+                    </label>
+                    {checkoutConsentError && (
+                      <p
+                        id="checkout-consent-err"
+                        className="text-xs text-[#B91C1C] dark:text-[#F87171] pl-6"
+                      >
+                        {checkoutConsentError}
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
           </motion.div>
@@ -1329,7 +1445,7 @@ export const CheckoutPage: React.FC = () => {
                     Qty {item.quantity} · {item.color}
                   </p>
                 </div>
-                <span className="text-sm font-mono-num">
+                <span className="text-sm font-mono-num shrink-0 text-right">
                   {formatCurrency(item.price * item.quantity, currency)}
                 </span>
               </li>
@@ -1386,25 +1502,29 @@ export const CheckoutPage: React.FC = () => {
           </form>
 
           <div className="space-y-2 text-sm pt-4 border-t border-[#E5E3DD] dark:border-[#2C2C28]">
-            <div className="flex justify-between text-[#5C5B57] dark:text-[#A3A19B]">
-              <span>Subtotal</span>
-              <span className="font-mono-num">{formatCurrency(summarySubtotalUsd, currency)}</span>
+            <div className="flex items-baseline justify-between gap-4 text-[#5C5B57] dark:text-[#A3A19B]">
+              <span className="min-w-0">Subtotal</span>
+              <span className="font-mono-num shrink-0 text-right">
+                {formatCurrency(summarySubtotalUsd, currency)}
+              </span>
             </div>
             {summaryDiscountUsd > 0 && (
-              <div className="flex justify-between text-[#1F6E43] dark:text-[#4ADE80]">
-                <span>Promo ({appliedPromo?.code})</span>
-                <span className="font-mono-num">
+              <div className="flex items-baseline justify-between gap-4 text-[#1F6E43] dark:text-[#4ADE80]">
+                <span className="min-w-0">Promo ({appliedPromo?.code})</span>
+                <span className="font-mono-num shrink-0 text-right">
                   -{formatCurrency(summaryDiscountUsd, currency)}
                 </span>
               </div>
             )}
-            <div className="flex justify-between text-[#5C5B57] dark:text-[#A3A19B]">
-              <span>VAT / Tax (5%)</span>
-              <span className="font-mono-num">{formatCurrency(summaryTaxUsd, currency)}</span>
+            <div className="flex items-baseline justify-between gap-4 text-[#5C5B57] dark:text-[#A3A19B]">
+              <span className="min-w-0">VAT / Tax (5%)</span>
+              <span className="font-mono-num shrink-0 text-right">
+                {formatCurrency(summaryTaxUsd, currency)}
+              </span>
             </div>
-            <div className="flex justify-between text-[#5C5B57] dark:text-[#A3A19B]">
-              <span>Shipping ({selectedDelivery.title})</span>
-              <span className="font-mono-num">
+            <div className="flex items-baseline justify-between gap-4 text-[#5C5B57] dark:text-[#A3A19B]">
+              <span className="min-w-0">Shipping ({selectedDelivery.title})</span>
+              <span className="font-mono-num shrink-0 text-right">
                 {isRestrictedZone
                   ? 'Restricted'
                   : summaryShippingUsd === 0
@@ -1413,19 +1533,23 @@ export const CheckoutPage: React.FC = () => {
               </span>
             </div>
 
-            <div className="flex justify-between pt-3 border-t border-[#E5E3DD] dark:border-[#2C2C28] text-base font-semibold">
-              <span>Total</span>
-              <span className="font-mono-num">{formatCurrency(summaryTotalUsd, currency)}</span>
+            <div className="flex items-baseline justify-between gap-4 pt-3 border-t border-[#E5E3DD] dark:border-[#2C2C28] text-base font-semibold">
+              <span className="min-w-0">Total</span>
+              <span className="font-mono-num shrink-0 text-right">
+                {formatCurrency(summaryTotalUsd, currency)}
+              </span>
             </div>
 
             {quote && quote.currency !== currency && (
-              <div className="flex justify-between text-xs font-mono-num text-[#8F6438] dark:text-[#C89B67] pt-1">
-                <span>Authoritative Settlement ({quote.currency})</span>
-                <span>{formatDirectCurrency(quote.totalCharged, quote.currency)}</span>
+              <div className="flex items-baseline justify-between gap-4 text-xs font-mono-num text-[#8F6438] dark:text-[#C89B67] pt-1">
+                <span className="min-w-0">Authoritative Settlement ({quote.currency})</span>
+                <span className="shrink-0 text-right">
+                  {formatDirectCurrency(quote.totalCharged, quote.currency)}
+                </span>
               </div>
             )}
 
-            <p className="text-[11px] text-[#84827B] pt-1">
+            <p className="text-[11px] text-[#84827B] pt-1 leading-snug">
               FX Rate: 1 USD = ৳{currencyConfig.rates.BDT.toFixed(2)} ·{' '}
               {quote?.shippingQuote.zoneLabel || 'Dhaka Metro'}
             </p>
@@ -1447,21 +1571,23 @@ export const CheckoutPage: React.FC = () => {
         {paymentSession && (
           <div className="space-y-5 text-sm">
             <div className="p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-2">
-              <div className="flex items-center justify-between text-xs text-[#84827B]">
-                <span>Transaction Reference</span>
-                <span className="font-mono-num font-semibold text-[#171716] dark:text-[#F4F3EF]">
+              <div className="flex items-baseline justify-between gap-4 text-xs text-[#84827B]">
+                <span className="min-w-0">Transaction Reference</span>
+                <span className="font-mono-num font-semibold text-[#171716] dark:text-[#F4F3EF] shrink-0 text-right">
                   {paymentSession.transactionRef}
                 </span>
               </div>
-              <div className="flex items-center justify-between text-xs text-[#84827B]">
-                <span>Settlement Amount</span>
-                <span className="font-mono-num text-base font-semibold text-[#8F6438] dark:text-[#C89B67]">
+              <div className="flex items-baseline justify-between gap-4 text-xs text-[#84827B]">
+                <span className="min-w-0">Settlement Amount</span>
+                <span className="font-mono-num text-base font-semibold text-[#8F6438] dark:text-[#C89B67] shrink-0 text-right">
                   {formatDirectCurrency(paymentSession.amount, paymentSession.currency)}
                 </span>
               </div>
-              <div className="flex items-center justify-between text-xs text-[#84827B]">
-                <span>Status</span>
-                <span className="font-mono-num uppercase">{paymentSession.status}</span>
+              <div className="flex items-baseline justify-between gap-4 text-xs text-[#84827B]">
+                <span className="min-w-0">Status</span>
+                <span className="font-mono-num uppercase shrink-0 text-right">
+                  {paymentSession.status}
+                </span>
               </div>
             </div>
 

@@ -126,44 +126,44 @@ export const ComparePage: React.FC = () => {
                   </div>
 
                   <dl className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] border-y border-[#E5E3DD] dark:border-[#2C2C28] text-xs">
-                    <div className="py-2 flex justify-between gap-3">
-                      <dt className="text-[#84827B]">Highlights</dt>
-                      <dd className="text-right">{item.cardHighlights?.join(' · ') || '—'}</dd>
+                    <div className="py-2 flex items-baseline justify-between gap-3">
+                      <dt className="text-[#84827B] shrink-0">Highlights</dt>
+                      <dd className="text-right leading-snug">{item.cardHighlights?.join(' · ') || '—'}</dd>
                     </div>
-                    <div className="py-2 flex justify-between gap-3">
-                      <dt className="text-[#84827B]">Rating</dt>
-                      <dd className="font-mono-num">
+                    <div className="py-2 flex items-baseline justify-between gap-3">
+                      <dt className="text-[#84827B] shrink-0">Rating</dt>
+                      <dd className="font-mono-num text-right">
                         {item.rating.toFixed(1)} ({item.reviewCount})
                       </dd>
                     </div>
-                    <div className="py-2 flex justify-between gap-3">
-                      <dt className="text-[#84827B]">Availability</dt>
+                    <div className="py-2 flex items-baseline justify-between gap-3">
+                      <dt className="text-[#84827B] shrink-0">Availability</dt>
                       <dd
-                        className={
+                        className={`text-right ${
                           outOfStock ? 'text-[#B91C1C] dark:text-[#F87171] font-medium' : 'capitalize'
-                        }
+                        }`}
                       >
                         {outOfStock ? 'Out of Stock' : item.availability.replace('-', ' ')}
                       </dd>
                     </div>
-                    <div className="py-2 flex justify-between gap-3">
-                      <dt className="text-[#84827B]">Shipping &amp; COD</dt>
-                      <dd className="font-mono-num text-right">
+                    <div className="py-2 flex items-baseline justify-between gap-3">
+                      <dt className="text-[#84827B] shrink-0">Shipping &amp; COD</dt>
+                      <dd className="font-mono-num text-right leading-snug">
                         {item.weightKg ? `${item.weightKg} kg · ` : ''}
                         {item.codEligible === false ? 'Prepaid Only' : 'COD Eligible'}
                       </dd>
                     </div>
-                    <div className="py-2 flex justify-between gap-3">
-                      <dt className="text-[#84827B]">Key Spec</dt>
-                      <dd className="font-mono-num text-right">
+                    <div className="py-2 flex items-baseline justify-between gap-3">
+                      <dt className="text-[#84827B] shrink-0">Key Spec</dt>
+                      <dd className="font-mono-num text-right leading-snug">
                         {item.specifications[0]
                           ? `${item.specifications[0].label}: ${item.specifications[0].value}`
                           : '—'}
                       </dd>
                     </div>
-                    <div className="py-2 flex justify-between gap-3">
-                      <dt className="text-[#84827B]">Warranty</dt>
-                      <dd className="text-right">{item.warranty}</dd>
+                    <div className="py-2 flex items-baseline justify-between gap-3">
+                      <dt className="text-[#84827B] shrink-0">Warranty</dt>
+                      <dd className="text-right leading-snug">{item.warranty}</dd>
                     </div>
                   </dl>
 
@@ -224,7 +224,7 @@ export const ComparePage: React.FC = () => {
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28]">
+              <tbody className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] [&_td]:align-top">
                 <tr>
                   <td className="p-4 px-5 text-xs uppercase tracking-wider text-[#84827B]">Price</td>
                   {compared.map((item) => (
@@ -251,7 +251,7 @@ export const ComparePage: React.FC = () => {
                   {compared.map((item) => {
                     const outOfStock = isProductOutOfStock(item);
                     return (
-                      <td key={item.id} className="p-4 px-5 text-xs">
+                      <td key={item.id} className="p-4 px-5 text-xs leading-snug">
                         <span
                           className={
                             outOfStock ? 'text-[#B91C1C] dark:text-[#F87171] font-medium' : 'capitalize'
@@ -268,7 +268,7 @@ export const ComparePage: React.FC = () => {
                     Parcel &amp; COD
                   </td>
                   {compared.map((item) => (
-                    <td key={item.id} className="p-4 px-5 text-xs font-mono-num">
+                    <td key={item.id} className="p-4 px-5 text-xs font-mono-num leading-snug">
                       {item.weightKg ? `${item.weightKg} kg` : 'Standard'} ·{' '}
                       {item.sizeTier || 'medium'} ·{' '}
                       {item.codEligible === false ? 'Prepaid Only' : 'COD Eligible'}
@@ -280,7 +280,7 @@ export const ComparePage: React.FC = () => {
                     Key Specifications
                   </td>
                   {compared.map((item) => (
-                    <td key={item.id} className="p-4 px-5 text-xs font-mono-num">
+                    <td key={item.id} className="p-4 px-5 text-xs font-mono-num leading-snug">
                       {item.specifications.length > 0
                         ? item.specifications
                             .slice(0, 2)
@@ -295,7 +295,7 @@ export const ComparePage: React.FC = () => {
                     Finishes
                   </td>
                   {compared.map((item) => (
-                    <td key={item.id} className="p-4 px-5 text-xs">
+                    <td key={item.id} className="p-4 px-5 text-xs leading-snug">
                       {item.colors.map((c) => c.name).join(', ')}
                     </td>
                   ))}
@@ -305,7 +305,7 @@ export const ComparePage: React.FC = () => {
                     Warranty
                   </td>
                   {compared.map((item) => (
-                    <td key={item.id} className="p-4 px-5 text-xs">
+                    <td key={item.id} className="p-4 px-5 text-xs leading-snug">
                       {item.warranty}
                     </td>
                   ))}

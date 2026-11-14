@@ -365,8 +365,8 @@ export const AdminDashboard: React.FC = () => {
       {/* Top Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
         <div>
-          <p className="text-xs uppercase tracking-wider text-[#8F6438] dark:text-[#C89B67] inline-flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5" /> Marketplace Operations Console
+          <p className="text-xs leading-snug uppercase tracking-wider text-[#8F6438] dark:text-[#C89B67] inline-flex items-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5 shrink-0" /> Marketplace Operations Console
           </p>
           <h2 className="font-display text-2xl sm:text-3xl font-medium mt-0.5">
             Platform Administration &amp; Configuration
@@ -510,7 +510,7 @@ export const AdminDashboard: React.FC = () => {
                   <th className="py-2.5 px-3 font-medium">Fulfillment Stage</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28]">
+              <tbody className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] [&_td]:align-middle">
                 {filteredOrders.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="py-8 px-3 text-center text-xs text-[#84827B]">
@@ -540,7 +540,7 @@ export const AdminDashboard: React.FC = () => {
                           {ord.transactionRef ? ` · ${ord.transactionRef}` : ''}
                         </p>
                       </td>
-                      <td className="py-2.5 px-3 font-mono-num text-right whitespace-nowrap">
+                      <td className="py-2.5 px-3 font-mono-num tabular-nums text-right whitespace-nowrap">
                         {ord.currencySnapshot
                           ? formatDirectCurrency(
                               ord.currencySnapshot.chargedTotal,
@@ -588,7 +588,7 @@ export const AdminDashboard: React.FC = () => {
                 <th className="py-2.5 px-3 font-medium text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28]">
+            <tbody className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] [&_td]:align-middle">
               {data.sellerApplications.map((app) => (
                 <tr key={app.id} className="hover:bg-[#F9F8F6]/70 dark:hover:bg-[#1F1F1C]/60">
                   <td className="py-3 px-3">
@@ -600,7 +600,7 @@ export const AdminDashboard: React.FC = () => {
                     </p>
                   </td>
                   <td className="py-3 px-3">{app.department}</td>
-                  <td className="py-3 px-3 font-mono-num text-right">
+                  <td className="py-3 px-3 font-mono-num tabular-nums text-right whitespace-nowrap">
                     {formatCurrency(app.monthlyRevenue, currency)}
                   </td>
                   <td className="py-3 px-3">
@@ -670,7 +670,7 @@ export const AdminDashboard: React.FC = () => {
                   <th className="py-2.5 px-3 font-medium">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28]">
+              <tbody className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] [&_td]:align-middle">
                 {filteredUsers.map((usr) => (
                   <tr key={usr.id} className="hover:bg-[#F9F8F6]/70 dark:hover:bg-[#1F1F1C]/60">
                     <td className="py-2.5 px-3">
@@ -729,12 +729,12 @@ export const AdminDashboard: React.FC = () => {
             {orderedCategoryTree.map((node) => (
               <div
                 key={node.id}
-                className="p-3.5 flex items-center justify-between gap-3 hover:bg-[#F9F8F6]/70 dark:hover:bg-[#1F1F1C]/60"
+                className="p-3.5 flex items-start sm:items-center justify-between gap-3 hover:bg-[#F9F8F6]/70 dark:hover:bg-[#1F1F1C]/60"
                 style={{ paddingLeft: `${14 + node.depth * 18}px` }}
               >
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono-num text-[#84827B]">
+                  <div className="flex items-baseline gap-2 min-w-0">
+                    <span className="text-[10px] font-mono-num text-[#84827B] shrink-0">
                       L{node.depth}
                     </span>
                     <p
@@ -786,8 +786,8 @@ export const AdminDashboard: React.FC = () => {
             className="lg:col-span-5 p-5 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-4"
           >
             <div className="flex items-center gap-2">
-              <FolderPlus className="w-4 h-4 text-[#8F6438] dark:text-[#C89B67]" />
-              <h3 className="text-base font-medium">Create Department or Subcategory</h3>
+              <FolderPlus className="w-4 h-4 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
+              <h3 className="text-base font-medium leading-snug">Create Department or Subcategory</h3>
             </div>
 
             <Select
@@ -869,8 +869,8 @@ export const AdminDashboard: React.FC = () => {
           className="max-w-2xl p-6 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-5"
         >
           <div className="flex items-center gap-2">
-            <Coins className="w-4 h-4 text-[#8F6438] dark:text-[#C89B67]" />
-            <h3 className="text-base font-medium">Global BDT / USD Exchange Rate &amp; Rounding Rules</h3>
+            <Coins className="w-4 h-4 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
+            <h3 className="text-base font-medium leading-snug">Global BDT / USD Exchange Rate &amp; Rounding Rules</h3>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
@@ -921,8 +921,8 @@ export const AdminDashboard: React.FC = () => {
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <Truck className="w-4 h-4 text-[#8F6438] dark:text-[#C89B67]" />
-              <h3 className="text-base font-medium">Bangladesh Zone Logistics &amp; COD Rules</h3>
+              <Truck className="w-4 h-4 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
+              <h3 className="text-base font-medium leading-snug">Bangladesh Zone Logistics &amp; COD Rules</h3>
             </div>
             <select
               aria-label="Select shipping zone"
@@ -1016,29 +1016,32 @@ export const AdminDashboard: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap gap-6 text-xs">
-            <label className="inline-flex items-center gap-2 cursor-pointer">
+            <label className="inline-flex items-start gap-2 leading-snug cursor-pointer">
               <input
                 type="checkbox"
                 checked={zoneDraft.expressAvailable}
                 onChange={(e) =>
                   setZoneDraft({ ...zoneDraft, expressAvailable: e.target.checked })
                 }
+                className="mt-[2px] shrink-0"
               />
               <span>Express Courier Active</span>
             </label>
-            <label className="inline-flex items-center gap-2 cursor-pointer">
+            <label className="inline-flex items-start gap-2 leading-snug cursor-pointer">
               <input
                 type="checkbox"
                 checked={zoneDraft.codEligible}
                 onChange={(e) => setZoneDraft({ ...zoneDraft, codEligible: e.target.checked })}
+                className="mt-[2px] shrink-0"
               />
               <span>Cash on Delivery (COD) Eligible</span>
             </label>
-            <label className="inline-flex items-center gap-2 cursor-pointer text-[#B91C1C] dark:text-[#F87171]">
+            <label className="inline-flex items-start gap-2 leading-snug cursor-pointer text-[#B91C1C] dark:text-[#F87171]">
               <input
                 type="checkbox"
                 checked={zoneDraft.isRestricted}
                 onChange={(e) => setZoneDraft({ ...zoneDraft, isRestricted: e.target.checked })}
+                className="mt-[2px] shrink-0"
               />
               <span>Zone Restricted / Suspended</span>
             </label>

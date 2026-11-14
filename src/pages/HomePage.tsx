@@ -236,8 +236,8 @@ export const HomePage: React.FC = () => {
               </div>
             </div>
 
-            <div className="pt-4 border-t border-[#E5E3DD] dark:border-[#2C2C28] flex flex-wrap items-center justify-between gap-2 text-xs text-[#5C5B57] dark:text-[#A3A19B]">
-              <span className="truncate">
+            <div className="pt-4 border-t border-[#E5E3DD] dark:border-[#2C2C28] flex items-center justify-between gap-3 text-xs text-[#5C5B57] dark:text-[#A3A19B]">
+              <span className="min-w-0 flex-1 truncate">
                 Spotlight: Aeterna AE-1 Studio Wireless Headphones
               </span>
               <button
@@ -245,7 +245,7 @@ export const HomePage: React.FC = () => {
                 onClick={() =>
                   navigate({ name: 'product', slug: 'aeterna-ae1-studio-wireless-headphones' })
                 }
-                className="font-medium text-[#171716] dark:text-[#F4F3EF] hover:underline whitespace-nowrap cursor-pointer"
+                className="font-medium text-[#171716] dark:text-[#F4F3EF] hover:underline whitespace-nowrap shrink-0 cursor-pointer"
               >
                 Inspect Product
               </button>
@@ -266,39 +266,39 @@ export const HomePage: React.FC = () => {
         {/* 4-column guarantees bar */}
         <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 py-4 px-5 sm:px-6 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]">
           <div className="flex items-start gap-3">
-            <Truck className="w-4 h-4 mt-0.5 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
+            <Truck className="w-4 h-4 mt-[3px] text-[#8F6438] dark:text-[#C89B67] shrink-0" />
             <div>
-              <p className="text-sm font-medium">
+              <p className="text-sm font-medium leading-snug">
                 Complimentary Shipping {formatCurrency(freeThresholdUsd, currency)}+
               </p>
-              <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5">
+              <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5 leading-snug">
                 Next-day Dhaka Metro &amp; 64-district Bangladesh delivery
               </p>
             </div>
           </div>
           <div className="flex items-start gap-3">
-            <ShieldCheck className="w-4 h-4 mt-0.5 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
+            <ShieldCheck className="w-4 h-4 mt-[3px] text-[#8F6438] dark:text-[#C89B67] shrink-0" />
             <div>
-              <p className="text-sm font-medium">bKash, Nagad, Cards &amp; COD</p>
-              <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5">
+              <p className="text-sm font-medium leading-snug">bKash, Nagad, Cards &amp; COD</p>
+              <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5 leading-snug">
                 Server-verified payments &amp; Cash on Delivery
               </p>
             </div>
           </div>
           <div className="flex items-start gap-3">
-            <Check className="w-4 h-4 mt-0.5 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
+            <Check className="w-4 h-4 mt-[3px] text-[#8F6438] dark:text-[#C89B67] shrink-0" />
             <div>
-              <p className="text-sm font-medium">30-Day Returns &amp; Warranties</p>
-              <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5">
+              <p className="text-sm font-medium leading-snug">30-Day Returns &amp; Warranties</p>
+              <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5 leading-snug">
                 Protected across electronics, apparel, furniture &amp; tools
               </p>
             </div>
           </div>
           <div className="flex items-start gap-3">
-            <Sparkles className="w-4 h-4 mt-0.5 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
+            <Sparkles className="w-4 h-4 mt-[3px] text-[#8F6438] dark:text-[#C89B67] shrink-0" />
             <div>
-              <p className="text-sm font-medium">BDT (৳) &amp; USD ($) Pricing</p>
-              <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5">
+              <p className="text-sm font-medium leading-snug">BDT (৳) &amp; USD ($) Pricing</p>
+              <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5 leading-snug">
                 Live FX header switch &amp; BDT Bangladesh settlement
               </p>
             </div>
@@ -320,7 +320,7 @@ export const HomePage: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate({ name: 'shop', category: 'all' })}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+            className="self-start sm:self-auto text-left whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 text-sm font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
           >
             <span>Browse Full Catalog ({products.length})</span>
             <ArrowRight className="w-4 h-4" />
@@ -381,7 +381,7 @@ export const HomePage: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate({ name: 'shop', collection: 'trending', category: 'all' })}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+            className="self-start sm:self-auto text-left whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 text-sm font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
           >
             <span>See all trending</span>
             <ArrowRight className="w-4 h-4" />
@@ -536,7 +536,7 @@ export const HomePage: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate({ name: 'brands' })}
-            className="inline-flex items-center gap-1.5 text-sm font-medium hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+            className="self-start sm:self-auto text-left whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 text-sm font-medium hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
           >
             <span>Explore Maker Directory</span>
             <ArrowRight className="w-4 h-4" />
@@ -557,9 +557,9 @@ export const HomePage: React.FC = () => {
               }
               className="text-left p-5 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] hover:border-[#8F6438] dark:hover:border-[#C89B67] transition-colors cursor-pointer space-y-1.5"
             >
-              <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-[#84827B]">
-                <span>{brand.origin}</span>
-                <span className="font-mono-num">Est. {brand.founded}</span>
+              <div className="flex items-baseline justify-between gap-2 text-[11px] uppercase tracking-wider text-[#84827B]">
+                <span className="min-w-0 truncate">{brand.origin}</span>
+                <span className="font-mono-num shrink-0">Est. {brand.founded}</span>
               </div>
               <p className="font-display text-2xl font-medium">{brand.name}</p>
               <p className="text-xs text-[#8F6438] dark:text-[#C89B67] font-medium">
@@ -663,7 +663,7 @@ export const HomePage: React.FC = () => {
             <button
               type="button"
               onClick={() => navigate({ name: 'shop', category: 'all' })}
-              className="inline-flex items-center gap-1.5 text-sm font-medium hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+              className="self-start sm:self-auto text-left whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 text-sm font-medium hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
             >
               <span>Browse Full Catalog</span>
               <ArrowRight className="w-4 h-4" />

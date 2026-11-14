@@ -1,13 +1,30 @@
 import React, { useState } from 'react';
-import { ArrowRight, CheckCircle2, Mail, MapPin, Phone, Wrench } from 'lucide-react';
+import {
+  ArrowRight,
+  CheckCircle2,
+  Cookie,
+  FileText,
+  Mail,
+  MapPin,
+  Phone,
+  Printer,
+  Scale,
+  Wrench,
+} from 'lucide-react';
 import {
   ATELIER_CRAFT_IMAGE,
   BRAND_STUDIOS,
   FAQ_ITEMS,
   JOURNAL_ARTICLES,
 } from '../data/catalog';
+import {
+  getLegalDocumentById,
+  getLegalDocuments,
+  LEGAL_ENTITY,
+  LEGAL_VERSION,
+} from '../data/legalPolicies';
 import { useStore } from '../context/StoreContext';
-import { JournalArticle } from '../types/commerce';
+import { JournalArticle, LegalDocumentId } from '../types/commerce';
 import { Button } from '../components/ui/Button';
 import { Input, Select, Textarea } from '../components/ui/FormFields';
 import { Accordion, Breadcrumb, Modal, ResilientImage } from '../components/ui/Primitives';
@@ -38,9 +55,9 @@ export const BrandsPage: React.FC = () => {
               className="p-6 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] flex flex-col justify-between gap-6"
             >
               <div className="space-y-2.5">
-                <div className="flex items-center justify-between text-xs text-[#84827B]">
-                  <span>{studio.origin}</span>
-                  <span className="font-mono-num">Est. {studio.founded}</span>
+                <div className="flex items-baseline justify-between gap-2 text-xs text-[#84827B]">
+                  <span className="min-w-0 truncate">{studio.origin}</span>
+                  <span className="font-mono-num shrink-0">Est. {studio.founded}</span>
                 </div>
                 <h2 className="font-display text-2xl font-medium">{studio.name}</h2>
                 <p className="text-xs font-medium text-[#8F6438] dark:text-[#C89B67]">
@@ -50,8 +67,8 @@ export const BrandsPage: React.FC = () => {
                   {studio.summary}
                 </p>
               </div>
-              <div className="pt-4 border-t border-[#E5E3DD] dark:border-[#2C2C28] flex items-center justify-between">
-                <span className="text-xs font-mono-num text-[#84827B]">
+              <div className="pt-4 border-t border-[#E5E3DD] dark:border-[#2C2C28] flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
+                <span className="text-xs font-mono-num text-[#84827B] min-w-0">
                   {studioProducts.length} {studioProducts.length === 1 ? 'product' : 'products'} in catalog
                 </span>
                 <button
@@ -63,10 +80,10 @@ export const BrandsPage: React.FC = () => {
                       brand: studio.name,
                     })
                   }
-                  className="text-xs font-medium inline-flex items-center gap-1 hover:underline cursor-pointer"
+                  className="text-xs font-medium inline-flex items-center gap-1 whitespace-nowrap shrink-0 text-right hover:underline cursor-pointer"
                 >
                   <span>Explore {studio.name}</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <ArrowRight className="w-3.5 h-3.5 shrink-0" />
                 </button>
               </div>
             </article>
@@ -261,19 +278,19 @@ export const ContactPage: React.FC = () => {
 
           <div className="space-y-4 pt-2 text-sm">
             <div className="flex items-start gap-3">
-              <MapPin className="w-4 h-4 mt-1 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
+              <MapPin className="w-4 h-4 mt-[3px] text-[#8F6438] dark:text-[#C89B67] shrink-0" />
               <div>
-                <p className="font-medium">Portland Flagship Atelier</p>
-                <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B]">
+                <p className="font-medium leading-snug">Portland Flagship Atelier</p>
+                <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] leading-snug mt-0.5">
                   1420 NW Flanders St, Portland, OR 97209 · Tue–Sun 10am–6pm
                 </p>
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <MapPin className="w-4 h-4 mt-1 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
+              <MapPin className="w-4 h-4 mt-[3px] text-[#8F6438] dark:text-[#C89B67] shrink-0" />
               <div>
-                <p className="font-medium">New York SoHo Gallery</p>
-                <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B]">
+                <p className="font-medium leading-snug">New York SoHo Gallery</p>
+                <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] leading-snug mt-0.5">
                   84 Crosby St, New York, NY 10012 · Daily 11am–7pm
                 </p>
               </div>
@@ -348,6 +365,17 @@ export const ContactPage: React.FC = () => {
                 placeholder="Tell us about your space, timeline, or question..."
               />
               {error && <p className="text-xs text-[#B91C1C] dark:text-[#F87171]">{error}</p>}
+              <p className="text-[11px] leading-snug text-[#5C5B57] dark:text-[#A3A19B]">
+                By submitting this form, you acknowledge that your inquiry details are processed under our{' '}
+                <button
+                  type="button"
+                  onClick={() => navigate({ name: 'privacy-policy' })}
+                  className="underline text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                >
+                  Privacy Policy
+                </button>
+                .
+              </p>
               <Button type="submit" variant="primary" size="lg">
                 Submit Inquiry
               </Button>
@@ -386,31 +414,348 @@ export const FaqPage: React.FC = () => {
 };
 
 interface PolicyPageProps {
-  title: string;
-  subtitle: string;
-  sections: { heading: string; body: string }[];
+  policyId: LegalDocumentId;
 }
 
-export const PolicyPage: React.FC<PolicyPageProps> = ({ title, subtitle, sections }) => {
-  const { navigate } = useStore();
+export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
+  const { navigate, shippingConfig, openCookiePreferences } = useStore();
+  const dhakaThresholdUsd =
+    shippingConfig.zones.find((z) => z.zoneId === 'dhaka_metro')?.freeThresholdUsd ?? 120;
+
+  const docs = getLegalDocuments({ dhakaThresholdUsd });
+  const doc = getLegalDocumentById(policyId, { dhakaThresholdUsd });
+
+  const scrollToSection = (sectionId: string) => {
+    const target = document.getElementById(`legal-sec-${sectionId}`);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 lg:py-12 space-y-10">
+    <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-8">
       <Breadcrumb
-        items={[{ label: 'Home', onClick: () => navigate({ name: 'home' }) }, { label: title }]}
+        items={[
+          { label: 'Home', onClick: () => navigate({ name: 'home' }) },
+          { label: 'Legal Center', onClick: () => navigate({ name: 'legal' }) },
+          { label: doc.title },
+        ]}
       />
-      <div className="space-y-2 pb-6 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
-        <p className="text-xs uppercase tracking-wider text-[#84827B]">Studio Documentation</p>
-        <h1 className="font-display text-3xl sm:text-5xl font-medium">{title}</h1>
-        <p className="text-sm text-[#5C5B57] dark:text-[#A3A19B]">{subtitle}</p>
+
+      {/* Policy Header */}
+      <div className="pb-6 border-b border-[#E5E3DD] dark:border-[#2C2C28] flex flex-col lg:flex-row lg:items-end justify-between gap-5">
+        <div className="max-w-3xl space-y-2">
+          <p className="text-xs uppercase tracking-[0.14em] text-[#8F6438] dark:text-[#C89B67] font-medium">
+            {doc.category} · Version {doc.version}
+          </p>
+          <h1 className="font-display text-3xl sm:text-5xl font-medium text-balance">
+            {doc.title}
+          </h1>
+          <p className="text-sm text-[#5C5B57] dark:text-[#A3A19B] leading-relaxed">
+            {doc.subtitle}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0 print:hidden">
+          {policyId === 'cookie-policy' && (
+            <Button variant="secondary" size="sm" onClick={openCookiePreferences}>
+              <Cookie className="w-3.5 h-3.5" />
+              <span>Manage Cookie Preferences</span>
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => window.print()}>
+            <Printer className="w-3.5 h-3.5" />
+            <span>Print Document</span>
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => navigate({ name: 'legal' })}>
+            <span>All Policies</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Button>
+        </div>
       </div>
-      <div className="space-y-8">
-        {sections.map((sec) => (
-          <section key={sec.heading} className="space-y-2">
-            <h2 className="text-lg font-semibold">{sec.heading}</h2>
-            <p className="text-sm leading-relaxed text-[#5C5B57] dark:text-[#B4B2AC]">{sec.body}</p>
-          </section>
-        ))}
+
+      {/* Responsive Mobile / Tablet Agreement Switcher */}
+      <div className="lg:hidden space-y-3 print:hidden">
+        <Select
+          label="Switch Legal Document"
+          value={doc.id}
+          onChange={(e) => navigate({ name: e.target.value as LegalDocumentId })}
+          options={docs.map((item) => ({
+            value: item.id,
+            label: `${item.category}: ${item.title}`,
+          }))}
+        />
       </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+        {/* Sticky Desktop Index & Clause Navigation */}
+        <aside className="hidden lg:block lg:col-span-4 lg:sticky lg:top-24 space-y-6 print:hidden">
+          <div className="p-5 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#84827B]">
+              In This Document
+            </p>
+            <nav aria-label="Document sections" className="space-y-1.5">
+              {doc.sections.map((sec) => (
+                <button
+                  key={sec.id}
+                  type="button"
+                  onClick={() => scrollToSection(sec.id)}
+                  className="block w-full text-left text-xs leading-snug py-1 text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF] transition-colors cursor-pointer"
+                >
+                  {sec.heading}
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          <div className="p-5 rounded-lg bg-[#F2F0EC] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#84827B]">
+              All Legal Documents
+            </p>
+            <ul className="space-y-1.5">
+              {docs.map((item) => {
+                const active = item.id === doc.id;
+                return (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      onClick={() => navigate({ name: item.id })}
+                      className={`w-full text-left text-xs py-1 transition-colors cursor-pointer ${
+                        active
+                          ? 'font-semibold text-[#8F6438] dark:text-[#C89B67]'
+                          : 'text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
+                      }`}
+                    >
+                      {item.title}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </aside>
+
+        {/* Main Policy Clauses */}
+        <article className="lg:col-span-8 space-y-8 max-w-3xl">
+          <div className="p-4 rounded-md bg-[#F2F0EC] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-1.5 text-xs">
+            <p className="font-semibold text-[#171716] dark:text-[#F4F3EF] inline-flex items-center gap-1.5">
+              <Scale className="w-3.5 h-3.5 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
+              <span>{LEGAL_ENTITY.legalName} · {LEGAL_ENTITY.jurisdictionLabel}</span>
+            </p>
+            <p className="text-[#5C5B57] dark:text-[#A3A19B] leading-relaxed">
+              {LEGAL_ENTITY.counselAdvisory}
+            </p>
+          </div>
+
+          <div className="space-y-8">
+            {doc.sections.map((sec) => (
+              <section
+                key={sec.id}
+                id={`legal-sec-${sec.id}`}
+                className="scroll-mt-28 space-y-3 pb-6 border-b border-[#E5E3DD] dark:border-[#2C2C28] last:border-b-0"
+              >
+                <h2 className="text-lg sm:text-xl font-semibold text-[#171716] dark:text-[#F4F3EF]">
+                  {sec.heading}
+                </h2>
+                {sec.paragraphs.map((para, idx) => (
+                  <p
+                    key={idx}
+                    className="text-sm leading-relaxed text-[#5C5B57] dark:text-[#B4B2AC]"
+                  >
+                    {para}
+                  </p>
+                ))}
+                {sec.bullets && (
+                  <ul className="list-disc pl-5 space-y-2 text-sm leading-relaxed text-[#5C5B57] dark:text-[#B4B2AC]">
+                    {sec.bullets.map((bullet, idx) => (
+                      <li key={idx}>{bullet}</li>
+                    ))}
+                  </ul>
+                )}
+                {sec.table && (
+                  <div className="overflow-x-auto border border-[#E5E3DD] dark:border-[#2C2C28] rounded-md mt-3">
+                    <table className="w-full text-left text-xs sm:text-sm border-collapse">
+                      <thead>
+                        <tr className="bg-[#F9F8F6] dark:bg-[#141413] border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+                          {sec.table.headers.map((head) => (
+                            <th key={head} className="px-4 py-2.5 font-semibold">
+                              {head}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28]">
+                        {sec.table.rows.map((row, rIdx) => (
+                          <tr key={rIdx}>
+                            {row.map((cell, cIdx) => (
+                              <td
+                                key={cIdx}
+                                className="px-4 py-2.5 text-[#5C5B57] dark:text-[#B4B2AC] align-top"
+                              >
+                                {cell}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            ))}
+          </div>
+
+          {/* Entity & Related Agreements Footer */}
+          <div className="p-5 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-4">
+            <div className="space-y-1 text-xs text-[#5C5B57] dark:text-[#A3A19B]">
+              <p className="font-semibold text-[#171716] dark:text-[#F4F3EF]">
+                Official Legal Notices &amp; Disputes
+              </p>
+              <p>{LEGAL_ENTITY.registeredHub}</p>
+              <p className="font-mono-num">Email: {LEGAL_ENTITY.legalEmail}</p>
+            </div>
+            {doc.relatedIds.length > 0 && (
+              <div className="pt-3 border-t border-[#E5E3DD] dark:border-[#2C2C28] space-y-2 print:hidden">
+                <p className="text-xs font-medium text-[#84827B]">Related Agreements</p>
+                <div className="flex flex-wrap gap-2">
+                  {doc.relatedIds.map((relId) => {
+                    const relDoc = getLegalDocumentById(relId, { dhakaThresholdUsd });
+                    return (
+                      <Button
+                        key={relId}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate({ name: relId })}
+                      >
+                        {relDoc.shortTitle}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </article>
+      </div>
+    </div>
+  );
+};
+
+export const LegalCenterPage: React.FC = () => {
+  const { navigate, shippingConfig, openCookiePreferences, cookieConsent } = useStore();
+  const dhakaThresholdUsd =
+    shippingConfig.zones.find((z) => z.zoneId === 'dhaka_metro')?.freeThresholdUsd ?? 120;
+  const docs = getLegalDocuments({ dhakaThresholdUsd });
+
+  const categories: Array<
+    'Core Agreements' | 'Commerce & Logistics' | 'Marketplace Governance' | 'Safety & Rights'
+  > = [
+    'Core Agreements',
+    'Commerce & Logistics',
+    'Marketplace Governance',
+    'Safety & Rights',
+  ];
+
+  return (
+    <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-10">
+      <Breadcrumb
+        items={[
+          { label: 'Home', onClick: () => navigate({ name: 'home' }) },
+          { label: 'Legal Center' },
+        ]}
+      />
+
+      <div className="max-w-3xl space-y-3 pb-6 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+        <p className="text-xs uppercase tracking-[0.14em] text-[#8F6438] dark:text-[#C89B67] font-medium">
+          Legal Governance · Version {LEGAL_VERSION}
+        </p>
+        <h1 className="font-display text-3xl sm:text-5xl font-medium text-balance">
+          Legal Center, Policies &amp; Marketplace Agreements
+        </h1>
+        <p className="text-sm sm:text-base text-[#5C5B57] dark:text-[#B4B2AC] leading-relaxed">
+          Complete contractual terms, Bangladesh consumer and commerce rules, Seller Studio covenants, department safety notices, privacy disclosures, and intellectual property procedures for {LEGAL_ENTITY.legalName}.
+        </p>
+      </div>
+
+      {/* Jurisdiction & Governance Summary Bar */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="p-5 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-1.5">
+          <p className="text-xs uppercase tracking-wider text-[#84827B]">Entity &amp; Counsel Contact</p>
+          <p className="text-sm font-semibold">{LEGAL_ENTITY.legalName}</p>
+          <p className="text-xs font-mono-num text-[#8F6438] dark:text-[#C89B67]">
+            {LEGAL_ENTITY.legalEmail}
+          </p>
+        </div>
+        <div className="p-5 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-1.5">
+          <p className="text-xs uppercase tracking-wider text-[#84827B]">Governing Law &amp; Courts</p>
+          <p className="text-sm font-semibold">Laws of Bangladesh</p>
+          <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B]">
+            Exclusive dispute venue in competent courts situated in Dhaka.
+          </p>
+        </div>
+        <div className="p-5 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] flex flex-col justify-between gap-3">
+          <div className="space-y-1">
+            <p className="text-xs uppercase tracking-wider text-[#84827B]">Cookie &amp; Tracking Status</p>
+            <p className="text-sm font-semibold capitalize">
+              {cookieConsent.status === 'unset' ? 'Pending Selection' : cookieConsent.status.replace('-', ' ')}
+            </p>
+          </div>
+          <div>
+            <Button variant="outline" size="sm" onClick={openCookiePreferences}>
+              <Cookie className="w-3.5 h-3.5" />
+              <span>Manage Cookie Preferences</span>
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Categorized Legal Document Index */}
+      <div className="space-y-10">
+        {categories.map((group) => {
+          const groupDocs = docs.filter((d) => d.category === group);
+          return (
+            <section key={group} className="space-y-4">
+              <h2 className="font-display text-2xl font-medium border-b border-[#E5E3DD] dark:border-[#2C2C28] pb-2">
+                {group}
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {groupDocs.map((doc) => (
+                  <article
+                    key={doc.id}
+                    className="p-5 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] flex flex-col justify-between gap-5"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2 text-xs text-[#84827B]">
+                        <span className="inline-flex items-center gap-1.5">
+                          <FileText className="w-3.5 h-3.5 text-[#8F6438] dark:text-[#C89B67]" />
+                          <span>{doc.sections.length} Clauses</span>
+                        </span>
+                        <span className="font-mono-num">v{doc.version}</span>
+                      </div>
+                      <h3 className="text-base font-semibold">{doc.title}</h3>
+                      <p className="text-xs text-[#5C5B57] dark:text-[#B4B2AC] leading-relaxed">
+                        {doc.summary}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => navigate({ name: doc.id })}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-[#8F6438] dark:text-[#C89B67] hover:underline self-start cursor-pointer"
+                    >
+                      <span>Read {doc.shortTitle}</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+
+      <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] p-4 rounded-md bg-[#F2F0EC] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28]">
+        {LEGAL_ENTITY.counselAdvisory}
+      </p>
     </div>
   );
 };

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, Package, Plus, RefreshCw, Search, Store, Truck } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useStore } from '../../context/StoreContext';
+import { buildPolicyAcceptance } from '../../data/legalPolicies';
 import {
   createSellerProductApi,
   fetchSellerDashboardApi,
@@ -17,8 +18,15 @@ import { Input, Select, Textarea } from '../ui/FormFields';
 import { Modal, ResilientImage, SkeletonLoader } from '../ui/Primitives';
 
 export const SellerDashboard: React.FC = () => {
-  const { currency, categories, showToast, refreshStorefrontSync, refreshOrders, navigate } =
-    useStore();
+  const {
+    currency,
+    categories,
+    showToast,
+    refreshStorefrontSync,
+    refreshOrders,
+    navigate,
+    openPolicyPreview,
+  } = useStore();
 
   const [data, setData] = useState<SellerDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,6 +51,7 @@ export const SellerDashboard: React.FC = () => {
   const [newDesc, setNewDesc] = useState('');
   const [newHighlight1, setNewHighlight1] = useState('Studio Edition');
   const [newHighlight2, setNewHighlight2] = useState('2-Year Warranty');
+  const [newAcceptedSellerTerms, setNewAcceptedSellerTerms] = useState(false);
   const [creatingProduct, setCreatingProduct] = useState(false);
 
   const loadDashboard = useCallback(async () => {
@@ -118,6 +127,14 @@ export const SellerDashboard: React.FC = () => {
 
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newAcceptedSellerTerms) {
+      showToast(
+        'Seller Agreement Required',
+        'Confirm the Seller Marketplace Agreement & Prohibited Items Policy before publishing.',
+        'error'
+      );
+      return;
+    }
     const catMeta = categories.find((c) => c.slug === newCategory);
     setCreatingProduct(true);
     try {
@@ -137,10 +154,16 @@ export const SellerDashboard: React.FC = () => {
         imagePresetKey: newPreset,
         highlightOne: newHighlight1,
         highlightTwo: newHighlight2,
+        acceptedPolicies: buildPolicyAcceptance([
+          'seller-agreement',
+          'prohibited-items',
+          'product-safety',
+        ]),
       });
       setAddModalOpen(false);
       setNewName('');
       setNewDesc('');
+      setNewAcceptedSellerTerms(false);
       await Promise.all([loadDashboard(), refreshStorefrontSync()]);
       showToast(
         'Product published live',
@@ -188,8 +211,8 @@ export const SellerDashboard: React.FC = () => {
       {/* Top Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
         <div>
-          <p className="text-xs uppercase tracking-wider text-[#8F6438] dark:text-[#C89B67] inline-flex items-center gap-1.5">
-            <Store className="w-3.5 h-3.5" /> Seller Studio Portal
+          <p className="text-xs leading-snug uppercase tracking-wider text-[#8F6438] dark:text-[#C89B67] inline-flex items-center gap-1.5">
+            <Store className="w-3.5 h-3.5 shrink-0" /> Seller Studio Portal
           </p>
           <h2 className="font-display text-2xl sm:text-3xl font-medium mt-0.5">{data.studioName}</h2>
           <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5">
@@ -332,7 +355,7 @@ export const SellerDashboard: React.FC = () => {
                   <th className="py-2.5 px-3 font-medium text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28]">
+              <tbody className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] [&_td]:align-middle">
                 {filteredInventory.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-8 px-3 text-center text-xs text-[#84827B]">
@@ -362,27 +385,27 @@ export const SellerDashboard: React.FC = () => {
                         <td className="py-2.5 px-3 font-mono-num text-[#5C5B57] dark:text-[#A3A19B] whitespace-nowrap">
                           {item.sku}
                         </td>
-                        <td className="py-2.5 px-3 font-mono-num text-right whitespace-nowrap">
+                        <td className="py-2.5 px-3 font-mono-num tabular-nums text-right whitespace-nowrap">
                           {isEditing ? (
                             <input
                               type="number"
                               aria-label={`Price for ${item.name}`}
                               value={editPrice}
                               onChange={(e) => setEditPrice(e.target.value)}
-                              className="w-20 h-7 px-2 text-right rounded border border-[#171716] dark:border-[#F4F3EF] bg-white dark:bg-[#141413]"
+                              className="w-20 h-8 px-2 text-xs text-right tabular-nums rounded border border-[#171716] dark:border-[#F4F3EF] bg-white dark:bg-[#141413]"
                             />
                           ) : (
                             formatCurrency(item.price, currency)
                           )}
                         </td>
-                        <td className="py-2.5 px-3 font-mono-num text-right whitespace-nowrap">
+                        <td className="py-2.5 px-3 font-mono-num tabular-nums text-right whitespace-nowrap">
                           {isEditing ? (
                             <input
                               type="number"
                               aria-label={`Stock for ${item.name}`}
                               value={editStock}
                               onChange={(e) => setEditStock(e.target.value)}
-                              className="w-16 h-7 px-2 text-right rounded border border-[#171716] dark:border-[#F4F3EF] bg-white dark:bg-[#141413]"
+                              className="w-16 h-8 px-2 text-xs text-right tabular-nums rounded border border-[#171716] dark:border-[#F4F3EF] bg-white dark:bg-[#141413]"
                             />
                           ) : (
                             item.stockCount
@@ -407,7 +430,7 @@ export const SellerDashboard: React.FC = () => {
                         </td>
                         <td className="py-2.5 px-3 text-right whitespace-nowrap">
                           {isEditing ? (
-                            <div className="inline-flex items-center gap-1.5">
+                            <div className="inline-flex items-center justify-end gap-1.5">
                               <Button
                                 variant="primary"
                                 size="xs"
@@ -459,11 +482,11 @@ export const SellerDashboard: React.FC = () => {
                 <th className="py-2.5 px-3 font-medium">Customer</th>
                 <th className="py-2.5 px-3 font-medium">Destination</th>
                 <th className="py-2.5 px-3 font-medium text-right">Total</th>
-                <th className="py-2.5 px-3 font-medium">Current Stage</th>
-                <th className="py-2.5 px-3 font-medium text-right">Dispatch Action</th>
+                <th className="py-2.5 px-3 font-medium whitespace-nowrap">Current Stage</th>
+                <th className="py-2.5 px-3 font-medium text-right whitespace-nowrap">Dispatch Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28]">
+            <tbody className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] [&_td]:align-middle">
               {data.fulfillmentQueue.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-8 px-3 text-center text-xs text-[#84827B]">
@@ -613,11 +636,12 @@ export const SellerDashboard: React.FC = () => {
             />
           </div>
 
-          <label className="inline-flex items-center gap-2 text-xs cursor-pointer">
+          <label className="inline-flex items-start gap-2 text-xs leading-snug cursor-pointer">
             <input
               type="checkbox"
               checked={newCodEligible}
               onChange={(e) => setNewCodEligible(e.target.checked)}
+              className="mt-[2px] shrink-0"
             />
             <span>Eligible for Bangladesh Cash on Delivery (COD)</span>
           </label>
@@ -643,6 +667,44 @@ export const SellerDashboard: React.FC = () => {
             onChange={(e) => setNewDesc(e.target.value)}
             placeholder="Concise summary describing materials, compatibility, and craftsmanship..."
           />
+
+          <div className="p-3.5 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28]">
+            <label className="flex items-start gap-2.5 cursor-pointer text-xs leading-relaxed text-[#5C5B57] dark:text-[#A3A19B] select-none">
+              <input
+                type="checkbox"
+                checked={newAcceptedSellerTerms}
+                onChange={(e) => setNewAcceptedSellerTerms(e.target.checked)}
+                className="mt-0.5 w-4 h-4 shrink-0 accent-[#171716] dark:accent-[#F4F3EF] cursor-pointer"
+              />
+              <span>
+                I certify this product is authentic, complies with{' '}
+                <button
+                  type="button"
+                  onClick={() => openPolicyPreview('prohibited-items')}
+                  className="underline font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                >
+                  Prohibited Items
+                </button>{' '}
+                and{' '}
+                <button
+                  type="button"
+                  onClick={() => openPolicyPreview('product-safety')}
+                  className="underline font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                >
+                  Product Safety
+                </button>{' '}
+                rules, and binds my studio under the{' '}
+                <button
+                  type="button"
+                  onClick={() => openPolicyPreview('seller-agreement')}
+                  className="underline font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                >
+                  Seller Marketplace Agreement
+                </button>
+                .
+              </span>
+            </label>
+          </div>
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" size="md" onClick={() => setAddModalOpen(false)}>
