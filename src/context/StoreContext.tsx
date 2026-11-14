@@ -7,26 +7,47 @@ import {
   PRODUCTS,
   PROMO_CODES,
 } from '../data/catalog';
+import {
+  clearStoredToken,
+  createOrderApi,
+  fetchAuthAccounts,
+  fetchCurrentUser,
+  fetchNotificationsApi,
+  fetchOrdersApi,
+  fetchStorefrontSync,
+  getStoredToken,
+  loginWithApi,
+  markNotificationReadApi,
+  performOrderCustomerActionApi,
+  registerWithApi,
+  updateProfileApi,
+} from '../services/api';
 import { readStorage, writeStorage } from '../services/storage';
 import {
+  AccountDirectoryEntry,
   Address,
+  ApiSellerProductRecord,
   CartItem,
   CategoryMeta,
   CategorySlug,
   CustomerProfile,
   DeliveryMethodId,
+  DynamicCategoryRecord,
   NotificationPrefs,
   Order,
   PaymentMethodId,
   PaymentMethodRecord,
   PrivacyPrefs,
   Product,
+  ProductOverride,
   ProductQuestion,
   ProductReview,
   PromoCode,
   RouteName,
+  StoreNotification,
 } from '../types/commerce';
 import { CurrencyCode, formatCurrency } from '../utils/format';
+import { resolveImagePreset } from '../utils/imagePresets';
 
 export interface RouteState {
   name: RouteName;
@@ -121,10 +142,34 @@ interface StoreContextValue {
   submitProductQuestion: (productId: string, author: string, question: string) => void;
   orders: Order[];
   placeOrder: (payload: CheckoutPayload) => Order;
+  reorderFromOrder: (order: Order) => void;
+  cancelOrder: (orderId: string) => Promise<void>;
+  requestOrderReturn: (orderId: string, reason?: string) => Promise<void>;
+  refreshOrders: () => Promise<void>;
+  refreshStorefrontSync: () => Promise<void>;
   profile: CustomerProfile;
-  updateProfile: (updates: Partial<CustomerProfile>) => void;
+  authAccounts: AccountDirectoryEntry[];
+  authLoading: boolean;
+  authModalOpen: boolean;
+  setAuthModalOpen: (open: boolean) => void;
+  authModalTab: 'signin' | 'register';
+  setAuthModalTab: (tab: 'signin' | 'register') => void;
+  openAuthModal: (tab?: 'signin' | 'register') => void;
+  updateProfile: (updates: Partial<CustomerProfile>) => Promise<void>;
   logoutDemo: () => void;
-  loginDemo: (email?: string) => void;
+  loginDemo: (email?: string, password?: string) => Promise<AccountDirectoryEntry | null>;
+  switchDemoAccount: (accountId: string) => Promise<AccountDirectoryEntry | null>;
+  registerAccount: (payload: {
+    fullName: string;
+    email: string;
+    phone?: string;
+    password?: string;
+    role: 'customer' | 'seller';
+    studioName?: string;
+  }) => Promise<AccountDirectoryEntry | null>;
+  notifications: StoreNotification[];
+  unreadNotificationCount: number;
+  markNotificationRead: (id: string) => Promise<void>;
   addresses: Address[];
   saveAddress: (address: Omit<Address, 'id'> & { id?: string }) => void;
   deleteAddress: (id: string) => void;
@@ -150,7 +195,10 @@ const PAGE_TITLES: Record<RouteName, string> = {
   cart: 'Shopping Bag — KINTO STUDIO',
   wishlist: 'Saved Wishlist — KINTO STUDIO',
   checkout: 'Checkout — KINTO STUDIO',
-  account: 'Customer Account — KINTO STUDIO',
+  account: 'Account Workspace — KINTO STUDIO',
+  login: 'Sign In — KINTO STUDIO',
+  seller: 'Seller Studio Portal — KINTO STUDIO',
+  admin: 'Admin Operations Console — KINTO STUDIO',
   'track-order': 'Order Tracking — KINTO STUDIO',
   compare: 'Compare Specifications — KINTO STUDIO',
   brands: 'Partner Brands & Makers — KINTO STUDIO',
@@ -224,6 +272,15 @@ function parseHashToRoute(): RouteState {
   if (first === 'account') {
     return { name: 'account', accountTab: segments[1] || 'overview' };
   }
+  if (first === 'login') {
+    return { name: 'login' };
+  }
+  if (first === 'seller') {
+    return { name: 'seller', accountTab: 'seller-hub' };
+  }
+  if (first === 'admin') {
+    return { name: 'admin', accountTab: 'admin-console' };
+  }
   if (first === 'track-order') {
     return { name: 'track-order', orderId: searchParams.get('id') || segments[1] || '' };
   }
@@ -238,6 +295,9 @@ function parseHashToRoute(): RouteState {
     'wishlist',
     'checkout',
     'account',
+    'login',
+    'seller',
+    'admin',
     'track-order',
     'compare',
     'brands',
@@ -287,6 +347,12 @@ function serializeRouteToHash(route: RouteState): string {
       return route.query ? `#/search?q=${encodeURIComponent(route.query)}` : '#/search';
     case 'account':
       return route.accountTab ? `#/account/${route.accountTab}` : '#/account';
+    case 'login':
+      return '#/login';
+    case 'seller':
+      return '#/seller';
+    case 'admin':
+      return '#/admin';
     case 'track-order':
       return route.orderId ? `#/track-order?id=${encodeURIComponent(route.orderId)}` : '#/track-order';
     default:
@@ -331,15 +397,28 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [customQuestions, setCustomQuestions] = useState<Record<string, ProductQuestion[]>>(() =>
     readStorage('kinto-questions', {})
   );
+
+  // API-driven auth, accounts directory, notifications, and live catalog sync
+  const [authAccounts, setAuthAccounts] = useState<AccountDirectoryEntry[]>([]);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
+  const [authModalTab, setAuthModalTab] = useState<'signin' | 'register'>('signin');
   const [profile, setProfile] = useState<CustomerProfile>(() =>
     readStorage('kinto-profile', {
-      fullName: 'Alex Mercer',
+      id: 'guest',
+      fullName: 'Guest Visitor',
       email: 'alex.mercer@studio.example',
       phone: '+1 (415) 555-0194',
-      studioRole: 'Marketplace Member',
-      isAuthenticated: true,
+      role: 'customer',
+      studioRole: 'Guest Visitor',
+      isAuthenticated: false,
     })
   );
+  const [notifications, setNotifications] = useState<StoreNotification[]>([]);
+  const [productOverrides, setProductOverrides] = useState<Record<string, ProductOverride>>({});
+  const [sellerProducts, setSellerProducts] = useState<ApiSellerProductRecord[]>([]);
+  const [customCategories, setCustomCategories] = useState<DynamicCategoryRecord[]>([]);
+
   const [addresses, setAddresses] = useState<Address[]>(() =>
     readStorage('kinto-addresses', INITIAL_ADDRESSES)
   );
@@ -366,29 +445,204 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
+  const openAuthModal = useCallback((tab: 'signin' | 'register' = 'signin') => {
+    setAuthModalTab(tab);
+    setAuthModalOpen(true);
+  }, []);
+
+  const hydrateOrderImages = useCallback((apiOrders: Order[]): Order[] => {
+    return apiOrders.map((ord) => ({
+      ...ord,
+      items: ord.items.map((item) => {
+        if (item.image) return item;
+        const matched = PRODUCTS.find((p) => p.id === item.productId);
+        return {
+          ...item,
+          image: matched?.images[0] || resolveImagePreset(undefined, item.category),
+        };
+      }),
+    }));
+  }, []);
+
+  const refreshStorefrontSync = useCallback(async () => {
+    try {
+      const sync = await fetchStorefrontSync();
+      setProductOverrides(sync.productOverrides || {});
+      setSellerProducts(sync.sellerProducts || []);
+      setCustomCategories(sync.customCategories || []);
+    } catch {
+      // Static deploy fallback uses base bundled catalog
+    }
+  }, []);
+
+  const refreshOrders = useCallback(async () => {
+    try {
+      const apiOrders = await fetchOrdersApi();
+      setOrders(hydrateOrderImages(apiOrders));
+    } catch {
+      // Keep local cached orders
+    }
+  }, [hydrateOrderImages]);
+
+  const refreshNotifications = useCallback(async (role: CustomerProfile['role']) => {
+    try {
+      const list = await fetchNotificationsApi(role);
+      setNotifications(list);
+    } catch {
+      // Ignore if offline
+    }
+  }, []);
+
+  // Hydrate multi-role accounts, active user session, storefront sync, and API orders on mount
+  useEffect(() => {
+    let active = true;
+    async function initApi() {
+      setAuthLoading(true);
+      try {
+        const [accountsRes, meRes, syncRes, ordersRes] = await Promise.allSettled([
+          fetchAuthAccounts(),
+          fetchCurrentUser(),
+          fetchStorefrontSync(),
+          fetchOrdersApi(),
+        ]);
+
+        if (!active) return;
+
+        if (accountsRes.status === 'fulfilled') {
+          setAuthAccounts(accountsRes.value);
+        }
+        if (meRes.status === 'fulfilled' && Boolean(getStoredToken()) && profile.isAuthenticated) {
+          const u = meRes.value;
+          setProfile({
+            id: u.id,
+            fullName: u.fullName,
+            email: u.email,
+            phone: u.phone,
+            role: u.role,
+            studioRole: u.roleLabel,
+            studioName: u.studioName,
+            isAuthenticated: true,
+          });
+        }
+        if (syncRes.status === 'fulfilled') {
+          setProductOverrides(syncRes.value.productOverrides || {});
+          setSellerProducts(syncRes.value.sellerProducts || []);
+          setCustomCategories(syncRes.value.customCategories || []);
+        }
+        if (ordersRes.status === 'fulfilled') {
+          setOrders(hydrateOrderImages(ordersRes.value));
+        }
+      } finally {
+        if (active) setAuthLoading(false);
+      }
+    }
+    initApi();
+    return () => {
+      active = false;
+    };
+  }, [hydrateOrderImages]);
+
+  useEffect(() => {
+    refreshNotifications(profile.role || 'customer');
+  }, [profile.role, refreshNotifications]);
+
+  // Merge base categories + admin-added dynamic categories
+  const categories = useMemo<CategoryMeta[]>(() => {
+    const mappedDynamic: CategoryMeta[] = customCategories.map((dc) => ({
+      id: dc.id,
+      slug: dc.slug,
+      name: dc.name,
+      shortName: dc.shortName,
+      description: dc.description,
+      bannerTagline: dc.bannerTagline,
+      image: resolveImagePreset(dc.imagePresetKey, dc.slug),
+      countLabel: dc.countLabel,
+      subcategories: dc.subcategories,
+      featuredBrands: dc.featuredBrands,
+      filterFacets: dc.filterFacets,
+    }));
+    return [...CATEGORIES, ...mappedDynamic];
+  }, [customCategories]);
+
+  // Merge base catalog + live API seller overrides + API-created seller products
   const products = useMemo(() => {
-    return PRODUCTS.map((p) => {
+    const mappedSellerProducts: Product[] = sellerProducts.map((sp) => {
+      const img = resolveImagePreset(sp.imagePresetKey, sp.category);
+      return {
+        id: sp.id,
+        slug: sp.slug,
+        sku: sp.sku,
+        name: sp.name,
+        subtitle: sp.subtitle,
+        brand: sp.brand,
+        category: sp.category,
+        categoryLabel: sp.categoryLabel,
+        subcategory: sp.subcategory,
+        subcategoryLabel: sp.subcategoryLabel,
+        price: sp.price,
+        originalPrice: sp.originalPrice,
+        rating: sp.rating,
+        reviewCount: sp.reviewCount,
+        stockCount: sp.stockCount,
+        availability: sp.availability,
+        badgeText: sp.badgeText,
+        shortDescription: sp.shortDescription,
+        description: sp.description,
+        images: [img],
+        colors: sp.colors,
+        sizes: sp.sizes,
+        cardHighlights: sp.cardHighlights,
+        attributes: sp.attributes,
+        specifications: sp.specifications,
+        deliveryEstimate: sp.deliveryEstimate,
+        returnPolicy: sp.returnPolicy,
+        warranty: sp.warranty,
+        tags: sp.tags,
+        isNewArrival: sp.isNewArrival ?? true,
+        isTrending: false,
+        isBestSeller: false,
+        reviews: [],
+        questions: [],
+      };
+    });
+
+    const combinedBase = [...mappedSellerProducts, ...PRODUCTS];
+
+    return combinedBase.map((p) => {
+      const override = productOverrides[p.id];
+      const baseWithOverride: Product = override
+        ? {
+            ...p,
+            price: override.price ?? p.price,
+            stockCount: override.stockCount ?? p.stockCount,
+            availability: override.availability ?? p.availability,
+          }
+        : p;
+
       const extraReviews = customReviews[p.id] || [];
       const extraQuestions = customQuestions[p.id] || [];
-      const mergedQuestions = [...extraQuestions, ...(p.questions || [])];
+      const mergedQuestions = [...extraQuestions, ...(baseWithOverride.questions || [])];
 
       if (extraReviews.length === 0) {
-        return extraQuestions.length > 0 ? { ...p, questions: mergedQuestions } : p;
+        return extraQuestions.length > 0
+          ? { ...baseWithOverride, questions: mergedQuestions }
+          : baseWithOverride;
       }
 
-      const mergedReviews = [...extraReviews, ...p.reviews];
+      const mergedReviews = [...extraReviews, ...baseWithOverride.reviews];
       const totalScore =
-        p.rating * p.reviewCount + extraReviews.reduce((sum, r) => sum + r.rating, 0);
-      const totalCount = p.reviewCount + extraReviews.length;
+        baseWithOverride.rating * baseWithOverride.reviewCount +
+        extraReviews.reduce((sum, r) => sum + r.rating, 0);
+      const totalCount = baseWithOverride.reviewCount + extraReviews.length;
       return {
-        ...p,
+        ...baseWithOverride,
         reviews: mergedReviews,
         reviewCount: totalCount,
         rating: Number((totalScore / totalCount).toFixed(1)),
         questions: mergedQuestions,
       };
     });
-  }, [customReviews, customQuestions]);
+  }, [customReviews, customQuestions, productOverrides, sellerProducts]);
 
   useEffect(() => writeStorage('kinto-currency', currency), [currency]);
   useEffect(() => writeStorage('kinto-cart', cart), [cart]);
@@ -421,12 +675,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const found = products.find((p) => p.slug === route.slug);
       document.title = found ? `${found.name} — KINTO STUDIO` : PAGE_TITLES.product;
     } else if (route.name === 'category' && route.category) {
-      const foundCat = CATEGORIES.find((c) => c.slug === route.category);
+      const foundCat = categories.find((c) => c.slug === route.category);
       document.title = foundCat ? `${foundCat.name} — KINTO STUDIO` : PAGE_TITLES.category;
     } else {
       document.title = PAGE_TITLES[route.name] || PAGE_TITLES.home;
     }
-  }, [route, products]);
+  }, [route, products, categories]);
 
   const navigate = useCallback((next: RouteState) => {
     const targetHash = serializeRouteToHash(next);
@@ -751,7 +1005,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const submitProductQuestion = useCallback(
     (productId: string, author: string, questionText: string) => {
-      const target = PRODUCTS.find((p) => p.id === productId);
+      const target = products.find((p) => p.id === productId);
       const newQ: ProductQuestion = {
         id: `qa-${Date.now()}`,
         author: author.trim() || 'Shopper',
@@ -766,7 +1020,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }));
       showToast('Question posted', 'Concierge answer attached below.', 'success');
     },
-    [showToast]
+    [products, showToast]
   );
 
   const placeOrder = useCallback(
@@ -882,35 +1136,232 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
 
       setOrders((prev) => [newOrder, ...prev]);
+      createOrderApi(newOrder)
+        .then(() => refreshNotifications(profile.role))
+        .catch(() => {
+          // Keep optimistic local order
+        });
       clearCart();
       return newOrder;
     },
-    [appliedPromo, cart, cartDiscount, cartSubtotal, cartTax, clearCart]
+    [appliedPromo, cart, cartDiscount, cartSubtotal, cartTax, clearCart, profile.role, refreshNotifications]
+  );
+
+  const reorderFromOrder = useCallback(
+    (order: Order) => {
+      order.items.forEach((item) => {
+        const liveProduct = products.find((p) => p.id === item.productId);
+        if (liveProduct) {
+          addToCart(liveProduct, item.color, item.colorHex, item.size, item.quantity, false);
+        }
+      });
+      setCartDrawerOpen(true);
+      showToast(`Reordered #${order.id}`, 'Items added back to your shopping bag.', 'success');
+    },
+    [addToCart, products, showToast]
+  );
+
+  const cancelOrder = useCallback(
+    async (orderId: string) => {
+      try {
+        const updated = await performOrderCustomerActionApi(
+          orderId,
+          'cancel',
+          'Cancelled prior to shipment via Customer Account'
+        );
+        setOrders((prev) => prev.map((o) => (o.id === orderId ? hydrateOrderImages([updated])[0] : o)));
+        showToast(`Order #${orderId} cancelled`, 'Authorization hold will be released.', 'info');
+        refreshNotifications(profile.role);
+      } catch (err) {
+        showToast(
+          'Unable to cancel order',
+          err instanceof Error ? err.message : 'Order cannot be cancelled.',
+          'error'
+        );
+      }
+    },
+    [hydrateOrderImages, profile.role, refreshNotifications, showToast]
+  );
+
+  const requestOrderReturn = useCallback(
+    async (orderId: string, reason?: string) => {
+      try {
+        const updated = await performOrderCustomerActionApi(
+          orderId,
+          'return',
+          reason || '30-day return requested through Customer Account'
+        );
+        setOrders((prev) => prev.map((o) => (o.id === orderId ? hydrateOrderImages([updated])[0] : o)));
+        showToast(
+          `Return initiated for #${orderId}`,
+          'Prepaid pickup instructions generated.',
+          'success'
+        );
+        refreshNotifications(profile.role);
+      } catch (err) {
+        showToast(
+          'Return request error',
+          err instanceof Error ? err.message : 'Could not initiate return.',
+          'error'
+        );
+      }
+    },
+    [hydrateOrderImages, profile.role, refreshNotifications, showToast]
   );
 
   const updateProfile = useCallback(
-    (updates: Partial<CustomerProfile>) => {
+    async (updates: Partial<CustomerProfile>) => {
       setProfile((prev) => ({ ...prev, ...updates }));
+      try {
+        await updateProfileApi({
+          fullName: updates.fullName,
+          email: updates.email,
+          phone: updates.phone,
+          studioName: updates.studioName,
+        });
+      } catch {
+        // Ignore offline fallback
+      }
       showToast('Profile updated', undefined, 'success');
     },
     [showToast]
   );
 
   const logoutDemo = useCallback(() => {
-    setProfile((prev) => ({ ...prev, isAuthenticated: false }));
-    showToast('Signed out', 'You are browsing as a guest.', 'info');
+    clearStoredToken();
+    setProfile((prev) => ({
+      ...prev,
+      fullName: 'Guest Visitor',
+      studioRole: 'Guest Visitor',
+      studioName: undefined,
+      role: 'customer',
+      isAuthenticated: false,
+    }));
+    showToast('Signed out', 'Select an account or sign in to continue.', 'info');
   }, [showToast]);
 
   const loginDemo = useCallback(
-    (email?: string) => {
-      setProfile((prev) => ({
-        ...prev,
-        email: email || prev.email,
-        isAuthenticated: true,
-      }));
-      showToast('Signed in', 'Welcome back to your Kinto Studio account.', 'success');
+    async (email?: string, password?: string): Promise<AccountDirectoryEntry | null> => {
+      try {
+        const { user } = await loginWithApi({
+          email: email || profile.email,
+          password,
+        });
+        setProfile({
+          id: user.id,
+          fullName: user.fullName,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+          studioRole: user.roleLabel,
+          studioName: user.studioName,
+          isAuthenticated: true,
+        });
+        refreshNotifications(user.role);
+        showToast(
+          `Signed in as ${user.fullName}`,
+          `${user.roleLabel} session active`,
+          'success'
+        );
+        return user;
+      } catch (err) {
+        showToast(
+          'Sign-in failed',
+          err instanceof Error ? err.message : 'Check credentials and try again.',
+          'error'
+        );
+        return null;
+      }
     },
-    [showToast]
+    [profile.email, refreshNotifications, showToast]
+  );
+
+  const switchDemoAccount = useCallback(
+    async (accountId: string): Promise<AccountDirectoryEntry | null> => {
+      try {
+        const { user } = await loginWithApi({ accountId });
+        setProfile({
+          id: user.id,
+          fullName: user.fullName,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+          studioRole: user.roleLabel,
+          studioName: user.studioName,
+          isAuthenticated: true,
+        });
+        refreshNotifications(user.role);
+        showToast(
+          `Signed in as ${user.fullName}`,
+          user.studioName || user.roleLabel,
+          'success'
+        );
+        return user;
+      } catch (err) {
+        showToast(
+          'Role switch failed',
+          err instanceof Error ? err.message : 'Could not switch account.',
+          'error'
+        );
+        return null;
+      }
+    },
+    [refreshNotifications, showToast]
+  );
+
+  const registerAccount = useCallback(
+    async (payload: {
+      fullName: string;
+      email: string;
+      phone?: string;
+      password?: string;
+      role: 'customer' | 'seller';
+      studioName?: string;
+    }): Promise<AccountDirectoryEntry | null> => {
+      try {
+        const { user } = await registerWithApi(payload);
+        setAuthAccounts((prev) => [user, ...prev]);
+        setProfile({
+          id: user.id,
+          fullName: user.fullName,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+          studioRole: user.roleLabel,
+          studioName: user.studioName,
+          isAuthenticated: true,
+        });
+        refreshNotifications(user.role);
+        showToast(
+          'Account registered',
+          `Welcome, ${user.fullName} (${user.roleLabel})`,
+          'success'
+        );
+        return user;
+      } catch (err) {
+        showToast(
+          'Registration failed',
+          err instanceof Error ? err.message : 'Unable to register account.',
+          'error'
+        );
+        return null;
+      }
+    },
+    [refreshNotifications, showToast]
+  );
+
+  const markNotificationRead = useCallback(async (id: string) => {
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    try {
+      await markNotificationReadApi(id);
+    } catch {
+      // Optimistic
+    }
+  }, []);
+
+  const unreadNotificationCount = useMemo(
+    () => notifications.filter((n) => !n.read).length,
+    [notifications]
   );
 
   const saveAddress = useCallback(
@@ -996,7 +1447,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const value: StoreContextValue = {
     route,
     navigate,
-    categories: CATEGORIES,
+    categories,
     products,
     currency,
     setCurrency,
@@ -1040,10 +1491,27 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     submitProductQuestion,
     orders,
     placeOrder,
+    reorderFromOrder,
+    cancelOrder,
+    requestOrderReturn,
+    refreshOrders,
+    refreshStorefrontSync,
     profile,
+    authAccounts,
+    authLoading,
+    authModalOpen,
+    setAuthModalOpen,
+    authModalTab,
+    setAuthModalTab,
+    openAuthModal,
     updateProfile,
     logoutDemo,
     loginDemo,
+    switchDemoAccount,
+    registerAccount,
+    notifications,
+    unreadNotificationCount,
+    markNotificationRead,
     addresses,
     saveAddress,
     deleteAddress,

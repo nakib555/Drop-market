@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Check, PackageSearch, Truck } from 'lucide-react';
+import { Check, PackageSearch, RotateCcw, Truck, X } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { formatCurrency } from '../utils/format';
 import { Button } from '../components/ui/Button';
@@ -124,62 +124,103 @@ export const OrderTrackingPage: React.FC = () => {
               <div>
                 <p className="text-xs text-[#84827B] font-mono-num">ORDER #{trackedOrder.id}</p>
                 <h2 className="font-display text-2xl sm:text-3xl font-medium mt-0.5">
-                  Current Status: {trackedOrder.currentStage}
+                  Current Status:{' '}
+                  <span
+                    className={
+                      trackedOrder.currentStage === 'Cancelled'
+                        ? 'text-[#B91C1C] dark:text-[#F87171]'
+                        : trackedOrder.currentStage === 'Return Requested'
+                        ? 'text-[#B45309] dark:text-[#FBBF24]'
+                        : ''
+                    }
+                  >
+                    {trackedOrder.currentStage}
+                  </span>
                 </h2>
               </div>
               <div className="text-left sm:text-right">
-                <p className="text-xs text-[#84827B]">Estimated Delivery</p>
-                <p className="text-sm font-semibold text-[#8F6438] dark:text-[#C89B67]">
+                <p className="text-xs text-[#84827B]">
+                  {trackedOrder.currentStage === 'Cancelled'
+                    ? 'Order Status'
+                    : trackedOrder.currentStage === 'Return Requested'
+                    ? 'Return RMA'
+                    : 'Estimated Delivery'}
+                </p>
+                <p
+                  className={`text-sm font-semibold ${
+                    trackedOrder.currentStage === 'Cancelled'
+                      ? 'text-[#B91C1C] dark:text-[#F87171]'
+                      : trackedOrder.currentStage === 'Return Requested'
+                      ? 'text-[#B45309] dark:text-[#FBBF24]'
+                      : 'text-[#8F6438] dark:text-[#C89B67]'
+                  }`}
+                >
                   {trackedOrder.estimatedArrival}
                 </p>
               </div>
             </div>
 
-            {/* 6-Stage Timeline */}
+            {/* Progress Timeline */}
             <ol className="space-y-6">
-              {trackedOrder.timeline.map((event, index) => (
-                <li key={event.stage} className="relative flex gap-4">
-                  <div className="flex flex-col items-center">
-                    <span
-                      className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 border ${
-                        event.completed
-                          ? 'bg-[#171716] border-[#171716] text-white dark:bg-[#F4F3EF] dark:border-[#F4F3EF] dark:text-[#171716]'
-                          : 'bg-[#F9F8F6] dark:bg-[#141413] border-[#DCD9D0] dark:border-[#2E2E2A] text-[#84827B]'
-                      }`}
-                    >
-                      {event.completed ? (
-                        <Check className="w-3.5 h-3.5" />
-                      ) : (
-                        <span className="text-[11px] font-mono-num">{index + 1}</span>
-                      )}
-                    </span>
-                    {index < trackedOrder.timeline.length - 1 && (
+              {trackedOrder.timeline.map((event, index) => {
+                const isCancelledEvent = event.stage === 'Cancelled';
+                const isReturnEvent = event.stage === 'Return Requested';
+                const markerClass = isCancelledEvent
+                  ? 'bg-[#B91C1C] border-[#B91C1C] text-white dark:bg-[#DC2626] dark:border-[#DC2626]'
+                  : isReturnEvent
+                  ? 'bg-[#B45309] border-[#B45309] text-white dark:bg-[#D97706] dark:border-[#D97706]'
+                  : event.completed
+                  ? 'bg-[#171716] border-[#171716] text-white dark:bg-[#F4F3EF] dark:border-[#F4F3EF] dark:text-[#171716]'
+                  : 'bg-[#F9F8F6] dark:bg-[#141413] border-[#DCD9D0] dark:border-[#2E2E2A] text-[#84827B]';
+
+                return (
+                  <li key={`${event.stage}-${index}`} className="relative flex gap-4">
+                    <div className="flex flex-col items-center">
                       <span
-                        className={`w-px flex-1 mt-1.5 min-h-[28px] ${
-                          event.completed
-                            ? 'bg-[#171716] dark:bg-[#F4F3EF]'
-                            : 'bg-[#E5E3DD] dark:bg-[#2C2C28]'
-                        }`}
-                      />
-                    )}
-                  </div>
-                  <div className="pb-2 flex-1">
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <p
-                        className={`text-sm font-semibold ${
-                          event.completed
-                            ? 'text-[#171716] dark:text-[#F4F3EF]'
-                            : 'text-[#84827B]'
-                        }`}
+                        className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 border ${markerClass}`}
                       >
-                        {event.stage}
-                      </p>
-                      <span className="text-xs font-mono-num text-[#84827B]">{event.timestamp}</span>
+                        {isCancelledEvent ? (
+                          <X className="w-3.5 h-3.5" />
+                        ) : isReturnEvent ? (
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        ) : event.completed ? (
+                          <Check className="w-3.5 h-3.5" />
+                        ) : (
+                          <span className="text-[11px] font-mono-num">{index + 1}</span>
+                        )}
+                      </span>
+                      {index < trackedOrder.timeline.length - 1 && (
+                        <span
+                          className={`w-px flex-1 mt-1.5 min-h-[28px] ${
+                            event.completed
+                              ? 'bg-[#171716] dark:bg-[#F4F3EF]'
+                              : 'bg-[#E5E3DD] dark:bg-[#2C2C28]'
+                          }`}
+                        />
+                      )}
                     </div>
-                    <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-1">{event.note}</p>
-                  </div>
-                </li>
-              ))}
+                    <div className="pb-2 flex-1">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <p
+                          className={`text-sm font-semibold ${
+                            isCancelledEvent
+                              ? 'text-[#B91C1C] dark:text-[#F87171]'
+                              : isReturnEvent
+                              ? 'text-[#B45309] dark:text-[#FBBF24]'
+                              : event.completed
+                              ? 'text-[#171716] dark:text-[#F4F3EF]'
+                              : 'text-[#84827B]'
+                          }`}
+                        >
+                          {event.stage}
+                        </p>
+                        <span className="text-xs font-mono-num text-[#84827B]">{event.timestamp}</span>
+                      </div>
+                      <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-1">{event.note}</p>
+                    </div>
+                  </li>
+                );
+              })}
             </ol>
           </div>
 

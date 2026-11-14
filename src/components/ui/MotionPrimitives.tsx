@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'motion/react';
+import { motion, useScroll, useSpring } from 'motion/react';
 import { MOTION_DURATION, ENTER_EASE } from '../../utils/motion';
 
 interface ScrollRevealProps {
@@ -66,3 +66,20 @@ export const StaggerItem: React.FC<{
     {children}
   </motion.div>
 );
+
+export const ScrollProgressHairline: React.FC = () => {
+  const { scrollYProgress } = useScroll();
+  const scaleX = useSpring(scrollYProgress, {
+    stiffness: 280,
+    damping: 32,
+    restDelta: 0.001,
+  });
+
+  return (
+    <motion.div
+      aria-hidden="true"
+      style={{ scaleX }}
+      className="h-[1.5px] w-full origin-left bg-gradient-to-r from-[#8F6438] via-[#C89B67] to-[#8F6438] dark:from-[#C89B67] dark:via-[#E2B887] dark:to-[#C89B67]"
+    />
+  );
+};

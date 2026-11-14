@@ -13,12 +13,15 @@ import { ATELIER_CRAFT_IMAGE, BRAND_STUDIOS, HERO_IMAGE } from '../data/catalog'
 import { useStore } from '../context/StoreContext';
 import { STUDIO_TRANSITION } from '../utils/motion';
 import { ScrollReveal, StaggerGrid, StaggerItem } from '../components/ui/MotionPrimitives';
+import { TypingGradientText } from '../components/ui/TypingGradientText';
 import { ProductCard } from '../components/product/ProductCard';
 import { Button } from '../components/ui/Button';
 import { ResilientImage } from '../components/ui/Primitives';
 
 type HomeCollectionTab =
   | 'all'
+  | 'new-arrivals'
+  | 'best-sellers'
   | 'electronics'
   | 'fashion'
   | 'home-office'
@@ -45,8 +48,16 @@ const CLIENT_TESTIMONIALS = [
   },
 ];
 
+const HERO_TYPING_PHRASES = [
+  'All in One Place.',
+  'Precision Audio & Tech.',
+  'Tailored Apparel.',
+  'Architectural Living.',
+  'Gourmet & Apothecary.',
+];
+
 export const HomePage: React.FC = () => {
-  const { categories, products, navigate } = useStore();
+  const { categories, products, recentlyViewedIds, navigate } = useStore();
   const [activeTab, setActiveTab] = useState<HomeCollectionTab>('all');
 
   const trendingProducts = useMemo(() => {
@@ -54,8 +65,25 @@ export const HomePage: React.FC = () => {
     return (trending.length >= 4 ? trending : products).slice(0, 4);
   }, [products]);
 
+  const recentlyViewedProducts = useMemo(
+    () =>
+      recentlyViewedIds
+        .map((id) => products.find((p) => p.id === id))
+        .filter((p): p is NonNullable<typeof p> => Boolean(p))
+        .slice(0, 4),
+    [recentlyViewedIds, products]
+  );
+
   const collectionProducts = useMemo(() => {
     switch (activeTab) {
+      case 'new-arrivals': {
+        const recent = products.filter((p) => p.isNewArrival);
+        return (recent.length > 0 ? recent : products).slice(0, 6);
+      }
+      case 'best-sellers': {
+        const best = products.filter((p) => p.isBestSeller);
+        return (best.length > 0 ? best : products).slice(0, 6);
+      }
       case 'electronics':
         return products
           .filter(
@@ -94,6 +122,12 @@ export const HomePage: React.FC = () => {
 
   const handleViewAllCollection = () => {
     switch (activeTab) {
+      case 'new-arrivals':
+        navigate({ name: 'shop', collection: 'new-arrivals', category: 'all' });
+        break;
+      case 'best-sellers':
+        navigate({ name: 'shop', collection: 'best-sellers', category: 'all' });
+        break;
       case 'electronics':
         navigate({ name: 'category', category: 'electronics-tech' });
         break;
@@ -121,11 +155,14 @@ export const HomePage: React.FC = () => {
               <p className="text-xs uppercase tracking-[0.16em] text-[#8F6438] dark:text-[#C89B67] font-medium">
                 Kinto Studio Multi-Category Marketplace
               </p>
-              <h1 className="font-display text-[clamp(2rem,3.8vw,3.45rem)] font-medium leading-[1.06] tracking-tight text-[#171716] dark:text-[#F4F3EF]">
-                Everything You Need. All in One Place.
+              <h1 className="font-display text-[clamp(2rem,3.6vw,3.35rem)] font-medium leading-[1.06] tracking-tight text-[#171716] dark:text-[#F4F3EF]">
+                Everything You Need.
+                <span className="block min-h-[1.14em] mt-1">
+                  <TypingGradientText phrases={HERO_TYPING_PHRASES} />
+                </span>
               </h1>
               <p className="text-sm sm:text-base lg:text-lg text-[#5C5B57] dark:text-[#B4B2AC] leading-relaxed max-w-lg">
-                Discover 8 curated departments—electronics, tailored fashion, solid wood home living, botanical skincare, gourmet coffee, outdoor carry, office instruments, and gift sets.
+                Discover curated departments across electronics, tailored fashion, solid wood home living, botanical skincare, gourmet coffee, outdoor carry, office instruments, and gift sets.
               </p>
               <div className="flex flex-wrap items-center gap-3 pt-1">
                 <Button
@@ -210,12 +247,12 @@ export const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* 2. Shop by Category — All 8 Departments in a symmetrical 4x2 desktop / 2x4 mobile grid */}
+      {/* 2. Shop by Category — Responsive 2x4 mobile / 4x2 desktop (handles dynamic admin categories cleanly) */}
       <ScrollReveal className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-7">
           <div>
             <p className="text-xs uppercase tracking-[0.14em] text-[#84827B]">
-              8 Marketplace Departments
+              {categories.length} Marketplace Departments
             </p>
             <h2 className="font-display text-3xl sm:text-4xl font-medium mt-1">
               Shop by Category
@@ -288,7 +325,7 @@ export const HomePage: React.FC = () => {
         </StaggerGrid>
       </ScrollReveal>
 
-      {/* 4. Curated Multi-Department Collection Tabs */}
+      {/* 4. Curated Multi-Department Collection Tabs (includes New Arrivals & Best Sellers) */}
       <section className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 mb-7">
           <div>
@@ -303,11 +340,13 @@ export const HomePage: React.FC = () => {
           <div
             role="tablist"
             aria-label="Department showcase"
-            className="inline-flex flex-wrap items-center gap-1 p-1 rounded-lg bg-[#F2F0EC] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]"
+            className="inline-flex items-center gap-1 p-1 rounded-lg bg-[#F2F0EC] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] overflow-x-auto no-scrollbar max-w-full"
           >
             {(
               [
                 { id: 'all', label: 'Featured Mix' },
+                { id: 'new-arrivals', label: 'New Arrivals' },
+                { id: 'best-sellers', label: 'Best Sellers' },
                 { id: 'electronics', label: 'Tech & Audio' },
                 { id: 'fashion', label: 'Fashion & Carry' },
                 { id: 'home-office', label: 'Home & Office' },
@@ -523,6 +562,36 @@ export const HomePage: React.FC = () => {
           ))}
         </div>
       </ScrollReveal>
+
+      {/* 9. Recently Viewed Strip (renders when shopper has browsing history) */}
+      {recentlyViewedProducts.length > 0 && (
+        <ScrollReveal className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-7">
+            <div>
+              <p className="text-xs uppercase tracking-[0.14em] text-[#84827B]">
+                Continue Inspecting
+              </p>
+              <h2 className="font-display text-3xl sm:text-4xl font-medium mt-1">
+                Recently Viewed
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate({ name: 'shop', category: 'all' })}
+              className="inline-flex items-center gap-1.5 text-sm font-medium hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+            >
+              <span>Browse Full Catalog</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 min-[390px]:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            {recentlyViewedProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        </ScrollReveal>
+      )}
     </div>
   );
 };

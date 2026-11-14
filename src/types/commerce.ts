@@ -6,12 +6,13 @@ export type CoreCategorySlug =
   | 'grocery-food'
   | 'sports-outdoor'
   | 'books-office'
-  | 'automotive'
   | 'toys-entertainment';
 
 export type CategorySlug = CoreCategorySlug | (string & {});
 
 export type AvailabilityStatus = 'in-stock' | 'low-stock' | 'made-to-order';
+
+export type UserRole = 'customer' | 'seller' | 'admin';
 
 export interface SubcategoryMeta {
   slug: string;
@@ -31,6 +32,7 @@ export interface CategoryMeta {
   description: string;
   bannerTagline: string;
   image: string;
+  imagePresetKey?: string;
   countLabel: string;
   subcategories: SubcategoryMeta[];
   featuredBrands: string[];
@@ -164,7 +166,9 @@ export type OrderStage =
   | 'Packed'
   | 'Shipped'
   | 'Out for Delivery'
-  | 'Delivered';
+  | 'Delivered'
+  | 'Cancelled'
+  | 'Return Requested';
 
 export interface OrderTimelineEvent {
   stage: OrderStage;
@@ -206,12 +210,154 @@ export interface Order {
   timeline: OrderTimelineEvent[];
 }
 
-export interface CustomerProfile {
+export interface AccountDirectoryEntry {
+  id: string;
   fullName: string;
   email: string;
   phone: string;
+  role: UserRole;
+  roleLabel: string;
+  studioName?: string;
+  status: 'active' | 'pending' | 'suspended';
+  joinedAt: string;
+  location: string;
+  demoPasswordHint: string;
+}
+
+export interface CustomerProfile {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  role: UserRole;
   studioRole: string;
+  studioName?: string;
   isAuthenticated: boolean;
+}
+
+export interface StoreNotification {
+  id: string;
+  title: string;
+  message: string;
+  category: 'order' | 'inventory' | 'system' | 'promotion';
+  createdAt: string;
+  read: boolean;
+  roleScope: UserRole | 'all';
+  targetTab?: string;
+  orderId?: string;
+}
+
+export interface ProductOverride {
+  id: string;
+  price?: number;
+  stockCount?: number;
+  availability?: AvailabilityStatus;
+}
+
+export interface ApiSellerProductRecord {
+  id: string;
+  slug: string;
+  sku: string;
+  name: string;
+  subtitle?: string;
+  brand: string;
+  category: CategorySlug;
+  categoryLabel: string;
+  subcategory: string;
+  subcategoryLabel: string;
+  price: number;
+  originalPrice?: number;
+  rating: number;
+  reviewCount: number;
+  stockCount: number;
+  availability: AvailabilityStatus;
+  badgeText?: string;
+  shortDescription: string;
+  description: string;
+  imagePresetKey: string;
+  colors: ProductColor[];
+  sizes: string[];
+  cardHighlights: string[];
+  attributes: Record<string, string>;
+  specifications: ProductSpec[];
+  deliveryEstimate: string;
+  returnPolicy: string;
+  warranty: string;
+  tags: string[];
+  sellerId: string;
+  isNewArrival?: boolean;
+}
+
+export interface DynamicCategoryRecord {
+  id: string;
+  slug: CategorySlug;
+  name: string;
+  shortName: string;
+  description: string;
+  bannerTagline: string;
+  imagePresetKey: string;
+  countLabel: string;
+  subcategories: SubcategoryMeta[];
+  featuredBrands: string[];
+  filterFacets: CategoryFacetConfig[];
+}
+
+export interface SellerApplicationRecord {
+  id: string;
+  studioName: string;
+  ownerName: string;
+  email: string;
+  department: string;
+  origin: string;
+  submittedAt: string;
+  status: 'pending' | 'approved' | 'suspended';
+  productCount: number;
+  monthlyRevenue: number;
+}
+
+export interface SellerInventoryItem {
+  id: string;
+  sku: string;
+  name: string;
+  brand: string;
+  category: string;
+  categoryLabel: string;
+  price: number;
+  stockCount: number;
+  availability: AvailabilityStatus;
+  imagePresetKey: string;
+  monthlyUnitsSold: number;
+}
+
+export interface SellerDashboardData {
+  studioName: string;
+  ownerName: string;
+  kpis: {
+    monthlyGmv: number;
+    pendingFulfillment: number;
+    lowStockSkus: number;
+    activeListings: number;
+    avgRating: number;
+  };
+  revenueSeries: { month: string; gmv: number; orders: number }[];
+  inventory: SellerInventoryItem[];
+  fulfillmentQueue: Order[];
+}
+
+export interface AdminDashboardData {
+  kpis: {
+    totalGmv: number;
+    totalOrders: number;
+    activeSellers: number;
+    pendingSellers: number;
+    registeredUsers: number;
+    activeCategories: number;
+  };
+  departmentShare: { category: string; label: string; gmv: number; sharePercent: number }[];
+  users: AccountDirectoryEntry[];
+  sellerApplications: SellerApplicationRecord[];
+  orders: Order[];
+  categories: DynamicCategoryRecord[];
 }
 
 export interface PaymentMethodRecord {
@@ -291,6 +437,9 @@ export type RouteName =
   | 'wishlist'
   | 'checkout'
   | 'account'
+  | 'login'
+  | 'seller'
+  | 'admin'
   | 'track-order'
   | 'compare'
   | 'brands'

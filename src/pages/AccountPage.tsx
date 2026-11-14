@@ -8,21 +8,33 @@ import {
   MapPin,
   Package,
   Plus,
+  RotateCcw,
   Shield,
+  ShieldCheck,
   ShoppingBag,
   Star,
+  Store,
   Trash2,
   User,
+  UserCheck,
+  XCircle,
 } from 'lucide-react';
-import { useStore } from '../context/StoreContext';
-import { Order } from '../types/commerce';
-import { formatCurrency, formatShortDate } from '../utils/format';
+import { AnimatePresence, motion } from 'motion/react';
+import { AdminDashboard } from '../components/account/AdminDashboard';
+import { SellerDashboard } from '../components/account/SellerDashboard';
+import { AuthPanel } from '../components/auth/AuthPanel';
 import { Button } from '../components/ui/Button';
 import { Checkbox, Input } from '../components/ui/FormFields';
 import { Breadcrumb, Modal, ResilientImage } from '../components/ui/Primitives';
+import { useStore } from '../context/StoreContext';
+import { Order } from '../types/commerce';
+import { formatCurrency, formatShortDate } from '../utils/format';
+import { STUDIO_TRANSITION } from '../utils/motion';
 
 type AccountSection =
   | 'overview'
+  | 'seller-hub'
+  | 'admin-console'
   | 'profile'
   | 'password'
   | 'addresses'
@@ -39,10 +51,14 @@ export const AccountPage: React.FC = () => {
     route,
     navigate,
     profile,
+    authAccounts,
     updateProfile,
     logoutDemo,
-    loginDemo,
+    switchDemoAccount,
     orders,
+    reorderFromOrder,
+    cancelOrder,
+    requestOrderReturn,
     addresses,
     saveAddress,
     deleteAddress,
@@ -62,27 +78,38 @@ export const AccountPage: React.FC = () => {
     showToast,
   } = useStore();
 
-  const [section, setSection] = useState<AccountSection>(
-    (route.accountTab as AccountSection) || 'overview'
-  );
+  const initialTab: AccountSection =
+    route.name === 'seller'
+      ? 'seller-hub'
+      : route.name === 'admin'
+      ? 'admin-console'
+      : (route.accountTab as AccountSection) || 'overview';
+
+  const [section, setSection] = useState<AccountSection>(initialTab);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   // Edit profile state
   const [nameInput, setNameInput] = useState(profile.fullName);
   const [emailInput, setEmailInput] = useState(profile.email);
   const [phoneInput, setPhoneInput] = useState(profile.phone);
+  const [studioInput, setStudioInput] = useState(profile.studioName || '');
 
   useEffect(() => {
     setNameInput(profile.fullName);
     setEmailInput(profile.email);
     setPhoneInput(profile.phone);
-  }, [profile.fullName, profile.email, profile.phone]);
+    setStudioInput(profile.studioName || '');
+  }, [profile.fullName, profile.email, profile.phone, profile.studioName]);
 
   useEffect(() => {
-    if (route.accountTab) {
+    if (route.name === 'seller') {
+      setSection('seller-hub');
+    } else if (route.name === 'admin') {
+      setSection('admin-console');
+    } else if (route.accountTab) {
       setSection(route.accountTab as AccountSection);
     }
-  }, [route.accountTab]);
+  }, [route.name, route.accountTab]);
 
   // Change password state
   const [currentPwd, setCurrentPwd] = useState('');
@@ -103,64 +130,124 @@ export const AccountPage: React.FC = () => {
   const [cardLast4, setCardLast4] = useState('');
   const [cardExp, setCardExp] = useState('');
 
-  // Guest login form
-  const [loginEmail, setLoginEmail] = useState(profile.email);
-
   const wishlistedProducts = products.filter((p) => wishlistIds.includes(p.id));
   const authoredReviews = products.flatMap((p) =>
     p.reviews.map((r) => ({ ...r, productName: p.name, productSlug: p.slug }))
   );
 
-  if (!profile.isAuthenticated) {
+  const primaryRoleAccounts = ['customer', 'seller', 'admin']
+    .map((roleKey) => authAccounts.find((a) => a.role === roleKey))
+    .filter((a): a is NonNullable<typeof a> => Boolean(a));
+
+  if (!profile.isAuthenticated || route.name === 'login') {
     return (
-      <div className="max-w-lg mx-auto px-4 py-16">
-        <div className="p-8 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-6">
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-wider text-[#84827B]">Studio Account</p>
-            <h1 className="font-display text-3xl font-medium">Sign In to Kinto Studio</h1>
-            <p className="text-sm text-[#5C5B57] dark:text-[#A3A19B]">
-              Demo session access: restore your local profile, saved addresses, and order history.
-            </p>
-          </div>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              loginDemo(loginEmail);
-            }}
-            className="space-y-4"
-          >
-            <Input
-              label="Email Address"
-              type="email"
-              required
-              value={loginEmail}
-              onChange={(e) => setLoginEmail(e.target.value)}
-            />
-            <Button type="submit" variant="primary" size="lg" fullWidth>
-              Sign In (Local Demo Session)
-            </Button>
-          </form>
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-8">
+        <Breadcrumb
+          items={[
+            { label: 'Home', onClick: () => navigate({ name: 'home' }) },
+            { label: 'Sign In & Marketplace Portals' },
+          ]}
+        />
+
+        <div className="max-w-2xl space-y-2">
+          <p className="text-xs uppercase tracking-[0.14em] text-[#8F6438] dark:text-[#C89B67] font-medium">
+            Kinto Studio Access
+          </p>
+          <h1 className="font-display text-3xl sm:text-5xl font-medium tracking-tight">
+            Account Sign In &amp; Role Portals
+          </h1>
+          <p className="text-sm text-[#5C5B57] dark:text-[#B4B2AC] leading-relaxed">
+            Sign in or select a role workspace below to unlock your Customer Orders, Wishlist, Seller Studio inventory, or Platform Admin Console.
+          </p>
         </div>
+
+        {profile.isAuthenticated && route.name === 'login' && (
+          <div className="p-4 sm:p-5 rounded-lg bg-[#F2F0EC] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] flex flex-wrap items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <p className="text-xs uppercase tracking-wider text-[#8F6438] dark:text-[#C89B67] font-medium">
+                Active Session Detected
+              </p>
+              <p className="text-sm font-medium">
+                Signed in as {profile.fullName} ({profile.studioRole})
+              </p>
+            </div>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() =>
+                navigate({
+                  name:
+                    profile.role === 'admin'
+                      ? 'admin'
+                      : profile.role === 'seller'
+                      ? 'seller'
+                      : 'account',
+                  accountTab: 'overview',
+                })
+              }
+            >
+              Continue to Active Pages →
+            </Button>
+          </div>
+        )}
+
+        <AuthPanel
+          onSuccess={(user) => {
+            if (user.role === 'admin') {
+              setSection('admin-console');
+              navigate({ name: 'admin' });
+            } else if (user.role === 'seller') {
+              setSection('seller-hub');
+              navigate({ name: 'seller' });
+            } else {
+              setSection('overview');
+              navigate({ name: 'account', accountTab: 'overview' });
+            }
+          }}
+        />
       </div>
     );
   }
 
-  const navItems: { id: AccountSection; label: string; Icon: React.FC<{ className?: string }> }[] = [
-    { id: 'overview', label: 'Overview', Icon: User },
-    { id: 'profile', label: 'Personal Information', Icon: User },
-    { id: 'password', label: 'Change Password', Icon: Lock },
-    { id: 'addresses', label: 'Address Book', Icon: MapPin },
-    { id: 'orders', label: 'Order History', Icon: Package },
-    { id: 'wishlist', label: 'Wishlist', Icon: Heart },
-    { id: 'reviews', label: 'Product Reviews', Icon: Star },
-    { id: 'payments', label: 'Payment Methods', Icon: CreditCard },
-    { id: 'notifications', label: 'Notifications', Icon: Bell },
-    { id: 'privacy', label: 'Privacy Settings', Icon: Shield },
+  const navItems: {
+    id: AccountSection;
+    label: string;
+    Icon: React.FC<{ className?: string }>;
+    visible: boolean;
+  }[] = [
+    { id: 'overview', label: 'Overview', Icon: User, visible: true },
+    {
+      id: 'seller-hub',
+      label: 'Seller Studio',
+      Icon: Store,
+      visible: profile.role === 'seller' || profile.role === 'admin',
+    },
+    {
+      id: 'admin-console',
+      label: 'Admin Console',
+      Icon: ShieldCheck,
+      visible: profile.role === 'admin',
+    },
+    { id: 'orders', label: 'Order History', Icon: Package, visible: true },
+    { id: 'wishlist', label: 'Wishlist', Icon: Heart, visible: true },
+    { id: 'addresses', label: 'Address Book', Icon: MapPin, visible: true },
+    { id: 'payments', label: 'Payment Methods', Icon: CreditCard, visible: true },
+    { id: 'profile', label: 'Personal Information', Icon: User, visible: true },
+    { id: 'password', label: 'Change Password', Icon: Lock, visible: true },
+    { id: 'reviews', label: 'Product Reviews', Icon: Star, visible: true },
+    { id: 'notifications', label: 'Notifications', Icon: Bell, visible: true },
+    { id: 'privacy', label: 'Privacy Settings', Icon: Shield, visible: true },
   ];
 
   const switchSection = (next: AccountSection) => {
     setSection(next);
-    navigate({ name: 'account', accountTab: next });
+    if (next === 'seller-hub') {
+      navigate({ name: 'seller' });
+    } else if (next === 'admin-console') {
+      navigate({ name: 'admin' });
+    } else {
+      navigate({ name: 'account', accountTab: next });
+    }
   };
 
   return (
@@ -168,52 +255,166 @@ export const AccountPage: React.FC = () => {
       <Breadcrumb
         items={[
           { label: 'Home', onClick: () => navigate({ name: 'home' }) },
-          { label: 'Customer Account' },
+          {
+            label:
+              section === 'admin-console'
+                ? 'Admin Console'
+                : section === 'seller-hub'
+                ? 'Seller Studio'
+                : 'Account Workspace',
+          },
         ]}
       />
 
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+      {/* Header with Live API Role Switcher */}
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 pb-6 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
         <div>
-          <p className="text-xs uppercase tracking-wider text-[#8F6438] dark:text-[#C89B67]">
+          <p className="text-xs uppercase tracking-wider text-[#8F6438] dark:text-[#C89B67] font-medium">
             {profile.studioRole}
+            {profile.studioName ? ` · ${profile.studioName}` : ''}
           </p>
           <h1 className="font-display text-[clamp(1.85rem,3.5vw,3rem)] font-medium mt-1">
             Welcome, {profile.fullName}
           </h1>
         </div>
-        <Button variant="outline" size="sm" onClick={logoutDemo}>
-          <LogOut className="w-3.5 h-3.5" />
-          <span>Sign Out</span>
-        </Button>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {primaryRoleAccounts.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-md bg-[#F2F0EC] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]">
+              <span className="text-[11px] text-[#84827B] px-2 inline-flex items-center gap-1">
+                <UserCheck className="w-3 h-3" /> Role:
+              </span>
+              {primaryRoleAccounts.map((acc) => {
+                const active = profile.role === acc.role;
+                return (
+                  <button
+                    key={acc.id}
+                    type="button"
+                    onClick={async () => {
+                      const ok = await switchDemoAccount(acc.id);
+                      if (ok) {
+                        if (acc.role === 'seller') switchSection('seller-hub');
+                        else if (acc.role === 'admin') switchSection('admin-console');
+                        else switchSection('overview');
+                      }
+                    }}
+                    className={`px-2.5 py-1 rounded text-xs font-medium capitalize cursor-pointer transition-colors ${
+                      active
+                        ? 'bg-[#171716] text-white dark:bg-[#F4F3EF] dark:text-[#171716]'
+                        : 'text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
+                    }`}
+                  >
+                    {acc.role}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <Button variant="outline" size="sm" onClick={logoutDemo}>
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Sign Out</span>
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
-        {/* Scrollable horizontal nav on mobile/tablet; sidebar on desktop */}
+        {/* Role-aware Sidebar */}
         <aside className="lg:col-span-3 p-2 sm:p-3 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]">
           <nav
             aria-label="Account sections"
-            className="flex overflow-x-auto lg:flex-col gap-1.5 pb-1 lg:pb-0"
+            className="flex overflow-x-auto lg:flex-col gap-1 pb-1 lg:pb-0 no-scrollbar"
           >
-            {navItems.map(({ id, label, Icon }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => switchSection(id)}
-                className={`flex items-center gap-2.5 px-3.5 py-2.5 min-h-[40px] rounded-md text-xs sm:text-sm font-medium text-left whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
-                  section === id
-                    ? 'bg-[#171716] text-white dark:bg-[#F4F3EF] dark:text-[#171716]'
-                    : 'text-[#5C5B57] dark:text-[#B4B2AC] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
-                }`}
-              >
-                <Icon className="w-4 h-4 shrink-0" />
-                <span>{label}</span>
-              </button>
-            ))}
+            {navItems
+              .filter((item) => item.visible)
+              .map(({ id, label, Icon }) => {
+                const active = section === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => switchSection(id)}
+                    className={`relative flex items-center gap-2.5 px-3.5 py-2.5 min-h-[40px] rounded-md text-xs sm:text-sm font-medium text-left whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                      active
+                        ? 'text-white dark:text-[#171716]'
+                        : 'text-[#5C5B57] dark:text-[#B4B2AC] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
+                    }`}
+                  >
+                    {active && (
+                      <motion.span
+                        layoutId="account-nav-pill"
+                        transition={STUDIO_TRANSITION.springTab}
+                        className="absolute inset-0 rounded-md bg-[#171716] dark:bg-[#F4F3EF]"
+                      />
+                    )}
+                    <Icon className="w-4 h-4 shrink-0 relative z-10" />
+                    <span className="relative z-10">{label}</span>
+                  </button>
+                );
+              })}
           </nav>
         </aside>
 
-        {/* Active Dashboard Panel */}
+        {/* Active Panel */}
         <div className="lg:col-span-9 p-5 sm:p-8 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-6">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={section}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={STUDIO_TRANSITION.fast}
+            >
+          {section === 'seller-hub' &&
+            (profile.role === 'seller' || profile.role === 'admin' ? (
+              <SellerDashboard />
+            ) : (
+              <div className="py-10 text-center space-y-4 max-w-md mx-auto">
+                <Store className="w-7 h-7 mx-auto text-[#8F6438] dark:text-[#C89B67]" />
+                <h2 className="font-display text-2xl font-medium">Seller Studio Access Required</h2>
+                <p className="text-sm text-[#5C5B57] dark:text-[#A3A19B]">
+                  Switch to a Verified Seller Studio account from the role bar above to manage inventory and dispatch orders.
+                </p>
+                {primaryRoleAccounts.find((a) => a.role === 'seller') && (
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={() => {
+                      const seller = primaryRoleAccounts.find((a) => a.role === 'seller');
+                      if (seller) switchDemoAccount(seller.id);
+                    }}
+                  >
+                    Switch to Seller Studio Account
+                  </Button>
+                )}
+              </div>
+            ))}
+
+          {section === 'admin-console' &&
+            (profile.role === 'admin' ? (
+              <AdminDashboard />
+            ) : (
+              <div className="py-10 text-center space-y-4 max-w-md mx-auto">
+                <ShieldCheck className="w-7 h-7 mx-auto text-[#8F6438] dark:text-[#C89B67]" />
+                <h2 className="font-display text-2xl font-medium">Platform Admin Access Required</h2>
+                <p className="text-sm text-[#5C5B57] dark:text-[#A3A19B]">
+                  Administrator privileges are required to moderate sellers, users, and dynamic marketplace departments.
+                </p>
+                {primaryRoleAccounts.find((a) => a.role === 'admin') && (
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={() => {
+                      const admin = primaryRoleAccounts.find((a) => a.role === 'admin');
+                      if (admin) switchDemoAccount(admin.id);
+                    }}
+                  >
+                    Switch to Platform Admin Account
+                  </Button>
+                )}
+              </div>
+            ))}
+
           {section === 'overview' && (
             <div className="space-y-8">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -226,8 +427,118 @@ export const AccountPage: React.FC = () => {
                   <p className="font-mono-num text-2xl font-semibold mt-1">{wishlistedProducts.length}</p>
                 </div>
                 <div className="p-5 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28]">
-                  <p className="text-xs text-[#84827B]">Saved Addresses</p>
-                  <p className="font-mono-num text-2xl font-semibold mt-1">{addresses.length}</p>
+                  <p className="text-xs text-[#84827B]">Account Role</p>
+                  <p className="font-mono-num text-xl font-semibold mt-1 capitalize">{profile.role}</p>
+                </div>
+              </div>
+
+              {(profile.role === 'seller' || profile.role === 'admin') && (
+                <div className="p-5 rounded-md bg-[#F2F0EC] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-wider text-[#8F6438] dark:text-[#C89B67] font-medium">
+                      Active Workspace Shortcut
+                    </p>
+                    <p className="text-sm font-medium mt-0.5">
+                      {profile.role === 'admin'
+                        ? 'Open Platform Admin Console to moderate orders, sellers & categories.'
+                        : 'Open Seller Studio to update inventory stock, prices, or fulfill shipments.'}
+                    </p>
+                  </div>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() =>
+                      switchSection(profile.role === 'admin' ? 'admin-console' : 'seller-hub')
+                    }
+                  >
+                    {profile.role === 'admin' ? 'Open Admin Console' : 'Open Seller Studio'}
+                  </Button>
+                </div>
+              )}
+
+              {/* Quick Launcher for All Post-Login Pages */}
+              <div className="space-y-3">
+                <h2 className="font-display text-2xl font-medium">Your Account Pages</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {[
+                    {
+                      id: 'orders' as AccountSection,
+                      title: 'Order History',
+                      desc: `${orders.length} orders · Track, reorder & returns`,
+                      Icon: Package,
+                      visible: true,
+                    },
+                    {
+                      id: 'wishlist' as AccountSection,
+                      title: 'Saved Wishlist',
+                      desc: `${wishlistedProducts.length} saved pieces`,
+                      Icon: Heart,
+                      visible: true,
+                    },
+                    {
+                      id: 'addresses' as AccountSection,
+                      title: 'Address Book',
+                      desc: `${addresses.length} shipping destinations`,
+                      Icon: MapPin,
+                      visible: true,
+                    },
+                    {
+                      id: 'payments' as AccountSection,
+                      title: 'Payment Methods',
+                      desc: `${paymentMethods.length} saved cards`,
+                      Icon: CreditCard,
+                      visible: true,
+                    },
+                    {
+                      id: 'profile' as AccountSection,
+                      title: 'Personal Information',
+                      desc: 'Name, email & contact phone',
+                      Icon: User,
+                      visible: true,
+                    },
+                    {
+                      id: 'notifications' as AccountSection,
+                      title: 'Notifications & Alerts',
+                      desc: 'Dispatch, restock & journal prefs',
+                      Icon: Bell,
+                      visible: true,
+                    },
+                    {
+                      id: 'seller-hub' as AccountSection,
+                      title: 'Seller Studio',
+                      desc: 'Inventory, listings & dispatch',
+                      Icon: Store,
+                      visible: profile.role === 'seller' || profile.role === 'admin',
+                    },
+                    {
+                      id: 'admin-console' as AccountSection,
+                      title: 'Admin Console',
+                      desc: 'Platform GMV, sellers & categories',
+                      Icon: ShieldCheck,
+                      visible: profile.role === 'admin',
+                    },
+                  ]
+                    .filter((card) => card.visible)
+                    .map(({ id, title, desc, Icon }) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => switchSection(id)}
+                        className="group p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] hover:border-[#8F6438] dark:hover:border-[#C89B67] text-left transition-colors cursor-pointer flex items-start gap-3"
+                      >
+                        <span className="w-8 h-8 rounded bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] flex items-center justify-center text-[#8F6438] dark:text-[#C89B67] shrink-0">
+                          <Icon className="w-4 h-4" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium group-hover:text-[#8F6438] dark:group-hover:text-[#C89B67] transition-colors">
+                            {title}
+                          </p>
+                          <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5 truncate">
+                            {desc}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
                 </div>
               </div>
 
@@ -251,7 +562,7 @@ export const AccountPage: React.FC = () => {
                           {formatShortDate(ord.createdAt)} · {ord.currentStage}
                         </p>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2.5">
                         <span className="text-sm font-mono-num font-medium">
                           {formatCurrency(ord.total, currency)}
                         </span>
@@ -272,12 +583,13 @@ export const AccountPage: React.FC = () => {
 
           {section === 'profile' && (
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
-                updateProfile({
+                await updateProfile({
                   fullName: nameInput.trim(),
                   email: emailInput.trim(),
                   phone: phoneInput.trim(),
+                  studioName: profile.role === 'seller' ? studioInput.trim() : undefined,
                 });
               }}
               className="max-w-lg space-y-5"
@@ -289,6 +601,13 @@ export const AccountPage: React.FC = () => {
                 value={nameInput}
                 onChange={(e) => setNameInput(e.target.value)}
               />
+              {profile.role === 'seller' && (
+                <Input
+                  label="Seller Studio Name"
+                  value={studioInput}
+                  onChange={(e) => setStudioInput(e.target.value)}
+                />
+              )}
               <Input
                 label="Email Address"
                 type="email"
@@ -319,7 +638,7 @@ export const AccountPage: React.FC = () => {
                 setCurrentPwd('');
                 setNewPwd('');
                 setConfirmPwd('');
-                showToast('Password updated', 'Your local session credentials have been refreshed.', 'success');
+                showToast('Password updated', 'Your session credentials have been refreshed.', 'success');
               }}
               className="max-w-lg space-y-5"
             >
@@ -475,34 +794,70 @@ export const AccountPage: React.FC = () => {
             <div className="space-y-6">
               <h2 className="font-display text-2xl font-medium">Order History</h2>
               <div className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] border-y border-[#E5E3DD] dark:border-[#2C2C28]">
-                {orders.map((ord) => (
-                  <div key={ord.id} className="py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <p className="text-sm font-mono-num font-semibold">Order #{ord.id}</p>
-                      <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B]">
-                        Placed {formatShortDate(ord.createdAt)} · {ord.items.length} item(s) ·{' '}
-                        <span className="font-medium text-[#171716] dark:text-[#F4F3EF]">
-                          {ord.currentStage}
+                {orders.map((ord) => {
+                  const canCancel = ['Confirmed', 'Processing'].includes(ord.currentStage);
+                  const canReturn = ord.currentStage === 'Delivered';
+                  return (
+                    <div key={ord.id} className="py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <p className="text-sm font-mono-num font-semibold">Order #{ord.id}</p>
+                        <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B]">
+                          Placed {formatShortDate(ord.createdAt)} · {ord.items.length} item(s) ·{' '}
+                          <span
+                            className={`font-medium ${
+                              ord.currentStage === 'Cancelled'
+                                ? 'text-[#B91C1C] dark:text-[#F87171]'
+                                : ord.currentStage === 'Return Requested'
+                                ? 'text-[#B45309] dark:text-[#FBBF24]'
+                                : 'text-[#171716] dark:text-[#F4F3EF]'
+                            }`}
+                          >
+                            {ord.currentStage}
+                          </span>
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-mono-num font-semibold mr-1">
+                          {formatCurrency(ord.total, currency)}
                         </span>
-                      </p>
+                        <Button variant="outline" size="xs" onClick={() => setSelectedOrder(ord)}>
+                          Details
+                        </Button>
+                        <Button variant="outline" size="xs" onClick={() => reorderFromOrder(ord)}>
+                          Reorder
+                        </Button>
+                        {canCancel && (
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            onClick={() => cancelOrder(ord.id)}
+                            className="text-[#B91C1C] dark:text-[#F87171]"
+                          >
+                            <XCircle className="w-3 h-3" />
+                            <span>Cancel</span>
+                          </Button>
+                        )}
+                        {canReturn && (
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            onClick={() => requestOrderReturn(ord.id)}
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Return</span>
+                          </Button>
+                        )}
+                        <Button
+                          variant="primary"
+                          size="xs"
+                          onClick={() => navigate({ name: 'track-order', orderId: ord.id })}
+                        >
+                          Track
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-mono-num font-semibold">
-                        {formatCurrency(ord.total, currency)}
-                      </span>
-                      <Button variant="outline" size="xs" onClick={() => setSelectedOrder(ord)}>
-                        Details
-                      </Button>
-                      <Button
-                        variant="primary"
-                        size="xs"
-                        onClick={() => navigate({ name: 'track-order', orderId: ord.id })}
-                      >
-                        Track
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -736,6 +1091,8 @@ export const AccountPage: React.FC = () => {
               </div>
             </div>
           )}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
 

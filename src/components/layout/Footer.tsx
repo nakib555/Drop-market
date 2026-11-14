@@ -155,7 +155,16 @@ export const Footer: React.FC = () => {
                     onClick={() => navigate({ name: 'account', accountTab: 'overview' })}
                     className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
                   >
-                    Customer Account
+                    Account &amp; Portals
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => navigate({ name: 'seller' })}
+                    className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                  >
+                    Seller Studio
                   </button>
                 </li>
                 <li>

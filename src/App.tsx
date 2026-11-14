@@ -9,6 +9,8 @@ import { Footer } from './components/layout/Footer';
 import { CartDrawer } from './components/cart/CartDrawer';
 import { QuickViewModal } from './components/product/QuickViewModal';
 import { ToastContainer } from './components/ui/ToastContainer';
+import { BackToTopButton } from './components/ui/BackToTopButton';
+import { AuthModal } from './components/auth/AuthModal';
 import { HomePage } from './pages/HomePage';
 import { ShopPage } from './pages/ShopPage';
 import { ProductDetailPage } from './pages/ProductDetailPage';
@@ -69,6 +71,9 @@ const StorefrontRouter: React.FC = () => {
       case 'checkout':
         return <CheckoutPage />;
       case 'account':
+      case 'login':
+      case 'seller':
+      case 'admin':
         return <AccountPage />;
       case 'track-order':
         return <OrderTrackingPage />;
@@ -190,6 +195,8 @@ const StorefrontRouter: React.FC = () => {
       <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
       <CartDrawer />
       <QuickViewModal />
+      <AuthModal />
+      <BackToTopButton />
       <ToastContainer />
     </div>
   );
