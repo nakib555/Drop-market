@@ -8,7 +8,6 @@ export const Footer: React.FC = () => {
   const {
     categories,
     currency,
-    currencyConfig,
     toggleCurrency,
     navigate,
     showToast,
@@ -25,24 +24,27 @@ export const Footer: React.FC = () => {
     }
     setEmailError('');
     setEmail('');
-    showToast('Subscribed to Studio Dispatch', 'Look for our seasonal monograph in your inbox.', 'success');
+    showToast('Subscribed', 'You are added to Kinto Studio product updates.', 'success');
   };
 
   return (
-    <footer className="bg-[#F2F0EC] dark:bg-[#161614] border-t border-[#E5E3DD] dark:border-[#2C2C28] text-[#171716] dark:text-[#F4F3EF] mt-20">
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-14 lg:py-16">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 pb-12 border-b border-[#DCD9D0] dark:border-[#2C2C28]">
-          {/* Newsletter & Identity */}
+    <footer className="bg-[var(--ks-bg-secondary)] border-t border-[var(--ks-border)] text-[var(--ks-text-primary)] mt-20">
+      <div className="ks-container py-14 lg:py-16">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 pb-12 border-b border-[var(--ks-border-strong)]">
+          {/* Newsletter & Brand Overview */}
           <div className="lg:col-span-5 space-y-5">
             <div>
-              <p className="font-display text-2xl font-semibold tracking-[0.08em]">KINTO STUDIO</p>
-              <p className="text-sm text-[#5C5B57] dark:text-[#A3A19B] mt-2 max-w-sm leading-relaxed">
-                Universal 10-department marketplace across electronics, fashion, furniture, beauty, grocery, outdoors, books, tools, baby, and wellness—settled securely in BDT and USD.
+              <p className="font-display text-2xl font-semibold tracking-[0.07em]">
+                KINTO STUDIO
+              </p>
+              <p className="text-sm text-[var(--ks-text-secondary)] mt-2 max-w-sm leading-relaxed">
+                Everyday essentials across ten departments—technology, fashion, home, beauty, grocery, outdoors, books, tools, baby care, and wellness—with BDT and USD pricing across Bangladesh.
               </p>
             </div>
+
             <form onSubmit={handleSubscribe} className="max-w-md space-y-2" noValidate>
-              <label htmlFor="footer-newsletter" className="block text-xs font-medium">
-                Receive Studio Dispatches &amp; New Releases
+              <label htmlFor="footer-newsletter" className="block text-xs font-medium text-[var(--ks-text-primary)]">
+                Newsletter Updates
               </label>
               <div className="flex flex-col sm:flex-row gap-2">
                 <input
@@ -53,8 +55,9 @@ export const Footer: React.FC = () => {
                     setEmail(e.target.value);
                     if (emailError) setEmailError('');
                   }}
-                  placeholder="name@domain.com"
-                  className="flex-1 min-h-[42px] px-3.5 py-2 text-sm rounded-md bg-white dark:bg-[#1E1E1B] border border-[#DCD9D0] dark:border-[#2E2E2A] focus:border-[#171716] dark:focus:border-[#F4F3EF]"
+                  placeholder="Enter your email address"
+                  aria-invalid={Boolean(emailError)}
+                  className="flex-1 min-h-[var(--ks-height-md)] px-3.5 py-2 text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border-strong)] text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)] focus:outline-none focus:border-[var(--ks-action)]"
                 />
                 <Button type="submit" variant="primary" size="md">
                   <span>Subscribe</span>
@@ -62,28 +65,29 @@ export const Footer: React.FC = () => {
                 </Button>
               </div>
               {emailError && (
-                <p className="text-xs text-[#B91C1C] dark:text-[#F87171]">{emailError}</p>
+                <p className="text-xs text-[var(--ks-error)]" role="alert">
+                  {emailError}
+                </p>
               )}
             </form>
-            <p className="text-[11px] font-mono-num text-[#84827B]">
-              FX Reference: 1 USD = ৳{currencyConfig.rates.BDT.toFixed(2)} ({currencyConfig.source})
+
+            <p className="text-xs text-[var(--ks-text-muted)]">
+              Support channels and registered business contact details are maintained under Contact &amp; Legal Center.
             </p>
           </div>
 
-          {/* Link Columns */}
+          {/* Footer Link Columns */}
           <div className="lg:col-span-7 grid grid-cols-2 sm:grid-cols-4 gap-8 text-sm">
             <div className="space-y-3 col-span-2 sm:col-span-1">
-              <p className="text-xs uppercase tracking-wider text-[#84827B]">
-                Departments ({categories.length})
-              </p>
-              <ul className="space-y-1.5 text-xs sm:text-sm text-[#5C5B57] dark:text-[#B4B2AC]">
+              <p className="ks-eyebrow">Departments ({categories.length})</p>
+              <ul className="space-y-1.5 text-xs sm:text-sm text-[var(--ks-text-secondary)]">
                 <li>
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'shop', category: 'all' })}
-                    className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer text-left leading-snug font-medium"
+                    className="hover:text-[var(--ks-text-primary)] cursor-pointer text-left leading-snug font-medium"
                   >
-                    All Products
+                    Shop All Products
                   </button>
                 </li>
                 {categories.map((cat) => (
@@ -91,7 +95,7 @@ export const Footer: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => navigate({ name: 'category', category: cat.slug })}
-                      className="hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer text-left leading-snug"
+                      className="hover:text-[var(--ks-text-primary)] cursor-pointer text-left leading-snug"
                     >
                       {cat.shortName}
                     </button>
@@ -101,40 +105,40 @@ export const Footer: React.FC = () => {
             </div>
 
             <div className="space-y-3">
-              <p className="text-xs uppercase tracking-wider text-[#84827B]">Marketplace</p>
-              <ul className="space-y-2.5 text-[#5C5B57] dark:text-[#B4B2AC]">
+              <p className="ks-eyebrow">Shop</p>
+              <ul className="space-y-2.5 text-[var(--ks-text-secondary)]">
                 <li>
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'about' })}
-                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
-                    About Us
+                    About Kinto Studio
                   </button>
                 </li>
                 <li>
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'brands' })}
-                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
-                    Partner Makers
+                    Featured Brands
                   </button>
                 </li>
                 <li>
                   <button
                     type="button"
-                    onClick={() => navigate({ name: 'journal' })}
-                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    onClick={() => navigate({ name: 'shop', collection: 'new-arrivals', category: 'all' })}
+                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
-                    Journal
+                    New Arrivals
                   </button>
                 </li>
                 <li>
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'offers' })}
-                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
                     Special Offers
                   </button>
@@ -142,23 +146,23 @@ export const Footer: React.FC = () => {
                 <li>
                   <button
                     type="button"
-                    onClick={() => navigate({ name: 'compare' })}
-                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    onClick={() => navigate({ name: 'journal' })}
+                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
-                    Compare Products
+                    Journal
                   </button>
                 </li>
               </ul>
             </div>
 
             <div className="space-y-3">
-              <p className="text-xs uppercase tracking-wider text-[#84827B]">Client Care</p>
-              <ul className="space-y-2.5 text-[#5C5B57] dark:text-[#B4B2AC]">
+              <p className="ks-eyebrow">Customer Care</p>
+              <ul className="space-y-2.5 text-[var(--ks-text-secondary)]">
                 <li>
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'track-order' })}
-                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
                     Track Order
                   </button>
@@ -167,49 +171,58 @@ export const Footer: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'account', accountTab: 'overview' })}
-                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
-                    Account &amp; Portals
+                    My Account
                   </button>
                 </li>
                 <li>
                   <button
                     type="button"
-                    onClick={() => navigate({ name: 'seller' })}
-                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    onClick={() => navigate({ name: 'shipping-policy' })}
+                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
-                    Seller Studio
+                    Delivery Information
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => navigate({ name: 'return-policy' })}
+                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
+                  >
+                    Returns &amp; Refunds
                   </button>
                 </li>
                 <li>
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'contact' })}
-                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
-                    Contact Concierge
+                    Contact &amp; Support
                   </button>
                 </li>
                 <li>
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'faq' })}
-                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
-                    FAQ
+                    Help &amp; FAQ
                   </button>
                 </li>
               </ul>
             </div>
 
             <div className="space-y-3">
-              <p className="text-xs uppercase tracking-wider text-[#84827B]">Legal &amp; Policies</p>
-              <ul className="space-y-2 text-[#5C5B57] dark:text-[#B4B2AC]">
+              <p className="ks-eyebrow">Policies &amp; Legal</p>
+              <ul className="space-y-2 text-[var(--ks-text-secondary)]">
                 <li>
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'legal' })}
-                    className="text-left font-medium text-[#171716] dark:text-[#F4F3EF] leading-snug hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                    className="text-left font-medium text-[var(--ks-text-primary)] leading-snug hover:text-[var(--ks-accent)] cursor-pointer"
                   >
                     Legal Center
                   </button>
@@ -218,16 +231,16 @@ export const Footer: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'terms' })}
-                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
-                    Terms of Service
+                    Terms &amp; Conditions
                   </button>
                 </li>
                 <li>
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'privacy-policy' })}
-                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
                     Privacy Policy
                   </button>
@@ -236,7 +249,7 @@ export const Footer: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'cookie-policy' })}
-                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
                     Cookie Policy
                   </button>
@@ -244,53 +257,35 @@ export const Footer: React.FC = () => {
                 <li>
                   <button
                     type="button"
-                    onClick={() => navigate({ name: 'shipping-policy' })}
-                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
-                  >
-                    Shipping Policy
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'return-policy' })}
-                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
-                  >
-                    Returns &amp; Refunds
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
                     onClick={() => navigate({ name: 'seller-agreement' })}
-                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
-                    Seller Agreement
+                    Seller Terms
                   </button>
                 </li>
                 <li>
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'product-safety' })}
-                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
-                    Safety Disclaimers
+                    Product Safety
                   </button>
                 </li>
                 <li>
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'intellectual-property' })}
-                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
-                    IP &amp; DMCA Policy
+                    IP Policy
                   </button>
                 </li>
                 <li>
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'accessibility' })}
-                    className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
                     Accessibility
                   </button>
@@ -300,11 +295,11 @@ export const Footer: React.FC = () => {
           </div>
         </div>
 
-        <div className="pt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-[#5C5B57] dark:text-[#A3A19B]">
-          <p>© 2026 Kinto Studio LLC · Bangladesh Law &amp; Dhaka Courts · legal@kintostudio.example</p>
+        <div className="pt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-[var(--ks-text-secondary)]">
+          <p>© 2026 Kinto Studio · Operated for Bangladesh retail</p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <span className="hidden lg:inline text-[#84827B]">
-              Payments: bKash · Nagad · Rocket · Visa · Mastercard · COD
+            <span className="hidden lg:inline text-[var(--ks-text-muted)]">
+              Payments: bKash · Nagad · Rocket · Cards · COD
             </span>
             <span className="hidden lg:inline" aria-hidden="true">
               ·
@@ -312,7 +307,7 @@ export const Footer: React.FC = () => {
             <button
               type="button"
               onClick={toggleCurrency}
-              className="font-mono-num text-left whitespace-nowrap hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+              className="font-mono-num text-left whitespace-nowrap hover:text-[var(--ks-text-primary)] cursor-pointer"
             >
               Currency: {currency === 'BDT' ? 'BDT (৳)' : 'USD ($)'}
             </button>
@@ -320,17 +315,9 @@ export const Footer: React.FC = () => {
             <button
               type="button"
               onClick={openCookiePreferences}
-              className="text-left whitespace-nowrap hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+              className="text-left whitespace-nowrap hover:text-[var(--ks-text-primary)] cursor-pointer"
             >
               Cookie Preferences
-            </button>
-            <span aria-hidden="true">·</span>
-            <button
-              type="button"
-              onClick={() => navigate({ name: 'maintenance' })}
-              className="text-left whitespace-nowrap hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
-            >
-              Service Status
             </button>
             <PWAInstallButton variant="footer" />
           </div>

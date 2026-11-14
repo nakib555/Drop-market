@@ -13,24 +13,24 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary:
-    'bg-[#171716] text-[#FAF9F6] hover:bg-[#2E2D2A] dark:bg-[#F4F3EF] dark:text-[#171716] dark:hover:bg-[#E2E0D8] border border-transparent',
+    'bg-[var(--ks-action)] text-[var(--ks-action-text)] hover:bg-[var(--ks-action-hover)] border border-transparent',
   secondary:
-    'bg-[#8F6438] text-white hover:bg-[#76512B] dark:bg-[#C89B67] dark:text-[#171716] dark:hover:bg-[#D6AE80] border border-transparent',
+    'bg-[var(--ks-accent)] text-[var(--ks-accent-text)] hover:bg-[var(--ks-accent-hover)] border border-transparent',
   outline:
-    'bg-transparent text-[#171716] dark:text-[#F4F3EF] border border-[#D4D1C9] dark:border-[#3A3934] hover:border-[#171716] dark:hover:border-[#F4F3EF] hover:bg-[#F2F0EC]/60 dark:hover:bg-[#22221F]',
+    'bg-transparent text-[var(--ks-text-primary)] border border-[var(--ks-border-strong)] hover:border-[var(--ks-action)] hover:bg-[var(--ks-bg-secondary)]/70',
   ghost:
-    'bg-transparent text-[#5C5B57] dark:text-[#B4B2AC] hover:text-[#171716] dark:hover:text-[#F4F3EF] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] border border-transparent',
+    'bg-transparent text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] hover:bg-[var(--ks-bg-secondary)] border border-transparent',
   destructive:
-    'bg-[#B91C1C] text-white hover:bg-[#991B1B] dark:bg-[#EF4444] dark:text-[#171716] dark:hover:bg-[#F87171] border border-transparent',
+    'bg-[var(--ks-error)] text-white dark:text-[#171716] hover:opacity-90 border border-transparent',
   text:
-    'bg-transparent text-[#171716] dark:text-[#F4F3EF] underline-offset-4 hover:underline border border-transparent !px-0 !py-1',
+    'bg-transparent text-[var(--ks-text-primary)] underline-offset-4 hover:underline border border-transparent !px-0 !py-1',
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
-  xs: 'px-3 py-1.5 text-xs min-h-[36px]',
-  sm: 'px-4 py-2 text-xs min-h-[40px]',
-  md: 'px-5 py-2.5 text-sm min-h-[42px]',
-  lg: 'px-6 sm:px-7 py-3 text-sm min-h-[48px]',
+  xs: 'px-3 py-1.5 text-xs min-h-[var(--ks-height-xs)]',
+  sm: 'px-4 py-2 text-xs min-h-[var(--ks-height-sm)]',
+  md: 'px-5 py-2.5 text-sm min-h-[var(--ks-height-md)]',
+  lg: 'px-6 sm:px-7 py-3 text-sm min-h-[var(--ks-height-lg)]',
 };
 
 export const Button: React.FC<ButtonProps> = ({
@@ -48,7 +48,7 @@ export const Button: React.FC<ButtonProps> = ({
     <button
       type={type}
       disabled={disabled || loading}
-      className={`inline-flex items-center justify-center gap-2 font-medium tracking-tight leading-snug rounded-md transition-[color,background-color,border-color,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.985] cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed disabled:active:scale-100 ${
+      className={`inline-flex items-center justify-center gap-2 font-medium tracking-tight leading-snug rounded-[var(--ks-radius-md)] transition-[color,background-color,border-color,transform] duration-[var(--ks-duration-fast)] ease-[var(--ks-ease-standard)] active:scale-[0.985] cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed disabled:active:scale-100 ${
         fullWidth ? 'w-full text-center' : 'whitespace-nowrap shrink-0'
       } ${VARIANT_CLASSES[variant]} ${SIZE_CLASSES[size]} ${className}`}
       {...rest}

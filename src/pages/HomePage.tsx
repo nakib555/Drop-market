@@ -8,23 +8,22 @@ import {
   Compass,
   Cpu,
   Droplets,
+  Globe,
   HeartPulse,
   ShieldCheck,
   Shirt,
   Sofa,
   Sparkles,
-  Star,
   Tag,
   Truck,
   Wrench,
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { ATELIER_CRAFT_IMAGE, BRAND_STUDIOS, HERO_IMAGE } from '../data/catalog';
+import { BRAND_STUDIOS, HERO_IMAGE } from '../data/catalog';
 import { useStore } from '../context/StoreContext';
 import { STUDIO15_MIN_USD, formatCurrency } from '../utils/format';
 import { STUDIO_TRANSITION } from '../utils/motion';
 import { ScrollReveal } from '../components/ui/MotionPrimitives';
-import { TypingGradientText } from '../components/ui/TypingGradientText';
 import { ProductCard } from '../components/product/ProductCard';
 import { Button } from '../components/ui/Button';
 import { ProductGridSkeleton, ResilientImage } from '../components/ui/Primitives';
@@ -52,33 +51,15 @@ type HomeCollectionTab =
   | 'beauty-grocery'
   | 'auto-kids-health';
 
-const CLIENT_TESTIMONIALS = [
-  {
-    quote:
-      'The Aeterna AE-1 wireless headphones and Zonolith hi-fi speaker share the same milled aluminum restraint as our studio furniture. Acoustic clarity and build tolerances are remarkable.',
-    name: 'Clara Lindqvist',
-    role: 'Principal Architect, Copenhagen',
-  },
-  {
-    quote:
-      'Picked up the Kyoto heavyweight merino overshirt alongside the Vanguard 22L daypack before a two-week Tokyo trip. Both held up through rain and transit without looking worn.',
-    name: 'Marcus Sterling',
-    role: 'Creative Director, New York',
-  },
-  {
-    quote:
-      'Being able to order single-origin coffee, cold-pressed skincare, workshop tools, and oak living pieces in BDT with next-day Dhaka Metro courier is effortless.',
-    name: 'Nadia Rahman',
-    role: 'Design Buyer, Dhaka & Portland',
-  },
-];
-
-const HERO_TYPING_PHRASES = [
-  'All in One Place.',
-  'Audio, Tech & Smart Gear.',
-  'Tailored Fashion & Carry.',
-  'Home, Tools & Wellness.',
-  'Delivered Across Bangladesh.',
+const COLLECTION_TABS: ReadonlyArray<{ id: HomeCollectionTab; label: string }> = [
+  { id: 'all', label: 'Featured' },
+  { id: 'new-arrivals', label: 'New Arrivals' },
+  { id: 'best-sellers', label: 'Best Sellers' },
+  { id: 'electronics', label: 'Tech & Audio' },
+  { id: 'fashion', label: 'Fashion & Carry' },
+  { id: 'home-office', label: 'Home & Office' },
+  { id: 'beauty-grocery', label: 'Beauty & Grocery' },
+  { id: 'auto-kids-health', label: 'Tools, Baby & Health' },
 ];
 
 export const HomePage: React.FC = () => {
@@ -174,6 +155,15 @@ export const HomePage: React.FC = () => {
 
   const spotlightProduct = trendingProducts[0] || products[0];
 
+  const scrollToDepartments = () => {
+    const el = document.getElementById('departments-grid');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      navigate({ name: 'shop', category: 'all' });
+    }
+  };
+
   const handleViewAllCollection = () => {
     switch (activeTab) {
       case 'new-arrivals':
@@ -205,21 +195,18 @@ export const HomePage: React.FC = () => {
   return (
     <div className="space-y-16 sm:space-y-20 lg:space-y-24">
       {/* 1. Editorial Split Hero */}
-      <section className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 pt-4 sm:pt-6 lg:pt-8">
+      <section className="ks-container pt-4 sm:pt-6 lg:pt-8">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-10 items-stretch">
           <div className="md:col-span-6 lg:col-span-5 flex flex-col justify-between py-1 lg:py-4 space-y-6">
             <div className="space-y-4">
-              <p className="text-xs uppercase tracking-[0.16em] text-[#8F6438] dark:text-[#C89B67] font-medium">
-                Kinto Studio 10-Department Marketplace
+              <p className="text-xs uppercase tracking-[0.12em] text-[var(--ks-accent)] font-medium">
+                Kinto Studio
               </p>
-              <h1 className="font-display text-[clamp(2rem,3.6vw,3.35rem)] font-medium leading-[1.06] tracking-tight text-[#171716] dark:text-[#F4F3EF]">
-                Everything You Need.
-                <span className="block w-full min-h-[1.14em] mt-1 [text-wrap:normal] transform-gpu">
-                  <TypingGradientText phrases={HERO_TYPING_PHRASES} />
-                </span>
+              <h1 className="ks-heading-hero">
+                Everything for Your Everyday Life.
               </h1>
-              <p className="text-sm sm:text-base lg:text-lg text-[#5C5B57] dark:text-[#B4B2AC] leading-relaxed max-w-lg">
-                Shop ten specialized departments—from electronics, tailored apparel, furniture, and skincare to grocery, outdoor gear, books, tools, baby, and wellness.
+              <p className="text-sm sm:text-base lg:text-lg text-[var(--ks-text-secondary)] leading-relaxed max-w-lg">
+                Shop technology, fashion, home essentials, beauty, groceries, tools, and more across ten departments.
               </p>
               <div className="flex flex-wrap items-center gap-3 pt-1">
                 <Button
@@ -227,20 +214,20 @@ export const HomePage: React.FC = () => {
                   size="lg"
                   onClick={() => navigate({ name: 'shop', category: 'all' })}
                 >
-                  <span>Shop All Departments</span>
+                  <span>Shop All Products</span>
                   <ArrowRight className="w-4 h-4" />
                 </Button>
-                <Button variant="outline" size="lg" onClick={() => navigate({ name: 'offers' })}>
-                  Explore Offers
+                <Button variant="outline" size="lg" onClick={scrollToDepartments}>
+                  Explore Departments
                 </Button>
               </div>
             </div>
 
-            <div className="pt-4 border-t border-[#E5E3DD] dark:border-[#2C2C28] flex items-center justify-between gap-3 text-xs text-[#5C5B57] dark:text-[#A3A19B]">
+            <div className="pt-4 border-t border-[var(--ks-border)] flex items-center justify-between gap-3 text-xs text-[var(--ks-text-secondary)]">
               <span className="min-w-0 flex-1 truncate">
                 {spotlightProduct
-                  ? `Spotlight: ${spotlightProduct.name}`
-                  : 'Loading curated marketplace spotlight...'}
+                  ? `Featured item: ${spotlightProduct.name}`
+                  : 'Ten departments · BDT and USD pricing'}
               </span>
               {spotlightProduct && (
                 <button
@@ -248,85 +235,87 @@ export const HomePage: React.FC = () => {
                   onClick={() =>
                     navigate({ name: 'product', slug: spotlightProduct.slug })
                   }
-                  className="font-medium text-[#171716] dark:text-[#F4F3EF] hover:underline whitespace-nowrap shrink-0 cursor-pointer"
+                  className="font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] hover:underline whitespace-nowrap shrink-0 cursor-pointer"
                 >
-                  Inspect Product
+                  View Product
                 </button>
               )}
             </div>
           </div>
 
           <div className="md:col-span-6 lg:col-span-7">
-            <div className="relative h-56 sm:h-80 md:h-full md:min-h-[380px] lg:h-[430px] xl:h-[500px] rounded-lg overflow-hidden bg-[#F2F0EC] dark:bg-[#22221F]">
+            <div className="relative h-56 sm:h-80 md:h-full md:min-h-[380px] lg:h-[430px] xl:h-[500px] rounded-[var(--ks-radius-lg)] overflow-hidden bg-[var(--ks-surface-muted)]">
               <ResilientImage
                 src={HERO_IMAGE}
-                alt="Curated living interior featuring Kinto Studio furniture, lighting, audio hardware, and daily objects"
+                alt="Living space arranged with oak seating, warm lighting, and wireless audio hardware"
                 className="w-full h-full object-cover"
               />
             </div>
           </div>
         </div>
 
-        {/* 4-column guarantees bar */}
-        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 py-4 px-5 sm:px-6 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]">
+        {/* Shopping Benefits Bar (Config-driven, no unsupported promises) */}
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 py-4 px-5 sm:px-6 ks-surface-card">
           <div className="flex items-start gap-3">
-            <Truck className="w-4 h-4 mt-[3px] text-[#8F6438] dark:text-[#C89B67] shrink-0" />
+            <Truck className="w-4 h-4 mt-[3px] text-[var(--ks-accent)] shrink-0" />
             <div>
-              <p className="text-sm font-medium leading-snug">
-                Complimentary Shipping {formatCurrency(freeThresholdUsd, currency)}+
+              <p className="text-sm font-medium leading-snug text-[var(--ks-text-primary)]">
+                Bangladesh Delivery Zones
               </p>
-              <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5 leading-snug">
-                Next-day Dhaka Metro &amp; 64-district Bangladesh delivery
-              </p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <ShieldCheck className="w-4 h-4 mt-[3px] text-[#8F6438] dark:text-[#C89B67] shrink-0" />
-            <div>
-              <p className="text-sm font-medium leading-snug">bKash, Nagad, Cards &amp; COD</p>
-              <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5 leading-snug">
-                Server-verified payments &amp; Cash on Delivery
+              <p className="text-xs text-[var(--ks-text-secondary)] mt-0.5 leading-snug">
+                Free Dhaka Metro delivery from {formatCurrency(freeThresholdUsd, currency)}; zone rates nationwide.
               </p>
             </div>
           </div>
           <div className="flex items-start gap-3">
-            <Check className="w-4 h-4 mt-[3px] text-[#8F6438] dark:text-[#C89B67] shrink-0" />
+            <ShieldCheck className="w-4 h-4 mt-[3px] text-[var(--ks-accent)] shrink-0" />
             <div>
-              <p className="text-sm font-medium leading-snug">30-Day Returns &amp; Warranties</p>
-              <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5 leading-snug">
-                Protected across electronics, apparel, furniture &amp; tools
+              <p className="text-sm font-medium leading-snug text-[var(--ks-text-primary)]">
+                Local &amp; Card Payments
+              </p>
+              <p className="text-xs text-[var(--ks-text-secondary)] mt-0.5 leading-snug">
+                Supports bKash, Nagad, Rocket, cards, and Cash on Delivery where eligible.
               </p>
             </div>
           </div>
           <div className="flex items-start gap-3">
-            <Sparkles className="w-4 h-4 mt-[3px] text-[#8F6438] dark:text-[#C89B67] shrink-0" />
+            <Check className="w-4 h-4 mt-[3px] text-[var(--ks-accent)] shrink-0" />
             <div>
-              <p className="text-sm font-medium leading-snug">BDT (৳) &amp; USD ($) Pricing</p>
-              <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5 leading-snug">
-                Live FX header switch &amp; BDT Bangladesh settlement
+              <p className="text-sm font-medium leading-snug text-[var(--ks-text-primary)]">
+                Clear Returns &amp; Support
+              </p>
+              <p className="text-xs text-[var(--ks-text-secondary)] mt-0.5 leading-snug">
+                Shipping, refund, and warranty policies clearly stated before checkout.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <Globe className="w-4 h-4 mt-[3px] text-[var(--ks-accent)] shrink-0" />
+            <div>
+              <p className="text-sm font-medium leading-snug text-[var(--ks-text-primary)]">
+                BDT (৳) &amp; USD ($) Display
+              </p>
+              <p className="text-xs text-[var(--ks-text-secondary)] mt-0.5 leading-snug">
+                Switch display currency anytime; Bangladesh orders settle in BDT.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 2. Shop by Department — Balanced 2-col mobile / 5-col desktop for 10 universal departments */}
-      <ScrollReveal className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10">
+      {/* 2. Shop by Department (All 10 Departments Preserved) */}
+      <ScrollReveal className="ks-container" id="departments-grid">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-7">
           <div>
-            <p className="text-xs uppercase tracking-[0.14em] text-[#84827B]">
-              {categories.length} Universal Departments
-            </p>
-            <h2 className="font-display text-3xl sm:text-4xl font-medium mt-1">
-              Shop by Department
-            </h2>
+            <p className="ks-eyebrow">Departments</p>
+            <h2 className="ks-heading-section mt-1">Browse by Department</h2>
           </div>
           <button
             type="button"
             onClick={() => navigate({ name: 'shop', category: 'all' })}
-            className="self-start sm:self-auto text-left whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 text-sm font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+            className="self-start sm:self-auto text-left whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
           >
-            <span>Browse Full Catalog ({products.length})</span>
+            <span>Shop All Products ({products.length})</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
@@ -339,32 +328,32 @@ export const HomePage: React.FC = () => {
                 key={cat.slug}
                 type="button"
                 onClick={() => navigate({ name: 'category', category: cat.slug })}
-                className="group text-left rounded-lg overflow-hidden bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer flex flex-col"
+                className="group text-left rounded-[var(--ks-radius-lg)] overflow-hidden bg-[var(--ks-surface)] border border-[var(--ks-border)] transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:shadow-[var(--ks-shadow-card-hover)] cursor-pointer flex flex-col"
               >
-                <div className="relative aspect-[4/3] overflow-hidden bg-[#F2F0EC] dark:bg-[#22221F]">
+                <div className="relative aspect-[4/3] overflow-hidden bg-[var(--ks-surface-muted)]">
                   <ResilientImage
                     src={cat.image}
                     alt={cat.name}
                     loading="lazy"
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
                   />
-                  <span className="absolute top-2.5 left-2.5 w-8 h-8 rounded-md bg-white/90 dark:bg-[#191917]/90 border border-[#E5E3DD]/70 dark:border-[#2C2C28] flex items-center justify-center text-[#171716] dark:text-[#F4F3EF]">
+                  <span className="absolute top-2.5 left-2.5 w-8 h-8 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)]/92 border border-[var(--ks-border)] flex items-center justify-center text-[var(--ks-text-primary)]">
                     <IconComp className="w-4 h-4" />
                   </span>
                 </div>
                 <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between gap-1">
                   <div>
-                    <p className="text-[11px] uppercase tracking-wider text-[#84827B] truncate">
+                    <p className="text-[11px] text-[var(--ks-text-muted)] truncate">
                       {cat.countLabel}
                     </p>
-                    <p className="text-sm sm:text-[15px] font-medium mt-0.5 group-hover:text-[#8F6438] dark:group-hover:text-[#C89B67] transition-colors line-clamp-1">
+                    <p className="text-sm sm:text-[15px] font-medium mt-0.5 text-[var(--ks-text-primary)] group-hover:text-[var(--ks-accent)] transition-colors line-clamp-1">
                       {cat.name}
                     </p>
                   </div>
-                  <p className="text-[11px] text-[#84827B] font-mono-num">
+                  <p className="text-[11px] text-[var(--ks-text-muted)] font-mono-num">
                     {cat.subcategories.length > 0
-                      ? `${cat.subcategories.length} sub-collections`
-                      : 'Shop collection'}
+                      ? `${cat.subcategories.length} categories`
+                      : 'View department'}
                   </p>
                 </div>
               </button>
@@ -373,21 +362,19 @@ export const HomePage: React.FC = () => {
         </div>
       </ScrollReveal>
 
-      {/* 3. Trending Across Departments */}
-      <ScrollReveal className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10">
+      {/* 3. Featured / Trending Products */}
+      <ScrollReveal className="ks-container">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-7">
           <div>
-            <p className="text-xs uppercase tracking-[0.14em] text-[#84827B]">High Demand</p>
-            <h2 className="font-display text-3xl sm:text-4xl font-medium mt-1">
-              Trending Products
-            </h2>
+            <p className="ks-eyebrow">Popular Selection</p>
+            <h2 className="ks-heading-section mt-1">Trending Products</h2>
           </div>
           <button
             type="button"
             onClick={() => navigate({ name: 'shop', collection: 'trending', category: 'all' })}
-            className="self-start sm:self-auto text-left whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 text-sm font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+            className="self-start sm:self-auto text-left whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
           >
-            <span>See all trending</span>
+            <span>View All Trending</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
@@ -407,35 +394,20 @@ export const HomePage: React.FC = () => {
         )}
       </ScrollReveal>
 
-      {/* 4. Curated Multi-Department Collection Tabs (includes New Arrivals & Best Sellers) */}
-      <section className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10">
+      {/* 4. Department Showcase Tabs */}
+      <section className="ks-container">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 mb-7">
           <div>
-            <p className="text-xs uppercase tracking-[0.14em] text-[#84827B]">
-              Curated Collections
-            </p>
-            <h2 className="font-display text-3xl sm:text-4xl font-medium mt-1">
-              Selected for Everyday Utility
-            </h2>
+            <p className="ks-eyebrow">By Category</p>
+            <h2 className="ks-heading-section mt-1">Everyday Essentials Across Departments</h2>
           </div>
 
           <div
             role="tablist"
-            aria-label="Department showcase"
-            className="inline-flex items-center gap-1 p-1 rounded-lg bg-[#F2F0EC] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] overflow-x-auto no-scrollbar max-w-full"
+            aria-label="Product collections"
+            className="inline-flex items-center gap-1 p-1 rounded-[var(--ks-radius-lg)] bg-[var(--ks-bg-secondary)] border border-[var(--ks-border)] overflow-x-auto no-scrollbar max-w-full"
           >
-            {(
-              [
-                { id: 'all', label: 'Featured Mix' },
-                { id: 'new-arrivals', label: 'New Arrivals' },
-                { id: 'best-sellers', label: 'Best Sellers' },
-                { id: 'electronics', label: 'Tech & Audio' },
-                { id: 'fashion', label: 'Fashion & Carry' },
-                { id: 'home-office', label: 'Home & Office' },
-                { id: 'beauty-grocery', label: 'Beauty & Grocery' },
-                { id: 'auto-kids-health', label: 'Tools, Baby & Wellness' },
-              ] as const
-            ).map((tab) => {
+            {COLLECTION_TABS.map((tab) => {
               const isSelected = activeTab === tab.id;
               return (
                 <button
@@ -444,17 +416,17 @@ export const HomePage: React.FC = () => {
                   type="button"
                   aria-selected={isSelected}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`relative px-3.5 py-2 rounded-md text-xs font-medium whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                  className={`relative px-3.5 py-2 rounded-[var(--ks-radius-md)] text-xs font-medium whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
                     isSelected
-                      ? 'text-[#171716] dark:text-[#F4F3EF]'
-                      : 'text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
+                      ? 'text-[var(--ks-text-primary)]'
+                      : 'text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)]'
                   }`}
                 >
                   {isSelected && (
                     <motion.span
                       layoutId="home-collection-tab"
                       transition={STUDIO_TRANSITION.springTab}
-                      className="absolute inset-0 rounded-md bg-[#FFFFFF] dark:bg-[#262623] shadow-xs"
+                      className="absolute inset-0 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] shadow-xs"
                     />
                   )}
                   <span className="relative z-10">{tab.label}</span>
@@ -468,7 +440,7 @@ export const HomePage: React.FC = () => {
           <ProductGridSkeleton
             count={6}
             className="grid grid-cols-1 min-[390px]:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 lg:gap-8"
-            label="Loading curated collection"
+            label="Loading products"
           />
         ) : (
           <motion.div
@@ -486,26 +458,25 @@ export const HomePage: React.FC = () => {
 
         <div className="mt-10 text-center">
           <Button variant="outline" size="lg" onClick={handleViewAllCollection}>
-            <span>View Full Collection</span>
+            <span>Browse Collection</span>
             <ArrowRight className="w-4 h-4" />
           </Button>
         </div>
       </section>
 
-      {/* 5. Seasonal Promotional Campaign Banner */}
-      <ScrollReveal className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10">
-        <div className="rounded-lg bg-[#171716] dark:bg-[#191917] text-[#FAF9F6] border border-[#2C2C28] p-6 sm:p-10 lg:p-12 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+      {/* 5. Seasonal Promo Banner */}
+      <ScrollReveal className="ks-container">
+        <div className="rounded-[var(--ks-radius-lg)] bg-[#222220] dark:bg-[#191917] text-[#FAF9F6] border border-[#2C2C27] p-6 sm:p-10 lg:p-12 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-3 max-w-2xl">
-            <span className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.14em] text-[#E2B887] font-medium">
-              <Tag className="w-3.5 h-3.5" /> Seasonal Marketplace Privilege
+            <span className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.12em] text-[#E2B887] font-medium">
+              <Tag className="w-3.5 h-3.5" /> Seasonal Offer
             </span>
             <h2 className="font-display text-3xl sm:text-4xl font-medium leading-tight">
-              Save 15% across any category on orders over{' '}
-              {formatCurrency(STUDIO15_MIN_USD, currency)} with code{' '}
+              Save 15% on orders over {formatCurrency(STUDIO15_MIN_USD, currency)} with code{' '}
               <span className="font-mono-num text-[#E2B887]">STUDIO15</span>
             </h2>
             <p className="text-sm text-[#B4B2AC]">
-              Mix audio gear, apparel, beauty sets, and home essentials in one consolidated bag with automatic multi-currency totals.
+              Combine items from any department in a single bag with automatic BDT or USD totals at checkout.
             </p>
           </div>
           <div className="flex flex-wrap gap-3 shrink-0">
@@ -514,7 +485,7 @@ export const HomePage: React.FC = () => {
               size="lg"
               onClick={() => navigate({ name: 'offers' })}
             >
-              Shop Seasonal Offers
+              Shop Offers
             </Button>
             <Button
               variant="outline"
@@ -528,21 +499,19 @@ export const HomePage: React.FC = () => {
         </div>
       </ScrollReveal>
 
-      {/* 6. Featured Partner Brands Directory Strip */}
-      <ScrollReveal className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10">
+      {/* 6. Featured Brands */}
+      <ScrollReveal className="ks-container">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-7">
           <div>
-            <p className="text-xs uppercase tracking-[0.14em] text-[#84827B]">Trusted Makers</p>
-            <h2 className="font-display text-3xl sm:text-4xl font-medium mt-1">
-              Featured Brands &amp; Studios
-            </h2>
+            <p className="ks-eyebrow">Brands</p>
+            <h2 className="ks-heading-section mt-1">Featured Brands</h2>
           </div>
           <button
             type="button"
             onClick={() => navigate({ name: 'brands' })}
-            className="self-start sm:self-auto text-left whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 text-sm font-medium hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+            className="self-start sm:self-auto text-left whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
           >
-            <span>Explore Maker Directory</span>
+            <span>View All Brands</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
@@ -559,14 +528,16 @@ export const HomePage: React.FC = () => {
                   brand: brand.name,
                 })
               }
-              className="text-left p-5 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] hover:border-[#8F6438] dark:hover:border-[#C89B67] transition-colors cursor-pointer space-y-1.5"
+              className="text-left p-5 ks-surface-card hover:border-[var(--ks-accent)] transition-colors cursor-pointer space-y-1.5"
             >
-              <div className="flex items-baseline justify-between gap-2 text-[11px] uppercase tracking-wider text-[#84827B]">
-                <span className="min-w-0 truncate">{brand.origin}</span>
-                <span className="font-mono-num shrink-0">Est. {brand.founded}</span>
+              <div className="flex items-baseline justify-between gap-2 text-[11px] uppercase tracking-wider text-[var(--ks-text-muted)]">
+                <span className="truncate">{brand.categories.length} departments</span>
+                {brand.founded && <span className="font-mono-num shrink-0">Est. {brand.founded}</span>}
               </div>
-              <p className="font-display text-2xl font-medium">{brand.name}</p>
-              <p className="text-xs text-[#8F6438] dark:text-[#C89B67] font-medium">
+              <p className="font-display text-2xl font-medium text-[var(--ks-text-primary)]">
+                {brand.name}
+              </p>
+              <p className="text-xs text-[var(--ks-accent)] font-medium">
                 {brand.specialty}
               </p>
             </button>
@@ -574,102 +545,20 @@ export const HomePage: React.FC = () => {
         </div>
       </ScrollReveal>
 
-      {/* 7. Craftsmanship & Studio Provenance */}
-      <ScrollReveal className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 items-stretch rounded-lg overflow-hidden bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]">
-          <div className="lg:col-span-7 min-h-[240px] sm:min-h-[340px] bg-[#F2F0EC] dark:bg-[#22221F]">
-            <ResilientImage
-              src={ATELIER_CRAFT_IMAGE}
-              alt="Kinto Studio prototyping bench with precision hardware, fabrics, stone samples, and woodworking tools"
-              loading="lazy"
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <div className="lg:col-span-5 p-6 sm:p-10 lg:p-12 flex flex-col justify-between gap-8">
-            <div className="space-y-4">
-              <p className="text-xs uppercase tracking-[0.14em] text-[#8F6438] dark:text-[#C89B67] font-medium">
-                Quality Standard
-              </p>
-              <h2 className="font-display text-3xl sm:text-4xl font-medium leading-tight">
-                One rigorous design bar across every department.
-              </h2>
-              <p className="text-sm sm:text-base text-[#5C5B57] dark:text-[#B4B2AC] leading-relaxed">
-                From acoustic engineers in Copenhagen to textile weavers in Kyoto and specialty roasters in Oregon, Kinto Studio vets every product for transparent specifications, authentic materials, and dependable warranties.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <Button variant="primary" size="md" onClick={() => navigate({ name: 'about' })}>
-                Our Standards
-              </Button>
-              <Button variant="outline" size="md" onClick={() => navigate({ name: 'journal' })}>
-                Read Studio Journal
-              </Button>
-            </div>
-          </div>
-        </div>
-      </ScrollReveal>
-
-      {/* 8. Verified Customer Reviews */}
-      <ScrollReveal className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-7">
-          <div>
-            <p className="text-xs uppercase tracking-[0.14em] text-[#84827B]">Client Perspectives</p>
-            <h2 className="font-display text-3xl sm:text-4xl font-medium mt-1">
-              Trusted Across Homes &amp; Studios
-            </h2>
-          </div>
-          <p className="text-sm text-[#5C5B57] dark:text-[#A3A19B] font-mono-num">
-            4.9 / 5.0 average across 680+ verified orders
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
-          {CLIENT_TESTIMONIALS.map((item) => (
-            <blockquote
-              key={item.name}
-              className="p-6 sm:p-7 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] flex flex-col justify-between gap-6"
-            >
-              <div className="space-y-3">
-                <div
-                  className="flex items-center gap-0.5 text-[#8F6438] dark:text-[#C89B67]"
-                  aria-label="5 out of 5 stars"
-                >
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} className="w-3.5 h-3.5 fill-current" />
-                  ))}
-                </div>
-                <p className="text-sm leading-relaxed text-[#171716] dark:text-[#F4F3EF]">
-                  &ldquo;{item.quote}&rdquo;
-                </p>
-              </div>
-              <footer className="pt-4 border-t border-[#E5E3DD] dark:border-[#2C2C28]">
-                <p className="text-sm font-medium">{item.name}</p>
-                <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5">{item.role}</p>
-              </footer>
-            </blockquote>
-          ))}
-        </div>
-      </ScrollReveal>
-
-      {/* 9. Recently Viewed Strip (renders when shopper has browsing history) */}
+      {/* 7. Recently Viewed (renders only when shopper has browsing history) */}
       {recentlyViewedProducts.length > 0 && (
-        <ScrollReveal className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10">
+        <ScrollReveal className="ks-container">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-7">
             <div>
-              <p className="text-xs uppercase tracking-[0.14em] text-[#84827B]">
-                Continue Inspecting
-              </p>
-              <h2 className="font-display text-3xl sm:text-4xl font-medium mt-1">
-                Recently Viewed
-              </h2>
+              <p className="ks-eyebrow">Your History</p>
+              <h2 className="ks-heading-section mt-1">Recently Viewed</h2>
             </div>
             <button
               type="button"
               onClick={() => navigate({ name: 'shop', category: 'all' })}
-              className="self-start sm:self-auto text-left whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 text-sm font-medium hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+              className="self-start sm:self-auto text-left whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
             >
-              <span>Browse Full Catalog</span>
+              <span>Shop All Products</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>

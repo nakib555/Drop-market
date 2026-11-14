@@ -4,6 +4,7 @@ import { MOTION_DURATION, ENTER_EASE } from '../../utils/motion';
 
 interface ScrollRevealProps {
   children: React.ReactNode;
+  id?: string;
   className?: string;
   delay?: number;
   yOffset?: number;
@@ -11,11 +12,13 @@ interface ScrollRevealProps {
 
 export const ScrollReveal: React.FC<ScrollRevealProps> = ({
   children,
+  id,
   className = '',
   delay = 0,
   yOffset = 8,
 }) => (
   <motion.div
+    id={id}
     initial={{ opacity: 0.96, y: yOffset }}
     whileInView={{ opacity: 1, y: 0 }}
     viewport={{ once: true, amount: 0 }}

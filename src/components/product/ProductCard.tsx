@@ -38,6 +38,15 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
 
   const isWishlisted = wishlistIds.includes(product.id);
   const discount = getDiscountPercent(product.price, product.originalPrice);
+  const hasVerifiedDiscount =
+    discount > 0 &&
+    typeof product.originalPrice === 'number' &&
+    product.originalPrice > product.price;
+  const hasRating =
+    typeof product.rating === 'number' &&
+    product.rating > 0 &&
+    typeof product.reviewCount === 'number' &&
+    product.reviewCount > 0;
   const outOfStock = isProductOutOfStock(product);
   const secondaryImage = product.images[1];
   const activeColor = product.colors[selectedColorIdx] ||
@@ -57,13 +66,13 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
 
   if (layout === 'list') {
     return (
-      <article className="group flex flex-col sm:flex-row gap-5 sm:gap-6 p-4 sm:p-5 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] transition-[transform,box-shadow,border-color] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-0.5 hover:shadow-md">
+      <article className="group flex flex-col sm:flex-row gap-5 sm:gap-6 p-4 sm:p-5 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] transition-[transform,box-shadow,border-color] duration-200 ease-[var(--ks-ease-standard)] hover:-translate-y-0.5 hover:shadow-[var(--ks-shadow-card-hover)]">
         <div
           onClick={() => navigate({ name: 'product', slug: product.slug })}
           onMouseEnter={() => {
             if (secondaryImage && !hoverMounted) setHoverMounted(true);
           }}
-          className="relative w-full sm:w-60 md:w-64 aspect-[4/3] rounded-md overflow-hidden bg-[#F2F0EC] dark:bg-[#22221F] shrink-0 cursor-pointer"
+          className="relative w-full sm:w-60 md:w-64 aspect-[4/3] rounded-[var(--ks-radius-md)] overflow-hidden bg-[var(--ks-surface-muted)] shrink-0 cursor-pointer"
         >
           <ResilientImage
             src={product.images[0]}
@@ -84,55 +93,57 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
         <div className="flex-1 min-w-0 flex flex-col justify-between gap-4">
           <div className="space-y-2">
             <div className="flex items-baseline justify-between gap-2">
-              <span className="text-xs uppercase tracking-wider text-[#84827B] truncate">
-                {product.brand} · {product.categoryLabel}
+              <span className="text-xs tracking-wide text-[var(--ks-text-muted)] truncate">
+                {product.brand ? `${product.brand} · ${product.categoryLabel}` : product.categoryLabel}
               </span>
-              {discount > 0 && (
-                <span className="text-xs font-mono-num font-medium text-[#8F6438] dark:text-[#C89B67] shrink-0">
+              {hasVerifiedDiscount && (
+                <span className="text-xs font-mono-num font-medium text-[var(--ks-accent)] shrink-0">
                   Save {discount}%
                 </span>
               )}
             </div>
             <h3
               onClick={() => navigate({ name: 'product', slug: product.slug })}
-              className="text-lg font-semibold text-[#171716] dark:text-[#F4F3EF] cursor-pointer hover:text-[#8F6438] dark:hover:text-[#C89B67] transition-colors"
+              className="text-lg font-semibold text-[var(--ks-text-primary)] cursor-pointer hover:text-[var(--ks-accent)] transition-colors"
             >
               {product.name}
             </h3>
-            <p className="text-sm text-[#5C5B57] dark:text-[#A3A19B] line-clamp-2 max-w-2xl">
+            <p className="text-sm text-[var(--ks-text-secondary)] line-clamp-2 max-w-2xl">
               {product.shortDescription}
             </p>
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-[#5C5B57] dark:text-[#A3A19B] pt-1">
-              <span className="inline-flex items-center gap-1 font-mono-num">
-                <Star className="w-3.5 h-3.5 fill-[#8F6438] text-[#8F6438] dark:fill-[#C89B67] dark:text-[#C89B67] translate-y-[-0.5px]" />
-                {product.rating.toFixed(1)} ({product.reviewCount})
-              </span>
-              {highlights.map((h) => (
+            <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 text-xs text-[var(--ks-text-secondary)] pt-1">
+              {hasRating && (
+                <span className="inline-flex items-center gap-1 font-mono-num">
+                  <Star className="w-3.5 h-3.5 fill-[var(--ks-accent)] text-[var(--ks-accent)] translate-y-[-0.5px]" />
+                  {product.rating.toFixed(1)} ({product.reviewCount})
+                </span>
+              )}
+              {highlights.map((h, i) => (
                 <React.Fragment key={h}>
-                  <span aria-hidden="true">·</span>
+                  {(hasRating || i > 0) && <span aria-hidden="true">·</span>}
                   <span>{h}</span>
                 </React.Fragment>
               ))}
-              <span aria-hidden="true">·</span>
+              {(hasRating || highlights.length > 0) && <span aria-hidden="true">·</span>}
               <span>
                 {outOfStock
-                  ? 'Out of Stock'
+                  ? 'Out of stock'
                   : product.availability === 'in-stock'
-                  ? 'In Stock'
+                  ? 'In stock'
                   : product.availability === 'low-stock'
                   ? `Only ${product.stockCount} left`
-                  : 'Made to Order'}
+                  : 'Made to order'}
               </span>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-[#E5E3DD] dark:border-[#2C2C28]">
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-[var(--ks-border)]">
             <div className="flex items-baseline gap-2.5">
-              <span className="text-base font-mono-num font-semibold text-[#171716] dark:text-[#F4F3EF]">
+              <span className="text-base font-mono-num font-semibold text-[var(--ks-text-primary)]">
                 {formatCurrency(product.price, currency)}
               </span>
-              {product.originalPrice && (
-                <span className="text-xs font-mono-num line-through text-[#84827B]">
+              {hasVerifiedDiscount && product.originalPrice && (
+                <span className="text-xs font-mono-num line-through text-[var(--ks-text-muted)]">
                   {formatCurrency(product.originalPrice, currency)}
                 </span>
               )}
@@ -142,11 +153,11 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
               <button
                 type="button"
                 onClick={() => toggleWishlist(product)}
-                aria-label={isWishlisted ? 'Remove from wishlist' : 'Save to wishlist'}
-                className={`w-10 h-10 rounded-md border flex items-center justify-center transition-colors cursor-pointer ${
+                aria-label={isWishlisted ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`}
+                className={`w-10 h-10 rounded-[var(--ks-radius-md)] border flex items-center justify-center transition-colors cursor-pointer ${
                   isWishlisted
-                    ? 'border-[#8F6438] text-[#8F6438] dark:border-[#C89B67] dark:text-[#C89B67]'
-                    : 'border-[#E5E3DD] dark:border-[#2C2C28] text-[#5C5B57] dark:text-[#B4B2AC] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
+                    ? 'border-[var(--ks-accent)] text-[var(--ks-accent)]'
+                    : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] hover:border-[var(--ks-border-strong)]'
                 }`}
               >
                 <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-current' : ''}`} />
@@ -155,12 +166,12 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
                 type="button"
                 disabled={outOfStock}
                 onClick={handlePrimaryAdd}
-                className={`px-4 h-10 rounded-md text-xs font-medium inline-flex items-center gap-1.5 transition-[color,background-color,transform] duration-150 ${
+                className={`px-4 h-10 rounded-[var(--ks-radius-md)] text-xs font-medium inline-flex items-center gap-1.5 transition-[color,background-color,transform] duration-[var(--ks-duration-fast)] whitespace-nowrap ${
                   outOfStock
-                    ? 'bg-[#EAE7E0] dark:bg-[#262623] text-[#84827B] cursor-not-allowed'
+                    ? 'bg-[var(--ks-surface-muted)] text-[var(--ks-text-muted)] cursor-not-allowed'
                     : justAdded
-                    ? 'bg-[#1F6E43] text-white active:scale-[0.97] cursor-pointer'
-                    : 'bg-[#171716] dark:bg-[#F4F3EF] text-white dark:text-[#171716] hover:bg-[#2E2D2A] dark:hover:bg-[#E2E0D8] active:scale-[0.97] cursor-pointer'
+                    ? 'bg-[var(--ks-success)] text-white active:scale-[0.97] cursor-pointer'
+                    : 'bg-[var(--ks-action)] text-[var(--ks-action-text)] hover:bg-[var(--ks-action-hover)] active:scale-[0.97] cursor-pointer'
                 }`}
               >
                 {outOfStock ? (
@@ -185,13 +196,13 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
   }
 
   return (
-    <article className="group flex flex-col rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] overflow-hidden transition-[transform,box-shadow,border-color] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-0.5 hover:shadow-md">
+    <article className="group flex flex-col rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] overflow-hidden transition-[transform,box-shadow,border-color] duration-200 ease-[var(--ks-ease-standard)] hover:-translate-y-0.5 hover:shadow-[var(--ks-shadow-card-hover)]">
       <div
         onClick={() => navigate({ name: 'product', slug: product.slug })}
         onMouseEnter={() => {
           if (secondaryImage && !hoverMounted) setHoverMounted(true);
         }}
-        className="relative aspect-[4/3] overflow-hidden bg-[#F2F0EC] dark:bg-[#22221F] cursor-pointer"
+        className="relative aspect-[4/3] overflow-hidden bg-[var(--ks-surface-muted)] cursor-pointer"
       >
         <ResilientImage
           src={product.images[0]}
@@ -202,25 +213,21 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
         {secondaryImage && hoverMounted && (
           <ResilientImage
             src={secondaryImage}
-            alt={`${product.name} studio detail`}
+            alt={`${product.name} alternate view`}
             loading="lazy"
             className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 transition-opacity duration-300"
           />
         )}
 
-        {/* Top badge & wishlist icon */}
+        {/* Top status/discount label & wishlist control */}
         <div className="absolute top-2.5 left-2.5 right-2.5 flex items-start justify-between pointer-events-none">
           {outOfStock ? (
-            <span className="px-2 py-0.5 rounded-md bg-[#171716]/85 text-[#FAF9F6] text-[11px] font-medium">
+            <span className="px-2 py-0.5 rounded-[var(--ks-radius-sm)] bg-[#222220]/90 text-[#FAF9F6] text-[11px] font-medium">
               Out of Stock
             </span>
-          ) : discount > 0 ? (
-            <span className="px-2 py-0.5 rounded-md bg-[#171716]/85 text-[#FAF9F6] text-[11px] font-mono-num">
+          ) : hasVerifiedDiscount ? (
+            <span className="px-2 py-0.5 rounded-[var(--ks-radius-sm)] bg-[#222220]/90 text-[#FAF9F6] text-[11px] font-mono-num">
               -{discount}%
-            </span>
-          ) : product.badgeText ? (
-            <span className="px-2 py-0.5 rounded-md bg-[#FFFFFF]/92 dark:bg-[#191917]/92 text-[#171716] dark:text-[#F4F3EF] border border-[#E5E3DD]/70 dark:border-[#2C2C28] text-[11px] font-medium">
-              {product.badgeText}
             </span>
           ) : (
             <span />
@@ -235,10 +242,10 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
             aria-label={
               isWishlisted ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`
             }
-            className={`pointer-events-auto w-9 h-9 rounded-md flex items-center justify-center border transition-[color,background-color,transform] duration-150 active:scale-[0.88] cursor-pointer ${
+            className={`pointer-events-auto w-9 h-9 rounded-[var(--ks-radius-md)] flex items-center justify-center border transition-[color,background-color,transform] duration-[var(--ks-duration-fast)] active:scale-[0.88] cursor-pointer ${
               isWishlisted
-                ? 'bg-[#171716] text-white border-[#171716] dark:bg-[#F4F3EF] dark:text-[#171716] dark:border-[#F4F3EF]'
-                : 'bg-white/95 dark:bg-[#191917]/95 text-[#171716] dark:text-[#F4F3EF] border-[#E5E3DD]/70 dark:border-[#2C2C28] hover:bg-white dark:hover:bg-[#191917]'
+                ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)]'
+                : 'bg-[var(--ks-surface)]/95 text-[var(--ks-text-primary)] border-[var(--ks-border)] hover:bg-[var(--ks-surface)]'
             }`}
           >
             <Heart className={`w-3.5 h-3.5 ${isWishlisted ? 'fill-current' : ''}`} />
@@ -246,33 +253,34 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
         </div>
       </div>
 
-      {/* Metadata & Price */}
+      {/* Product info & Add to Bag bar */}
       <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between gap-3">
         <div className="space-y-1.5">
-          <div className="flex items-baseline justify-between gap-2">
-            <span className="text-[11px] uppercase tracking-wider text-[#84827B] min-w-0 truncate">
-              {product.brand}
+          <div className="flex items-baseline justify-between gap-2 min-h-[16px]">
+            <span className="text-[11px] tracking-wide text-[var(--ks-text-muted)] min-w-0 truncate">
+              {product.brand || product.categoryLabel}
             </span>
-            <span className="inline-flex items-center gap-1 text-xs font-mono-num text-[#5C5B57] dark:text-[#A3A19B] shrink-0">
-              <Star className="w-3 h-3 fill-[#8F6438] text-[#8F6438] dark:fill-[#C89B67] dark:text-[#C89B67] translate-y-[-0.5px]" />
-              {product.rating.toFixed(1)}
-            </span>
+            {hasRating && (
+              <span className="inline-flex items-center gap-1 text-xs font-mono-num text-[var(--ks-text-secondary)] shrink-0">
+                <Star className="w-3 h-3 fill-[var(--ks-accent)] text-[var(--ks-accent)] translate-y-[-0.5px]" />
+                {product.rating.toFixed(1)}
+              </span>
+            )}
           </div>
 
           <h3
             onClick={() => navigate({ name: 'product', slug: product.slug })}
-            className="text-[15px] sm:text-base font-semibold text-[#171716] dark:text-[#F4F3EF] leading-snug line-clamp-1 cursor-pointer hover:text-[#8F6438] dark:hover:text-[#C89B67] transition-colors"
+            className="text-[15px] sm:text-base font-semibold text-[var(--ks-text-primary)] leading-snug line-clamp-1 cursor-pointer hover:text-[var(--ks-accent)] transition-colors"
           >
             {product.name}
           </h3>
 
-          {/* Category-adaptive highlights + swatch dots */}
-          <div className="flex items-center justify-between gap-2 pt-0.5">
-            <p className="text-[11px] text-[#5C5B57] dark:text-[#A3A19B] truncate">
+          <div className="flex items-center justify-between gap-2 pt-0.5 min-h-[24px]">
+            <p className="text-[11px] text-[var(--ks-text-secondary)] truncate">
               {highlights.length > 0 ? highlights.join(' · ') : product.categoryLabel}
             </p>
             {product.colors.length > 1 && (
-              <div className="flex items-center gap-0.5 shrink-0 -mr-1" aria-label="Available variants">
+              <div className="flex items-center gap-0.5 shrink-0 -mr-1" aria-label="Color options">
                 {product.colors.slice(0, 4).map((c, idx) => (
                   <button
                     key={c.name}
@@ -288,8 +296,8 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
                     <span
                       className={`block w-3 h-3 rounded-full border transition-transform ${
                         idx === selectedColorIdx
-                          ? 'scale-110 ring-1 ring-[#171716] dark:ring-[#F4F3EF] border-white dark:border-[#191917]'
-                          : 'border-black/20 dark:border-white/20 opacity-80 hover:opacity-100'
+                          ? 'scale-110 ring-1 ring-[var(--ks-text-primary)] border-[var(--ks-surface)]'
+                          : 'border-black/20 dark:border-white/25 opacity-85 hover:opacity-100'
                       }`}
                       style={{ backgroundColor: c.hex }}
                     />
@@ -300,13 +308,13 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-[#E5E3DD] dark:border-[#2C2C28]">
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-[var(--ks-border)]">
           <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 min-w-0">
-            <span className="text-[15px] font-mono-num font-semibold text-[#171716] dark:text-[#F4F3EF]">
+            <span className="text-[15px] font-mono-num font-semibold text-[var(--ks-text-primary)]">
               {formatCurrency(product.price, currency)}
             </span>
-            {product.originalPrice && (
-              <span className="text-[11px] font-mono-num line-through text-[#84827B]">
+            {hasVerifiedDiscount && product.originalPrice && (
+              <span className="text-[11px] font-mono-num line-through text-[var(--ks-text-muted)]">
                 {formatCurrency(product.originalPrice, currency)}
               </span>
             )}
@@ -317,12 +325,12 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
             disabled={outOfStock}
             onClick={handlePrimaryAdd}
             aria-label={outOfStock ? `${product.name} out of stock` : `Add ${product.name} to bag`}
-            className={`ml-auto px-2.5 sm:px-3.5 h-9 sm:h-10 rounded-md text-xs font-medium inline-flex items-center gap-1 transition-[color,background-color,transform] duration-150 whitespace-nowrap shrink-0 ${
+            className={`ml-auto px-2.5 sm:px-3.5 h-9 sm:h-10 rounded-[var(--ks-radius-md)] text-xs font-medium inline-flex items-center gap-1 transition-[color,background-color,transform] duration-[var(--ks-duration-fast)] whitespace-nowrap shrink-0 ${
               outOfStock
-                ? 'bg-[#EAE7E0] dark:bg-[#262623] text-[#84827B] cursor-not-allowed'
+                ? 'bg-[var(--ks-surface-muted)] text-[var(--ks-text-muted)] cursor-not-allowed'
                 : justAdded
-                ? 'bg-[#1F6E43] text-white active:scale-[0.96] cursor-pointer'
-                : 'bg-[#171716] dark:bg-[#F4F3EF] text-white dark:text-[#171716] hover:bg-[#2E2D2A] dark:hover:bg-[#E2E0D8] active:scale-[0.96] cursor-pointer'
+                ? 'bg-[var(--ks-success)] text-white active:scale-[0.96] cursor-pointer'
+                : 'bg-[var(--ks-action)] text-[var(--ks-action-text)] hover:bg-[var(--ks-action-hover)] active:scale-[0.96] cursor-pointer'
             }`}
           >
             {outOfStock ? (

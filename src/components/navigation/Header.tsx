@@ -16,6 +16,7 @@ import {
   Package,
   Search,
   ShieldCheck,
+  ShoppingBag,
   Store,
   Sun,
   Trash2,
@@ -43,15 +44,15 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
     categories,
     products,
     currency,
-    currencyConfig,
     shippingConfig,
     setCurrency,
     toggleCurrency,
     recentSearches,
     addRecentSearch,
     clearRecentSearches,
+    cartItemCount,
+    setCartDrawerOpen,
     wishlistIds,
-    compareIds,
     profile,
     logoutDemo,
     notifications,
@@ -88,9 +89,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
 
   useFocusTrap(mobileMenuOpen, mobileNavPanelRef);
 
-  const freeThresholdUsd = useMemo(
-    () =>
-      shippingConfig.zones.find((z) => z.zoneId === 'dhaka_metro')?.freeThresholdUsd ?? 120,
+  const dhakaFreeThresholdUsd = useMemo(
+    () => shippingConfig.zones.find((z) => z.zoneId === 'dhaka_metro')?.freeThresholdUsd,
     [shippingConfig]
   );
 
@@ -290,7 +290,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
 
   return (
     <>
-      {/* Level 1: Calm Announcement Strip */}
+      {/* Tier 1: Calm Announcement Strip */}
       <AnimatePresence initial={false}>
         {announcementVisible && (
           <motion.div
@@ -298,25 +298,30 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={STUDIO_TRANSITION.fast}
-            className="overflow-hidden bg-[#171716] dark:bg-[#191917] text-[#FAF9F6] text-[11px] sm:text-xs border-b border-white/10"
+            className="overflow-hidden bg-[#222220] dark:bg-[#191917] text-[#FAF9F6] text-[11px] sm:text-xs border-b border-white/10"
           >
-            <div className="py-1.5 sm:py-2 px-3 sm:px-6 max-w-[1440px] mx-auto grid grid-cols-[2rem_1fr_auto] lg:grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4">
+            <div className="py-1.5 sm:py-2 px-3 sm:px-6 lg:px-10 max-w-[var(--ks-container-max)] mx-auto grid grid-cols-[2rem_1fr_auto] lg:grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4">
               <span className="lg:hidden w-8" aria-hidden="true" />
-              <span className="hidden lg:inline text-[#A3A19B] whitespace-nowrap justify-self-start truncate">
-                Dhaka Hub &amp; 64 Districts · 1 USD = ৳{currencyConfig.rates.BDT.toFixed(1)}
+              <span className="hidden lg:inline text-[#B4B2AC] whitespace-nowrap justify-self-start truncate">
+                Delivering across Dhaka &amp; 64 districts
               </span>
 
               <p className="min-w-0 text-center truncate">
-                Complimentary Dhaka Metro shipping {formatCurrency(freeThresholdUsd, currency)}+ · Code{' '}
-                <span className="font-mono-num font-medium text-[#E2B887]">STUDIO15</span>{' '}
-                for 15% off
+                {dhakaFreeThresholdUsd ? (
+                  <>
+                    Free Dhaka Metro delivery from{' '}
+                    <span className="font-mono-num">{formatCurrency(dhakaFreeThresholdUsd, currency)}</span>
+                    {' · '}
+                  </>
+                ) : null}
+                Use code <span className="font-mono-num font-medium text-[#E2B887]">STUDIO15</span> for 15% off qualifying orders
               </p>
 
               <button
                 type="button"
                 onClick={() => setAnnouncementVisible(false)}
                 aria-label="Dismiss announcement"
-                className="justify-self-end text-[#A3A19B] hover:text-white p-1.5 -mr-1 cursor-pointer transition-colors shrink-0"
+                className="justify-self-end text-[#B4B2AC] hover:text-white p-1.5 -mr-1 cursor-pointer transition-colors shrink-0"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -329,8 +334,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
       <header
         className={`sticky top-0 z-40 backdrop-blur-md border-b transition-shadow duration-200 ${
           scrolled
-            ? 'bg-[#F9F8F6]/98 dark:bg-[#111110]/98 border-[#DCD9D0] dark:border-[#343430] shadow-sm'
-            : 'bg-[#F9F8F6]/95 dark:bg-[#111110]/95 border-[#E5E3DD] dark:border-[#2C2C28]'
+            ? 'bg-[var(--ks-bg)]/98 border-[var(--ks-border-strong)] shadow-sm'
+            : 'bg-[var(--ks-bg)]/95 border-[var(--ks-border)]'
         }`}
         onMouseLeave={scheduleCloseMegaMenu}
         onMouseEnter={() => {
@@ -340,19 +345,19 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
           }
         }}
       >
-        {/* Level 2: Main Header — Logo, Prominent Search Bar, Utilities */}
+        {/* Tier 2: Logo, Prominent Search, Account, Wishlist & Bag */}
         <div
-          className={`max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-10 flex items-center justify-between gap-2 sm:gap-4 lg:gap-6 transition-[height] duration-200 ${
-            scrolled ? 'h-12 sm:h-14' : 'h-14 sm:h-16'
+          className={`max-w-[var(--ks-container-max)] mx-auto px-3 sm:px-6 lg:px-10 flex items-center justify-between gap-2 sm:gap-4 lg:gap-6 transition-[height] duration-200 ${
+            scrolled ? 'h-13 sm:h-14' : 'h-14 sm:h-16'
           }`}
         >
-          {/* Mobile menu trigger + Brand Wordmark */}
+          {/* Mobile menu button + Brand Wordmark */}
           <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 shrink-0">
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
               aria-label="Open navigation menu"
-              className="md:hidden w-10 h-10 -ml-1.5 rounded-md flex items-center justify-center text-[#171716] dark:text-[#F4F3EF] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] cursor-pointer shrink-0"
+              className="md:hidden w-10 h-10 -ml-1.5 rounded-[var(--ks-radius-md)] flex items-center justify-center text-[var(--ks-text-primary)] hover:bg-[var(--ks-surface-muted)] cursor-pointer shrink-0"
             >
               <Menu className="w-5 h-5" />
             </button>
@@ -363,26 +368,26 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                 e.preventDefault();
                 go({ name: 'home' });
               }}
-              className="font-display text-base sm:text-xl lg:text-2xl font-semibold tracking-[0.04em] sm:tracking-[0.08em] text-[#171716] dark:text-[#F4F3EF] whitespace-nowrap truncate"
+              className="font-display text-base min-[380px]:text-lg sm:text-xl lg:text-2xl font-semibold tracking-[0.04em] sm:tracking-[0.07em] text-[var(--ks-text-primary)] whitespace-nowrap truncate"
             >
               KINTO STUDIO
             </a>
           </div>
 
-          {/* Prominent Central Inline Search Bar + Instant Live Suggestions Dropdown (Tablet & Desktop) */}
+          {/* Central Inline Search Bar (Tablet & Desktop) */}
           <div ref={searchContainerRef} className="hidden md:block relative flex-1 max-w-2xl">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 submitHeaderSearch(searchTerm);
               }}
-              className={`flex items-center gap-2.5 h-9 lg:h-10 px-3.5 rounded-md bg-[#FFFFFF] dark:bg-[#191917] border transition-colors ${
+              className={`flex items-center gap-2.5 h-9 lg:h-10 px-3.5 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border transition-colors ${
                 searchDropdownOpen
-                  ? 'border-[#8F6438] dark:border-[#C89B67] ring-1 ring-[#8F6438]/20'
-                  : 'border-[#E5E3DD] dark:border-[#2C2C28] hover:border-[#8F6438] dark:hover:border-[#C89B67]'
+                  ? 'border-[var(--ks-accent)] ring-1 ring-[var(--ks-accent)]/20'
+                  : 'border-[var(--ks-border)] hover:border-[var(--ks-border-strong)]'
               }`}
             >
-              <Search className="w-4 h-4 shrink-0 text-[#5C5B57] dark:text-[#A3A19B]" />
+              <Search className="w-4 h-4 shrink-0 text-[var(--ks-text-secondary)]" />
               <input
                 ref={desktopSearchInputRef}
                 type="search"
@@ -394,10 +399,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                   setSearchDropdownOpen(true);
                 }}
                 onKeyDown={handleHeaderSearchKeyDown}
-                placeholder="Search 10 departments — audio, apparel, furniture, tools, skincare..."
-                aria-label="Search marketplace catalog"
+                placeholder="Search products, brands, or departments..."
+                aria-label="Search products"
                 aria-expanded={searchDropdownOpen}
-                className="flex-1 min-w-0 bg-transparent text-xs lg:text-sm text-[#171716] dark:text-[#F4F3EF] placeholder:text-[#84827B] focus:outline-none"
+                className="flex-1 min-w-0 bg-transparent text-xs lg:text-sm text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)] focus:outline-none"
               />
               {searchTerm && (
                 <button
@@ -408,14 +413,14 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                     desktopSearchInputRef.current?.focus();
                   }}
                   aria-label="Clear search query"
-                  className="text-[11px] text-[#84827B] hover:text-[#171716] dark:hover:text-[#F4F3EF] px-1 cursor-pointer"
+                  className="text-[11px] text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] px-1 cursor-pointer"
                 >
                   Clear
                 </button>
               )}
               <button
                 type="submit"
-                className="px-2.5 py-1 rounded bg-[#171716] dark:bg-[#F4F3EF] text-white dark:text-[#171716] text-[11px] font-medium hover:opacity-90 cursor-pointer shrink-0"
+                className="px-2.5 py-1 rounded-[var(--ks-radius-sm)] bg-[var(--ks-action)] text-[var(--ks-action-text)] text-[11px] font-medium hover:bg-[var(--ks-action-hover)] cursor-pointer shrink-0"
               >
                 Search
               </button>
@@ -429,7 +434,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 4, scale: 0.99 }}
                   transition={STUDIO_TRANSITION.fast}
-                  className="absolute left-0 right-0 mt-2 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] shadow-2xl overflow-hidden z-50"
+                  className="absolute left-0 right-0 mt-2 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] shadow-[var(--ks-shadow-overlay)] overflow-hidden z-50"
                 >
                   <div className="p-4 max-h-[68vh] overflow-y-auto space-y-4">
                     {searchTerm.trim() ? (
@@ -441,9 +446,9 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                                 key={cat.slug}
                                 type="button"
                                 onClick={() => go({ name: 'category', category: cat.slug })}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#F2F0EC] dark:bg-[#22221F] text-xs font-medium hover:border-[#171716] border border-transparent cursor-pointer"
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[var(--ks-radius-sm)] bg-[var(--ks-surface-muted)] text-xs font-medium hover:border-[var(--ks-action)] border border-transparent cursor-pointer"
                               >
-                                <Layers className="w-3 h-3 text-[#8F6438] dark:text-[#C89B67]" />
+                                <Layers className="w-3 h-3 text-[var(--ks-accent)]" />
                                 <span>{cat.name}</span>
                               </button>
                             ))}
@@ -458,9 +463,9 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                                     brand: b.name,
                                   })
                                 }
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded border border-[#E5E3DD] dark:border-[#2C2C28] text-xs font-medium hover:border-[#171716] cursor-pointer"
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[var(--ks-radius-sm)] border border-[var(--ks-border)] text-xs hover:border-[var(--ks-accent)] cursor-pointer"
                               >
-                                <Store className="w-3 h-3 text-[#8F6438] dark:text-[#C89B67]" />
+                                <Store className="w-3 h-3 text-[var(--ks-accent)]" />
                                 <span>{b.name}</span>
                               </button>
                             ))}
@@ -469,49 +474,50 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
 
                         <div>
                           <div className="flex items-center justify-between mb-2">
-                            <p className="text-[11px] uppercase tracking-wider text-[#84827B]">
-                              Instant Matches ({searchSuggestions.length})
+                            <p className="text-[11px] uppercase tracking-wider text-[var(--ks-text-muted)]">
+                              Matching Products
                             </p>
                             <button
                               type="button"
                               onClick={() => submitHeaderSearch(searchTerm)}
-                              className="text-xs font-medium text-[#8F6438] dark:text-[#C89B67] inline-flex items-center gap-1 hover:underline cursor-pointer"
+                              className="text-xs font-medium text-[var(--ks-accent)] hover:underline inline-flex items-center gap-1 cursor-pointer"
                             >
                               <span>View all results</span>
                               <ArrowRight className="w-3 h-3" />
                             </button>
                           </div>
+
                           {searchSuggestions.length === 0 ? (
-                            <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] py-2">
-                              No direct matches for &ldquo;{searchTerm}&rdquo;. Press Enter to search full descriptions.
+                            <p className="text-xs text-[var(--ks-text-secondary)] py-3">
+                              No direct product matches for &ldquo;{searchTerm}&rdquo;. Press Enter to search all products.
                             </p>
                           ) : (
-                            <ul className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28]">
+                            <ul className="divide-y divide-[var(--ks-divider)]">
                               {searchSuggestions.map((item, idx) => (
                                 <li key={item.id}>
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      addRecentSearch(searchTerm.trim());
+                                      addRecentSearch(searchTerm || item.name);
                                       go({ name: 'product', slug: item.slug });
                                     }}
-                                    className={`w-full py-2.5 px-2 flex items-center gap-3 text-left rounded-md transition-colors cursor-pointer ${
+                                    className={`w-full py-2.5 px-2 rounded-[var(--ks-radius-md)] flex items-center gap-3 text-left transition-colors cursor-pointer ${
                                       idx === searchActiveIdx
-                                        ? 'bg-[#F2F0EC] dark:bg-[#22221F]'
-                                        : 'hover:bg-[#F9F8F6] dark:hover:bg-[#22221F]'
+                                        ? 'bg-[var(--ks-surface-muted)]'
+                                        : 'hover:bg-[var(--ks-bg)]'
                                     }`}
                                   >
                                     <ResilientImage
                                       src={item.images[0]}
                                       alt={item.name}
-                                      className="w-12 h-9 object-cover rounded-sm shrink-0"
+                                      className="w-12 h-9 object-cover rounded-[var(--ks-radius-sm)] shrink-0"
                                     />
                                     <div className="flex-1 min-w-0">
                                       <p className="text-xs sm:text-sm font-medium truncate">
                                         {item.name}
                                       </p>
-                                      <p className="text-[11px] text-[#5C5B57] dark:text-[#A3A19B] truncate">
-                                        {item.brand} · {item.categoryLabel}
+                                      <p className="text-[11px] text-[var(--ks-text-secondary)] truncate">
+                                        {item.brand ? `${item.brand} · ${item.categoryLabel}` : item.categoryLabel}
                                       </p>
                                     </div>
                                     <span className="text-xs font-mono-num font-semibold shrink-0">
@@ -529,13 +535,13 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                         {recentSearches.length > 0 && (
                           <div>
                             <div className="flex items-center justify-between mb-2">
-                              <p className="text-[11px] uppercase tracking-wider text-[#84827B]">
+                              <p className="text-[11px] uppercase tracking-wider text-[var(--ks-text-muted)]">
                                 Recent Searches
                               </p>
                               <button
                                 type="button"
                                 onClick={clearRecentSearches}
-                                className="text-[11px] text-[#84827B] hover:text-[#171716] dark:hover:text-[#F4F3EF] inline-flex items-center gap-1 cursor-pointer"
+                                className="text-[11px] text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] inline-flex items-center gap-1 cursor-pointer"
                               >
                                 <Trash2 className="w-3 h-3" />
                                 <span>Clear</span>
@@ -547,9 +553,9 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                                   key={q}
                                   type="button"
                                   onClick={() => submitHeaderSearch(q)}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-[#E5E3DD] dark:border-[#2C2C28] text-xs hover:border-[#171716] cursor-pointer"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[var(--ks-radius-sm)] border border-[var(--ks-border)] text-xs hover:border-[var(--ks-action)] cursor-pointer"
                                 >
-                                  <Clock className="w-3 h-3 text-[#84827B]" />
+                                  <Clock className="w-3 h-3 text-[var(--ks-text-muted)]" />
                                   <span>{q}</span>
                                 </button>
                               ))}
@@ -557,8 +563,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                           </div>
                         )}
                         <div>
-                          <p className="text-[11px] uppercase tracking-wider text-[#84827B] mb-2">
-                            Popular Across 10 Departments
+                          <p className="text-[11px] uppercase tracking-wider text-[var(--ks-text-muted)] mb-2">
+                            Popular Searches
                           </p>
                           <div className="flex flex-wrap gap-1.5">
                             {[
@@ -572,7 +578,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                                 key={q}
                                 type="button"
                                 onClick={() => submitHeaderSearch(q)}
-                                className="px-2.5 py-1 rounded bg-[#F2F0EC] dark:bg-[#22221F] text-xs font-medium hover:bg-[#E5E3DD] dark:hover:bg-[#2E2E2A] cursor-pointer"
+                                className="px-2.5 py-1 rounded-[var(--ks-radius-sm)] bg-[var(--ks-surface-muted)] text-xs font-medium hover:bg-[var(--ks-border)] cursor-pointer"
                               >
                                 {q}
                               </button>
@@ -587,30 +593,31 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
             </AnimatePresence>
           </div>
 
-          {/* Utility Controls */}
-          <div className="flex items-center gap-0.5 sm:gap-1.5 shrink-0">
+          {/* Utility Controls (Balanced for Mobile & Desktop) */}
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            {/* Mobile Search Button */}
             <button
               type="button"
               onClick={onOpenSearch}
-              aria-label="Search catalog"
-              className="md:hidden w-10 h-10 rounded-md flex items-center justify-center text-[#171716] dark:text-[#F4F3EF] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] transition-colors cursor-pointer"
+              aria-label="Search products"
+              className="md:hidden w-10 h-10 rounded-[var(--ks-radius-md)] flex items-center justify-center text-[var(--ks-text-primary)] hover:bg-[var(--ks-surface-muted)] transition-colors cursor-pointer"
             >
               <Search className="w-[18px] h-[18px]" />
             </button>
 
             <PWAInstallButton variant="header" />
 
-            {/* BDT / USD Currency Switcher Dropdown */}
+            {/* Currency Switcher (Tablet & Desktop) */}
             <div ref={currencyContainerRef} className="relative hidden sm:block">
               <button
                 type="button"
                 onClick={() => setCurrencyMenuOpen((p) => !p)}
                 aria-label={`Select currency (currently ${currency})`}
                 aria-expanded={currencyMenuOpen}
-                className="flex h-9 px-2.5 rounded-md items-center gap-1.5 text-xs font-mono-num font-medium border border-[#E5E3DD] dark:border-[#2C2C28] bg-[#FFFFFF] dark:bg-[#191917] hover:border-[#8F6438] dark:hover:border-[#C89B67] transition-colors cursor-pointer"
+                className="flex h-9 px-2.5 rounded-[var(--ks-radius-md)] items-center gap-1.5 text-xs font-mono-num font-medium border border-[var(--ks-border)] bg-[var(--ks-surface)] hover:border-[var(--ks-accent)] transition-colors cursor-pointer"
               >
                 <span>{currency === 'BDT' ? '৳ BDT' : '$ USD'}</span>
-                <ChevronDown className="w-3 h-3 text-[#84827B]" />
+                <ChevronDown className="w-3 h-3 text-[var(--ks-text-muted)]" />
               </button>
 
               <AnimatePresence>
@@ -620,10 +627,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 4, scale: 0.98 }}
                     transition={STUDIO_TRANSITION.fast}
-                    className="absolute right-0 mt-2 w-60 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] shadow-xl p-2 z-50 space-y-1"
+                    className="absolute right-0 mt-2 w-56 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] shadow-[var(--ks-shadow-overlay)] p-2 z-50 space-y-1"
                   >
-                    <p className="px-2 py-1 text-[10px] uppercase tracking-wider text-[#84827B]">
-                      Display Currency
+                    <p className="px-2 py-1 text-[10px] uppercase tracking-wider text-[var(--ks-text-muted)]">
+                      Currency
                     </p>
                     <button
                       type="button"
@@ -631,10 +638,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                         setCurrency('BDT');
                         setCurrencyMenuOpen(false);
                       }}
-                      className={`w-full px-2.5 py-2 rounded-md flex items-center justify-between text-xs cursor-pointer ${
+                      className={`w-full px-2.5 py-2 rounded-[var(--ks-radius-md)] flex items-center justify-between text-xs cursor-pointer ${
                         currency === 'BDT'
-                          ? 'bg-[#F2F0EC] dark:bg-[#22221F] font-semibold'
-                          : 'hover:bg-[#F9F8F6] dark:hover:bg-[#22221F]'
+                          ? 'bg-[var(--ks-surface-muted)] font-semibold'
+                          : 'hover:bg-[var(--ks-bg)]'
                       }`}
                     >
                       <span>Bangladesh Taka (BDT)</span>
@@ -646,28 +653,29 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                         setCurrency('USD');
                         setCurrencyMenuOpen(false);
                       }}
-                      className={`w-full px-2.5 py-2 rounded-md flex items-center justify-between text-xs cursor-pointer ${
+                      className={`w-full px-2.5 py-2 rounded-[var(--ks-radius-md)] flex items-center justify-between text-xs cursor-pointer ${
                         currency === 'USD'
-                          ? 'bg-[#F2F0EC] dark:bg-[#22221F] font-semibold'
-                          : 'hover:bg-[#F9F8F6] dark:hover:bg-[#22221F]'
+                          ? 'bg-[var(--ks-surface-muted)] font-semibold'
+                          : 'hover:bg-[var(--ks-bg)]'
                       }`}
                     >
                       <span>US Dollar (USD)</span>
                       <span className="font-mono-num">$</span>
                     </button>
-                    <div className="px-2 pt-1.5 pb-0.5 border-t border-[#E5E3DD] dark:border-[#2C2C28] text-[10px] font-mono-num text-[#84827B]">
-                      1 USD = ৳{currencyConfig.rates.BDT.toFixed(2)} · Bangladesh orders settle in BDT
+                    <div className="px-2 pt-1.5 pb-0.5 border-t border-[var(--ks-border)] text-[10px] text-[var(--ks-text-muted)]">
+                      Bangladesh orders settle in BDT.
                     </div>
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
 
+            {/* Theme Toggle (Tablet & Desktop) */}
             <button
               type="button"
               onClick={toggleTheme}
               aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-              className="hidden sm:flex w-9 h-9 rounded-md items-center justify-center text-[#171716] dark:text-[#F4F3EF] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] transition-colors cursor-pointer"
+              className="hidden sm:flex w-9 h-9 rounded-[var(--ks-radius-md)] items-center justify-center text-[var(--ks-text-primary)] hover:bg-[var(--ks-surface-muted)] transition-colors cursor-pointer"
             >
               {theme === 'dark' ? (
                 <Sun className="w-[17px] h-[17px]" />
@@ -676,18 +684,18 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
               )}
             </button>
 
-            {/* Notification Bell Center */}
+            {/* Notifications (Desktop & Tablet when signed in or alerts exist) */}
             <div ref={notifContainerRef} className="relative hidden sm:block">
               <button
                 type="button"
                 onClick={() => setNotifOpen((p) => !p)}
                 aria-label={`Notifications (${unreadNotificationCount} unread)`}
                 aria-expanded={notifOpen}
-                className="relative w-9 h-9 rounded-md flex items-center justify-center text-[#171716] dark:text-[#F4F3EF] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] transition-colors cursor-pointer"
+                className="relative w-9 h-9 rounded-[var(--ks-radius-md)] flex items-center justify-center text-[var(--ks-text-primary)] hover:bg-[var(--ks-surface-muted)] transition-colors cursor-pointer"
               >
                 <Bell className="w-[17px] h-[17px]" />
                 {unreadNotificationCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 min-w-[15px] h-[15px] px-0.5 rounded-full bg-[#8F6438] dark:bg-[#C89B67] text-white dark:text-[#171716] text-[9px] font-mono-num font-semibold flex items-center justify-center">
+                  <span className="absolute top-1.5 right-1.5 min-w-[15px] h-[15px] px-0.5 rounded-full bg-[var(--ks-accent)] text-[var(--ks-accent-text)] text-[9px] font-mono-num font-semibold flex items-center justify-center">
                     {unreadNotificationCount}
                   </span>
                 )}
@@ -700,20 +708,20 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 4, scale: 0.98 }}
                     transition={STUDIO_TRANSITION.fast}
-                    className="absolute right-0 mt-2 w-80 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] shadow-xl overflow-hidden z-50"
+                    className="absolute right-0 mt-2 w-80 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] shadow-[var(--ks-shadow-overlay)] overflow-hidden z-50"
                   >
-                    <div className="px-4 py-3 border-b border-[#E5E3DD] dark:border-[#2C2C28] flex items-center justify-between">
-                      <span className="text-xs uppercase tracking-wider font-medium text-[#84827B]">
-                        Marketplace Alerts
+                    <div className="px-4 py-3 border-b border-[var(--ks-border)] flex items-center justify-between">
+                      <span className="text-xs uppercase tracking-wider font-medium text-[var(--ks-text-muted)]">
+                        Notifications
                       </span>
-                      <span className="text-[11px] font-mono-num text-[#8F6438] dark:text-[#C89B67] capitalize">
-                        {profile.role} View
+                      <span className="text-[11px] font-mono-num text-[var(--ks-accent)]">
+                        {unreadNotificationCount} unread
                       </span>
                     </div>
-                    <div className="max-h-72 overflow-y-auto divide-y divide-[#E5E3DD] dark:divide-[#2C2C28]">
+                    <div className="max-h-72 overflow-y-auto divide-y divide-[var(--ks-divider)]">
                       {notifications.length === 0 ? (
-                        <p className="p-4 text-xs text-[#5C5B57] dark:text-[#A3A19B]">
-                          All caught up — no pending alerts.
+                        <p className="p-4 text-xs text-[var(--ks-text-secondary)]">
+                          You have no notifications right now.
                         </p>
                       ) : (
                         notifications.map((n) => (
@@ -729,17 +737,17 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                                 go({ name: 'account', accountTab: n.targetTab });
                               }
                             }}
-                            className={`w-full p-3.5 text-left hover:bg-[#F9F8F6] dark:hover:bg-[#22221F] transition-colors cursor-pointer space-y-1 ${
-                              !n.read ? 'bg-[#F9F8F6]/70 dark:bg-[#20201D]' : ''
+                            className={`w-full p-3.5 text-left hover:bg-[var(--ks-bg)] transition-colors cursor-pointer space-y-1 ${
+                              !n.read ? 'bg-[var(--ks-bg)]/70' : ''
                             }`}
                           >
                             <div className="flex items-center justify-between gap-2">
                               <span className="text-xs font-semibold truncate">{n.title}</span>
-                              <span className="text-[10px] font-mono-num text-[#84827B] shrink-0">
+                              <span className="text-[10px] font-mono-num text-[var(--ks-text-muted)] shrink-0">
                                 {n.createdAt}
                               </span>
                             </div>
-                            <p className="text-[11px] text-[#5C5B57] dark:text-[#A3A19B] leading-snug">
+                            <p className="text-[11px] text-[var(--ks-text-secondary)] leading-snug">
                               {n.message}
                             </p>
                           </button>
@@ -751,16 +759,16 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
               </AnimatePresence>
             </div>
 
-            {/* Sign In Button (Guest) OR Account Menu Dropdown (Signed In) — Visible Across Mobile, Tablet & Desktop */}
+            {/* Sign In / Account Dropdown */}
             {!profile.isAuthenticated ? (
               <button
                 type="button"
                 onClick={() => go({ name: 'login' })}
-                aria-label="Sign in to account"
-                className="h-9 px-2.5 sm:px-3.5 rounded-md flex items-center gap-1.5 text-xs font-medium border border-[#E5E3DD] dark:border-[#2C2C28] bg-[#FFFFFF] dark:bg-[#191917] text-[#171716] dark:text-[#F4F3EF] hover:border-[#8F6438] dark:hover:border-[#C89B67] hover:text-[#8F6438] dark:hover:text-[#C89B67] transition-colors cursor-pointer shrink-0"
+                aria-label="Sign in"
+                className="h-9 px-2.5 sm:px-3.5 rounded-[var(--ks-radius-md)] flex items-center gap-1.5 text-xs font-medium border border-[var(--ks-border)] bg-[var(--ks-surface)] text-[var(--ks-text-primary)] hover:border-[var(--ks-accent)] hover:text-[var(--ks-accent)] transition-colors cursor-pointer shrink-0"
               >
                 <LogIn className="w-3.5 h-3.5 shrink-0" />
-                <span>Sign In</span>
+                <span className="hidden min-[380px]:inline">Sign In</span>
               </button>
             ) : (
               <div ref={accountContainerRef} className="relative">
@@ -770,27 +778,22 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                     setAccountMenuOpen((p) => !p);
                     setNotifOpen(false);
                   }}
-                  aria-label="Open account & workspace menu"
+                  aria-label="Open account menu"
                   aria-expanded={accountMenuOpen}
-                  className="h-9 px-2 sm:px-3 rounded-md flex items-center gap-1.5 text-xs font-medium border border-[#E5E3DD] dark:border-[#2C2C28] bg-[#FFFFFF] dark:bg-[#191917] text-[#171716] dark:text-[#F4F3EF] hover:border-[#8F6438] dark:hover:border-[#C89B67] transition-colors cursor-pointer shrink-0"
+                  className="h-9 px-2 sm:px-3 rounded-[var(--ks-radius-md)] flex items-center gap-1.5 text-xs font-medium border border-[var(--ks-border)] bg-[var(--ks-surface)] text-[var(--ks-text-primary)] hover:border-[var(--ks-accent)] transition-colors cursor-pointer shrink-0"
                 >
                   {profile.role === 'admin' ? (
-                    <ShieldCheck className="w-4 h-4 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
+                    <ShieldCheck className="w-4 h-4 text-[var(--ks-accent)] shrink-0" />
                   ) : profile.role === 'seller' ? (
-                    <Store className="w-4 h-4 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
+                    <Store className="w-4 h-4 text-[var(--ks-accent)] shrink-0" />
                   ) : (
                     <User className="w-4 h-4 shrink-0" />
                   )}
-                  <span className="max-w-[58px] sm:max-w-[110px] truncate">
+                  <span className="hidden min-[380px]:inline max-w-[60px] sm:max-w-[110px] truncate">
                     {profile.fullName.split(' ')[0]}
                   </span>
-                  {profile.role !== 'customer' && (
-                    <span className="hidden lg:inline uppercase tracking-wider text-[10px] text-[#8F6438] dark:text-[#C89B67] font-semibold">
-                      {profile.role}
-                    </span>
-                  )}
                   <ChevronDown
-                    className={`w-3.5 h-3.5 text-[#84827B] transition-transform duration-150 ${
+                    className={`w-3.5 h-3.5 text-[var(--ks-text-muted)] transition-transform duration-150 ${
                       accountMenuOpen ? 'rotate-180' : ''
                     }`}
                   />
@@ -803,85 +806,83 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 4, scale: 0.98 }}
                       transition={STUDIO_TRANSITION.fast}
-                      className="absolute right-0 mt-2 w-72 sm:w-80 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] shadow-xl overflow-hidden z-50"
+                      className="absolute right-0 mt-2 w-72 sm:w-80 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] shadow-[var(--ks-shadow-overlay)] overflow-hidden z-50"
                     >
-                      {/* Active User Summary */}
-                      <div className="p-4 bg-[#F9F8F6] dark:bg-[#141413] border-b border-[#E5E3DD] dark:border-[#2C2C28] space-y-1">
+                      <div className="p-4 bg-[var(--ks-bg)] border-b border-[var(--ks-border)] space-y-1">
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-sm font-semibold truncate">{profile.fullName}</span>
-                          <span className="text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] text-[#8F6438] dark:text-[#C89B67] shrink-0">
+                          <span className="text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-[var(--ks-radius-sm)] bg-[var(--ks-surface)] border border-[var(--ks-border)] text-[var(--ks-accent)] shrink-0">
                             {profile.role}
                           </span>
                         </div>
-                        <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] truncate">
+                        <p className="text-xs text-[var(--ks-text-secondary)] truncate">
                           {profile.studioName ? `${profile.studioName} · ` : ''}
                           {profile.email}
                         </p>
                       </div>
 
-                      {/* Role Workspace Links */}
                       <div className="p-2 space-y-0.5">
-                        <p className="px-2.5 pt-1 pb-1.5 text-[10px] uppercase tracking-[0.12em] text-[#84827B]">
-                          Your Workspace Pages
+                        <p className="px-2.5 pt-1 pb-1.5 text-[10px] uppercase tracking-[0.12em] text-[var(--ks-text-muted)]">
+                          Account
                         </p>
 
                         <button
                           type="button"
                           onClick={() => go({ name: 'account', accountTab: 'overview' })}
-                          className="w-full px-2.5 py-2 rounded-md flex items-center justify-between text-xs font-medium hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] transition-colors cursor-pointer"
+                          className="w-full px-2.5 py-2 rounded-[var(--ks-radius-md)] flex items-center justify-between text-xs font-medium hover:bg-[var(--ks-surface-muted)] transition-colors cursor-pointer"
                         >
                           <span className="inline-flex items-center gap-2.5">
-                            <User className="w-3.5 h-3.5 text-[#84827B]" />
+                            <User className="w-3.5 h-3.5 text-[var(--ks-text-muted)]" />
                             Account Overview
                           </span>
-                          <ChevronRight className="w-3.5 h-3.5 text-[#84827B]" />
+                          <ChevronRight className="w-3.5 h-3.5 text-[var(--ks-text-muted)]" />
                         </button>
 
                         <button
                           type="button"
                           onClick={() => go({ name: 'account', accountTab: 'orders' })}
-                          className="w-full px-2.5 py-2 rounded-md flex items-center justify-between text-xs font-medium hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] transition-colors cursor-pointer"
+                          className="w-full px-2.5 py-2 rounded-[var(--ks-radius-md)] flex items-center justify-between text-xs font-medium hover:bg-[var(--ks-surface-muted)] transition-colors cursor-pointer"
                         >
                           <span className="inline-flex items-center gap-2.5">
-                            <Package className="w-3.5 h-3.5 text-[#84827B]" />
-                            Order History &amp; Returns
+                            <Package className="w-3.5 h-3.5 text-[var(--ks-text-muted)]" />
+                            Orders &amp; Returns
                           </span>
-                          <ChevronRight className="w-3.5 h-3.5 text-[#84827B]" />
+                          <ChevronRight className="w-3.5 h-3.5 text-[var(--ks-text-muted)]" />
                         </button>
 
                         <button
                           type="button"
                           onClick={() => go({ name: 'wishlist' })}
-                          className="w-full px-2.5 py-2 rounded-md flex items-center justify-between text-xs font-medium hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] transition-colors cursor-pointer"
+                          className="w-full px-2.5 py-2 rounded-[var(--ks-radius-md)] flex items-center justify-between text-xs font-medium hover:bg-[var(--ks-surface-muted)] transition-colors cursor-pointer"
                         >
                           <span className="inline-flex items-center gap-2.5">
-                            <Heart className="w-3.5 h-3.5 text-[#84827B]" />
-                            Saved Wishlist ({wishlistIds.length})
+                            <Heart className="w-3.5 h-3.5 text-[var(--ks-text-muted)]" />
+                            Wishlist ({wishlistIds.length})
                           </span>
-                          <ChevronRight className="w-3.5 h-3.5 text-[#84827B]" />
+                          <ChevronRight className="w-3.5 h-3.5 text-[var(--ks-text-muted)]" />
                         </button>
 
                         <button
                           type="button"
                           onClick={() => go({ name: 'account', accountTab: 'addresses' })}
-                          className="w-full px-2.5 py-2 rounded-md flex items-center justify-between text-xs font-medium hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] transition-colors cursor-pointer"
+                          className="w-full px-2.5 py-2 rounded-[var(--ks-radius-md)] flex items-center justify-between text-xs font-medium hover:bg-[var(--ks-surface-muted)] transition-colors cursor-pointer"
                         >
                           <span className="inline-flex items-center gap-2.5">
-                            <MapPin className="w-3.5 h-3.5 text-[#84827B]" />
-                            Addresses &amp; Payments
+                            <MapPin className="w-3.5 h-3.5 text-[var(--ks-text-muted)]" />
+                            Saved Addresses
                           </span>
-                          <ChevronRight className="w-3.5 h-3.5 text-[#84827B]" />
+                          <ChevronRight className="w-3.5 h-3.5 text-[var(--ks-text-muted)]" />
                         </button>
 
                         {(profile.role === 'seller' || profile.role === 'admin') && (
                           <button
                             type="button"
                             onClick={() => go({ name: 'seller' })}
-                            className="w-full px-2.5 py-2 rounded-md flex items-center justify-between text-xs font-semibold text-[#8F6438] dark:text-[#C89B67] bg-[#F9F8F6] dark:bg-[#141413] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] transition-colors cursor-pointer"
+                            className="w-full px-2.5 py-2 rounded-[var(--ks-radius-md)] flex items-center justify-between text-xs font-semibold text-[var(--ks-accent)] bg-[var(--ks-bg)] hover:bg-[var(--ks-surface-muted)] transition-colors cursor-pointer"
                           >
                             <span className="inline-flex items-center gap-2.5">
                               <Store className="w-3.5 h-3.5" />
-                              Seller Studio Portal
+                              Seller Dashboard
                             </span>
                             <ChevronRight className="w-3.5 h-3.5" />
                           </button>
@@ -891,29 +892,28 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                           <button
                             type="button"
                             onClick={() => go({ name: 'admin' })}
-                            className="w-full px-2.5 py-2 rounded-md flex items-center justify-between text-xs font-semibold text-[#8F6438] dark:text-[#C89B67] bg-[#F9F8F6] dark:bg-[#141413] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] transition-colors cursor-pointer"
+                            className="w-full px-2.5 py-2 rounded-[var(--ks-radius-md)] flex items-center justify-between text-xs font-semibold text-[var(--ks-accent)] bg-[var(--ks-bg)] hover:bg-[var(--ks-surface-muted)] transition-colors cursor-pointer"
                           >
                             <span className="inline-flex items-center gap-2.5">
                               <ShieldCheck className="w-3.5 h-3.5" />
-                              Admin Operations Console
+                              Admin Console
                             </span>
                             <ChevronRight className="w-3.5 h-3.5" />
                           </button>
                         )}
                       </div>
 
-                      {/* Switch Role / Sign Out */}
-                      <div className="p-2 border-t border-[#E5E3DD] dark:border-[#2C2C28] flex items-center gap-2 bg-[#F9F8F6] dark:bg-[#141413]">
+                      <div className="p-2 border-t border-[var(--ks-border)] flex items-center gap-2 bg-[var(--ks-bg)]">
                         <button
                           type="button"
                           onClick={() => {
                             setAccountMenuOpen(false);
                             go({ name: 'login' });
                           }}
-                          className="flex-1 py-2 px-2.5 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] bg-[#FFFFFF] dark:bg-[#191917] hover:border-[#8F6438] dark:hover:border-[#C89B67] text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                          className="flex-1 py-2 px-2.5 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] bg-[var(--ks-surface)] hover:border-[var(--ks-accent)] text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                         >
-                          <UserCheck className="w-3.5 h-3.5 text-[#8F6438] dark:text-[#C89B67]" />
-                          <span>Switch Role</span>
+                          <UserCheck className="w-3.5 h-3.5 text-[var(--ks-accent)]" />
+                          <span>Switch Account</span>
                         </button>
                         <button
                           type="button"
@@ -928,7 +928,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                               navigate({ name: 'login' });
                             }
                           }}
-                          className="py-2 px-3 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] bg-[#FFFFFF] dark:bg-[#191917] hover:text-[#B91C1C] dark:hover:text-[#F87171] text-xs font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                          className="py-2 px-3 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] bg-[var(--ks-surface)] hover:text-[var(--ks-error)] text-xs font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer"
                         >
                           <LogOut className="w-3.5 h-3.5" />
                           <span>Sign Out</span>
@@ -940,11 +940,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
               </div>
             )}
 
+            {/* Wishlist (Tablet & Desktop) */}
             <button
               type="button"
               onClick={() => go({ name: 'wishlist' })}
               aria-label={`Wishlist (${wishlistIds.length} saved)`}
-              className="hidden sm:flex relative w-9 h-9 rounded-md items-center justify-center text-[#171716] dark:text-[#F4F3EF] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] transition-colors cursor-pointer"
+              className="hidden sm:flex relative w-9 h-9 rounded-[var(--ks-radius-md)] items-center justify-center text-[var(--ks-text-primary)] hover:bg-[var(--ks-surface-muted)] transition-colors cursor-pointer"
             >
               <Heart className="w-[17px] h-[17px]" />
               {wishlistIds.length > 0 && (
@@ -953,21 +954,42 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                   initial={{ scale: 1.25 }}
                   animate={{ scale: 1 }}
                   transition={STUDIO_TRANSITION.fast}
-                  className="absolute top-1 right-1 min-w-[15px] h-[15px] px-1 rounded-full bg-[#8F6438] dark:bg-[#C89B67] text-white dark:text-[#171716] text-[9px] font-mono-num font-medium flex items-center justify-center"
+                  className="absolute top-1 right-1 min-w-[15px] h-[15px] px-1 rounded-full bg-[var(--ks-accent)] text-[var(--ks-accent-text)] text-[9px] font-mono-num font-medium flex items-center justify-center"
                 >
                   {wishlistIds.length}
+                </motion.span>
+              )}
+            </button>
+
+            {/* Shopping Bag / Cart Trigger (Mobile, Tablet & Desktop) */}
+            <button
+              type="button"
+              onClick={() => setCartDrawerOpen(true)}
+              aria-label={`Open shopping bag (${cartItemCount} ${cartItemCount === 1 ? 'item' : 'items'})`}
+              className="relative w-10 h-10 sm:w-9 sm:h-9 rounded-[var(--ks-radius-md)] flex items-center justify-center text-[var(--ks-text-primary)] hover:bg-[var(--ks-surface-muted)] transition-colors cursor-pointer shrink-0"
+            >
+              <ShoppingBag className="w-[18px] h-[18px]" />
+              {cartItemCount > 0 && (
+                <motion.span
+                  key={cartItemCount}
+                  initial={{ scale: 1.2 }}
+                  animate={{ scale: 1 }}
+                  transition={STUDIO_TRANSITION.fast}
+                  className="absolute top-1 right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-[var(--ks-action)] text-[var(--ks-action-text)] text-[9px] font-mono-num font-semibold flex items-center justify-center"
+                >
+                  {cartItemCount > 99 ? '99+' : cartItemCount}
                 </motion.span>
               )}
             </button>
           </div>
         </div>
 
-        {/* Level 3: Desktop & Tablet Category Navigation Strip */}
-        <div className="hidden md:block border-t border-[#E5E3DD]/70 dark:border-[#2C2C28]/70 bg-[#FFFFFF]/85 dark:bg-[#141413]/85">
-          <div className="max-w-[1440px] mx-auto px-6 lg:px-10 h-10 flex items-center justify-between gap-4">
+        {/* Tier 3: Desktop & Tablet Department Navigation Strip */}
+        <div className="hidden md:block border-t border-[var(--ks-border)]/75 bg-[var(--ks-surface)]/85">
+          <div className="max-w-[var(--ks-container-max)] mx-auto px-6 lg:px-10 h-10 flex items-center justify-between gap-4">
             <nav
-              aria-label="Category navigation"
-              className="flex items-center gap-4 lg:gap-5 overflow-x-auto no-scrollbar text-xs font-medium text-[#5C5B57] dark:text-[#B4B2AC]"
+              aria-label="Department navigation"
+              className="flex items-center gap-4 lg:gap-5 overflow-x-auto no-scrollbar text-xs font-medium text-[var(--ks-text-secondary)]"
             >
               <button
                 type="button"
@@ -976,11 +998,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                 aria-expanded={megaMenuOpen}
                 className={`inline-flex items-center gap-1 whitespace-nowrap shrink-0 py-1.5 border-b-2 border-transparent leading-none transition-colors cursor-pointer ${
                   megaMenuOpen
-                    ? 'text-[#8F6438] dark:text-[#C89B67]'
-                    : 'text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67]'
+                    ? 'text-[var(--ks-accent)]'
+                    : 'text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)]'
                 }`}
               >
-                <span>All Categories</span>
+                <span>All Departments</span>
                 <ChevronDown
                   className={`w-3.5 h-3.5 transition-transform duration-150 ${
                     megaMenuOpen ? 'rotate-180' : ''
@@ -988,7 +1010,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                 />
               </button>
 
-              <span className="h-3.5 w-px bg-[#E5E3DD] dark:bg-[#2C2C28] shrink-0" aria-hidden="true" />
+              <span className="h-3.5 w-px bg-[var(--ks-border)] shrink-0" aria-hidden="true" />
 
               {categories.slice(0, 5).map((cat) => {
                 const isActive =
@@ -1002,8 +1024,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                     onClick={() => go({ name: 'category', category: cat.slug })}
                     className={`whitespace-nowrap shrink-0 py-1.5 border-b-2 leading-none transition-colors cursor-pointer ${
                       isActive
-                        ? 'border-[#171716] dark:border-[#F4F3EF] text-[#171716] dark:text-[#F4F3EF]'
-                        : 'border-transparent hover:text-[#171716] dark:hover:text-[#F4F3EF]'
+                        ? 'border-[var(--ks-text-primary)] text-[var(--ks-text-primary)]'
+                        : 'border-transparent hover:text-[var(--ks-text-primary)]'
                     }`}
                   >
                     {cat.shortName}
@@ -1016,8 +1038,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                 onClick={() => go({ name: 'shop', collection: 'new-arrivals', category: 'all' })}
                 className={`whitespace-nowrap shrink-0 py-1.5 border-b-2 leading-none transition-colors cursor-pointer ${
                   route.collection === 'new-arrivals'
-                    ? 'border-[#171716] dark:border-[#F4F3EF] text-[#171716] dark:text-[#F4F3EF]'
-                    : 'border-transparent hover:text-[#171716] dark:hover:text-[#F4F3EF]'
+                    ? 'border-[var(--ks-text-primary)] text-[var(--ks-text-primary)]'
+                    : 'border-transparent hover:text-[var(--ks-text-primary)]'
                 }`}
               >
                 New Arrivals
@@ -1028,26 +1050,26 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                 onClick={() => go({ name: 'offers' })}
                 className={`whitespace-nowrap shrink-0 py-1.5 border-b-2 leading-none transition-colors cursor-pointer ${
                   route.name === 'offers'
-                    ? 'border-[#8F6438] text-[#8F6438] dark:border-[#C89B67] dark:text-[#C89B67]'
-                    : 'border-transparent text-[#8F6438] dark:text-[#C89B67] hover:opacity-80'
+                    ? 'border-[var(--ks-accent)] text-[var(--ks-accent)]'
+                    : 'border-transparent text-[var(--ks-accent)] hover:opacity-80'
                 }`}
               >
                 Offers
               </button>
             </nav>
 
-            <div className="hidden xl:flex items-center gap-5 text-xs text-[#5C5B57] dark:text-[#A3A19B] shrink-0">
+            <div className="hidden xl:flex items-center gap-5 text-xs text-[var(--ks-text-secondary)] shrink-0">
               <button
                 type="button"
                 onClick={() => go({ name: 'brands' })}
-                className="whitespace-nowrap shrink-0 hover:text-[#171716] dark:hover:text-[#F4F3EF] transition-colors cursor-pointer"
+                className="whitespace-nowrap shrink-0 hover:text-[var(--ks-text-primary)] transition-colors cursor-pointer"
               >
-                Partner Brands
+                Brands
               </button>
               <button
                 type="button"
                 onClick={() => go({ name: 'track-order' })}
-                className="whitespace-nowrap shrink-0 hover:text-[#171716] dark:hover:text-[#F4F3EF] transition-colors cursor-pointer"
+                className="whitespace-nowrap shrink-0 hover:text-[var(--ks-text-primary)] transition-colors cursor-pointer"
               >
                 Track Order
               </button>
@@ -1055,7 +1077,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
           </div>
         </div>
 
-        {/* Interactive Mega Menu */}
+        {/* Desktop Mega Menu (10 Departments + Subcollections + Featured Items) */}
         <AnimatePresence>
           {megaMenuOpen && (
             <motion.div
@@ -1064,11 +1086,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={STUDIO_TRANSITION.fast}
-              className="hidden md:block absolute left-0 right-0 top-full bg-[#FFFFFF] dark:bg-[#191917] border-b border-[#E5E3DD] dark:border-[#2C2C28] shadow-xl"
+              className="hidden md:block absolute left-0 right-0 top-full bg-[var(--ks-surface)] border-b border-[var(--ks-border)] shadow-[var(--ks-shadow-overlay)]"
             >
-              <div className="max-w-[1440px] mx-auto px-6 lg:px-10 py-6 grid grid-cols-12 gap-6 lg:gap-8">
-                <div className="col-span-4 border-r border-[#E5E3DD] dark:border-[#2C2C28] pr-5">
-                  <p className="text-[11px] uppercase tracking-wider text-[#84827B] mb-3">
+              <div className="max-w-[var(--ks-container-max)] mx-auto px-6 lg:px-10 py-6 grid grid-cols-12 gap-6 lg:gap-8">
+                <div className="col-span-4 border-r border-[var(--ks-border)] pr-5">
+                  <p className="text-[11px] uppercase tracking-wider text-[var(--ks-text-muted)] mb-3">
                     Departments ({categories.length})
                   </p>
                   <ul className="space-y-1 max-h-64 overflow-y-auto pr-1">
@@ -1080,16 +1102,16 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                             type="button"
                             onMouseEnter={() => setHoveredCatSlug(cat.slug)}
                             onClick={() => go({ name: 'category', category: cat.slug })}
-                            className={`w-full flex items-center justify-between px-2.5 py-2 rounded-md text-left text-sm cursor-pointer transition-colors ${
+                            className={`w-full flex items-center justify-between px-2.5 py-2 rounded-[var(--ks-radius-md)] text-left text-sm cursor-pointer transition-colors ${
                               active
-                                ? 'bg-[#F2F0EC] dark:bg-[#22221F] text-[#171716] dark:text-[#F4F3EF] font-medium'
-                                : 'text-[#5C5B57] dark:text-[#B4B2AC] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
+                                ? 'bg-[var(--ks-surface-muted)] text-[var(--ks-text-primary)] font-medium'
+                                : 'text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)]'
                             }`}
                           >
                             <span className="truncate">{cat.name}</span>
                             <ChevronRight
                               className={`w-3.5 h-3.5 shrink-0 transition-opacity ${
-                                active ? 'opacity-100 text-[#8F6438] dark:text-[#C89B67]' : 'opacity-30'
+                                active ? 'opacity-100 text-[var(--ks-accent)]' : 'opacity-30'
                               }`}
                             />
                           </button>
@@ -1099,21 +1121,21 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                   </ul>
                 </div>
 
-                <div className="col-span-3 border-r border-[#E5E3DD] dark:border-[#2C2C28] pr-5 space-y-5">
+                <div className="col-span-3 border-r border-[var(--ks-border)] pr-5 space-y-5">
                   {activeHoverCat && (
                     <>
                       <div>
-                        <p className="text-[11px] uppercase tracking-wider text-[#84827B] mb-2.5">
+                        <p className="text-[11px] uppercase tracking-wider text-[var(--ks-text-muted)] mb-2.5">
                           In {activeHoverCat.shortName}
                         </p>
-                        <ul className="space-y-2 text-sm text-[#5C5B57] dark:text-[#B4B2AC]">
+                        <ul className="space-y-2 text-sm text-[var(--ks-text-secondary)]">
                           <li>
                             <button
                               type="button"
                               onClick={() =>
                                 go({ name: 'category', category: activeHoverCat.slug })
                               }
-                              className="text-left leading-snug font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                              className="text-left leading-snug font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                             >
                               Shop All {activeHoverCat.shortName}
                             </button>
@@ -1129,12 +1151,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                                     subcategory: sub.slug,
                                   })
                                 }
-                                className="text-left leading-snug hover:text-[#171716] dark:hover:text-[#F4F3EF] font-medium transition-colors cursor-pointer"
+                                className="text-left leading-snug hover:text-[var(--ks-text-primary)] font-medium transition-colors cursor-pointer"
                               >
                                 {sub.name}
                               </button>
                               {sub.children && sub.children.length > 0 && (
-                                <ul className="pl-3 space-y-1 border-l border-[#E5E3DD] dark:border-[#2C2C28] text-xs text-[#84827B]">
+                                <ul className="pl-3 space-y-1 border-l border-[var(--ks-border)] text-xs text-[var(--ks-text-muted)]">
                                   {sub.children.map((child) => (
                                     <li key={child.slug}>
                                       <button
@@ -1146,7 +1168,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                                             subcategory: child.slug,
                                           })
                                         }
-                                        className="text-left leading-snug hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                                        className="text-left leading-snug hover:text-[var(--ks-accent)] cursor-pointer"
                                       >
                                         {child.name}
                                       </button>
@@ -1159,11 +1181,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                         </ul>
                       </div>
 
-                      <div className="pt-4 border-t border-[#E5E3DD] dark:border-[#2C2C28]">
-                        <p className="text-[11px] uppercase tracking-wider text-[#84827B] mb-2.5">
-                          Featured Brands
+                      <div className="pt-4 border-t border-[var(--ks-border)]">
+                        <p className="text-[11px] uppercase tracking-wider text-[var(--ks-text-muted)] mb-2.5">
+                          Brands
                         </p>
-                        <ul className="space-y-1.5 text-xs text-[#5C5B57] dark:text-[#B4B2AC]">
+                        <ul className="space-y-1.5 text-xs text-[var(--ks-text-secondary)]">
                           {activeHoverCat.featuredBrands.map((brand) => (
                             <li key={brand}>
                               <button
@@ -1175,7 +1197,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                                     brand,
                                   })
                                 }
-                                className="text-left leading-snug hover:text-[#8F6438] dark:hover:text-[#C89B67] transition-colors cursor-pointer"
+                                className="text-left leading-snug hover:text-[var(--ks-accent)] transition-colors cursor-pointer"
                               >
                                 {brand}
                               </button>
@@ -1189,15 +1211,15 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
 
                 <div className="col-span-5 space-y-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-[11px] uppercase tracking-wider text-[#84827B]">
+                    <p className="text-[11px] uppercase tracking-wider text-[var(--ks-text-muted)]">
                       Featured in {activeHoverCat?.shortName}
                     </p>
                     <button
                       type="button"
                       onClick={() => go({ name: 'shop', category: 'all' })}
-                      className="text-xs font-medium text-[#8F6438] dark:text-[#C89B67] hover:underline cursor-pointer"
+                      className="text-xs font-medium text-[var(--ks-accent)] hover:underline cursor-pointer"
                     >
-                      View Full Catalog →
+                      Shop All Products →
                     </button>
                   </div>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1206,7 +1228,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                         key={item.id}
                         type="button"
                         onClick={() => go({ name: 'product', slug: item.slug })}
-                        className={`group text-left rounded-md overflow-hidden border border-[#E5E3DD] dark:border-[#2C2C28] bg-[#F9F8F6] dark:bg-[#141413] cursor-pointer ${
+                        className={`group text-left rounded-[var(--ks-radius-md)] overflow-hidden border border-[var(--ks-border)] bg-[var(--ks-bg)] cursor-pointer ${
                           idx === 1 ? 'hidden lg:block' : ''
                         }`}
                       >
@@ -1218,13 +1240,13 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                           />
                         </div>
                         <div className="p-3 space-y-0.5">
-                          <p className="text-[11px] uppercase tracking-wider text-[#84827B] truncate">
+                          <p className="text-[11px] tracking-wide text-[var(--ks-text-muted)] truncate">
                             {item.brand}
                           </p>
-                          <p className="text-sm font-medium text-[#171716] dark:text-[#F4F3EF] truncate">
+                          <p className="text-sm font-medium text-[var(--ks-text-primary)] truncate">
                             {item.name}
                           </p>
-                          <p className="text-xs font-mono-num font-semibold text-[#8F6438] dark:text-[#C89B67]">
+                          <p className="text-xs font-mono-num font-semibold text-[var(--ks-accent)]">
                             {formatCurrency(item.price, currency)}
                           </p>
                         </div>
@@ -1261,10 +1283,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={STUDIO_TRANSITION.drawer}
-              className="w-[86vw] max-w-sm h-full bg-[#FFFFFF] dark:bg-[#191917] text-[#171716] dark:text-[#F4F3EF] flex flex-col border-r border-[#E5E3DD] dark:border-[#2C2C28] focus:outline-none"
+              className="w-[86vw] max-w-sm h-full bg-[var(--ks-surface)] text-[var(--ks-text-primary)] flex flex-col border-r border-[var(--ks-border)] focus:outline-none"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between px-5 h-14 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+              <div className="flex items-center justify-between px-5 h-14 border-b border-[var(--ks-border)]">
                 <span className="font-display text-lg font-semibold tracking-[0.06em]">
                   KINTO STUDIO
                 </span>
@@ -1272,7 +1294,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                   type="button"
                   onClick={() => setMobileMenuOpen(false)}
                   aria-label="Close navigation menu"
-                  className="w-10 h-10 -mr-2 rounded-md flex items-center justify-center cursor-pointer"
+                  className="w-10 h-10 -mr-2 rounded-[var(--ks-radius-md)] flex items-center justify-center cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1315,19 +1337,19 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                   <button
                     type="button"
                     onClick={() => go({ name: 'offers' })}
-                    className="w-full py-2.5 text-left text-base font-medium text-[#8F6438] dark:text-[#C89B67] cursor-pointer"
+                    className="w-full py-2.5 text-left text-base font-medium text-[var(--ks-accent)] cursor-pointer"
                   >
                     Special Offers
                   </button>
                 </div>
 
-                <div className="border-t border-[#E5E3DD] dark:border-[#2C2C28] pt-4">
+                <div className="border-t border-[var(--ks-border)] pt-4">
                   <button
                     type="button"
                     onClick={() => setMobileCategoriesExpanded((p) => !p)}
-                    className="w-full flex items-center justify-between py-2 text-xs uppercase tracking-wider text-[#84827B] cursor-pointer"
+                    className="w-full flex items-center justify-between py-2 text-xs uppercase tracking-wider text-[var(--ks-text-muted)] cursor-pointer"
                   >
-                    <span>All Categories ({categories.length})</span>
+                    <span>Departments ({categories.length})</span>
                     <ChevronDown
                       className={`w-4 h-4 transition-transform duration-150 ${
                         mobileCategoriesExpanded ? 'rotate-180' : ''
@@ -1352,7 +1374,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                                   <button
                                     type="button"
                                     onClick={() => go({ name: 'category', category: cat.slug })}
-                                    className="flex-1 py-2 text-left text-sm font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer truncate"
+                                    className="flex-1 py-2 text-left text-sm font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer truncate"
                                   >
                                     {cat.name}
                                   </button>
@@ -1365,7 +1387,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                                         )
                                       }
                                       aria-label={`Toggle ${cat.name} subcategories`}
-                                      className="w-8 h-8 rounded-md flex items-center justify-center text-[#84827B] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] cursor-pointer"
+                                      className="w-9 h-9 rounded-[var(--ks-radius-md)] flex items-center justify-center text-[var(--ks-text-muted)] hover:bg-[var(--ks-surface-muted)] cursor-pointer"
                                     >
                                       <ChevronDown
                                         className={`w-3.5 h-3.5 transition-transform duration-150 ${
@@ -1376,7 +1398,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                                   )}
                                 </div>
                                 {isOpen && cat.subcategories.length > 0 && (
-                                  <div className="pl-3 space-y-1 border-l border-[#E5E3DD] dark:border-[#2C2C28]">
+                                  <div className="pl-3 space-y-1 border-l border-[var(--ks-border)]">
                                     {cat.subcategories.map((sub) => (
                                       <button
                                         key={sub.slug}
@@ -1388,7 +1410,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                                             subcategory: sub.slug,
                                           })
                                         }
-                                        className="w-full py-1.5 text-left leading-snug text-xs text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                                        className="w-full py-1.5 text-left leading-snug text-xs text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer"
                                       >
                                         {sub.name}
                                       </button>
@@ -1404,77 +1426,71 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                   </AnimatePresence>
                 </div>
 
-                <div className="border-t border-[#E5E3DD] dark:border-[#2C2C28] pt-4 space-y-2.5">
+                <div className="border-t border-[var(--ks-border)] pt-4 space-y-2.5">
                   {!profile.isAuthenticated ? (
-                    <div className="p-3.5 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-2.5">
-                      <p className="text-[11px] uppercase tracking-wider text-[#8F6438] dark:text-[#C89B67] font-medium">
-                        Member, Seller &amp; Admin Portals
+                    <div className="p-3.5 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-2.5">
+                      <p className="text-xs font-medium text-[var(--ks-text-primary)]">
+                        Sign in to view orders and saved addresses.
                       </p>
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
-                          onClick={() => {
-                            go({ name: 'login' });
-                          }}
-                          className="inline-flex items-center justify-center py-2 px-3 rounded-md bg-[#171716] dark:bg-[#F4F3EF] text-white dark:text-[#171716] text-xs font-medium cursor-pointer"
+                          onClick={() => go({ name: 'login' })}
+                          className="inline-flex items-center justify-center min-h-[40px] px-3 rounded-[var(--ks-radius-md)] bg-[var(--ks-action)] text-[var(--ks-action-text)] text-xs font-medium cursor-pointer"
                         >
                           Sign In
                         </button>
                         <button
                           type="button"
-                          onClick={() => {
-                            go({ name: 'login', accountTab: 'register' });
-                          }}
-                          className="inline-flex items-center justify-center py-2 px-3 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] bg-[#FFFFFF] dark:bg-[#191917] text-xs font-medium cursor-pointer"
+                          onClick={() => go({ name: 'login', accountTab: 'register' })}
+                          className="inline-flex items-center justify-center min-h-[40px] px-3 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] bg-[var(--ks-surface)] text-xs font-medium cursor-pointer"
                         >
-                          Register
+                          Create Account
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <div className="p-3.5 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-2.5">
+                    <div className="p-3.5 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-2.5">
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
                           <p className="text-xs font-semibold truncate">{profile.fullName}</p>
-                          <p className="text-[11px] text-[#5C5B57] dark:text-[#A3A19B] truncate">
-                            {profile.studioRole}
+                          <p className="text-[11px] text-[var(--ks-text-secondary)] truncate">
+                            {profile.email}
                           </p>
                         </div>
                         <button
                           type="button"
-                          onClick={() => {
-                            go({ name: 'login' });
-                          }}
-                          className="text-[11px] font-medium text-[#8F6438] dark:text-[#C89B67] shrink-0 cursor-pointer"
+                          onClick={() => go({ name: 'login' })}
+                          className="text-[11px] font-medium text-[var(--ks-accent)] shrink-0 cursor-pointer"
                         >
                           Switch
                         </button>
                       </div>
 
-                      <div className="space-y-1 pt-1 border-t border-[#E5E3DD] dark:border-[#2C2C28]">
+                      <div className="space-y-1 pt-1 border-t border-[var(--ks-border)]">
                         <button
                           type="button"
                           onClick={() => go({ name: 'account', accountTab: 'overview' })}
                           className="w-full py-1.5 flex items-center justify-between gap-2 text-left text-xs font-medium cursor-pointer"
                         >
-                          <span className="truncate">Account Overview</span>
-                          <User className="w-3.5 h-3.5 text-[#84827B] shrink-0" />
+                          <span className="truncate">My Account</span>
+                          <User className="w-3.5 h-3.5 text-[var(--ks-text-muted)] shrink-0" />
                         </button>
                         <button
                           type="button"
                           onClick={() => go({ name: 'account', accountTab: 'orders' })}
                           className="w-full py-1.5 flex items-center justify-between gap-2 text-left text-xs font-medium cursor-pointer"
                         >
-                          <span className="truncate">Order History</span>
-                          <Package className="w-3.5 h-3.5 text-[#84827B] shrink-0" />
+                          <span className="truncate">Orders</span>
+                          <Package className="w-3.5 h-3.5 text-[var(--ks-text-muted)] shrink-0" />
                         </button>
                         {(profile.role === 'seller' || profile.role === 'admin') && (
                           <button
                             type="button"
                             onClick={() => go({ name: 'seller' })}
-                            className="w-full py-1.5 flex items-center justify-between gap-2 text-left text-xs font-semibold text-[#8F6438] dark:text-[#C89B67] cursor-pointer"
+                            className="w-full py-1.5 flex items-center justify-between gap-2 text-left text-xs font-semibold text-[var(--ks-accent)] cursor-pointer"
                           >
-                            <span className="truncate">Seller Studio Portal</span>
+                            <span className="truncate">Seller Dashboard</span>
                             <Store className="w-3.5 h-3.5 shrink-0" />
                           </button>
                         )}
@@ -1482,9 +1498,9 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                           <button
                             type="button"
                             onClick={() => go({ name: 'admin' })}
-                            className="w-full py-1.5 flex items-center justify-between gap-2 text-left text-xs font-semibold text-[#8F6438] dark:text-[#C89B67] cursor-pointer"
+                            className="w-full py-1.5 flex items-center justify-between gap-2 text-left text-xs font-semibold text-[var(--ks-accent)] cursor-pointer"
                           >
-                            <span className="truncate">Admin Operations Console</span>
+                            <span className="truncate">Admin Console</span>
                             <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
                           </button>
                         )}
@@ -1495,7 +1511,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                             logoutDemo();
                             navigate({ name: 'login' });
                           }}
-                          className="w-full py-1.5 flex items-center justify-between gap-2 text-left text-xs text-[#B91C1C] dark:text-[#F87171] cursor-pointer"
+                          className="w-full py-1.5 flex items-center justify-between gap-2 text-left text-xs text-[var(--ks-error)] cursor-pointer"
                         >
                           <span className="truncate">Sign Out</span>
                           <LogOut className="w-3.5 h-3.5 shrink-0" />
@@ -1503,41 +1519,46 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                       </div>
                     </div>
                   )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      setCartDrawerOpen(true);
+                    }}
+                    className="w-full py-2.5 flex items-center justify-between gap-2 text-left text-sm font-medium cursor-pointer"
+                  >
+                    <span className="truncate">Shopping Bag ({cartItemCount})</span>
+                    <ShoppingBag className="w-4 h-4 text-[var(--ks-text-muted)] shrink-0" />
+                  </button>
                   <button
                     type="button"
                     onClick={() => go({ name: 'wishlist' })}
                     className="w-full py-2.5 flex items-center justify-between gap-2 text-left text-sm font-medium cursor-pointer"
                   >
                     <span className="truncate">Wishlist ({wishlistIds.length})</span>
-                    <Heart className="w-4 h-4 text-[#84827B] shrink-0" />
+                    <Heart className="w-4 h-4 text-[var(--ks-text-muted)] shrink-0" />
                   </button>
                   <button
                     type="button"
                     onClick={() => go({ name: 'track-order' })}
-                    className="w-full py-2 text-left text-sm text-[#5C5B57] dark:text-[#B4B2AC] cursor-pointer"
+                    className="w-full py-2 text-left text-sm text-[var(--ks-text-secondary)] cursor-pointer"
                   >
                     Track Order
                   </button>
                   <button
                     type="button"
-                    onClick={() => go({ name: 'compare' })}
-                    className="w-full py-2 text-left text-sm text-[#5C5B57] dark:text-[#B4B2AC] cursor-pointer"
-                  >
-                    Compare Products ({compareIds.length})
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => go({ name: 'brands' })}
-                    className="w-full py-2 text-left text-sm text-[#5C5B57] dark:text-[#B4B2AC] cursor-pointer"
+                    className="w-full py-2 text-left text-sm text-[var(--ks-text-secondary)] cursor-pointer"
                   >
-                    Partner Brands
+                    Featured Brands
                   </button>
                   <button
                     type="button"
                     onClick={() => go({ name: 'faq' })}
-                    className="w-full py-2 text-left text-sm text-[#5C5B57] dark:text-[#B4B2AC] cursor-pointer"
+                    className="w-full py-2 text-left text-sm text-[var(--ks-text-secondary)] cursor-pointer"
                   >
-                    FAQ &amp; Support
+                    Help &amp; FAQ
                   </button>
                   <div className="pt-2">
                     <PWAInstallButton variant="drawer" onAction={() => setMobileMenuOpen(false)} />
@@ -1545,11 +1566,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                 </div>
               </div>
 
-              <div className="p-4 border-t border-[#E5E3DD] dark:border-[#2C2C28] flex items-center justify-between gap-2">
+              <div className="p-4 border-t border-[var(--ks-border)] flex items-center justify-between gap-2">
                 <button
                   type="button"
                   onClick={toggleCurrency}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] text-xs font-mono-num font-medium cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] text-xs font-mono-num font-medium cursor-pointer"
                 >
                   <Globe className="w-3.5 h-3.5" />
                   <span>{currency === 'USD' ? '$ USD' : '৳ BDT'}</span>
@@ -1557,7 +1578,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                 <button
                   type="button"
                   onClick={toggleTheme}
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] text-xs font-medium cursor-pointer"
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] text-xs font-medium cursor-pointer"
                 >
                   {theme === 'dark' ? (
                     <>
