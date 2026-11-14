@@ -1,0 +1,365 @@
+import React, { useEffect, useState } from 'react';
+import { ChevronDown, ChevronLeft, ChevronRight, Package, X } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import { STUDIO_TRANSITION } from '../../utils/motion';
+import { Button } from './Button';
+
+export interface BreadcrumbItem {
+  label: string;
+  onClick?: () => void;
+}
+
+export const Breadcrumb: React.FC<{ items: BreadcrumbItem[] }> = ({ items }) => (
+  <nav aria-label="Breadcrumb" className="flex items-center flex-wrap gap-2 text-xs text-[#5C5B57] dark:text-[#A3A19B]">
+    {items.map((item, idx) => {
+      const isLast = idx === items.length - 1;
+      return (
+        <React.Fragment key={`${item.label}-${idx}`}>
+          {idx > 0 && <span aria-hidden="true">/</span>}
+          {isLast || !item.onClick ? (
+            <span className={isLast ? 'text-[#171716] dark:text-[#F4F3EF] font-medium' : ''}>
+              {item.label}
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={item.onClick}
+              className="hover:text-[#171716] dark:hover:text-[#F4F3EF] transition-colors cursor-pointer"
+            >
+              {item.label}
+            </button>
+          )}
+        </React.Fragment>
+      );
+    })}
+  </nav>
+);
+
+interface PaginationProps {
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}
+
+export const Pagination: React.FC<PaginationProps> = ({
+  currentPage,
+  totalPages,
+  onPageChange,
+}) => {
+  if (totalPages <= 1) return null;
+  const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+
+  return (
+    <nav aria-label="Pagination" className="flex items-center justify-center gap-2 pt-8">
+      <button
+        type="button"
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+        aria-label="Previous page"
+        className="w-10 h-10 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] flex items-center justify-center text-[#171716] dark:text-[#F4F3EF] disabled:opacity-40 cursor-pointer hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] transition-colors"
+      >
+        <ChevronLeft className="w-4 h-4" />
+      </button>
+      {pages.map((page) => (
+        <button
+          key={page}
+          type="button"
+          onClick={() => onPageChange(page)}
+          aria-current={page === currentPage ? 'page' : undefined}
+          className={`w-10 h-10 rounded-md text-sm font-mono-num transition-colors cursor-pointer ${
+            page === currentPage
+              ? 'bg-[#171716] text-white dark:bg-[#F4F3EF] dark:text-[#171716] font-medium'
+              : 'border border-[#E5E3DD] dark:border-[#2C2C28] text-[#5C5B57] dark:text-[#B4B2AC] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
+          }`}
+        >
+          {page}
+        </button>
+      ))}
+      <button
+        type="button"
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        aria-label="Next page"
+        className="w-10 h-10 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] flex items-center justify-center text-[#171716] dark:text-[#F4F3EF] disabled:opacity-40 cursor-pointer hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] transition-colors"
+      >
+        <ChevronRight className="w-4 h-4" />
+      </button>
+    </nav>
+  );
+};
+
+interface AccordionItemData {
+  id: string;
+  title: string;
+  meta?: string;
+  content: string;
+}
+
+export const Accordion: React.FC<{ items: AccordionItemData[] }> = ({ items }) => {
+  const [openId, setOpenId] = useState<string | null>(items[0]?.id || null);
+
+  return (
+    <div className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] border-y border-[#E5E3DD] dark:border-[#2C2C28]">
+      {items.map((item) => {
+        const isOpen = openId === item.id;
+        return (
+          <div key={item.id}>
+            <button
+              type="button"
+              aria-expanded={isOpen}
+              onClick={() => setOpenId(isOpen ? null : item.id)}
+              className="w-full py-5 flex items-center justify-between gap-4 text-left cursor-pointer group"
+            >
+              <div className="flex flex-col gap-1">
+                {item.meta && (
+                  <span className="text-xs text-[#84827B] dark:text-[#85837D]">{item.meta}</span>
+                )}
+                <span className="text-base font-medium text-[#171716] dark:text-[#F4F3EF] group-hover:text-[#8F6438] dark:group-hover:text-[#C89B67] transition-colors">
+                  {item.title}
+                </span>
+              </div>
+              <ChevronDown
+                className={`w-4 h-4 shrink-0 text-[#5C5B57] dark:text-[#A3A19B] transition-transform duration-200 ${
+                  isOpen ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+            <AnimatePresence initial={false}>
+              {isOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={STUDIO_TRANSITION.base}
+                  className="overflow-hidden"
+                >
+                  <div className="pb-5 text-sm leading-relaxed text-[#5C5B57] dark:text-[#B4B2AC] max-w-3xl">
+                    {item.content}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+interface ModalProps {
+  open: boolean;
+  onClose: () => void;
+  title?: string;
+  maxWidthClass?: string;
+  children: React.ReactNode;
+}
+
+export const Modal: React.FC<ModalProps> = ({
+  open,
+  onClose,
+  title,
+  maxWidthClass = 'max-w-3xl',
+  children,
+}) => {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [open, onClose]);
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          key="modal-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={STUDIO_TRANSITION.fast}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/55 backdrop-blur-[2px]"
+          role="dialog"
+          aria-modal="true"
+          aria-label={title || 'Dialog'}
+          onClick={onClose}
+        >
+          <motion.div
+            key="modal-panel"
+            initial={{ opacity: 0, scale: 0.97, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.98, y: 6 }}
+            transition={STUDIO_TRANSITION.base}
+            className={`relative w-full ${maxWidthClass} max-h-[90vh] overflow-y-auto rounded-lg bg-[#FFFFFF] dark:bg-[#191917] text-[#171716] dark:text-[#F4F3EF] border border-[#E5E3DD] dark:border-[#2C2C28] shadow-2xl`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 bg-[#FFFFFF]/95 dark:bg-[#191917]/95 backdrop-blur-sm border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+              {title ? <h3 className="text-lg font-medium">{title}</h3> : <span />}
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close modal"
+                className="w-9 h-9 rounded-md flex items-center justify-center text-[#5C5B57] dark:text-[#B4B2AC] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-6">{children}</div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
+interface DrawerProps {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  side?: 'left' | 'right';
+  children: React.ReactNode;
+}
+
+export const Drawer: React.FC<DrawerProps> = ({
+  open,
+  onClose,
+  title,
+  side = 'right',
+  children,
+}) => {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [open, onClose]);
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          key="drawer-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={STUDIO_TRANSITION.fast}
+          className="fixed inset-0 z-50 flex bg-black/50 backdrop-blur-[1px]"
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
+          onClick={onClose}
+        >
+          <motion.div
+            key="drawer-panel"
+            initial={{ x: side === 'right' ? '100%' : '-100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: side === 'right' ? '100%' : '-100%' }}
+            transition={STUDIO_TRANSITION.drawer}
+            className={`relative w-full max-w-md h-full bg-[#FFFFFF] dark:bg-[#191917] text-[#171716] dark:text-[#F4F3EF] border-[#E5E3DD] dark:border-[#2C2C28] shadow-2xl flex flex-col ${
+              side === 'right' ? 'ml-auto border-l' : 'mr-auto border-r'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+              <h2 className="font-display text-2xl font-medium tracking-tight">{title}</h2>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label={`Close ${title}`}
+                className="w-9 h-9 rounded-md flex items-center justify-center text-[#5C5B57] dark:text-[#B4B2AC] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] cursor-pointer transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">{children}</div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
+interface EmptyStateProps {
+  icon?: React.ReactNode;
+  title: string;
+  description: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}
+
+export const EmptyState: React.FC<EmptyStateProps> = ({
+  icon,
+  title,
+  description,
+  actionLabel,
+  onAction,
+}) => (
+  <div className="py-16 px-6 text-center max-w-md mx-auto flex flex-col items-center gap-4">
+    <div className="w-12 h-12 rounded-lg bg-[#F2F0EC] dark:bg-[#22221F] flex items-center justify-center text-[#5C5B57] dark:text-[#B4B2AC]">
+      {icon || <Package className="w-5 h-5" />}
+    </div>
+    <h3 className="font-display text-2xl font-medium text-[#171716] dark:text-[#F4F3EF]">{title}</h3>
+    <p className="text-sm text-[#5C5B57] dark:text-[#A3A19B] leading-relaxed">{description}</p>
+    {actionLabel && onAction && (
+      <Button variant="primary" size="md" onClick={onAction} className="mt-2">
+        {actionLabel}
+      </Button>
+    )}
+  </div>
+);
+
+export const SkeletonLoader: React.FC<{ className?: string }> = ({ className = 'h-6 w-full' }) => (
+  <div
+    aria-hidden="true"
+    className={`animate-pulse rounded-md bg-[#EAE7E0] dark:bg-[#262623] ${className}`}
+  />
+);
+
+interface ResilientImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
+  fallbackTitle?: string;
+}
+
+export const ResilientImage: React.FC<ResilientImageProps> = ({
+  src,
+  alt,
+  fallbackTitle,
+  className = '',
+  ...rest
+}) => {
+  const [failed, setFailed] = useState(false);
+
+  if (failed || !src) {
+    return (
+      <div
+        role="img"
+        aria-label={alt}
+        className={`flex flex-col items-center justify-center gap-2 bg-[#EFECE5] dark:bg-[#22221F] text-[#5C5B57] dark:text-[#A3A19B] p-4 text-center ${className}`}
+      >
+        <Package className="w-6 h-6 opacity-60" aria-hidden="true" />
+        <span className="text-xs font-medium">{fallbackTitle || alt}</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+      className={className}
+      {...rest}
+    />
+  );
+};
