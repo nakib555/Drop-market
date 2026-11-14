@@ -11,6 +11,7 @@ import { CartDrawer } from './components/cart/CartDrawer';
 import { QuickViewModal } from './components/product/QuickViewModal';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { BackToTopButton } from './components/ui/BackToTopButton';
+import { PWAInstallBanner } from './components/pwa/PWAInstallBanner';
 import { PWAStatusBanners } from './components/pwa/PWAStatusBanners';
 import { CookieConsentBanner } from './components/legal/CookieConsentBanner';
 import { LegalModalPreview } from './components/legal/LegalModalPreview';
@@ -54,6 +55,7 @@ const AppShell: React.FC = () => {
       <BackToTopButton />
       <CookieConsentBanner />
       <LegalModalPreview />
+      <PWAInstallBanner />
       <PWAStatusBanners />
       <ToastContainer />
     </div>

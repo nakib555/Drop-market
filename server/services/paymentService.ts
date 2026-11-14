@@ -1,6 +1,7 @@
 import {
   AUTHORITATIVE_CATALOG_SKUS,
   PROMO_CODES,
+  type AuthoritativeCatalogSku,
 } from '../shared/marketplaceSchema.ts';
 import type {
   ApiSellerProductRecord,
@@ -58,18 +59,21 @@ interface ProviderAdapterMeta {
   buildInstructions: (ref: string, amount: number, currency: CurrencyCode) => string;
 }
 
+const env: Record<string, string | undefined> =
+  typeof process !== 'undefined' && process.env ? process.env : {};
+
 const PROVIDER_ADAPTERS: Record<PaymentMethodId, ProviderAdapterMeta> = {
   bkash: {
     provider: 'bKash Merchant Checkout v1.2',
     label: 'bKash Mobile Wallet',
     buildInstructions: (ref, amount, cur) =>
-      `bKash PGW Sandbox (${process.env.BKASH_APP_KEY ? 'Configured Merchant' : 'Demo Gateway'}) · Authorize ${amount.toLocaleString()} ${cur} · Ref ${ref}`,
+      `bKash PGW Sandbox (${env.BKASH_APP_KEY ? 'Configured Merchant' : 'Demo Gateway'}) · Authorize ${amount.toLocaleString()} ${cur} · Ref ${ref}`,
   },
   nagad: {
     provider: 'Nagad MFS Payment Gateway',
     label: 'Nagad Mobile Wallet',
     buildInstructions: (ref, amount, cur) =>
-      `Nagad Instant API (${process.env.NAGAD_MERCHANT_ID ? 'Configured Merchant' : 'Demo Gateway'}) · Authorize ${amount.toLocaleString()} ${cur} · Ref ${ref}`,
+      `Nagad Instant API (${env.NAGAD_MERCHANT_ID ? 'Configured Merchant' : 'Demo Gateway'}) · Authorize ${amount.toLocaleString()} ${cur} · Ref ${ref}`,
   },
   rocket: {
     provider: 'DBBL Rocket E-Commerce Gateway',
@@ -93,7 +97,7 @@ const PROVIDER_ADAPTERS: Record<PaymentMethodId, ProviderAdapterMeta> = {
     provider: 'SSLCommerz Multi-Channel Gateway',
     label: 'SSLCommerz Unified Checkout',
     buildInstructions: (ref, amount, cur) =>
-      `SSLCommerz Gateway (${process.env.SSLCOMMERZ_STORE_ID ? 'Live Store' : 'Sandbox'}) · ${amount.toLocaleString()} ${cur} · Ref ${ref}`,
+      `SSLCommerz Gateway (${env.SSLCOMMERZ_STORE_ID ? 'Live Store' : 'Sandbox'}) · ${amount.toLocaleString()} ${cur} · Ref ${ref}`,
   },
   'bank-transfer': {
     provider: 'BEFTN / NPSB Verified Transfer',
@@ -138,7 +142,8 @@ export function resolveTransactionCurrency(params: {
 export function resolveAuthoritativeItems(
   requestedItems: CheckoutItemRequest[],
   sellerCreatedProducts: ApiSellerProductRecord[],
-  productOverrides: Record<string, ProductOverride>
+  productOverrides: Record<string, ProductOverride>,
+  dynamicCatalogSkus: AuthoritativeCatalogSku[] = []
 ): { resolvedItems: CartItem[]; shippingInputs: ShippingQuoteItemInput[]; subtotalUsd: number } {
   const resolvedItems: CartItem[] = [];
   const shippingInputs: ShippingQuoteItemInput[] = [];
@@ -146,7 +151,9 @@ export function resolveAuthoritativeItems(
 
   for (const reqItem of requestedItems) {
     const qty = Math.max(1, Math.min(50, Math.round(Number(reqItem.quantity) || 1)));
-    const catalogSku = AUTHORITATIVE_CATALOG_SKUS.find((s) => s.id === reqItem.productId);
+    const catalogSku =
+      dynamicCatalogSkus.find((s) => s.id === reqItem.productId) ||
+      AUTHORITATIVE_CATALOG_SKUS.find((s) => s.id === reqItem.productId);
     const sellerSku = sellerCreatedProducts.find((s) => s.id === reqItem.productId);
     const override = productOverrides[reqItem.productId];
 
@@ -210,8 +217,16 @@ export function buildAuthoritativeCheckoutQuote(params: {
   productOverrides: Record<string, ProductOverride>;
   currencyState: CurrencyRateState;
   shippingConfig: ShippingRuleConfig;
+  dynamicCatalogSkus?: AuthoritativeCatalogSku[];
 }): { quote: CheckoutQuoteResponse; resolvedItems: CartItem[] } {
-  const { request, sellerCreatedProducts, productOverrides, currencyState, shippingConfig } = params;
+  const {
+    request,
+    sellerCreatedProducts,
+    productOverrides,
+    currencyState,
+    shippingConfig,
+    dynamicCatalogSkus = [],
+  } = params;
   if (!Array.isArray(request.items) || request.items.length === 0) {
     throw new Error('Shopping bag cannot be empty.');
   }
@@ -219,7 +234,8 @@ export function buildAuthoritativeCheckoutQuote(params: {
   const { resolvedItems, shippingInputs, subtotalUsd } = resolveAuthoritativeItems(
     request.items,
     sellerCreatedProducts,
-    productOverrides
+    productOverrides,
+    dynamicCatalogSkus
   );
 
   const transactionCurrency = resolveTransactionCurrency({
@@ -330,6 +346,7 @@ export function createPaymentSession(params: {
   shippingConfig: ShippingRuleConfig;
   existingSessions: Map<string, PendingSessionContext>;
   policyAcceptance?: LegalAcceptanceRecord;
+  dynamicCatalogSkus?: AuthoritativeCatalogSku[];
 }): PendingSessionContext {
   const cleanKey = params.idempotencyKey.trim();
   for (const ctx of params.existingSessions.values()) {
@@ -347,6 +364,7 @@ export function createPaymentSession(params: {
     productOverrides: params.productOverrides,
     currencyState: params.currencyState,
     shippingConfig: params.shippingConfig,
+    dynamicCatalogSkus: params.dynamicCatalogSkus,
   });
 
   if (quote.shippingQuote.restricted) {

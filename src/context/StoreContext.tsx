@@ -2,17 +2,18 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import {
   INITIAL_ADDRESSES,
   INITIAL_CATEGORY_TREE,
-  INITIAL_ORDERS,
   INITIAL_PAYMENT_METHODS,
-  PRODUCTS,
   PROMO_CODES,
   buildCategoryMetasFromNodes,
   getDescendantCategorySlugs,
 } from '../data/catalog';
+import { getCachedDummyJsonProductsSync } from '../../server/shared/dummyJsonCatalog';
 import {
+  ApiError,
   clearStoredToken,
   createOrderApi,
   fetchAuthAccounts,
+  fetchCatalogProductsApi,
   fetchCurrentUser,
   fetchNotificationsApi,
   fetchOrdersApi,
@@ -74,6 +75,14 @@ export interface ToastMessage {
   title: string;
   description?: string;
   variant: 'success' | 'error' | 'info';
+}
+
+export interface RegisterAccountResult {
+  user: AccountDirectoryEntry | null;
+  error?: {
+    message: string;
+    status?: number;
+  };
 }
 
 interface CheckoutPayload {
@@ -227,7 +236,7 @@ interface StoreContextValue {
     role: 'customer' | 'seller';
     studioName?: string;
     acceptedPolicies: LegalAcceptanceRecord;
-  }) => Promise<AccountDirectoryEntry | null>;
+  }) => Promise<RegisterAccountResult>;
   notifications: StoreNotification[];
   unreadNotificationCount: number;
   markNotificationRead: (id: string) => Promise<void>;
@@ -269,27 +278,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     readStorage('kinto-saved', [])
   );
   const [wishlistIds, setWishlistIds] = useState<string[]>(() =>
-    readStorage('kinto-wishlist', [
-      'prod-aeterna-headphones',
-      'prod-kuro-lounge',
-      'prod-botanical-serum',
-    ])
+    readStorage('kinto-wishlist', [])
   );
   const [compareIds, setCompareIds] = useState<string[]>(() => readStorage('kinto-compare', []));
   const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>(() =>
-    readStorage('kinto-recent-views', ['prod-merino-overshirt', 'prod-coffee-pourover'])
+    readStorage('kinto-recent-views', [])
   );
   const [recentSearches, setRecentSearches] = useState<string[]>(() =>
-    readStorage('kinto-recent-searches', [
-      'Wireless Headphones',
-      'Brushless Drill',
-      'Botanical Serum',
-    ])
+    readStorage('kinto-recent-searches', ['iPhone', 'MacBook', 'Perfume'])
   );
   const [appliedPromoCode, setAppliedPromoCode] = useState<string | null>(() =>
     readStorage('kinto-promo', null)
   );
-  const [orders, setOrders] = useState<Order[]>(() => readStorage('kinto-orders', INITIAL_ORDERS));
+  const [orders, setOrders] = useState<Order[]>(() => readStorage('kinto-orders', []));
   const [customReviews, setCustomReviews] = useState<Record<string, ProductReview[]>>(() =>
     readStorage('kinto-reviews', {})
   );
@@ -315,6 +316,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     })
   );
   const [notifications, setNotifications] = useState<StoreNotification[]>([]);
+  const [apiProducts, setApiProducts] = useState<Product[]>(() =>
+    getCachedDummyJsonProductsSync()
+  );
   const [productOverrides, setProductOverrides] = useState<Record<string, ProductOverride>>({});
   const [sellerProducts, setSellerProducts] = useState<ApiSellerProductRecord[]>([]);
   const [categoryNodes, setCategoryNodes] = useState<CategoryNode[]>(INITIAL_CATEGORY_TREE);
@@ -357,21 +361,24 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const hydrateOrderImages = useCallback((apiOrders: Order[]): Order[] => {
-    if (!Array.isArray(apiOrders)) return [];
-    return apiOrders.map((ord) => ({
-      ...ord,
-      paymentStatus: ord.paymentStatus || (ord.paymentMethod === 'cod' ? 'cod_pending' : 'paid'),
-      items: (Array.isArray(ord.items) ? ord.items : []).map((item) => {
-        if (item.image) return item;
-        const matched = PRODUCTS.find((p) => p.id === item.productId);
-        return {
-          ...item,
-          image: matched?.images[0] || resolveImagePreset(undefined, item.category),
-        };
-      }),
-    }));
-  }, []);
+  const hydrateOrderImages = useCallback(
+    (apiOrders: Order[], catalogList: Product[] = apiProducts): Order[] => {
+      if (!Array.isArray(apiOrders)) return [];
+      return apiOrders.map((ord) => ({
+        ...ord,
+        paymentStatus: ord.paymentStatus || (ord.paymentMethod === 'cod' ? 'cod_pending' : 'paid'),
+        items: (Array.isArray(ord.items) ? ord.items : []).map((item) => {
+          if (item.image) return item;
+          const matched = catalogList.find((p) => p.id === item.productId);
+          return {
+            ...item,
+            image: matched?.images[0] || resolveImagePreset(undefined, item.category),
+          };
+        }),
+      }));
+    },
+    [apiProducts]
+  );
 
   const applySyncPayload = useCallback(
     (sync: Awaited<ReturnType<typeof fetchStorefrontSync>>) => {
@@ -433,7 +440,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setAuthLoading(true);
       setStorefrontLoading(true);
       try {
-        const [accountsRes, meRes, syncRes, ordersRes] = await Promise.allSettled([
+        const [catalogRes, accountsRes, meRes, syncRes, ordersRes] = await Promise.allSettled([
+          fetchCatalogProductsApi(),
           fetchAuthAccounts(),
           fetchCurrentUser(),
           fetchStorefrontSync(),
@@ -441,6 +449,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         ]);
 
         if (!active) return;
+
+        const loadedCatalog =
+          catalogRes.status === 'fulfilled' && Array.isArray(catalogRes.value)
+            ? catalogRes.value
+            : getCachedDummyJsonProductsSync();
+
+        if (loadedCatalog.length > 0) {
+          setApiProducts(loadedCatalog);
+        }
 
         if (accountsRes.status === 'fulfilled' && Array.isArray(accountsRes.value)) {
           setAuthAccounts(accountsRes.value);
@@ -467,7 +484,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           applySyncPayload(syncRes.value);
         }
         if (ordersRes.status === 'fulfilled' && Array.isArray(ordersRes.value)) {
-          setOrders(hydrateOrderImages(ordersRes.value));
+          setOrders(hydrateOrderImages(ordersRes.value, loadedCatalog));
         }
       } finally {
         if (active) {
@@ -548,7 +565,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
     });
 
-    const combinedBase = [...mappedSellerProducts, ...PRODUCTS];
+    const hydratedApiProducts = apiProducts.map((p) =>
+      p.images && p.images.length > 0
+        ? p
+        : { ...p, images: [resolveImagePreset(undefined, p.category)] }
+    );
+
+    const combinedBase = [...mappedSellerProducts, ...hydratedApiProducts];
 
     return combinedBase.map((p) => {
       const override = productOverrides[p.id];
@@ -584,7 +607,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         questions: mergedQuestions,
       };
     });
-  }, [customReviews, customQuestions, productOverrides, sellerProducts]);
+  }, [apiProducts, customReviews, customQuestions, productOverrides, sellerProducts]);
 
   useEffect(() => writeStorage('kinto-currency', currency), [currency]);
   useEffect(() => writeStorage('kinto-cart', cart), [cart]);
@@ -1254,9 +1277,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     async (email?: string, password?: string): Promise<AccountDirectoryEntry | null> => {
       try {
         const { user } = await loginWithApi({
-          email: email || profile.email,
+          email: typeof email === 'string' ? email : profile.email,
           password,
         });
+        setAuthAccounts((prev) =>
+          prev.some((a) => a.id === user.id) ? prev : [user, ...prev]
+        );
         setProfile({
           id: user.id,
           fullName: user.fullName,
@@ -1328,10 +1354,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       role: 'customer' | 'seller';
       studioName?: string;
       acceptedPolicies: LegalAcceptanceRecord;
-    }): Promise<AccountDirectoryEntry | null> => {
+    }): Promise<RegisterAccountResult> => {
       try {
         const { user } = await registerWithApi(payload);
-        setAuthAccounts((prev) => [user, ...prev]);
+        setAuthAccounts((prev) =>
+          prev.some((a) => a.id === user.id) ? prev : [user, ...prev]
+        );
         setProfile({
           id: user.id,
           fullName: user.fullName,
@@ -1348,14 +1376,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           `Welcome, ${user.fullName} (${user.roleLabel})`,
           'success'
         );
-        return user;
+        return { user };
       } catch (err) {
-        showToast(
-          'Registration failed',
-          err instanceof Error ? err.message : 'Unable to register account.',
-          'error'
-        );
-        return null;
+        const message =
+          err instanceof Error ? err.message : 'Unable to register account.';
+        const status = err instanceof ApiError ? err.status : undefined;
+        showToast('Registration failed', message, 'error');
+        return { user: null, error: { message, status } };
       }
     },
     [refreshNotifications, showToast]

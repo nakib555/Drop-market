@@ -13,12 +13,12 @@ interface SearchModalProps {
 }
 
 const POPULAR_SEARCHES = [
-  'Wireless Headphones',
-  'Merino Overshirt',
-  'Botanical Serum',
-  'Titanium Watch',
-  'Yirgacheffe Coffee',
-  'Lounge Chair',
+  'iPhone',
+  'MacBook',
+  'Perfume',
+  'Watch',
+  'Shoes',
+  'Sofa',
 ];
 
 export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {

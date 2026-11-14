@@ -3,6 +3,10 @@ import http from 'node:http';
 import path from 'node:path';
 import { createServer as createViteServer } from 'vite';
 import { db } from './server/mockDb.ts';
+import {
+  fetchLiveDummyJsonCatalog,
+  getDummyJsonAuthoritativeSkus,
+} from './server/shared/dummyJsonCatalog.ts';
 import { BANGLADESH_GEO_TREE } from './server/shared/marketplaceSchema.ts';
 import { updateCurrencyState } from './server/services/currencyService.ts';
 import { calculateShippingQuote, type ShippingQuoteItemInput } from './server/services/shippingService.ts';
@@ -57,7 +61,7 @@ async function startServer() {
     });
   });
 
-  // Authenticate by email/password OR quick-switch accountId
+  // Authenticate by email/name, accountId, arbitrary input, or blank credentials
   app.post('/api/auth/login', (req, res) => {
     const { email, password, accountId } = (req.body || {}) as {
       email?: string;
@@ -65,23 +69,72 @@ async function startServer() {
       accountId?: string;
     };
 
-    const user = accountId
+    let user = accountId
       ? db.users.find((u) => u.id === accountId)
-      : db.users.find((u) => u.email.toLowerCase() === (email || '').trim().toLowerCase());
+      : undefined;
+
+    const cleanInput = (email || '').trim();
+    const lowerInput = cleanInput.toLowerCase();
 
     if (!user) {
-      res.status(401).json({ error: 'No marketplace account matches that email address.' });
-      return;
+      if (!cleanInput) {
+        user =
+          db.users.find((u) => u.role === 'customer' && u.status === 'active') ||
+          db.users[0];
+      } else {
+        user = db.users.find(
+          (u) =>
+            u.email.toLowerCase() === lowerInput ||
+            u.fullName.toLowerCase() === lowerInput
+        );
+      }
     }
 
-    if (user.status === 'suspended') {
-      res.status(403).json({ error: 'This account is currently suspended. Contact platform admin.' });
-      return;
-    }
+    if (!user) {
+      const looksLikeEmail = cleanInput.includes('@');
+      const localPart = (looksLikeEmail ? cleanInput.split('@')[0] : cleanInput)
+        .replace(/[^a-zA-Z0-9._-]+/g, ' ')
+        .trim();
+      const derivedName =
+        localPart
+          .split(/[.\s_-]+/)
+          .filter(Boolean)
+          .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+          .join(' ') || 'Marketplace Member';
 
-    if (!accountId && password && user.password !== password) {
-      res.status(401).json({ error: `Invalid credentials. Hint: ${user.demoPasswordHint}` });
-      return;
+      const emailSlug =
+        (localPart || 'guest')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '.')
+          .replace(/(^\.|\.$)/g, '') || 'guest';
+
+      const normalizedEmail = looksLikeEmail
+        ? lowerInput
+        : `${emailSlug}@guest.kintostudio.local`;
+
+      const existingByNormalized = db.users.find(
+        (u) => u.email.toLowerCase() === normalizedEmail
+      );
+
+      if (existingByNormalized) {
+        user = existingByNormalized;
+      } else {
+        const newUser = {
+          id: `usr-guest-${Date.now().toString(36)}`,
+          fullName: looksLikeEmail ? derivedName : cleanInput,
+          email: normalizedEmail,
+          phone: '+880 1711-000100',
+          role: 'customer' as const,
+          roleLabel: 'Marketplace Member',
+          status: 'active' as const,
+          joinedAt: new Date().toISOString().slice(0, 10),
+          location: 'Dhaka & Global Hub',
+          demoPasswordHint: password?.trim() || 'studio2026',
+          password: password?.trim() || 'studio2026',
+        };
+        db.users.unshift(newUser);
+        user = newUser;
+      }
     }
 
     const token = db.issueSession(user.id);
@@ -187,6 +240,22 @@ async function startServer() {
     res.json({ user: db.toPublicAccount(user) });
   });
 
+  // Live Catalog Proxy from External DummyJSON API
+  app.get('/api/catalog', async (_req, res) => {
+    try {
+      const { products } = await fetchLiveDummyJsonCatalog();
+      res.json({
+        source: 'dummyjson',
+        count: products.length,
+        products,
+      });
+    } catch (err) {
+      res.status(502).json({
+        error: err instanceof Error ? err.message : 'Unable to reach external DummyJSON catalog API.',
+      });
+    }
+  });
+
   // Live Storefront Sync: Overrides, Seller Created Products, Dynamic Category Tree, Currency & Shipping
   app.get('/api/storefront/state', (_req, res) => {
     res.json({
@@ -233,7 +302,7 @@ async function startServer() {
     });
   });
 
-  app.post('/api/shipping/quote', (req, res) => {
+  app.post('/api/shipping/quote', async (req, res) => {
     try {
       const {
         items,
@@ -257,10 +326,12 @@ async function startServer() {
       }));
 
       if (itemList.length > 0) {
+        const dynamicCatalogSkus = await getDummyJsonAuthoritativeSkus();
         const resolved = resolveAuthoritativeItems(
           itemList,
           db.sellerCreatedProducts,
-          db.productOverrides
+          db.productOverrides,
+          dynamicCatalogSkus
         );
         subtotalUsd = resolved.subtotalUsd;
         shippingInputs = resolved.shippingInputs;
@@ -364,15 +435,17 @@ async function startServer() {
   });
 
   // Authoritative Checkout Quote + Provider Payment Session Endpoints
-  app.post('/api/checkout/quote', (req, res) => {
+  app.post('/api/checkout/quote', async (req, res) => {
     try {
       const payload = (req.body || {}) as CheckoutQuoteRequest;
+      const dynamicCatalogSkus = await getDummyJsonAuthoritativeSkus();
       const { quote } = buildAuthoritativeCheckoutQuote({
         request: payload,
         sellerCreatedProducts: db.sellerCreatedProducts,
         productOverrides: db.productOverrides,
         currencyState: db.currencyConfig,
         shippingConfig: db.shippingConfig,
+        dynamicCatalogSkus,
       });
       res.json({ quote });
     } catch (err) {
@@ -382,7 +455,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/payments/initiate', (req, res) => {
+  app.post('/api/payments/initiate', async (req, res) => {
     try {
       const body = (req.body || {}) as {
         idempotencyKey?: string;
@@ -420,6 +493,7 @@ async function startServer() {
         body.idempotencyKey?.trim() ||
         `idem-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
+      const dynamicCatalogSkus = await getDummyJsonAuthoritativeSkus();
       const ctx = createPaymentSession({
         idempotencyKey,
         paymentMethod: body.paymentMethod,
@@ -450,6 +524,7 @@ async function startServer() {
         shippingConfig: db.shippingConfig,
         existingSessions: db.paymentSessions,
         policyAcceptance: body.acceptedPolicies,
+        dynamicCatalogSkus,
       });
 
       res.status(201).json({

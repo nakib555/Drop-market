@@ -14,7 +14,7 @@ export const PWAStatusBanners: React.FC = () => {
   const bottomOffsetClass =
     route.name === 'product' ? 'bottom-16 lg:bottom-5' : 'bottom-4 sm:bottom-5';
 
-  const hasBanner = !isOnline || justReconnected || needRefresh;
+  const hasBanner = !isOnline || justReconnected || updating || needRefresh;
   if (!hasBanner) return null;
 
   return (
@@ -58,7 +58,7 @@ export const PWAStatusBanners: React.FC = () => {
           </motion.div>
         )}
 
-        {needRefresh && (
+        {(updating || needRefresh) && (
           <motion.div
             key="pwa-update-banner"
             initial={{ opacity: 0, y: 10, scale: 0.97 }}
@@ -75,36 +75,43 @@ export const PWAStatusBanners: React.FC = () => {
               aria-hidden="true"
             />
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold leading-snug">Studio Update Ready</p>
-              <p className="text-[11px] text-[#5C5B57] dark:text-[#A3A19B] leading-snug mt-0.5">
-                Reload to apply the latest catalog enhancements.
+              <p className="text-xs font-semibold leading-snug">
+                {updating ? 'Updating Kinto Studio...' : 'Studio Update Ready'}
               </p>
-              <div className="mt-2 flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={updating}
-                  onClick={applyUpdate}
-                  className="px-2.5 py-1 rounded bg-[#171716] dark:bg-[#F4F3EF] text-white dark:text-[#171716] text-[11px] font-medium hover:opacity-90 disabled:opacity-50 cursor-pointer"
-                >
-                  {updating ? 'Updating...' : 'Reload App'}
-                </button>
-                <button
-                  type="button"
-                  onClick={dismiss}
-                  className="text-[11px] text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF] px-1.5 py-1 cursor-pointer"
-                >
-                  Later
-                </button>
-              </div>
+              <p className="text-[11px] text-[#5C5B57] dark:text-[#A3A19B] leading-snug mt-0.5">
+                {updating
+                  ? 'Applying the latest release automatically.'
+                  : 'Reload to apply the latest catalog enhancements.'}
+              </p>
+              {!updating && needRefresh && (
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={applyUpdate}
+                    className="px-2.5 py-1 rounded bg-[#171716] dark:bg-[#F4F3EF] text-white dark:text-[#171716] text-[11px] font-medium hover:opacity-90 cursor-pointer"
+                  >
+                    Reload App
+                  </button>
+                  <button
+                    type="button"
+                    onClick={dismiss}
+                    className="text-[11px] text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF] px-1.5 py-1 cursor-pointer"
+                  >
+                    Later
+                  </button>
+                </div>
+              )}
             </div>
-            <button
-              type="button"
-              onClick={dismiss}
-              aria-label="Dismiss update notification"
-              className="text-[#84827B] hover:text-[#171716] dark:hover:text-[#F4F3EF] p-1 cursor-pointer shrink-0"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
+            {!updating && (
+              <button
+                type="button"
+                onClick={dismiss}
+                aria-label="Dismiss update notification"
+                className="text-[#84827B] hover:text-[#171716] dark:hover:text-[#F4F3EF] p-1 cursor-pointer shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

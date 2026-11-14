@@ -158,21 +158,21 @@ export const HomePage: React.FC = () => {
           .slice(0, 6);
       case 'all':
       default: {
-        const featuredSlugs = [
-          'aeterna-ae1-studio-wireless-headphones',
-          'kyoto-heavyweight-merino-overshirt',
-          'aethel-botanical-facial-serum-duo',
-          'solis-18v-brushless-drill-precision-kit',
-          'nordic-montessori-play-nursery-kit',
-          'kuro-smoked-oak-lounge-chair',
-        ];
-        const picked = featuredSlugs
-          .map((slug) => products.find((p) => p.slug === slug))
-          .filter((p): p is NonNullable<typeof p> => Boolean(p));
+        const picked: typeof products = [];
+        const seenDepartments = new Set<string>();
+        for (const item of products) {
+          if (!seenDepartments.has(item.category)) {
+            seenDepartments.add(item.category);
+            picked.push(item);
+          }
+          if (picked.length >= 6) break;
+        }
         return picked.length >= 6 ? picked : products.slice(0, 6);
       }
     }
   }, [products, activeTab]);
+
+  const spotlightProduct = trendingProducts[0] || products[0];
 
   const handleViewAllCollection = () => {
     switch (activeTab) {
@@ -238,17 +238,21 @@ export const HomePage: React.FC = () => {
 
             <div className="pt-4 border-t border-[#E5E3DD] dark:border-[#2C2C28] flex items-center justify-between gap-3 text-xs text-[#5C5B57] dark:text-[#A3A19B]">
               <span className="min-w-0 flex-1 truncate">
-                Spotlight: Aeterna AE-1 Studio Wireless Headphones
+                {spotlightProduct
+                  ? `Spotlight: ${spotlightProduct.name}`
+                  : 'Loading curated marketplace spotlight...'}
               </span>
-              <button
-                type="button"
-                onClick={() =>
-                  navigate({ name: 'product', slug: 'aeterna-ae1-studio-wireless-headphones' })
-                }
-                className="font-medium text-[#171716] dark:text-[#F4F3EF] hover:underline whitespace-nowrap shrink-0 cursor-pointer"
-              >
-                Inspect Product
-              </button>
+              {spotlightProduct && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate({ name: 'product', slug: spotlightProduct.slug })
+                  }
+                  className="font-medium text-[#171716] dark:text-[#F4F3EF] hover:underline whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  Inspect Product
+                </button>
+              )}
             </div>
           </div>
 

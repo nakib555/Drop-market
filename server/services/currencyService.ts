@@ -4,9 +4,12 @@ import type {
   OrderCurrencySnapshot,
 } from '../../src/types/commerce.ts';
 
-const INITIAL_BDT_RATE = Number(process.env.BDT_EXCHANGE_RATE) > 0 ? Number(process.env.BDT_EXCHANGE_RATE) : 120.5;
-const INITIAL_SOURCE = process.env.FX_RATE_SOURCE || 'Bangladesh Bank & OpenFX Studio Reference Feed';
-const INITIAL_FREQ = Number(process.env.FX_UPDATE_FREQUENCY_MIN) > 0 ? Number(process.env.FX_UPDATE_FREQUENCY_MIN) : 30;
+const env: Record<string, string | undefined> =
+  typeof process !== 'undefined' && process.env ? process.env : {};
+
+const INITIAL_BDT_RATE = Number(env.BDT_EXCHANGE_RATE) > 0 ? Number(env.BDT_EXCHANGE_RATE) : 120.5;
+const INITIAL_SOURCE = env.FX_RATE_SOURCE || 'Bangladesh Bank & OpenFX Studio Reference Feed';
+const INITIAL_FREQ = Number(env.FX_UPDATE_FREQUENCY_MIN) > 0 ? Number(env.FX_UPDATE_FREQUENCY_MIN) : 30;
 
 export function createInitialCurrencyState(): CurrencyRateState {
   return {

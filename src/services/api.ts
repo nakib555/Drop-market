@@ -15,6 +15,7 @@ import type {
   OrderStage,
   PaymentMethodId,
   PaymentSession,
+  Product,
   ProductOverride,
   SellerApplicationRecord,
   SellerDashboardData,
@@ -26,9 +27,13 @@ import type {
   UserRole,
 } from '../types/commerce';
 import type { BangladeshDivisionEntry } from '../../server/shared/marketplaceSchema';
+import { ApiError } from './apiError';
 import { readStorage, writeStorage } from './storage';
 
+export { ApiError };
+
 const TOKEN_STORAGE_KEY = 'kinto-api-token';
+const STATIC_FALLBACK_STATUSES = new Set([404, 405, 501, 502, 503]);
 
 export function getStoredToken(): string {
   return readStorage<string>(TOKEN_STORAGE_KEY, '');
@@ -52,10 +57,19 @@ async function requestJson<T>(url: string, options: RequestInit = {}): Promise<T
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const res = await fetch(url, {
-    ...options,
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...options,
+      headers,
+    });
+  } catch (err) {
+    throw new ApiError(
+      err instanceof Error ? err.message : 'Unable to reach marketplace server.',
+      0,
+      true
+    );
+  }
 
   const contentType = (res.headers.get('content-type') || '').toLowerCase();
 
@@ -63,9 +77,9 @@ async function requestJson<T>(url: string, options: RequestInit = {}): Promise<T
     const errBody = contentType.includes('application/json')
       ? await res.json().catch(() => ({}))
       : {};
-    throw new Error(
-      (errBody as { error?: string }).error || `Request failed (${res.status})`
-    );
+    const message =
+      (errBody as { error?: string }).error || `Request failed (${res.status})`;
+    throw new ApiError(message, res.status, STATIC_FALLBACK_STATUSES.has(res.status));
   }
 
   if (!contentType.includes('application/json')) {
@@ -73,23 +87,43 @@ async function requestJson<T>(url: string, options: RequestInit = {}): Promise<T
     try {
       return JSON.parse(text) as T;
     } catch {
-      throw new Error('API endpoint returned non-JSON response');
+      throw new ApiError('API endpoint returned non-JSON response', res.status, true);
     }
   }
 
-  const data = await res.json();
+  const data = await res.json().catch(() => null);
   if (!data || typeof data !== 'object') {
-    throw new Error('Invalid JSON payload from API');
+    throw new ApiError('Invalid JSON payload from API', res.status, true);
   }
   return data as T;
 }
 
-export async function fetchAuthAccounts(): Promise<AccountDirectoryEntry[]> {
-  const data = await requestJson<{ accounts?: AccountDirectoryEntry[] }>('/api/auth/accounts');
-  if (!Array.isArray(data.accounts)) {
-    throw new Error('Invalid accounts payload');
+async function withStaticFallback<T>(
+  apiCall: () => Promise<T>,
+  fallbackCall: (mod: typeof import('./staticFallbackApi')) => Promise<T> | T
+): Promise<T> {
+  try {
+    return await apiCall();
+  } catch (err) {
+    if (err instanceof ApiError && err.isStaticFallbackEligible) {
+      const mod = await import('./staticFallbackApi');
+      return await fallbackCall(mod);
+    }
+    throw err;
   }
-  return data.accounts;
+}
+
+export async function fetchAuthAccounts(): Promise<AccountDirectoryEntry[]> {
+  return withStaticFallback(
+    async () => {
+      const data = await requestJson<{ accounts?: AccountDirectoryEntry[] }>('/api/auth/accounts');
+      if (!Array.isArray(data.accounts)) {
+        throw new ApiError('Invalid accounts payload', 502, true);
+      }
+      return data.accounts;
+    },
+    (mod) => mod.staticFetchAuthAccounts()
+  );
 }
 
 export async function loginWithApi(payload: {
@@ -97,10 +131,14 @@ export async function loginWithApi(payload: {
   password?: string;
   accountId?: string;
 }): Promise<{ token: string; user: AccountDirectoryEntry }> {
-  const res = await requestJson<{ token: string; user: AccountDirectoryEntry }>('/api/auth/login', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
+  const res = await withStaticFallback(
+    () =>
+      requestJson<{ token: string; user: AccountDirectoryEntry }>('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    (mod) => mod.staticLogin(payload)
+  );
   setStoredToken(res.token);
   return res;
 }
@@ -114,23 +152,29 @@ export async function registerWithApi(payload: {
   studioName?: string;
   acceptedPolicies: LegalAcceptanceRecord;
 }): Promise<{ token: string; user: AccountDirectoryEntry }> {
-  const res = await requestJson<{ token: string; user: AccountDirectoryEntry }>(
-    '/api/auth/register',
-    {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }
+  const res = await withStaticFallback(
+    () =>
+      requestJson<{ token: string; user: AccountDirectoryEntry }>('/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    (mod) => mod.staticRegister(payload)
   );
   setStoredToken(res.token);
   return res;
 }
 
 export async function fetchCurrentUser(): Promise<AccountDirectoryEntry> {
-  const res = await requestJson<{ user?: AccountDirectoryEntry }>('/api/auth/me');
-  if (!res.user || typeof res.user !== 'object') {
-    throw new Error('Invalid current user payload');
-  }
-  return res.user;
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ user?: AccountDirectoryEntry }>('/api/auth/me');
+      if (!res.user || typeof res.user !== 'object') {
+        throw new ApiError('Invalid current user payload', 502, true);
+      }
+      return res.user;
+    },
+    (mod) => mod.staticFetchCurrentUser(getStoredToken())
+  );
 }
 
 export async function updateProfileApi(updates: {
@@ -139,11 +183,29 @@ export async function updateProfileApi(updates: {
   phone?: string;
   studioName?: string;
 }): Promise<AccountDirectoryEntry> {
-  const res = await requestJson<{ user: AccountDirectoryEntry }>('/api/auth/profile', {
-    method: 'PATCH',
-    body: JSON.stringify(updates),
-  });
-  return res.user;
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ user: AccountDirectoryEntry }>('/api/auth/profile', {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
+      });
+      return res.user;
+    },
+    (mod) => mod.staticUpdateProfile(getStoredToken(), updates)
+  );
+}
+
+export async function fetchCatalogProductsApi(): Promise<Product[]> {
+  return withStaticFallback(
+    async () => {
+      const data = await requestJson<{ products?: Product[] }>('/api/catalog');
+      if (!Array.isArray(data.products) || data.products.length === 0) {
+        throw new ApiError('Invalid catalog payload', 502, true);
+      }
+      return data.products;
+    },
+    (mod) => mod.staticFetchCatalogProducts()
+  );
 }
 
 export async function fetchStorefrontSync(): Promise<{
@@ -154,12 +216,20 @@ export async function fetchStorefrontSync(): Promise<{
   currencyConfig: CurrencyRateState;
   shippingConfig: ShippingRuleConfig;
 }> {
-  return requestJson('/api/storefront/state');
+  return withStaticFallback(
+    () => requestJson('/api/storefront/state'),
+    (mod) => mod.staticFetchStorefrontSync()
+  );
 }
 
 export async function fetchCurrencyRatesApi(): Promise<CurrencyRateState> {
-  const res = await requestJson<{ currencyConfig: CurrencyRateState }>('/api/currency/rates');
-  return res.currencyConfig;
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ currencyConfig: CurrencyRateState }>('/api/currency/rates');
+      return res.currencyConfig;
+    },
+    (mod) => mod.staticFetchCurrencyRates()
+  );
 }
 
 export async function updateAdminCurrencyApi(updates: {
@@ -168,26 +238,39 @@ export async function updateAdminCurrencyApi(updates: {
   source?: string;
   updateFrequencyMinutes?: number;
 }): Promise<CurrencyRateState> {
-  const res = await requestJson<{ currencyConfig: CurrencyRateState }>('/api/admin/currency', {
-    method: 'PATCH',
-    body: JSON.stringify(updates),
-  });
-  return res.currencyConfig;
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ currencyConfig: CurrencyRateState }>('/api/admin/currency', {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
+      });
+      return res.currencyConfig;
+    },
+    (mod) => mod.staticUpdateAdminCurrency(updates)
+  );
 }
 
 export async function fetchCategoriesTreeApi(): Promise<CategoryNode[]> {
-  const res = await requestJson<{ categories?: CategoryNode[] }>('/api/categories');
-  if (!Array.isArray(res.categories)) {
-    throw new Error('Invalid categories payload');
-  }
-  return res.categories;
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ categories?: CategoryNode[] }>('/api/categories');
+      if (!Array.isArray(res.categories)) {
+        throw new ApiError('Invalid categories payload', 502, true);
+      }
+      return res.categories;
+    },
+    (mod) => mod.staticFetchCategoriesTree()
+  );
 }
 
 export async function fetchShippingLocationsApi(): Promise<{
   divisions: BangladeshDivisionEntry[];
   restrictedAreaKeywords: string[];
 }> {
-  return requestJson('/api/shipping/locations');
+  return withStaticFallback(
+    () => requestJson('/api/shipping/locations'),
+    (mod) => mod.staticFetchShippingLocations()
+  );
 }
 
 export async function quoteShippingApi(payload: {
@@ -196,11 +279,16 @@ export async function quoteShippingApi(payload: {
   promoCode?: string;
   currency?: CurrencyCode;
 }): Promise<ShippingQuoteResponse> {
-  const res = await requestJson<{ quote: ShippingQuoteResponse }>('/api/shipping/quote', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-  return res.quote;
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ quote: ShippingQuoteResponse }>('/api/shipping/quote', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      return res.quote;
+    },
+    (mod) => mod.staticQuoteShipping(payload)
+  );
 }
 
 export async function updateAdminShippingRulesApi(payload: {
@@ -208,14 +296,19 @@ export async function updateAdminShippingRulesApi(payload: {
   updates?: Partial<ShippingZoneRule>;
   restrictedAreaKeywords?: string[];
 }): Promise<ShippingRuleConfig> {
-  const res = await requestJson<{ shippingConfig: ShippingRuleConfig }>(
-    '/api/admin/shipping-rules',
-    {
-      method: 'PATCH',
-      body: JSON.stringify(payload),
-    }
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ shippingConfig: ShippingRuleConfig }>(
+        '/api/admin/shipping-rules',
+        {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        }
+      );
+      return res.shippingConfig;
+    },
+    (mod) => mod.staticUpdateAdminShippingRules(payload)
   );
-  return res.shippingConfig;
 }
 
 export async function quoteCheckoutApi(payload: {
@@ -232,11 +325,16 @@ export async function quoteCheckoutApi(payload: {
   requestedCurrency?: CurrencyCode;
   allowInternationalUsd?: boolean;
 }): Promise<CheckoutQuoteResponse> {
-  const res = await requestJson<{ quote: CheckoutQuoteResponse }>('/api/checkout/quote', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-  return res.quote;
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ quote: CheckoutQuoteResponse }>('/api/checkout/quote', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      return res.quote;
+    },
+    (mod) => mod.staticQuoteCheckout(payload)
+  );
 }
 
 export async function initiatePaymentApi(payload: {
@@ -263,10 +361,14 @@ export async function initiatePaymentApi(payload: {
   allowInternationalUsd?: boolean;
   acceptedPolicies: LegalAcceptanceRecord;
 }): Promise<{ session: PaymentSession; quote: CheckoutQuoteResponse }> {
-  return requestJson('/api/payments/initiate', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
+  return withStaticFallback(
+    () =>
+      requestJson('/api/payments/initiate', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    (mod) => mod.staticInitiatePayment(payload)
+  );
 }
 
 export async function verifyPaymentApi(payload: {
@@ -275,40 +377,62 @@ export async function verifyPaymentApi(payload: {
   walletNumber?: string;
   failureReason?: string;
 }): Promise<{ session: PaymentSession; order?: Order }> {
-  return requestJson('/api/payments/verify', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
+  return withStaticFallback(
+    () =>
+      requestJson('/api/payments/verify', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    (mod) => mod.staticVerifyPayment(payload)
+  );
 }
 
 export async function fetchNotificationsApi(role: UserRole): Promise<StoreNotification[]> {
-  const res = await requestJson<{ notifications?: StoreNotification[] }>(
-    `/api/notifications?role=${encodeURIComponent(role)}`
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ notifications?: StoreNotification[] }>(
+        `/api/notifications?role=${encodeURIComponent(role)}`
+      );
+      if (!Array.isArray(res.notifications)) {
+        throw new ApiError('Invalid notifications payload', 502, true);
+      }
+      return res.notifications;
+    },
+    (mod) => mod.staticFetchNotifications(role)
   );
-  if (!Array.isArray(res.notifications)) {
-    throw new Error('Invalid notifications payload');
-  }
-  return res.notifications;
 }
 
 export async function markNotificationReadApi(id: string): Promise<void> {
-  await requestJson(`/api/notifications/${encodeURIComponent(id)}/read`, { method: 'POST' });
+  await withStaticFallback(
+    () => requestJson(`/api/notifications/${encodeURIComponent(id)}/read`, { method: 'POST' }),
+    (mod) => mod.staticMarkNotificationRead(id)
+  );
 }
 
 export async function fetchOrdersApi(): Promise<Order[]> {
-  const res = await requestJson<{ orders?: Order[] }>('/api/orders');
-  if (!Array.isArray(res.orders)) {
-    throw new Error('Invalid orders payload');
-  }
-  return res.orders;
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ orders?: Order[] }>('/api/orders');
+      if (!Array.isArray(res.orders)) {
+        throw new ApiError('Invalid orders payload', 502, true);
+      }
+      return res.orders;
+    },
+    (mod) => mod.staticFetchOrders()
+  );
 }
 
 export async function createOrderApi(order: Order): Promise<Order> {
-  const res = await requestJson<{ order: Order }>('/api/orders', {
-    method: 'POST',
-    body: JSON.stringify(order),
-  });
-  return res.order;
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ order: Order }>('/api/orders', {
+        method: 'POST',
+        body: JSON.stringify(order),
+      });
+      return res.order;
+    },
+    (mod) => mod.staticCreateOrder(order)
+  );
 }
 
 export async function updateOrderStatusApi(
@@ -316,14 +440,19 @@ export async function updateOrderStatusApi(
   stage: OrderStage,
   note?: string
 ): Promise<Order> {
-  const res = await requestJson<{ order: Order }>(
-    `/api/orders/${encodeURIComponent(orderId)}/status`,
-    {
-      method: 'PATCH',
-      body: JSON.stringify({ stage, note }),
-    }
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ order: Order }>(
+        `/api/orders/${encodeURIComponent(orderId)}/status`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ stage, note }),
+        }
+      );
+      return res.order;
+    },
+    (mod) => mod.staticUpdateOrderStatus(orderId, stage, note)
   );
-  return res.order;
 }
 
 export async function performOrderCustomerActionApi(
@@ -331,18 +460,26 @@ export async function performOrderCustomerActionApi(
   action: 'cancel' | 'return',
   reason?: string
 ): Promise<Order> {
-  const res = await requestJson<{ order: Order }>(
-    `/api/orders/${encodeURIComponent(orderId)}/action`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ action, reason }),
-    }
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ order: Order }>(
+        `/api/orders/${encodeURIComponent(orderId)}/action`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ action, reason }),
+        }
+      );
+      return res.order;
+    },
+    (mod) => mod.staticPerformOrderCustomerAction(orderId, action, reason)
   );
-  return res.order;
 }
 
 export async function fetchSellerDashboardApi(): Promise<SellerDashboardData> {
-  return requestJson<SellerDashboardData>('/api/seller/dashboard');
+  return withStaticFallback(
+    () => requestJson<SellerDashboardData>('/api/seller/dashboard'),
+    (mod) => mod.staticFetchSellerDashboard(getStoredToken())
+  );
 }
 
 export async function createSellerProductApi(payload: {
@@ -363,57 +500,80 @@ export async function createSellerProductApi(payload: {
   highlightTwo?: string;
   acceptedPolicies: LegalAcceptanceRecord;
 }): Promise<ApiSellerProductRecord> {
-  const res = await requestJson<{ product: ApiSellerProductRecord }>('/api/seller/products', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-  return res.product;
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ product: ApiSellerProductRecord }>('/api/seller/products', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      return res.product;
+    },
+    (mod) => mod.staticCreateSellerProduct(getStoredToken(), payload)
+  );
 }
 
 export async function updateSellerProductApi(
   id: string,
   updates: { price?: number; stockCount?: number; availability?: AvailabilityStatus }
 ): Promise<ProductOverride> {
-  const res = await requestJson<{ override: ProductOverride }>(
-    `/api/seller/products/${encodeURIComponent(id)}`,
-    {
-      method: 'PATCH',
-      body: JSON.stringify(updates),
-    }
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ override: ProductOverride }>(
+        `/api/seller/products/${encodeURIComponent(id)}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(updates),
+        }
+      );
+      return res.override;
+    },
+    (mod) => mod.staticUpdateSellerProduct(id, updates)
   );
-  return res.override;
 }
 
 export async function fetchAdminDashboardApi(): Promise<AdminDashboardData> {
-  return requestJson<AdminDashboardData>('/api/admin/dashboard');
+  return withStaticFallback(
+    () => requestJson<AdminDashboardData>('/api/admin/dashboard'),
+    (mod) => mod.staticFetchAdminDashboard()
+  );
 }
 
 export async function updateAdminUserApi(
   id: string,
   updates: { role?: UserRole; status?: 'active' | 'pending' | 'suspended' }
 ): Promise<AccountDirectoryEntry> {
-  const res = await requestJson<{ user: AccountDirectoryEntry }>(
-    `/api/admin/users/${encodeURIComponent(id)}`,
-    {
-      method: 'PATCH',
-      body: JSON.stringify(updates),
-    }
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ user: AccountDirectoryEntry }>(
+        `/api/admin/users/${encodeURIComponent(id)}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(updates),
+        }
+      );
+      return res.user;
+    },
+    (mod) => mod.staticUpdateAdminUser(id, updates)
   );
-  return res.user;
 }
 
 export async function updateSellerStatusApi(
   id: string,
   status: 'approved' | 'pending' | 'suspended'
 ): Promise<SellerApplicationRecord> {
-  const res = await requestJson<{ application: SellerApplicationRecord }>(
-    `/api/admin/sellers/${encodeURIComponent(id)}/approve`,
-    {
-      method: 'PATCH',
-      body: JSON.stringify({ status }),
-    }
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ application: SellerApplicationRecord }>(
+        `/api/admin/sellers/${encodeURIComponent(id)}/approve`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ status }),
+        }
+      );
+      return res.application;
+    },
+    (mod) => mod.staticUpdateSellerStatus(id, status)
   );
-  return res.application;
 }
 
 export async function createCategoryNodeApi(payload: {
@@ -432,26 +592,38 @@ export async function createCategoryNodeApi(payload: {
   filterFacets?: CategoryFacetConfig[];
   subcategoryName?: string;
 }): Promise<{ category: CategoryNode; categoryTree: CategoryNode[] }> {
-  return requestJson('/api/admin/categories', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
+  return withStaticFallback(
+    () =>
+      requestJson('/api/admin/categories', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    (mod) => mod.staticCreateCategoryNode(payload)
+  );
 }
 
 export async function updateCategoryNodeApi(
   id: string,
   updates: Partial<CategoryNode>
 ): Promise<{ category: CategoryNode; categoryTree: CategoryNode[] }> {
-  return requestJson(`/api/admin/categories/${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    body: JSON.stringify(updates),
-  });
+  return withStaticFallback(
+    () =>
+      requestJson(`/api/admin/categories/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
+      }),
+    (mod) => mod.staticUpdateCategoryNode(id, updates)
+  );
 }
 
 export async function deleteCategoryNodeApi(
   idOrSlug: string
 ): Promise<{ ok: boolean; removedCount: number; categoryTree: CategoryNode[] }> {
-  return requestJson(`/api/admin/categories/${encodeURIComponent(idOrSlug)}`, {
-    method: 'DELETE',
-  });
+  return withStaticFallback(
+    () =>
+      requestJson(`/api/admin/categories/${encodeURIComponent(idOrSlug)}`, {
+        method: 'DELETE',
+      }),
+    (mod) => mod.staticDeleteCategoryNode(idOrSlug)
+  );
 }

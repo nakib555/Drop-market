@@ -17,11 +17,8 @@ function resolveInitialTheme(): Theme {
   try {
     const saved = window.localStorage.getItem(STORAGE_KEY);
     if (saved === 'light' || saved === 'dark') return saved;
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      return 'dark';
-    }
   } catch {
-    // fallback
+    // fallback to default light theme
   }
   return 'light';
 }
@@ -59,20 +56,6 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // ignore
     }
   }, [theme]);
-
-  useEffect(() => {
-    if (!window.matchMedia) return;
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = (e: MediaQueryListEvent) => {
-      const explicit = window.localStorage.getItem(STORAGE_KEY);
-      if (!explicit) {
-        triggerSmoothThemeTransition();
-        setThemeState(e.matches ? 'dark' : 'light');
-      }
-    };
-    media.addEventListener('change', handleChange);
-    return () => media.removeEventListener('change', handleChange);
-  }, []);
 
   const setTheme = (next: Theme) => {
     triggerSmoothThemeTransition();

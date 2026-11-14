@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { LayoutGrid, List, Search, SlidersHorizontal, X } from 'lucide-react';
-import { BRAND_STUDIOS } from '../data/catalog';
 import { useStore } from '../context/StoreContext';
 import {
   AttributeType,
@@ -78,6 +77,7 @@ interface ShopFilterPanelProps {
   selectedAttributes: Record<string, string>;
   onAttributeChange: (key: string, val: string) => void;
   selectedBrand: string;
+  allBrands: string[];
   onBrandChange: (val: string) => void;
   maxPrice: number;
   catalogMaxPrice: number;
@@ -108,6 +108,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
   selectedAttributes,
   onAttributeChange,
   selectedBrand,
+  allBrands,
   onBrandChange,
   maxPrice,
   catalogMaxPrice,
@@ -334,9 +335,9 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
         className="w-full h-10 px-3 text-sm rounded-md bg-white dark:bg-[#191917] border border-[#DCD9D0] dark:border-[#2E2E2A]"
       >
         <option value="all">All Brands</option>
-        {BRAND_STUDIOS.map((b) => (
-          <option key={b.id} value={b.name}>
-            {b.name}
+        {allBrands.map((brandName) => (
+          <option key={brandName} value={brandName}>
+            {brandName}
           </option>
         ))}
       </select>
@@ -358,15 +359,15 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
       <input
         id={`${idPrefix}-price-range`}
         type="range"
-        min={50}
+        min={0}
         max={catalogMaxPrice}
-        step={50}
+        step={25}
         value={maxPrice}
         onChange={(e) => onMaxPriceChange(Number(e.target.value))}
         className="w-full accent-[#8F6438] dark:accent-[#C89B67] cursor-pointer"
       />
       <div className="flex justify-between text-[11px] font-mono-num text-[#84827B]">
-        <span>{formatCurrency(50, currency)}</span>
+        <span>{formatCurrency(0, currency)}</span>
         <span>{formatCurrency(catalogMaxPrice, currency)}</span>
       </div>
     </div>
@@ -569,6 +570,14 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
           ),
     [products, selectedCategory, activeDeptSlugs]
   );
+
+  const allBrands = useMemo(() => {
+    const names = new Set<string>();
+    categoryScopedProducts.forEach((p) => {
+      if (p.brand) names.add(p.brand);
+    });
+    return Array.from(names).sort();
+  }, [categoryScopedProducts]);
 
   const allColors = useMemo(() => {
     const names = new Set<string>();
@@ -1028,6 +1037,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
       setPage(1);
     },
     selectedBrand,
+    allBrands,
     onBrandChange: (val: string) => {
       setSelectedBrand(val);
       setPage(1);

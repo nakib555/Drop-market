@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  AlertCircle,
   ArrowRight,
   Eye,
   EyeOff,
@@ -16,6 +17,10 @@ import { STUDIO_TRANSITION } from '../../utils/motion';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/FormFields';
 import { SkeletonLoader } from '../ui/Primitives';
+import {
+  RegistrationErrorAlert,
+  type RegistrationErrorInfo,
+} from './RegistrationErrorAlert';
 
 interface AuthPanelProps {
   initialTab?: 'signin' | 'register';
@@ -23,6 +28,16 @@ interface AuthPanelProps {
   onSuccess?: (user: AccountDirectoryEntry) => void;
   onOpenFullPage?: () => void;
 }
+
+interface RegFieldErrors {
+  fullName?: string;
+  studioName?: string;
+  email?: string;
+  password?: string;
+  policy?: string;
+}
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const ROLE_META: Record<
   'customer' | 'seller' | 'admin',
@@ -85,6 +100,8 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [switchingId, setSwitchingId] = useState<string | null>(null);
   const [formError, setFormError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<RegFieldErrors>({});
+  const [regError, setRegError] = useState<RegistrationErrorInfo | null>(null);
 
   const primaryRoleAccounts = (['customer', 'seller', 'admin'] as const)
     .map((roleKey) => authAccounts.find((a) => a.role === roleKey))
@@ -104,64 +121,139 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
     }
   };
 
+  const clearFieldError = (field: keyof RegFieldErrors) => {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+    if (regError) setRegError(null);
+  };
+
   const handleSignInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
-    if (!loginEmail.trim() || !loginEmail.includes('@')) {
-      setFormError('Enter a valid marketplace email address.');
-      return;
-    }
+    setRegError(null);
     setSubmitting(true);
     const user = await loginDemo(loginEmail.trim(), loginPassword || undefined);
     setSubmitting(false);
     if (user) {
       routeForUser(user);
     } else {
-      setFormError('Could not verify credentials. Select one of the role accounts to sign in instantly.');
+      setFormError('Could not complete sign in. Select a workspace on the right or try again.');
     }
   };
 
-  const handleRegisterSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const runRegistration = async () => {
     setFormError('');
-    if (!regName.trim() || !regEmail.trim() || !regEmail.includes('@')) {
-      setFormError('Full name and a valid email address are required.');
-      return;
+    setRegError(null);
+
+    const errors: RegFieldErrors = {};
+    const trimmedName = regName.trim();
+    const trimmedStudio = regStudioName.trim();
+    const trimmedEmail = regEmail.trim();
+
+    if (!trimmedName) {
+      errors.fullName = 'Enter your full name.';
+    }
+    if (regRole === 'seller' && !trimmedStudio) {
+      errors.studioName = 'Enter a studio or brand name for your Seller account.';
+    }
+    if (!trimmedEmail || !EMAIL_PATTERN.test(trimmedEmail)) {
+      errors.email = 'Enter a valid email address (for example, name@example.com).';
     }
     if (regPassword.length < 6) {
-      setFormError('Password must be at least 6 characters.');
-      return;
+      errors.password = 'Password must be at least 6 characters long.';
     }
     if (!regAccepted) {
-      setFormError(
+      errors.policy =
         regRole === 'seller'
-          ? 'Please accept the Terms of Service, Privacy Policy, Seller Marketplace Agreement, and Prohibited Items Policy.'
-          : 'Please accept the Terms of Service, Privacy Policy, and Acceptable Use Policy.'
-      );
+          ? 'Accept the Terms of Service, Privacy Policy, Seller Marketplace Agreement, and Prohibited Items Policy.'
+          : 'Accept the Terms of Service, Privacy Policy, and Acceptable Use Policy.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      const detailList = Object.values(errors).filter((v): v is string => Boolean(v));
+      const onlyPolicyMissing = Boolean(errors.policy) && detailList.length === 1;
+      setRegError({
+        category: onlyPolicyMissing ? 'policy' : 'validation',
+        title: onlyPolicyMissing
+          ? 'Policy consent required'
+          : 'Please review the highlighted fields',
+        message: onlyPolicyMissing
+          ? 'You must confirm the marketplace legal agreements before creating an account.'
+          : 'Some required registration details are missing or need correction:',
+        details: onlyPolicyMissing ? detailList : detailList,
+      });
       return;
     }
+
+    setFieldErrors({});
     setSubmitting(true);
     const scope =
       regRole === 'seller'
         ? ['terms', 'privacy-policy', 'acceptable-use', 'seller-agreement', 'prohibited-items']
         : ['terms', 'privacy-policy', 'acceptable-use'];
-    const user = await registerAccount({
-      fullName: regName.trim(),
-      email: regEmail.trim(),
+
+    const result = await registerAccount({
+      fullName: trimmedName,
+      email: trimmedEmail,
       phone: regPhone.trim(),
       password: regPassword,
       role: regRole,
-      studioName: regRole === 'seller' ? regStudioName.trim() : undefined,
+      studioName: regRole === 'seller' ? trimmedStudio : undefined,
       acceptedPolicies: buildPolicyAcceptance(scope),
     });
+
     setSubmitting(false);
-    if (user) {
-      routeForUser(user);
+
+    if (result.user) {
+      routeForUser(result.user);
+      return;
     }
+
+    const errMsg = result.error?.message || 'Unable to register your account right now.';
+    const status = result.error?.status;
+
+    if (status === 409 || /already exists/i.test(errMsg)) {
+      setFieldErrors({ email: 'An account with this email already exists.' });
+      setRegError({
+        category: 'duplicate_email',
+        title: 'Email address already registered',
+        message: `There is already a Kinto Studio account using ${trimmedEmail}. Sign in to that account instead, or use a different email address.`,
+        email: trimmedEmail,
+      });
+    } else if (status === 400) {
+      setRegError({
+        category: 'validation',
+        title: 'Registration details could not be verified',
+        message: errMsg,
+      });
+    } else if (status === 0 || /network|fetch|reach/i.test(errMsg)) {
+      setRegError({
+        category: 'network',
+        title: 'Connection interrupted',
+        message: 'We could not reach the registration service. Check your connection and try again.',
+      });
+    } else {
+      setRegError({
+        category: 'server',
+        title: 'Registration could not be completed',
+        message: errMsg,
+      });
+    }
+  };
+
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await runRegistration();
   };
 
   const handleQuickRole = async (acc: AccountDirectoryEntry) => {
     setFormError('');
+    setRegError(null);
     setSwitchingId(acc.id);
     const user = await switchDemoAccount(acc.id);
     setSwitchingId(null);
@@ -192,6 +284,8 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                     onClick={() => {
                       setAuthMode(tab.id);
                       setFormError('');
+                      setRegError(null);
+                      setFieldErrors({});
                     }}
                     className={`relative pb-3 text-sm font-medium transition-colors cursor-pointer ${
                       active
@@ -224,33 +318,32 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
           </div>
 
           {authMode === 'signin' ? (
-            <form onSubmit={handleSignInSubmit} className="space-y-4">
+            <form onSubmit={handleSignInSubmit} noValidate className="space-y-4">
               <div className="space-y-1">
                 <h2 className="font-display text-2xl sm:text-3xl font-medium">
                   Sign In to Kinto Studio
                 </h2>
                 <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] leading-relaxed">
-                  Enter your account email or choose an instant role workspace on the right.
+                  Enter any email or name, leave fields blank for instant access, or pick a workspace on the right.
                 </p>
               </div>
 
               <Input
-                label="Email Address"
-                type="email"
-                required
+                label="Email or Name (Optional)"
+                type="text"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
-                placeholder="alex.mercer@studio.example"
+                placeholder="Any email, name, or leave blank"
               />
 
               <div className="space-y-1.5">
                 <div className="relative">
                   <Input
-                    label="Password"
+                    label="Password (Optional)"
                     type={showLoginPassword ? 'text' : 'password'}
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
-                    placeholder="studio2026 (optional for seeded roles)"
+                    placeholder="Optional — enter anything or leave blank"
                     className="pr-10"
                   />
                   <button
@@ -278,7 +371,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
               </Button>
             </form>
           ) : (
-            <form onSubmit={handleRegisterSubmit} className="space-y-4">
+            <form onSubmit={handleRegisterSubmit} noValidate className="space-y-4">
               <div className="space-y-1">
                 <h2 className="font-display text-2xl sm:text-3xl font-medium">
                   Create Marketplace Account
@@ -298,7 +391,13 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                   <button
                     key={opt.id}
                     type="button"
-                    onClick={() => setRegRole(opt.id)}
+                    onClick={() => {
+                      setRegRole(opt.id);
+                      if (opt.id === 'customer') {
+                        clearFieldError('studioName');
+                      }
+                      if (regError) setRegError(null);
+                    }}
                     className={`py-2 px-3 rounded-md border text-xs font-medium cursor-pointer transition-colors ${
                       regRole === opt.id
                         ? 'bg-[#171716] text-white border-[#171716] dark:bg-[#F4F3EF] dark:text-[#171716] dark:border-[#F4F3EF]'
@@ -314,7 +413,11 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                 label="Full Name"
                 required
                 value={regName}
-                onChange={(e) => setRegName(e.target.value)}
+                onChange={(e) => {
+                  setRegName(e.target.value);
+                  clearFieldError('fullName');
+                }}
+                error={fieldErrors.fullName}
                 placeholder="Jordan Rivera"
               />
 
@@ -323,7 +426,11 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                   label="Studio / Brand Name"
                   required
                   value={regStudioName}
-                  onChange={(e) => setRegStudioName(e.target.value)}
+                  onChange={(e) => {
+                    setRegStudioName(e.target.value);
+                    clearFieldError('studioName');
+                  }}
+                  error={fieldErrors.studioName}
                   placeholder="Atelier Botanica"
                 />
               )}
@@ -333,7 +440,11 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                 type="email"
                 required
                 value={regEmail}
-                onChange={(e) => setRegEmail(e.target.value)}
+                onChange={(e) => {
+                  setRegEmail(e.target.value);
+                  clearFieldError('email');
+                }}
+                error={fieldErrors.email}
                 placeholder="jordan@studio.example"
               />
 
@@ -350,7 +461,11 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                     type={showRegPassword ? 'text' : 'password'}
                     required
                     value={regPassword}
-                    onChange={(e) => setRegPassword(e.target.value)}
+                    onChange={(e) => {
+                      setRegPassword(e.target.value);
+                      clearFieldError('password');
+                    }}
+                    error={fieldErrors.password}
                     placeholder="6+ characters"
                     className="pr-10"
                   />
@@ -365,14 +480,21 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-2">
+              <div
+                className={`p-3.5 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border space-y-2 transition-colors ${
+                  fieldErrors.policy
+                    ? 'border-[#B91C1C] dark:border-[#F87171]'
+                    : 'border-[#E5E3DD] dark:border-[#2C2C28]'
+                }`}
+              >
                 <label className="flex items-start gap-2.5 cursor-pointer text-xs leading-relaxed text-[#5C5B57] dark:text-[#A3A19B] select-none">
                   <input
                     type="checkbox"
                     checked={regAccepted}
+                    aria-invalid={Boolean(fieldErrors.policy)}
                     onChange={(e) => {
                       setRegAccepted(e.target.checked);
-                      if (formError) setFormError('');
+                      clearFieldError('policy');
                     }}
                     className="mt-0.5 w-4 h-4 shrink-0 accent-[#171716] dark:accent-[#F4F3EF] cursor-pointer"
                   />
@@ -425,11 +547,28 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                     {' '}(governed by Bangladesh law &amp; Dhaka courts).
                   </span>
                 </label>
+                {fieldErrors.policy && (
+                  <p className="text-xs leading-snug text-[#B91C1C] dark:text-[#F87171] flex items-start gap-1.5 pl-6">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-[2px]" aria-hidden="true" />
+                    <span>{fieldErrors.policy}</span>
+                  </p>
+                )}
               </div>
 
-              {formError && (
-                <p className="text-xs text-[#B91C1C] dark:text-[#F87171]">{formError}</p>
-              )}
+              <RegistrationErrorAlert
+                error={regError}
+                onDismiss={() => setRegError(null)}
+                onSwitchToSignIn={(email) => {
+                  setAuthMode('signin');
+                  setLoginEmail(email);
+                  setRegError(null);
+                  setFieldErrors({});
+                  setFormError('');
+                }}
+                onRetry={() => {
+                  void runRegistration();
+                }}
+              />
 
               <Button type="submit" variant="primary" size="lg" fullWidth disabled={submitting}>
                 <span>{submitting ? 'Creating Account...' : 'Create Account & Enter Portal'}</span>

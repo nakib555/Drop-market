@@ -11,7 +11,7 @@ export default defineConfig(() => {
       react(),
       tailwindcss(),
       VitePWA({
-        registerType: 'prompt',
+        registerType: 'autoUpdate',
         includeAssets: [
           'icon.svg',
           'favicon-32x32.png',
@@ -79,8 +79,9 @@ export default defineConfig(() => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-          globIgnores: ['**/assets/aistudio/**'],
           cleanupOutdatedCaches: true,
+          skipWaiting: true,
+          clientsClaim: true,
           navigateFallback: '/index.html',
           navigateFallbackDenylist: [/^\/api\//],
           runtimeCaching: [
@@ -117,7 +118,7 @@ export default defineConfig(() => {
               handler: 'NetworkOnly',
             },
             {
-              urlPattern: /^\/api\/(?:storefront\/state|categories|currency\/rates|shipping\/locations)\b/i,
+              urlPattern: /^\/api\/(?:catalog|storefront\/state|categories|currency\/rates|shipping\/locations)\b/i,
               handler: 'NetworkFirst',
               options: {
                 cacheName: 'kinto-catalog-api-cache',
@@ -132,12 +133,41 @@ export default defineConfig(() => {
               },
             },
             {
+              urlPattern: /^https:\/\/dummyjson\.com\/.*/i,
+              handler: 'NetworkFirst',
+              options: {
+                cacheName: 'kinto-dummyjson-api-cache',
+                networkTimeoutSeconds: 5,
+                expiration: {
+                  maxEntries: 24,
+                  maxAgeSeconds: 60 * 60 * 24,
+                },
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+              },
+            },
+            {
+              urlPattern: /^https:\/\/cdn\.dummyjson\.com\/.*/i,
+              handler: 'StaleWhileRevalidate',
+              options: {
+                cacheName: 'kinto-dummyjson-images',
+                expiration: {
+                  maxEntries: 250,
+                  maxAgeSeconds: 60 * 60 * 24 * 14,
+                },
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+              },
+            },
+            {
               urlPattern: ({ request }) => request.destination === 'image',
               handler: 'StaleWhileRevalidate',
               options: {
                 cacheName: 'kinto-image-cache',
                 expiration: {
-                  maxEntries: 120,
+                  maxEntries: 250,
                   maxAgeSeconds: 60 * 60 * 24 * 14,
                 },
                 cacheableResponse: {
