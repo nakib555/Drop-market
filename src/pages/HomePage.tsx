@@ -27,6 +27,7 @@ import { ScrollReveal } from '../components/ui/MotionPrimitives';
 import { ProductCard } from '../components/product/ProductCard';
 import { Button } from '../components/ui/Button';
 import { EmptyState, ProductGridSkeleton, ResilientImage } from '../components/ui/Primitives';
+import { TypingGradientText } from '../components/ui/TypingGradientText';
 
 const DEPT_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Cpu,
@@ -199,13 +200,23 @@ export const HomePage: React.FC = () => {
       {/* 1. Editorial Split Hero */}
       <section className="ks-container pt-4 sm:pt-6 lg:pt-8">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-10 items-stretch">
-          <div className="md:col-span-6 lg:col-span-5 flex flex-col justify-between py-1 lg:py-4 space-y-6">
+          <div className="md:col-span-6 lg:col-span-5 @container flex flex-col justify-between py-1 lg:py-4 space-y-6">
             <div className="space-y-4">
               <p className="text-xs uppercase tracking-[0.12em] text-[var(--ks-accent)] font-medium">
                 Kinto Studio
               </p>
-              <h1 className="ks-heading-hero">
-                Everything for Your Everyday Life.
+              <h1 className="ks-heading-hero !text-[clamp(1.75rem,8cqi,3.35rem)] !leading-[1.08] space-y-1">
+                <span className="block whitespace-nowrap">Refined essentials.</span>
+                <span className="block">
+                  <TypingGradientText
+                    singleLine
+                    className="text-[clamp(1.65rem,7.6cqi,3.2rem)] leading-[1.1]"
+                    phrases={[
+                      'Crafted to endure.',
+                      'Styled for today.',
+                    ]}
+                  />
+                </span>
               </h1>
               <p className="text-sm sm:text-base lg:text-lg text-[var(--ks-text-secondary)] leading-relaxed max-w-lg">
                 Shop technology, fashion, home essentials, beauty, groceries, tools, and more across ten departments.

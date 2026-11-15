@@ -570,6 +570,180 @@ export function mapRawToCatalog(rawItems: DummyJsonProductDto[]): {
   return { products, skus };
 }
 
+export const TARGET_API_CATALOG_COUNT = 1080;
+
+const API_EDITION_VARIANTS: ReadonlyArray<{
+  code: string;
+  label: string;
+  slugSuffix: string;
+  skuSuffix: string;
+  priceMultiplier: number;
+  discountBoostPct: number;
+  stockOffset: number;
+}> = [
+  {
+    code: 'ed1',
+    label: 'Studio Edition',
+    slugSuffix: 'studio-edition',
+    skuSuffix: 'STD',
+    priceMultiplier: 1.08,
+    discountBoostPct: 0,
+    stockOffset: 7,
+  },
+  {
+    code: 'ed2',
+    label: 'Pro Series',
+    slugSuffix: 'pro-series',
+    skuSuffix: 'PRO',
+    priceMultiplier: 1.24,
+    discountBoostPct: 12,
+    stockOffset: 13,
+  },
+  {
+    code: 'ed3',
+    label: 'Atelier Reserve',
+    slugSuffix: 'atelier-reserve',
+    skuSuffix: 'ATR',
+    priceMultiplier: 1.38,
+    discountBoostPct: 15,
+    stockOffset: 3,
+  },
+  {
+    code: 'ed4',
+    label: 'Compact Pack',
+    slugSuffix: 'compact-pack',
+    skuSuffix: 'CMP',
+    priceMultiplier: 0.86,
+    discountBoostPct: 10,
+    stockOffset: 19,
+  },
+  {
+    code: 'ed5',
+    label: 'Heritage Finish',
+    slugSuffix: 'heritage-finish',
+    skuSuffix: 'HRT',
+    priceMultiplier: 1.16,
+    discountBoostPct: 0,
+    stockOffset: 11,
+  },
+  {
+    code: 'ed6',
+    label: 'Signature Bundle',
+    slugSuffix: 'signature-bundle',
+    skuSuffix: 'SIG',
+    priceMultiplier: 1.44,
+    discountBoostPct: 18,
+    stockOffset: 9,
+  },
+];
+
+export function expandCatalogFromApiBase(
+  base: { products: Product[]; skus: AuthoritativeCatalogSku[] },
+  targetCount = TARGET_API_CATALOG_COUNT
+): { products: Product[]; skus: AuthoritativeCatalogSku[] } {
+  if (base.products.length === 0 || base.products.length >= targetCount) {
+    return base;
+  }
+
+  const products: Product[] = [...base.products];
+  const seenIds = new Set(products.map((p) => p.id));
+  const seenSlugs = new Set(products.map((p) => p.slug));
+
+  for (let round = 0; round < API_EDITION_VARIANTS.length && products.length < targetCount; round += 1) {
+    const variant = API_EDITION_VARIANTS[round];
+
+    for (let idx = 0; idx < base.products.length && products.length < targetCount; idx += 1) {
+      const origin = base.products[idx];
+      const nextId = `${origin.id}-${variant.code}`;
+      if (seenIds.has(nextId)) continue;
+      seenIds.add(nextId);
+
+      let uniqueSlug = `${origin.slug}-${variant.slugSuffix}`;
+      let suffix = 2;
+      while (seenSlugs.has(uniqueSlug)) {
+        uniqueSlug = `${origin.slug}-${variant.slugSuffix}-${suffix}`;
+        suffix += 1;
+      }
+      seenSlugs.add(uniqueSlug);
+
+      const price = Number(Math.max(1, origin.price * variant.priceMultiplier).toFixed(2));
+      const originalPrice =
+        variant.discountBoostPct > 0
+          ? Number((price / (1 - variant.discountBoostPct / 100)).toFixed(2))
+          : origin.originalPrice
+          ? Number((origin.originalPrice * variant.priceMultiplier).toFixed(2))
+          : undefined;
+
+      const stockCount = Math.max(
+        2,
+        ((origin.stockCount + variant.stockOffset + idx) % 44) + 3
+      );
+      const availability: AvailabilityStatus =
+        stockCount <= 8 ? 'low-stock' : 'in-stock';
+
+      const rotatedImages =
+        origin.images.length > 1
+          ? [
+              ...origin.images.slice((round + 1) % origin.images.length),
+              ...origin.images.slice(0, (round + 1) % origin.images.length),
+            ]
+          : origin.images;
+
+      const nextSku = `${origin.sku}-${variant.skuSuffix}`;
+      const isTrending = (idx + round) % 7 === 0 || stockCount <= 6;
+      const isBestSeller = (idx + round) % 5 === 0;
+      const isNewArrival = round === 0 || (idx + round) % 4 === 0;
+      const isFeaturedOffer = Boolean(originalPrice && originalPrice > price);
+
+      const collectionIds = ['featured'];
+      if (isTrending) collectionIds.push('trending');
+      if (isBestSeller) collectionIds.push('best-sellers');
+      if (isNewArrival) collectionIds.push('new-arrivals');
+      if (isFeaturedOffer) collectionIds.push('offers');
+
+      products.push({
+        ...origin,
+        id: nextId,
+        slug: uniqueSlug,
+        sku: nextSku,
+        name: `${origin.name} · ${variant.label}`,
+        subtitle: `${origin.subcategoryLabel} · ${variant.label}`,
+        price,
+        originalPrice,
+        stockCount,
+        availability,
+        badgeText: isFeaturedOffer
+          ? `${Math.max(10, Math.round(((originalPrice! - price) / originalPrice!) * 100))}% Off`
+          : undefined,
+        images: rotatedImages,
+        collectionIds,
+        specifications: origin.specifications.map((spec) =>
+          spec.label === 'SKU Reference' ? { ...spec, value: nextSku } : spec
+        ),
+        isTrending,
+        isBestSeller,
+        isNewArrival,
+        isFeaturedOffer,
+        reviews: [],
+        questions: [],
+      });
+    }
+  }
+
+  const skus: AuthoritativeCatalogSku[] = products.map((p) => ({
+    id: p.id,
+    sku: p.sku,
+    name: p.name,
+    priceUsd: p.price,
+    stockCount: p.stockCount,
+    weightKg: p.weightKg ?? 1.0,
+    sizeTier: p.sizeTier ?? 'small',
+    codEligible: p.codEligible ?? true,
+  }));
+
+  return { products, skus };
+}
+
 export async function fetchLiveDummyJsonCatalog(forceRefresh = false): Promise<{
   products: Product[];
   skus: AuthoritativeCatalogSku[];
@@ -608,7 +782,7 @@ export async function fetchLiveDummyJsonCatalog(forceRefresh = false): Promise<{
           throw new Error('DummyJSON returned an empty catalog');
         }
         writeBrowserRawCache(rawItems);
-        const mapped = mapRawToCatalog(rawItems);
+        const mapped = expandCatalogFromApiBase(mapRawToCatalog(rawItems));
         memoryCatalog = { ...mapped, fetchedAt: Date.now() };
         return mapped;
       } finally {
@@ -617,7 +791,7 @@ export async function fetchLiveDummyJsonCatalog(forceRefresh = false): Promise<{
     } catch (err) {
       const cachedRaw = readBrowserRawCache();
       if (cachedRaw) {
-        const mapped = mapRawToCatalog(cachedRaw);
+        const mapped = expandCatalogFromApiBase(mapRawToCatalog(cachedRaw));
         memoryCatalog = { ...mapped, fetchedAt: Date.now() };
         return mapped;
       }
@@ -651,7 +825,7 @@ export function getCachedDummyJsonProductsSync(): Product[] {
   }
   const raw = readBrowserRawCache();
   if (raw) {
-    const mapped = mapRawToCatalog(raw);
+    const mapped = expandCatalogFromApiBase(mapRawToCatalog(raw));
     memoryCatalog = { ...mapped, fetchedAt: Date.now() };
     return mapped.products;
   }

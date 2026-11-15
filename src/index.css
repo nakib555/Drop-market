@@ -226,7 +226,35 @@
   }
 }
 
-/* Subtle static display accents replace continuous typing/shimmer animations */
+@keyframes kinto-gradient-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes kinto-caret-pulse {
+  0%, 100% {
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 0.18;
+  }
+}
+
+.ks-typing-gradient {
+  background-size: 200% 200%;
+  animation: kinto-gradient-shimmer 8s ease-in-out infinite;
+}
+
+.ks-typing-caret {
+  animation: kinto-caret-pulse 1.15s ease-in-out infinite;
+}
 
 @keyframes kinto-page-enter-forward {
   from {

@@ -1708,7 +1708,7 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
   } else {
     const distDir = path.resolve(import.meta.dirname, 'dist');
     app.use(express.static(distDir));
-    app.get('/{*splat}', (_req, res) => {
+    app.get('*', (_req, res) => {
       res.sendFile(path.join(distDir, 'index.html'));
     });
   }

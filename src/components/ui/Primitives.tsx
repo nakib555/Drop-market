@@ -97,16 +97,45 @@ interface PaginationProps {
   onPageChange: (page: number) => void;
 }
 
+function getVisiblePageItems(currentPage: number, totalPages: number): Array<number | 'ellipsis'> {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  const pages = new Set<number>([1, totalPages, currentPage - 1, currentPage, currentPage + 1]);
+  if (currentPage <= 3) {
+    pages.add(2);
+    pages.add(3);
+    pages.add(4);
+  }
+  if (currentPage >= totalPages - 2) {
+    pages.add(totalPages - 3);
+    pages.add(totalPages - 2);
+    pages.add(totalPages - 1);
+  }
+  const sorted = Array.from(pages)
+    .filter((p) => p >= 1 && p <= totalPages)
+    .sort((a, b) => a - b);
+
+  const items: Array<number | 'ellipsis'> = [];
+  for (let i = 0; i < sorted.length; i += 1) {
+    if (i > 0 && sorted[i] - sorted[i - 1] > 1) {
+      items.push('ellipsis');
+    }
+    items.push(sorted[i]);
+  }
+  return items;
+}
+
 export const Pagination: React.FC<PaginationProps> = ({
   currentPage,
   totalPages,
   onPageChange,
 }) => {
   if (totalPages <= 1) return null;
-  const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+  const items = getVisiblePageItems(currentPage, totalPages);
 
   return (
-    <nav aria-label="Pagination" className="flex items-center justify-center gap-2 pt-8">
+    <nav aria-label="Pagination" className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 pt-8">
       <button
         type="button"
         onClick={() => onPageChange(currentPage - 1)}
@@ -116,21 +145,31 @@ export const Pagination: React.FC<PaginationProps> = ({
       >
         <ChevronLeft className="w-4 h-4" />
       </button>
-      {pages.map((page) => (
-        <button
-          key={page}
-          type="button"
-          onClick={() => onPageChange(page)}
-          aria-current={page === currentPage ? 'page' : undefined}
-          className={`w-10 h-10 rounded-md text-sm font-mono-num transition-colors cursor-pointer ${
-            page === currentPage
-              ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] font-medium'
-              : 'border border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)]'
-          }`}
-        >
-          {page}
-        </button>
-      ))}
+      {items.map((item, idx) =>
+        item === 'ellipsis' ? (
+          <span
+            key={`ellipsis-${idx}`}
+            aria-hidden="true"
+            className="w-8 h-10 flex items-center justify-center text-sm text-[var(--ks-text-muted)] select-none"
+          >
+            &hellip;
+          </span>
+        ) : (
+          <button
+            key={item}
+            type="button"
+            onClick={() => onPageChange(item)}
+            aria-current={item === currentPage ? 'page' : undefined}
+            className={`min-w-10 h-10 px-2.5 rounded-md text-sm font-mono-num transition-colors cursor-pointer ${
+              item === currentPage
+                ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] font-medium'
+                : 'border border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)]'
+            }`}
+          >
+            {item}
+          </button>
+        )
+      )}
       <button
         type="button"
         onClick={() => onPageChange(currentPage + 1)}

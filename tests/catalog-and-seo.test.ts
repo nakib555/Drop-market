@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   computeVerifiedReviewStats,
+  expandCatalogFromApiBase,
   mapRawToCatalog,
   type DummyJsonProductDto,
 } from '../server/shared/dummyJsonCatalog.ts';
@@ -266,4 +267,30 @@ test('resolveSeoMetadata emits clean canonical URLs, noindex on private routes, 
     origin: 'https://kintostudio.bd',
   });
   assert.equal(checkoutSeo.robots, 'noindex, follow');
+});
+
+test('expandCatalogFromApiBase expands live API items into 1,000+ unique products and authoritative SKUs', () => {
+  const sampleRaw: DummyJsonProductDto[] = Array.from({ length: 194 }, (_, idx) => ({
+    id: idx + 1,
+    title: `Studio Product ${idx + 1}`,
+    description: 'Curated API product release.',
+    category: idx % 2 === 0 ? 'smartphones' : 'furniture',
+    price: 49.5 + idx,
+    stock: 12,
+    images: [`https://cdn.example.com/p-${idx + 1}-a.jpg`, `https://cdn.example.com/p-${idx + 1}-b.jpg`],
+  }));
+
+  const base = mapRawToCatalog(sampleRaw);
+  assert.equal(base.products.length, 194);
+
+  const expanded = expandCatalogFromApiBase(base);
+  assert.ok(expanded.products.length >= 1000, `Expected >= 1000 products, got ${expanded.products.length}`);
+  assert.equal(expanded.skus.length, expanded.products.length);
+
+  const ids = new Set(expanded.products.map((p) => p.id));
+  const slugs = new Set(expanded.products.map((p) => p.slug));
+  const skus = new Set(expanded.products.map((p) => p.sku));
+  assert.equal(ids.size, expanded.products.length);
+  assert.equal(slugs.size, expanded.products.length);
+  assert.equal(skus.size, expanded.products.length);
 });
