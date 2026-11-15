@@ -131,8 +131,8 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
   <div className="space-y-6">
     {/* Department Filter */}
     <div className="space-y-2.5">
-      <p className="text-xs uppercase tracking-wider text-[#84827B] font-medium">
-        Department (10)
+      <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)] font-medium">
+        Departments ({categories.length})
       </p>
       <div className="space-y-1">
         <button
@@ -140,8 +140,8 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
           onClick={() => onCategoryChange('all')}
           className={`w-full text-left leading-snug py-1.5 text-sm cursor-pointer ${
             selectedCategory === 'all'
-              ? 'font-semibold text-[#171716] dark:text-[#F4F3EF]'
-              : 'text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
+              ? 'font-semibold text-[var(--ks-text-primary)]'
+              : 'text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)]'
           }`}
         >
           All Departments
@@ -153,8 +153,8 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
             onClick={() => onCategoryChange(cat.slug)}
             className={`w-full text-left leading-snug py-1.5 text-sm cursor-pointer ${
               selectedCategory === cat.slug
-                ? 'font-semibold text-[#8F6438] dark:text-[#C89B67]'
-                : 'text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
+                ? 'font-semibold text-[var(--ks-accent)]'
+                : 'text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)]'
             }`}
           >
             {cat.name}
@@ -165,8 +165,8 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
 
     {/* Category-Specific Typed Attribute Facets */}
     {dynamicFacetOptions.length > 0 && (
-      <div className="space-y-4 pt-5 border-t border-[#E5E3DD] dark:border-[#2C2C28]">
-        <p className="text-xs uppercase tracking-wider text-[#8F6438] dark:text-[#C89B67] font-medium">
+      <div className="space-y-4 pt-5 border-t border-[var(--ks-border)]">
+        <p className="text-xs uppercase tracking-wider text-[var(--ks-accent)] font-medium">
           {activeCategoryMeta?.shortName} Specifications
         </p>
         {dynamicFacetOptions.map((facet) => {
@@ -177,7 +177,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
               <div key={facet.key} className="space-y-1.5">
                 <label
                   htmlFor={`${idPrefix}-facet-${facet.key}`}
-                  className="text-xs text-[#84827B] font-medium block"
+                  className="text-xs text-[var(--ks-text-muted)] font-medium block"
                 >
                   {facet.label}
                 </label>
@@ -185,7 +185,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
                   id={`${idPrefix}-facet-${facet.key}`}
                   value={currentVal || 'all'}
                   onChange={(e) => onAttributeChange(facet.key, e.target.value)}
-                  className="w-full h-10 px-2.5 text-xs rounded-md bg-white dark:bg-[#191917] border border-[#DCD9D0] dark:border-[#2E2E2A]"
+                  className="w-full h-10 px-2.5 text-xs rounded-md bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)]"
                 >
                   <option value="all">Any</option>
                   <option value="true">Yes</option>
@@ -199,7 +199,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
             const chosen = currentVal ? currentVal.split('||').filter(Boolean) : [];
             return (
               <div key={facet.key} className="space-y-2">
-                <span className="text-xs text-[#84827B] font-medium block">{facet.label}</span>
+                <span className="text-xs text-[var(--ks-text-muted)] font-medium block">{facet.label}</span>
                 <div className="flex flex-wrap gap-1.5">
                   {facet.options.map((opt) => {
                     const active = chosen.includes(opt);
@@ -215,8 +215,8 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
                         }}
                         className={`px-2.5 py-1.5 rounded-md border text-[11px] font-medium cursor-pointer transition-colors ${
                           active
-                            ? 'bg-[#171716] text-white border-[#171716] dark:bg-[#F4F3EF] dark:text-[#171716] dark:border-[#F4F3EF]'
-                            : 'border-[#E5E3DD] dark:border-[#2C2C28] text-[#5C5B57] dark:text-[#B4B2AC] hover:border-[#171716]'
+                            ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)]'
+                            : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:border-[var(--ks-action)]'
                         }`}
                       >
                         {opt}
@@ -234,7 +234,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
               : ['', ''];
             return (
               <div key={facet.key} className="space-y-1.5">
-                <span className="text-xs text-[#84827B] font-medium block">
+                <span className="text-xs text-[var(--ks-text-muted)] font-medium block">
                   {facet.label}
                   {facet.unit ? ` (${facet.unit})` : ''}
                 </span>
@@ -254,7 +254,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
                         nextMin || maxStr ? `range:${nextMin}:${maxStr}` : 'all'
                       );
                     }}
-                    className="h-9 px-2.5 text-xs font-mono-num rounded-md bg-white dark:bg-[#191917] border border-[#DCD9D0] dark:border-[#2E2E2A]"
+                    className="h-9 px-2.5 text-xs font-mono-num rounded-md bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)]"
                   />
                   <input
                     type="number"
@@ -271,7 +271,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
                         minStr || nextMax ? `range:${minStr}:${nextMax}` : 'all'
                       );
                     }}
-                    className="h-9 px-2.5 text-xs font-mono-num rounded-md bg-white dark:bg-[#191917] border border-[#DCD9D0] dark:border-[#2E2E2A]"
+                    className="h-9 px-2.5 text-xs font-mono-num rounded-md bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)]"
                   />
                 </div>
               </div>
@@ -283,7 +283,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
               <div key={facet.key} className="space-y-1.5">
                 <label
                   htmlFor={`${idPrefix}-facet-${facet.key}`}
-                  className="text-xs text-[#84827B] font-medium block"
+                  className="text-xs text-[var(--ks-text-muted)] font-medium block"
                 >
                   {facet.label} (On / After)
                 </label>
@@ -292,7 +292,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
                   type="date"
                   value={currentVal && currentVal !== 'all' ? currentVal : ''}
                   onChange={(e) => onAttributeChange(facet.key, e.target.value || 'all')}
-                  className="w-full h-10 px-2.5 text-xs font-mono-num rounded-md bg-white dark:bg-[#191917] border border-[#DCD9D0] dark:border-[#2E2E2A]"
+                  className="w-full h-10 px-2.5 text-xs font-mono-num rounded-md bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)]"
                 />
               </div>
             );
@@ -302,7 +302,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
             <div key={facet.key} className="space-y-1.5">
               <label
                 htmlFor={`${idPrefix}-facet-${facet.key}`}
-                className="text-xs text-[#84827B] font-medium block"
+                className="text-xs text-[var(--ks-text-muted)] font-medium block"
               >
                 {facet.label}
               </label>
@@ -310,7 +310,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
                 id={`${idPrefix}-facet-${facet.key}`}
                 value={currentVal || 'all'}
                 onChange={(e) => onAttributeChange(facet.key, e.target.value)}
-                className="w-full h-10 px-2.5 text-xs rounded-md bg-white dark:bg-[#191917] border border-[#DCD9D0] dark:border-[#2E2E2A]"
+                className="w-full h-10 px-2.5 text-xs rounded-md bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)]"
               >
                 <option value="all">Any {facet.label}</option>
                 {facet.options.map((opt) => (
@@ -325,14 +325,14 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
       </div>
     )}
 
-    {/* Partner Brand Filter */}
-    <div className="space-y-2.5 pt-5 border-t border-[#E5E3DD] dark:border-[#2C2C28]">
-      <p className="text-xs uppercase tracking-wider text-[#84827B] font-medium">Brand / Maker</p>
+    {/* Brand Filter */}
+    <div className="space-y-2.5 pt-5 border-t border-[var(--ks-border)]">
+      <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)] font-medium">Brand</p>
       <select
         aria-label="Filter by brand"
         value={selectedBrand}
         onChange={(e) => onBrandChange(e.target.value)}
-        className="w-full h-10 px-3 text-sm rounded-md bg-white dark:bg-[#191917] border border-[#DCD9D0] dark:border-[#2E2E2A]"
+        className="w-full h-10 px-3 text-sm rounded-md bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)]"
       >
         <option value="all">All Brands</option>
         {allBrands.map((brandName) => (
@@ -344,11 +344,11 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
     </div>
 
     {/* Max Price Range */}
-    <div className="space-y-2.5 pt-5 border-t border-[#E5E3DD] dark:border-[#2C2C28]">
+    <div className="space-y-2.5 pt-5 border-t border-[var(--ks-border)]">
       <div className="flex items-center justify-between">
         <label
           htmlFor={`${idPrefix}-price-range`}
-          className="text-xs uppercase tracking-wider text-[#84827B] font-medium"
+          className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)] font-medium"
         >
           Max Price
         </label>
@@ -364,24 +364,24 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
         step={25}
         value={maxPrice}
         onChange={(e) => onMaxPriceChange(Number(e.target.value))}
-        className="w-full accent-[#8F6438] dark:accent-[#C89B67] cursor-pointer"
+        className="w-full accent-[var(--ks-accent)] cursor-pointer"
       />
-      <div className="flex justify-between text-[11px] font-mono-num text-[#84827B]">
+      <div className="flex justify-between text-[11px] font-mono-num text-[var(--ks-text-muted)]">
         <span>{formatCurrency(0, currency)}</span>
         <span>{formatCurrency(catalogMaxPrice, currency)}</span>
       </div>
     </div>
 
     {/* Finish / Color */}
-    <div className="space-y-2.5 pt-5 border-t border-[#E5E3DD] dark:border-[#2C2C28]">
-      <p className="text-xs uppercase tracking-wider text-[#84827B] font-medium">
+    <div className="space-y-2.5 pt-5 border-t border-[var(--ks-border)]">
+      <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)] font-medium">
         Color / Finish
       </p>
       <select
         aria-label="Filter by finish or color"
         value={selectedColor}
         onChange={(e) => onColorChange(e.target.value)}
-        className="w-full h-10 px-3 text-sm rounded-md bg-white dark:bg-[#191917] border border-[#DCD9D0] dark:border-[#2E2E2A]"
+        className="w-full h-10 px-3 text-sm rounded-md bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)]"
       >
         <option value="all">All Colors &amp; Finishes</option>
         {allColors.map((c) => (
@@ -393,15 +393,15 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
     </div>
 
     {/* Size / Edition */}
-    <div className="space-y-2.5 pt-5 border-t border-[#E5E3DD] dark:border-[#2C2C28]">
-      <p className="text-xs uppercase tracking-wider text-[#84827B] font-medium">
+    <div className="space-y-2.5 pt-5 border-t border-[var(--ks-border)]">
+      <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)] font-medium">
         Size / Edition
       </p>
       <select
         aria-label="Filter by size or edition"
         value={selectedSize}
         onChange={(e) => onSizeChange(e.target.value)}
-        className="w-full h-10 px-3 text-sm rounded-md bg-white dark:bg-[#191917] border border-[#DCD9D0] dark:border-[#2E2E2A]"
+        className="w-full h-10 px-3 text-sm rounded-md bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)]"
       >
         <option value="all">All Sizes &amp; Editions</option>
         {allSizes.map((s) => (
@@ -413,8 +413,8 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
     </div>
 
     {/* Availability & Rating */}
-    <div className="space-y-3 pt-5 border-t border-[#E5E3DD] dark:border-[#2C2C28]">
-      <p className="text-xs uppercase tracking-wider text-[#84827B] font-medium">Availability</p>
+    <div className="space-y-3 pt-5 border-t border-[var(--ks-border)]">
+      <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)] font-medium">Availability</p>
       <div className="space-y-2 text-sm">
         {(
           [
@@ -430,15 +430,15 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
               name={`${idPrefix}-availability`}
               checked={availability === opt.value}
               onChange={() => onAvailabilityChange(opt.value)}
-              className="mt-[3px] shrink-0 accent-[#171716] dark:accent-[#F4F3EF]"
+              className="mt-[3px] shrink-0 accent-[var(--ks-action)]"
             />
-            <span className="text-sm leading-snug text-[#5C5B57] dark:text-[#B4B2AC]">{opt.label}</span>
+            <span className="text-sm leading-snug text-[var(--ks-text-secondary)]">{opt.label}</span>
           </label>
         ))}
       </div>
 
       <div className="pt-2">
-        <p className="text-xs uppercase tracking-wider text-[#84827B] font-medium mb-2">
+        <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)] font-medium mb-2">
           Minimum Rating
         </p>
         <div className="flex gap-1.5">
@@ -449,8 +449,8 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
               onClick={() => onMinRatingChange(r)}
               className={`px-3 py-2 rounded-md text-xs font-mono-num border cursor-pointer ${
                 minRating === r
-                  ? 'bg-[#171716] text-white border-[#171716] dark:bg-[#F4F3EF] dark:text-[#171716] dark:border-[#F4F3EF]'
-                  : 'border-[#E5E3DD] dark:border-[#2C2C28] text-[#5C5B57] dark:text-[#A3A19B]'
+                  ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)]'
+                  : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)]'
               }`}
             >
               {r === 0 ? 'Any' : `${r}+ ★`}
@@ -1007,13 +1007,13 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
       ? 'Best Sellers'
       : route.collection === 'trending'
       ? 'Trending Now'
-      : 'All Marketplace Products';
+      : 'Shop All Products';
 
   const pageDescription =
     activeCategoryMeta?.description ||
     (mode === 'offers'
-      ? 'Select hardware editions, seasonal wardrobe releases, and multi-category marketplace savings.'
-      : 'Explore our curated 10-department universal marketplace spanning electronics, fashion, home living, beauty, grocery, outdoor, office, automotive tools, baby & toys, and health & pets.');
+      ? 'Selected seasonal offers and multi-department discounts.'
+      : 'Browse electronics, fashion, home furniture, beauty, groceries, outdoor gear, office supplies, tools, kids, and wellness.');
 
   // Find active Level 1 parent to display Level 2 children neatly when selected
   const activeLevel1Node = useMemo(() => {
@@ -1113,16 +1113,16 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
 
       {/* Category Landing Banner OR Standard Shop Header */}
       {activeCategoryMeta ? (
-        <div className="rounded-lg overflow-hidden bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] grid grid-cols-1 lg:grid-cols-12">
+        <div className="rounded-lg overflow-hidden bg-[var(--ks-surface)] border border-[var(--ks-border)] grid grid-cols-1 lg:grid-cols-12">
           <div className="lg:col-span-7 p-6 sm:p-8 lg:p-10 flex flex-col justify-between gap-5">
             <div className="space-y-2.5">
-              <p className="text-xs uppercase tracking-[0.14em] text-[#8F6438] dark:text-[#C89B67] font-medium">
+              <p className="text-xs uppercase tracking-[0.14em] text-[var(--ks-accent)] font-medium">
                 {activeCategoryMeta.bannerTagline}
               </p>
-              <h1 className="font-display text-[clamp(1.85rem,3.4vw,3rem)] font-medium tracking-tight">
+              <h1 className="font-display text-[clamp(1.85rem,3.4vw,3rem)] font-medium tracking-tight text-balance">
                 {activeCategoryMeta.name}
               </h1>
-              <p className="text-sm sm:text-base text-[#5C5B57] dark:text-[#B4B2AC] max-w-xl">
+              <p className="text-sm sm:text-base text-[var(--ks-text-secondary)] max-w-xl">
                 {activeCategoryMeta.description}
               </p>
             </div>
@@ -1138,8 +1138,8 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
                   }}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium border cursor-pointer transition-colors ${
                     selectedSubcategory === 'all'
-                      ? 'bg-[#171716] text-white border-[#171716] dark:bg-[#F4F3EF] dark:text-[#171716]'
-                      : 'border-[#E5E3DD] dark:border-[#2C2C28] text-[#5C5B57] dark:text-[#B4B2AC] hover:border-[#171716]'
+                      ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)]'
+                      : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:border-[var(--ks-action)]'
                   }`}
                 >
                   All {activeCategoryMeta.shortName}
@@ -1158,8 +1158,8 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
                       }}
                       className={`px-3 py-1.5 rounded-md text-xs font-medium border cursor-pointer transition-colors ${
                         isActiveSub
-                          ? 'bg-[#171716] text-white border-[#171716] dark:bg-[#F4F3EF] dark:text-[#171716]'
-                          : 'border-[#E5E3DD] dark:border-[#2C2C28] text-[#5C5B57] dark:text-[#B4B2AC] hover:border-[#171716]'
+                          ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)]'
+                          : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:border-[var(--ks-action)]'
                       }`}
                     >
                       {sub.name}
@@ -1169,8 +1169,8 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
               </div>
 
               {activeLevel1Node?.children && activeLevel1Node.children.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5 pl-2 border-l-2 border-[#8F6438]/40 dark:border-[#C89B67]/40">
-                  <span className="text-[11px] uppercase tracking-wider text-[#84827B] mr-1">
+                <div className="flex flex-wrap items-center gap-1.5 p-2.5 rounded-md bg-[var(--ks-surface-muted)] border border-[var(--ks-border)]">
+                  <span className="text-[11px] uppercase tracking-wider text-[var(--ks-text-muted)] mr-1">
                     {activeLevel1Node.name}:
                   </span>
                   {activeLevel1Node.children.map((child) => (
@@ -1183,8 +1183,8 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
                       }}
                       className={`px-2.5 py-1 rounded text-[11px] font-medium border cursor-pointer transition-colors ${
                         selectedSubcategory === child.slug
-                          ? 'border-[#8F6438] text-[#8F6438] dark:border-[#C89B67] dark:text-[#C89B67] bg-[#F9F8F6] dark:bg-[#22221F]'
-                          : 'border-[#E5E3DD] dark:border-[#2C2C28] text-[#5C5B57] dark:text-[#A3A19B] hover:border-[#171716]'
+                          ? 'border-[var(--ks-accent)] text-[var(--ks-accent)] bg-[var(--ks-surface)]'
+                          : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:border-[var(--ks-action)]'
                       }`}
                     >
                       {child.name}
@@ -1192,7 +1192,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
                   ))}
                 </div>
               )}
-              <div className="flex flex-wrap items-center gap-2 text-xs text-[#84827B] leading-snug">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--ks-text-muted)] leading-snug">
                 <span className="whitespace-nowrap">Featured brands:</span>
                 {activeCategoryMeta.featuredBrands.map((brand) => (
                   <button
@@ -1204,8 +1204,8 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
                     }}
                     className={`px-2 py-0.5 rounded border whitespace-nowrap cursor-pointer transition-colors ${
                       selectedBrand === brand
-                        ? 'border-[#8F6438] text-[#8F6438] dark:border-[#C89B67] dark:text-[#C89B67] font-medium'
-                        : 'border-[#E5E3DD] dark:border-[#2C2C28] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
+                        ? 'border-[var(--ks-accent)] text-[var(--ks-accent)] font-medium'
+                        : 'border-[var(--ks-border)] hover:text-[var(--ks-text-primary)]'
                     }`}
                   >
                     {brand}
@@ -1215,7 +1215,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
             </div>
           </div>
 
-          <div className="lg:col-span-5 h-48 sm:h-56 lg:h-auto bg-[#F2F0EC] dark:bg-[#22221F]">
+          <div className="lg:col-span-5 h-48 sm:h-56 lg:h-auto bg-[var(--ks-surface-muted)]">
             <ResilientImage
               src={activeCategoryMeta.image}
               alt={activeCategoryMeta.name}
@@ -1224,12 +1224,12 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
           </div>
         </div>
       ) : (
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-8 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-8 border-b border-[var(--ks-border)]">
           <div className="space-y-2 max-w-2xl">
-            <h1 className="font-display text-[clamp(1.85rem,3.5vw,3rem)] font-medium tracking-tight">
+            <h1 className="font-display text-[clamp(1.85rem,3.5vw,3rem)] font-medium tracking-tight text-balance">
               {pageHeading}
             </h1>
-            <p className="text-sm sm:text-base text-[#5C5B57] dark:text-[#B4B2AC]">
+            <p className="text-sm sm:text-base text-[var(--ks-text-secondary)]">
               {pageDescription}
             </p>
           </div>
@@ -1242,7 +1242,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
             }}
             className="relative w-full lg:w-80"
           >
-            <Search className="w-4 h-4 text-[#84827B] absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-[var(--ks-text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="search"
               value={searchInput}
@@ -1250,16 +1250,19 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
                 setSearchInput(e.target.value);
                 setPage(1);
               }}
-              placeholder="Filter by keyword, brand, or SKU..."
+              placeholder="Filter by name, brand, or SKU..."
               aria-label="Filter catalog by keyword"
-              className="w-full h-11 pl-10 pr-9 text-sm rounded-md bg-white dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] focus:border-[#171716] dark:focus:border-[#F4F3EF]"
+              className="w-full h-11 pl-10 pr-9 text-sm rounded-md bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)] focus:border-[var(--ks-action)]"
             />
             {searchInput && (
               <button
                 type="button"
-                onClick={() => setSearchInput('')}
+                onClick={() => {
+                  setSearchInput('');
+                  setPage(1);
+                }}
                 aria-label="Clear filter text"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#84827B] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -1280,8 +1283,8 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
             onClick={() => handleCategoryChange('all')}
             className={`px-3.5 py-2 rounded-md text-xs font-medium whitespace-nowrap shrink-0 border transition-colors cursor-pointer ${
               selectedCategory === 'all'
-                ? 'bg-[#171716] text-white border-[#171716] dark:bg-[#F4F3EF] dark:text-[#171716] dark:border-[#F4F3EF]'
-                : 'bg-white dark:bg-[#191917] border-[#E5E3DD] dark:border-[#2C2C28] text-[#5C5B57] dark:text-[#B4B2AC] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
+                ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)]'
+                : 'bg-[var(--ks-surface)] border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)]'
             }`}
           >
             All Departments
@@ -1293,8 +1296,8 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
               onClick={() => handleCategoryChange(cat.slug)}
               className={`px-3.5 py-2 rounded-md text-xs font-medium whitespace-nowrap shrink-0 border transition-colors cursor-pointer ${
                 selectedCategory === cat.slug
-                  ? 'bg-[#171716] text-white border-[#171716] dark:bg-[#F4F3EF] dark:text-[#171716] dark:border-[#F4F3EF]'
-                  : 'bg-white dark:bg-[#191917] border-[#E5E3DD] dark:border-[#2C2C28] text-[#5C5B57] dark:text-[#B4B2AC] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
+                  ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)]'
+                  : 'bg-[var(--ks-surface)] border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)]'
               }`}
             >
               {cat.name}
@@ -1317,35 +1320,41 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
               Filters{activeFilterChips.length > 0 ? ` (${activeFilterChips.length})` : ''}
             </span>
           </Button>
-          <p className="text-xs sm:text-sm text-[#5C5B57] dark:text-[#A3A19B] font-mono-num truncate">
-            Showing {paginatedProducts.length} of {filteredProducts.length} products
+          <p className="text-xs sm:text-sm text-[var(--ks-text-secondary)] font-mono-num truncate">
+            {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'}
+            {totalPages > 1 ? ` · Page ${safePage} of ${totalPages}` : ''}
           </p>
         </div>
 
         <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0">
           <div className="flex items-center gap-2 flex-1 sm:flex-initial">
-            <label htmlFor="sort-select" className="text-xs text-[#84827B] whitespace-nowrap">
+            <label htmlFor="sort-select" className="text-xs text-[var(--ks-text-muted)] whitespace-nowrap">
               Sort by
             </label>
             <select
               id="sort-select"
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="flex-1 sm:flex-initial h-10 px-3 text-xs sm:text-sm rounded-md bg-white dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]"
+              onChange={(e) => {
+                setSortBy(e.target.value as SortOption);
+                setPage(1);
+              }}
+              className="flex-1 sm:flex-initial h-10 px-3 text-xs sm:text-sm rounded-md bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)]"
             >
               <option value="featured">Featured</option>
               <option value="newest">Newest</option>
               <option value="price-asc">Price: Low to High</option>
               <option value="price-desc">Price: High to Low</option>
               <option value="best-selling">Best Selling</option>
-              <option value="highest-rated">Highest Rated</option>
+              {filteredProducts.some((p) => p.reviewCount > 0) && (
+                <option value="highest-rated">Highest Rated</option>
+              )}
             </select>
           </div>
 
           <div
             role="group"
             aria-label="View layout"
-            className="hidden sm:flex items-center border border-[#E5E3DD] dark:border-[#2C2C28] rounded-md overflow-hidden shrink-0"
+            className="hidden sm:flex items-center border border-[var(--ks-border)] rounded-md overflow-hidden shrink-0"
           >
             <button
               type="button"
@@ -1354,8 +1363,8 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
               aria-pressed={viewLayout === 'grid'}
               className={`w-10 h-10 flex items-center justify-center cursor-pointer transition-colors ${
                 viewLayout === 'grid'
-                  ? 'bg-[#171716] text-white dark:bg-[#F4F3EF] dark:text-[#171716]'
-                  : 'bg-white dark:bg-[#191917] text-[#5C5B57] dark:text-[#A3A19B]'
+                  ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)]'
+                  : 'bg-[var(--ks-surface)] text-[var(--ks-text-secondary)]'
               }`}
             >
               <LayoutGrid className="w-4 h-4" />
@@ -1367,8 +1376,8 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
               aria-pressed={viewLayout === 'list'}
               className={`w-10 h-10 flex items-center justify-center cursor-pointer transition-colors ${
                 viewLayout === 'list'
-                  ? 'bg-[#171716] text-white dark:bg-[#F4F3EF] dark:text-[#171716]'
-                  : 'bg-white dark:bg-[#191917] text-[#5C5B57] dark:text-[#A3A19B]'
+                  ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)]'
+                  : 'bg-[var(--ks-surface)] text-[var(--ks-text-secondary)]'
               }`}
             >
               <List className="w-4 h-4" />
@@ -1385,16 +1394,16 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
               key={chip.key}
               type="button"
               onClick={chip.onClear}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#F2F0EC] dark:bg-[#22221F] border border-[#E5E3DD] dark:border-[#2C2C28] text-xs hover:border-[#171716] dark:hover:border-[#F4F3EF] cursor-pointer transition-colors"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] text-xs hover:border-[var(--ks-action)] cursor-pointer transition-colors"
             >
               <span>{chip.label}</span>
-              <X className="w-3 h-3 text-[#84827B]" />
+              <X className="w-3 h-3 text-[var(--ks-text-muted)]" />
             </button>
           ))}
           <button
             type="button"
             onClick={resetFilters}
-            className="text-xs font-medium text-[#8F6438] dark:text-[#C89B67] hover:underline px-2 py-1 cursor-pointer"
+            className="text-xs font-medium text-[var(--ks-accent)] hover:underline px-2 py-1 cursor-pointer"
           >
             Clear All
           </button>
@@ -1404,7 +1413,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
       {/* Main Content Layout: Desktop Filter Sidebar + Product Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
         <aside className="hidden lg:block lg:col-span-3">
-          <div className="sticky top-28 p-6 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]">
+          <div className="sticky top-28 p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)]">
             <ShopFilterPanel idPrefix="desktop" {...sharedFilterProps} />
           </div>
         </aside>
@@ -1414,13 +1423,13 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
             <ProductGridSkeleton
               count={viewLayout === 'grid' ? 9 : 4}
               layout={viewLayout}
-              label="Loading marketplace catalog"
+              label="Loading products"
             />
           ) : paginatedProducts.length === 0 ? (
-            <div className="rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]">
+            <div className="rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)]">
               <EmptyState
                 title="No matching products found"
-                description="Try broadening your price ceiling, switching finishes, or clearing active filters to explore the full catalog."
+                description="Try adjusting your price range, switching finishes, or resetting active filters to browse all products."
                 actionLabel="Reset Filters"
                 onAction={resetFilters}
               />
@@ -1449,7 +1458,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
       <Drawer
         open={mobileFilterOpen}
         onClose={() => setMobileFilterOpen(false)}
-        title="Filter Marketplace"
+        title="Filter Products"
         side="left"
       >
         <div className="p-6">

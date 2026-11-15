@@ -10,9 +10,9 @@ import {
 import { getCachedDummyJsonProductsSync } from '../../server/shared/dummyJsonCatalog';
 import {
   ApiError,
+  changePasswordApi,
   clearStoredToken,
   createOrderApi,
-  fetchAuthAccounts,
   fetchCatalogProductsApi,
   fetchCurrentUser,
   fetchNotificationsApi,
@@ -38,6 +38,7 @@ import {
   CurrencyRateState,
   CustomerProfile,
   DeliveryMethodId,
+  LanguageCode,
   LegalAcceptanceRecord,
   LegalDocumentId,
   NotificationPrefs,
@@ -156,6 +157,9 @@ interface StoreContextValue {
   getCategoryNodeBySlug: (slug: string) => CategoryNode | undefined;
   getDescendantSlugs: (slug: string) => string[];
   products: Product[];
+  language: LanguageCode;
+  setLanguage: (next: LanguageCode) => void;
+  toggleLanguage: () => void;
   currency: CurrencyCode;
   currencyConfig: CurrencyRateState;
   shippingConfig: ShippingRuleConfig;
@@ -217,7 +221,6 @@ interface StoreContextValue {
   refreshOrders: () => Promise<void>;
   refreshStorefrontSync: () => Promise<void>;
   profile: CustomerProfile;
-  authAccounts: AccountDirectoryEntry[];
   authLoading: boolean;
   authModalOpen: boolean;
   setAuthModalOpen: (open: boolean) => void;
@@ -225,9 +228,12 @@ interface StoreContextValue {
   setAuthModalTab: (tab: 'signin' | 'register') => void;
   openAuthModal: (tab?: 'signin' | 'register') => void;
   updateProfile: (updates: Partial<CustomerProfile>) => Promise<void>;
+  changePassword: (
+    currentPassword: string,
+    newPassword: string
+  ) => Promise<{ ok: boolean; error?: string }>;
   logoutDemo: () => void;
-  loginDemo: (email?: string, password?: string) => Promise<AccountDirectoryEntry | null>;
-  switchDemoAccount: (accountId: string) => Promise<AccountDirectoryEntry | null>;
+  loginDemo: (email: string, password: string) => Promise<AccountDirectoryEntry | null>;
   registerAccount: (payload: {
     fullName: string;
     email: string;
@@ -267,6 +273,9 @@ interface StoreContextValue {
 const StoreContext = createContext<StoreContextValue | undefined>(undefined);
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [language, setLanguageState] = useState<LanguageCode>(() =>
+    readStorage<LanguageCode>('kinto-language', 'en')
+  );
   const [currency, setCurrencyState] = useState<CurrencyCode>(() =>
     readStorage<CurrencyCode>('kinto-currency', 'BDT')
   );
@@ -298,23 +307,27 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     readStorage('kinto-questions', {})
   );
 
-  // API-driven auth, accounts directory, notifications, and live catalog sync
-  const [authAccounts, setAuthAccounts] = useState<AccountDirectoryEntry[]>([]);
+  // API-driven auth, notifications, and live catalog sync
   const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [storefrontLoading, setStorefrontLoading] = useState<boolean>(true);
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
   const [authModalTab, setAuthModalTab] = useState<'signin' | 'register'>('signin');
-  const [profile, setProfile] = useState<CustomerProfile>(() =>
-    readStorage('kinto-profile', {
+  const [profile, setProfile] = useState<CustomerProfile>(() => {
+    const guestProfile: CustomerProfile = {
       id: 'guest',
-      fullName: 'Guest Visitor',
-      email: 'alex.mercer@studio.example',
-      phone: '+880 1711-000194',
+      fullName: '',
+      email: '',
+      phone: '',
       role: 'customer',
-      studioRole: 'Guest Visitor',
+      studioRole: 'Guest',
       isAuthenticated: false,
-    })
-  );
+    };
+    const stored = readStorage<CustomerProfile>('kinto-profile', guestProfile);
+    if (!getStoredToken() || stored.email === 'alex.mercer@studio.example') {
+      return guestProfile;
+    }
+    return stored;
+  });
   const [notifications, setNotifications] = useState<StoreNotification[]>([]);
   const [apiProducts, setApiProducts] = useState<Product[]>(() =>
     getCachedDummyJsonProductsSync()
@@ -323,12 +336,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [sellerProducts, setSellerProducts] = useState<ApiSellerProductRecord[]>([]);
   const [categoryNodes, setCategoryNodes] = useState<CategoryNode[]>(INITIAL_CATEGORY_TREE);
 
-  const [addresses, setAddresses] = useState<Address[]>(() =>
-    readStorage('kinto-addresses', INITIAL_ADDRESSES)
-  );
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodRecord[]>(() =>
-    readStorage('kinto-payment-methods', INITIAL_PAYMENT_METHODS)
-  );
+  const [addresses, setAddresses] = useState<Address[]>(() => {
+    const stored = readStorage<Address[]>('kinto-addresses', INITIAL_ADDRESSES);
+    return Array.isArray(stored)
+      ? stored.filter((a) => a.city !== 'San Francisco' && a.city !== 'Portland')
+      : [];
+  });
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodRecord[]>(() => {
+    const stored = readStorage<Array<PaymentMethodRecord & { last4?: string }>>(
+      'kinto-payment-methods',
+      INITIAL_PAYMENT_METHODS
+    );
+    return Array.isArray(stored)
+      ? stored.filter((pm) => !('last4' in pm && pm.last4) && Boolean(pm.referenceMasked))
+      : [];
+  });
   const [notificationPrefs, setNotificationPrefsState] = useState<NotificationPrefs>(() =>
     readStorage('kinto-notif-prefs', {
       orderUpdates: true,
@@ -448,12 +470,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setStorefrontLoading(true);
       }
       try {
-        const [catalogRes, accountsRes, meRes, syncRes, ordersRes] = await Promise.allSettled([
+        const hasToken = Boolean(getStoredToken());
+        const [catalogRes, syncRes, meRes, ordersRes] = await Promise.allSettled([
           fetchCatalogProductsApi(),
-          fetchAuthAccounts(),
-          fetchCurrentUser(),
           fetchStorefrontSync(),
-          fetchOrdersApi(),
+          hasToken ? fetchCurrentUser() : Promise.reject(new Error('No active session')),
+          hasToken ? fetchOrdersApi() : Promise.resolve([]),
         ]);
 
         if (!active) return;
@@ -467,15 +489,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setApiProducts(loadedCatalog);
         }
 
-        if (accountsRes.status === 'fulfilled' && Array.isArray(accountsRes.value)) {
-          setAuthAccounts(accountsRes.value);
-        }
-        if (
-          meRes.status === 'fulfilled' &&
-          meRes.value &&
-          Boolean(getStoredToken()) &&
-          profile.isAuthenticated
-        ) {
+        if (meRes.status === 'fulfilled' && meRes.value && hasToken) {
           const u = meRes.value;
           setProfile({
             id: u.id,
@@ -486,6 +500,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             studioRole: u.roleLabel,
             studioName: u.studioName,
             isAuthenticated: true,
+          });
+        } else if (hasToken && meRes.status === 'rejected') {
+          clearStoredToken();
+          setProfile({
+            id: 'guest',
+            fullName: '',
+            email: '',
+            phone: '',
+            role: 'customer',
+            studioRole: 'Guest',
+            isAuthenticated: false,
           });
         }
         if (syncRes.status === 'fulfilled' && syncRes.value) {
@@ -618,6 +643,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   }, [apiProducts, customReviews, customQuestions, productOverrides, sellerProducts]);
 
+  useEffect(() => {
+    writeStorage('kinto-language', language);
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = language === 'bn' ? 'bn' : 'en';
+    }
+  }, [language]);
   useEffect(() => writeStorage('kinto-currency', currency), [currency]);
   useEffect(() => writeStorage('kinto-cart', cart), [cart]);
   useEffect(() => writeStorage('kinto-saved', savedForLater), [savedForLater]);
@@ -664,6 +695,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     },
     []
   );
+
+  const setLanguage = useCallback(
+    (next: LanguageCode) => {
+      setLanguageState(next);
+      showToast(
+        next === 'bn' ? 'ভাষা বাংলায় পরিবর্তন করা হয়েছে' : 'Display language set to English',
+        undefined,
+        'info'
+      );
+    },
+    [showToast]
+  );
+
+  const toggleLanguage = useCallback(() => {
+    setLanguage(language === 'en' ? 'bn' : 'en');
+  }, [language, setLanguage]);
 
   const setCurrency = useCallback(
     (next: CurrencyCode) => {
@@ -1269,29 +1316,48 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [showToast]
   );
 
+  const changePassword = useCallback(
+    async (
+      currentPassword: string,
+      newPassword: string
+    ): Promise<{ ok: boolean; error?: string }> => {
+      try {
+        await changePasswordApi(currentPassword, newPassword);
+        showToast('Password updated', 'Your session credentials have been updated.', 'success');
+        return { ok: true };
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Unable to update password.';
+        showToast('Password update failed', message, 'error');
+        return { ok: false, error: message };
+      }
+    },
+    [showToast]
+  );
+
   const logoutDemo = useCallback(() => {
     clearStoredToken();
-    setProfile((prev) => ({
-      ...prev,
-      fullName: 'Guest Visitor',
-      studioRole: 'Guest Visitor',
-      studioName: undefined,
+    setOrders([]);
+    setProfile({
+      id: 'guest',
+      fullName: '',
+      email: '',
+      phone: '',
       role: 'customer',
+      studioRole: 'Guest',
+      studioName: undefined,
       isAuthenticated: false,
-    }));
-    showToast('Signed out', 'Select an account or sign in to continue.', 'info');
+    });
+    showToast('Signed out', 'Your session has been closed securely.', 'info');
   }, [showToast]);
 
   const loginDemo = useCallback(
-    async (email?: string, password?: string): Promise<AccountDirectoryEntry | null> => {
+    async (email: string, password: string): Promise<AccountDirectoryEntry | null> => {
       try {
         const { user } = await loginWithApi({
-          email: typeof email === 'string' ? email : profile.email,
+          email: email.trim(),
           password,
         });
-        setAuthAccounts((prev) =>
-          prev.some((a) => a.id === user.id) ? prev : [user, ...prev]
-        );
         setProfile({
           id: user.id,
           fullName: user.fullName,
@@ -1302,7 +1368,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           studioName: user.studioName,
           isAuthenticated: true,
         });
-        refreshNotifications(user.role);
+        await Promise.all([refreshOrders(), refreshNotifications(user.role)]);
         showToast(
           `Signed in as ${user.fullName}`,
           `${user.roleLabel} session active`,
@@ -1318,40 +1384,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return null;
       }
     },
-    [profile.email, refreshNotifications, showToast]
-  );
-
-  const switchDemoAccount = useCallback(
-    async (accountId: string): Promise<AccountDirectoryEntry | null> => {
-      try {
-        const { user } = await loginWithApi({ accountId });
-        setProfile({
-          id: user.id,
-          fullName: user.fullName,
-          email: user.email,
-          phone: user.phone,
-          role: user.role,
-          studioRole: user.roleLabel,
-          studioName: user.studioName,
-          isAuthenticated: true,
-        });
-        refreshNotifications(user.role);
-        showToast(
-          `Signed in as ${user.fullName}`,
-          user.studioName || user.roleLabel,
-          'success'
-        );
-        return user;
-      } catch (err) {
-        showToast(
-          'Role switch failed',
-          err instanceof Error ? err.message : 'Could not switch account.',
-          'error'
-        );
-        return null;
-      }
-    },
-    [refreshNotifications, showToast]
+    [refreshNotifications, refreshOrders, showToast]
   );
 
   const registerAccount = useCallback(
@@ -1366,9 +1399,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }): Promise<RegisterAccountResult> => {
       try {
         const { user } = await registerWithApi(payload);
-        setAuthAccounts((prev) =>
-          prev.some((a) => a.id === user.id) ? prev : [user, ...prev]
-        );
         setProfile({
           id: user.id,
           fullName: user.fullName,
@@ -1379,7 +1409,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           studioName: user.studioName,
           isAuthenticated: true,
         });
-        refreshNotifications(user.role);
+        await Promise.all([refreshOrders(), refreshNotifications(user.role)]);
         showToast(
           'Account registered',
           `Welcome, ${user.fullName} (${user.roleLabel})`,
@@ -1394,7 +1424,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return { user: null, error: { message, status } };
       }
     },
-    [refreshNotifications, showToast]
+    [refreshNotifications, refreshOrders, showToast]
   );
 
   const markNotificationRead = useCallback(async (id: string) => {
@@ -1454,7 +1484,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const base = card.isDefault ? prev.map((p) => ({ ...p, isDefault: false })) : prev;
         return [{ ...card, id: `pm-${Date.now()}` }, ...base];
       });
-      showToast('Payment method saved', `${card.brand} ending in ${card.last4}`, 'success');
+      showToast('Payment method saved', `${card.brand} (${card.referenceMasked})`, 'success');
     },
     [showToast]
   );
@@ -1578,6 +1608,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       getCategoryNodeBySlug,
       getDescendantSlugs,
       products,
+      language,
+      setLanguage,
+      toggleLanguage,
       currency,
       currencyConfig,
       shippingConfig,
@@ -1629,7 +1662,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       refreshOrders,
       refreshStorefrontSync,
       profile,
-      authAccounts,
       authLoading,
       authModalOpen,
       setAuthModalOpen,
@@ -1637,9 +1669,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setAuthModalTab,
       openAuthModal,
       updateProfile,
+      changePassword,
       logoutDemo,
       loginDemo,
-      switchDemoAccount,
       registerAccount,
       notifications,
       unreadNotificationCount,
@@ -1679,6 +1711,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       getCategoryNodeBySlug,
       getDescendantSlugs,
       products,
+      language,
+      setLanguage,
+      toggleLanguage,
       currency,
       currencyConfig,
       shippingConfig,
@@ -1728,15 +1763,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       refreshOrders,
       refreshStorefrontSync,
       profile,
-      authAccounts,
       authLoading,
       authModalOpen,
       authModalTab,
       openAuthModal,
       updateProfile,
+      changePassword,
       logoutDemo,
       loginDemo,
-      switchDemoAccount,
       registerAccount,
       notifications,
       unreadNotificationCount,

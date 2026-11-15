@@ -7,16 +7,16 @@ import {
   Lock,
   ShieldCheck,
   Store,
-  User,
+  Truck,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useStore } from '../../context/StoreContext';
 import { buildPolicyAcceptance } from '../../data/legalPolicies';
 import { AccountDirectoryEntry } from '../../types/commerce';
 import { STUDIO_TRANSITION } from '../../utils/motion';
+import { isValidContactPhone } from '../../utils/validation';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/FormFields';
-import { SkeletonLoader } from '../ui/Primitives';
 import {
   RegistrationErrorAlert,
   type RegistrationErrorInfo,
@@ -33,36 +33,12 @@ interface RegFieldErrors {
   fullName?: string;
   studioName?: string;
   email?: string;
+  phone?: string;
   password?: string;
   policy?: string;
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-const ROLE_META: Record<
-  'customer' | 'seller' | 'admin',
-  {
-    badge: string;
-    pagesSummary: string;
-    Icon: React.FC<{ className?: string }>;
-  }
-> = {
-  customer: {
-    badge: 'Member',
-    pagesSummary: 'Overview · Order History · Wishlist · Addresses · Tracking',
-    Icon: User,
-  },
-  seller: {
-    badge: 'Seller Studio',
-    pagesSummary: 'Seller Studio · Live Inventory · Add Products · Fulfillment Queue',
-    Icon: Store,
-  },
-  admin: {
-    badge: 'Platform Admin',
-    pagesSummary: 'Admin Console · All Orders · Seller Approvals · Users & Categories',
-    Icon: ShieldCheck,
-  },
-};
 
 export const AuthPanel: React.FC<AuthPanelProps> = ({
   initialTab = 'signin',
@@ -70,21 +46,10 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
   onSuccess,
   onOpenFullPage,
 }) => {
-  const {
-    profile,
-    authAccounts,
-    authLoading,
-    loginDemo,
-    switchDemoAccount,
-    registerAccount,
-    navigate,
-    openPolicyPreview,
-  } = useStore();
+  const { loginDemo, registerAccount, navigate, openPolicyPreview } = useStore();
 
   const [authMode, setAuthMode] = useState<'signin' | 'register'>(initialTab);
-  const [loginEmail, setLoginEmail] = useState(
-    profile.email && profile.email.includes('@') ? profile.email : 'alex.mercer@studio.example'
-  );
+  const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
 
@@ -98,14 +63,9 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
   const [regAccepted, setRegAccepted] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
-  const [switchingId, setSwitchingId] = useState<string | null>(null);
   const [formError, setFormError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<RegFieldErrors>({});
   const [regError, setRegError] = useState<RegistrationErrorInfo | null>(null);
-
-  const primaryRoleAccounts = (['customer', 'seller', 'admin'] as const)
-    .map((roleKey) => authAccounts.find((a) => a.role === roleKey))
-    .filter((a): a is AccountDirectoryEntry => Boolean(a));
 
   const routeForUser = (user: AccountDirectoryEntry) => {
     if (onSuccess) {
@@ -135,13 +95,24 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
     e.preventDefault();
     setFormError('');
     setRegError(null);
+
+    const trimmedEmail = loginEmail.trim();
+    if (!trimmedEmail || !EMAIL_PATTERN.test(trimmedEmail)) {
+      setFormError('Enter your registered email address.');
+      return;
+    }
+    if (!loginPassword) {
+      setFormError('Enter your account password.');
+      return;
+    }
+
     setSubmitting(true);
-    const user = await loginDemo(loginEmail.trim(), loginPassword || undefined);
+    const user = await loginDemo(trimmedEmail, loginPassword);
     setSubmitting(false);
     if (user) {
       routeForUser(user);
     } else {
-      setFormError('Could not complete sign in. Select a workspace on the right or try again.');
+      setFormError('Invalid email or password. Check your credentials and try again.');
     }
   };
 
@@ -153,15 +124,19 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
     const trimmedName = regName.trim();
     const trimmedStudio = regStudioName.trim();
     const trimmedEmail = regEmail.trim();
+    const trimmedPhone = regPhone.trim();
 
     if (!trimmedName) {
       errors.fullName = 'Enter your full name.';
     }
     if (regRole === 'seller' && !trimmedStudio) {
-      errors.studioName = 'Enter a studio or brand name for your Seller account.';
+      errors.studioName = 'Enter a studio or store name for your Seller account.';
     }
     if (!trimmedEmail || !EMAIL_PATTERN.test(trimmedEmail)) {
-      errors.email = 'Enter a valid email address (for example, name@example.com).';
+      errors.email = 'Enter a valid email address (for example, name@domain.com).';
+    }
+    if (trimmedPhone && !isValidContactPhone(trimmedPhone, 'Bangladesh')) {
+      errors.phone = 'Enter a valid Bangladesh mobile number (e.g. +880 1711-000100 or 01711000100).';
     }
     if (regPassword.length < 6) {
       errors.password = 'Password must be at least 6 characters long.';
@@ -169,8 +144,8 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
     if (!regAccepted) {
       errors.policy =
         regRole === 'seller'
-          ? 'Accept the Terms of Service, Privacy Policy, Seller Marketplace Agreement, and Prohibited Items Policy.'
-          : 'Accept the Terms of Service, Privacy Policy, and Acceptable Use Policy.';
+          ? 'Accept the Terms & Conditions, Privacy Policy, Seller Marketplace Agreement, and Prohibited Items Policy.'
+          : 'Accept the Terms & Conditions, Privacy Policy, and Acceptable Use Policy.';
     }
 
     if (Object.keys(errors).length > 0) {
@@ -185,7 +160,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
         message: onlyPolicyMissing
           ? 'You must confirm the marketplace legal agreements before creating an account.'
           : 'Some required registration details are missing or need correction:',
-        details: onlyPolicyMissing ? detailList : detailList,
+        details: detailList,
       });
       return;
     }
@@ -200,7 +175,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
     const result = await registerAccount({
       fullName: trimmedName,
       email: trimmedEmail,
-      phone: regPhone.trim(),
+      phone: trimmedPhone,
       password: regPassword,
       role: regRole,
       studioName: regRole === 'seller' ? trimmedStudio : undefined,
@@ -251,24 +226,13 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
     await runRegistration();
   };
 
-  const handleQuickRole = async (acc: AccountDirectoryEntry) => {
-    setFormError('');
-    setRegError(null);
-    setSwitchingId(acc.id);
-    const user = await switchDemoAccount(acc.id);
-    setSwitchingId(null);
-    if (user) {
-      routeForUser(user);
-    }
-  };
-
   return (
     <div className={`grid grid-cols-1 lg:grid-cols-12 ${compact ? 'gap-6' : 'gap-8'} items-stretch`}>
       {/* Form Column */}
-      <div className="lg:col-span-6 p-6 sm:p-7 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] flex flex-col justify-between space-y-6">
+      <div className="lg:col-span-7 p-6 sm:p-8 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] flex flex-col justify-between space-y-6">
         <div className="space-y-5">
           {/* Segmented Tabs */}
-          <div className="flex items-center justify-between border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+          <div className="flex items-center justify-between border-b border-[var(--ks-border)]">
             <div className="flex items-center gap-6">
               {(
                 [
@@ -287,10 +251,10 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                       setRegError(null);
                       setFieldErrors({});
                     }}
-                    className={`relative pb-3 text-sm font-medium transition-colors cursor-pointer ${
+                    className={`relative pb-3 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
                       active
-                        ? 'text-[#171716] dark:text-[#F4F3EF]'
-                        : 'text-[#84827B] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
+                        ? 'text-[var(--ks-text-primary)]'
+                        : 'text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)]'
                     }`}
                   >
                     <span>{tab.label}</span>
@@ -298,7 +262,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                       <motion.span
                         layoutId={compact ? 'auth-modal-tab-bar' : 'auth-page-tab-bar'}
                         transition={STUDIO_TRANSITION.springTab}
-                        className="absolute left-0 right-0 -bottom-px h-0.5 bg-[#171716] dark:bg-[#F4F3EF]"
+                        className="absolute left-0 right-0 -bottom-px h-0.5 bg-[var(--ks-text-primary)]"
                       />
                     )}
                   </button>
@@ -310,7 +274,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
               <button
                 type="button"
                 onClick={onOpenFullPage}
-                className="pb-3 text-xs text-[#8F6438] dark:text-[#C89B67] hover:underline cursor-pointer"
+                className="pb-3 text-xs text-[var(--ks-accent)] hover:underline cursor-pointer whitespace-nowrap"
               >
                 Full page view →
               </button>
@@ -323,50 +287,56 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                 <h2 className="font-display text-2xl sm:text-3xl font-medium">
                   Sign In to Kinto Studio
                 </h2>
-                <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] leading-relaxed">
-                  Enter any email or name, leave fields blank for instant access, or pick a workspace on the right.
+                <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
+                  Enter your registered email address and password to access your orders, saved addresses, or partner portal.
                 </p>
               </div>
 
               <Input
-                label="Email or Name (Optional)"
-                type="text"
+                label="Email Address"
+                type="email"
+                required
+                autoComplete="email"
                 value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                placeholder="Any email, name, or leave blank"
+                onChange={(e) => {
+                  setLoginEmail(e.target.value);
+                  if (formError) setFormError('');
+                }}
+                placeholder="name@example.com"
               />
 
-              <div className="space-y-1.5">
-                <div className="relative">
-                  <Input
-                    label="Password (Optional)"
-                    type={showLoginPassword ? 'text' : 'password'}
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    placeholder="Optional — enter anything or leave blank"
-                    className="pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowLoginPassword((p) => !p)}
-                    aria-label={showLoginPassword ? 'Hide password' : 'Show password'}
-                    className="absolute right-2.5 top-[29px] w-7 h-7 rounded flex items-center justify-center text-[#84827B] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
-                  >
-                    {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                <p className="text-[11px] leading-snug text-[#84827B] flex items-start gap-1">
-                  <Lock className="w-3 h-3 shrink-0 mt-[2px]" />
-                  <span>Hints: studio2026 · seller2026 · admin2026</span>
-                </p>
+              <div className="relative">
+                <Input
+                  label="Password"
+                  type={showLoginPassword ? 'text' : 'password'}
+                  required
+                  autoComplete="current-password"
+                  value={loginPassword}
+                  onChange={(e) => {
+                    setLoginPassword(e.target.value);
+                    if (formError) setFormError('');
+                  }}
+                  placeholder="Enter your password"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowLoginPassword((p) => !p)}
+                  aria-label={showLoginPassword ? 'Hide password' : 'Show password'}
+                  className="absolute right-2.5 top-[29px] w-7 h-7 rounded flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                >
+                  {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
 
               {formError && (
-                <p className="text-xs text-[#B91C1C] dark:text-[#F87171]">{formError}</p>
+                <p className="text-xs text-[var(--ks-error)]" role="alert">
+                  {formError}
+                </p>
               )}
 
               <Button type="submit" variant="primary" size="lg" fullWidth disabled={submitting}>
-                <span>{submitting ? 'Signing In...' : 'Sign In & Open Workspace'}</span>
+                <span>{submitting ? 'Signing In...' : 'Sign In'}</span>
                 <ArrowRight className="w-4 h-4" />
               </Button>
             </form>
@@ -376,8 +346,8 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                 <h2 className="font-display text-2xl sm:text-3xl font-medium">
                   Create Marketplace Account
                 </h2>
-                <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] leading-relaxed">
-                  Join as a Member or register a partner Seller Studio with live inventory tools.
+                <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
+                  Register as a Customer or apply as a partner Seller Studio on Kinto Studio Bangladesh.
                 </p>
               </div>
 
@@ -398,10 +368,10 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                       }
                       if (regError) setRegError(null);
                     }}
-                    className={`py-2 px-3 rounded-md border text-xs font-medium cursor-pointer transition-colors ${
+                    className={`py-2 px-3 rounded-[var(--ks-radius-md)] border text-xs font-medium cursor-pointer transition-colors whitespace-nowrap ${
                       regRole === opt.id
-                        ? 'bg-[#171716] text-white border-[#171716] dark:bg-[#F4F3EF] dark:text-[#171716] dark:border-[#F4F3EF]'
-                        : 'border-[#E5E3DD] dark:border-[#2C2C28] text-[#5C5B57] dark:text-[#A3A19B] hover:border-[#171716] dark:hover:border-[#F4F3EF]'
+                        ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)]'
+                        : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:border-[var(--ks-border-strong)] hover:text-[var(--ks-text-primary)]'
                     }`}
                   >
                     {opt.label}
@@ -418,7 +388,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                   clearFieldError('fullName');
                 }}
                 error={fieldErrors.fullName}
-                placeholder="Jordan Rivera"
+                placeholder="Tasnim Ahmed"
               />
 
               {regRole === 'seller' && (
@@ -431,7 +401,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                     clearFieldError('studioName');
                   }}
                   error={fieldErrors.studioName}
-                  placeholder="Atelier Botanica"
+                  placeholder="Dhaka Craft Atelier"
                 />
               )}
 
@@ -445,15 +415,19 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                   clearFieldError('email');
                 }}
                 error={fieldErrors.email}
-                placeholder="jordan@studio.example"
+                placeholder="name@example.com"
               />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input
-                  label="Phone"
+                  label="Bangladesh Mobile"
                   value={regPhone}
-                  onChange={(e) => setRegPhone(e.target.value)}
-                  placeholder="+1 415 555 0100"
+                  onChange={(e) => {
+                    setRegPhone(e.target.value);
+                    clearFieldError('phone');
+                  }}
+                  error={fieldErrors.phone}
+                  placeholder="+880 1711-000100"
                 />
                 <div className="relative">
                   <Input
@@ -473,7 +447,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                     type="button"
                     onClick={() => setShowRegPassword((p) => !p)}
                     aria-label={showRegPassword ? 'Hide password' : 'Show password'}
-                    className="absolute right-2.5 top-[29px] w-7 h-7 rounded flex items-center justify-center text-[#84827B] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                    className="absolute right-2.5 top-[29px] w-7 h-7 rounded flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
                     {showRegPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -481,13 +455,13 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
               </div>
 
               <div
-                className={`p-3.5 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border space-y-2 transition-colors ${
+                className={`p-3.5 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border space-y-2 transition-colors ${
                   fieldErrors.policy
-                    ? 'border-[#B91C1C] dark:border-[#F87171]'
-                    : 'border-[#E5E3DD] dark:border-[#2C2C28]'
+                    ? 'border-[var(--ks-error)]'
+                    : 'border-[var(--ks-border)]'
                 }`}
               >
-                <label className="flex items-start gap-2.5 cursor-pointer text-xs leading-relaxed text-[#5C5B57] dark:text-[#A3A19B] select-none">
+                <label className="flex items-start gap-2.5 cursor-pointer text-xs leading-relaxed text-[var(--ks-text-secondary)] select-none">
                   <input
                     type="checkbox"
                     checked={regAccepted}
@@ -496,22 +470,22 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                       setRegAccepted(e.target.checked);
                       clearFieldError('policy');
                     }}
-                    className="mt-0.5 w-4 h-4 shrink-0 accent-[#171716] dark:accent-[#F4F3EF] cursor-pointer"
+                    className="mt-0.5 w-4 h-4 shrink-0 accent-[var(--ks-action)] cursor-pointer"
                   />
                   <span>
-                    I confirm I am 18+ and agree to Kinto Studio LLC&apos;s{' '}
+                    I confirm I am 18+ and agree to Kinto Studio&apos;s{' '}
                     <button
                       type="button"
                       onClick={() => openPolicyPreview('terms')}
-                      className="underline font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                      className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                     >
-                      Terms of Service
+                      Terms &amp; Conditions
                     </button>
                     ,{' '}
                     <button
                       type="button"
                       onClick={() => openPolicyPreview('privacy-policy')}
-                      className="underline font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                      className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                     >
                       Privacy Policy
                     </button>
@@ -519,7 +493,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                     <button
                       type="button"
                       onClick={() => openPolicyPreview('acceptable-use')}
-                      className="underline font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                      className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                     >
                       Acceptable Use Policy
                     </button>
@@ -530,7 +504,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                         <button
                           type="button"
                           onClick={() => openPolicyPreview('seller-agreement')}
-                          className="underline font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                          className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                         >
                           Seller Marketplace Agreement
                         </button>{' '}
@@ -538,7 +512,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                         <button
                           type="button"
                           onClick={() => openPolicyPreview('prohibited-items')}
-                          className="underline font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                          className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                         >
                           Prohibited Items Policy
                         </button>
@@ -548,7 +522,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                   </span>
                 </label>
                 {fieldErrors.policy && (
-                  <p className="text-xs leading-snug text-[#B91C1C] dark:text-[#F87171] flex items-start gap-1.5 pl-6">
+                  <p className="text-xs leading-snug text-[var(--ks-error)] flex items-start gap-1.5 pl-6">
                     <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-[2px]" aria-hidden="true" />
                     <span>{fieldErrors.policy}</span>
                   </p>
@@ -571,7 +545,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
               />
 
               <Button type="submit" variant="primary" size="lg" fullWidth disabled={submitting}>
-                <span>{submitting ? 'Creating Account...' : 'Create Account & Enter Portal'}</span>
+                <span>{submitting ? 'Creating Account...' : 'Create Account'}</span>
                 <ArrowRight className="w-4 h-4" />
               </Button>
             </form>
@@ -579,91 +553,73 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
         </div>
       </div>
 
-      {/* Right Column: Instant API Multi-Role Portals */}
-      <div className="lg:col-span-6 p-6 sm:p-7 rounded-lg bg-[#F2F0EC] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] flex flex-col justify-between space-y-5">
-        <div className="space-y-4">
-          <div className="space-y-1">
-            <p className="text-[11px] uppercase tracking-[0.14em] text-[#8F6438] dark:text-[#C89B67] font-medium">
-              Instant Role Portals
-            </p>
+      {/* Right Column: Marketplace Account & Security Information */}
+      <div className="lg:col-span-5 p-6 sm:p-8 rounded-[var(--ks-radius-lg)] bg-[var(--ks-bg-secondary)] border border-[var(--ks-border)] flex flex-col justify-between space-y-6">
+        <div className="space-y-5">
+          <div className="space-y-1.5">
+            <p className="ks-eyebrow text-[var(--ks-accent)]">Bangladesh Marketplace Access</p>
             <h3 className="font-display text-2xl font-medium">
-              1-Click Workspace Access
+              Unified Account Security
             </h3>
-            <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] leading-relaxed">
-              Choose an account below to sign in and open its dedicated post-login pages immediately.
+            <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
+              Manage orders, courier tracking, saved Bangladesh delivery addresses, tokenized payments, and verified seller tools from one authenticated account.
             </p>
           </div>
 
-          {authLoading ? (
-            <div className="space-y-3">
-              <SkeletonLoader className="h-24 w-full" />
-              <SkeletonLoader className="h-24 w-full" />
-              <SkeletonLoader className="h-24 w-full" />
+          <div className="space-y-3">
+            <div className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)] flex items-start gap-3">
+              <Lock className="w-4 h-4 text-[var(--ks-accent)] shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <p className="text-xs font-semibold">Protected Session Controls</p>
+                <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
+                  Role-isolated sessions enforce strict Customer, Seller Studio, and Platform Admin authorization across every order and storefront record.
+                </p>
+              </div>
             </div>
-          ) : primaryRoleAccounts.length === 0 ? (
-            <div className="p-4 rounded-md bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] text-xs text-[#5C5B57] dark:text-[#A3A19B]">
-              Marketplace account directory is temporarily unavailable. Use the sign-in form on the left or try refreshing shortly.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {primaryRoleAccounts.map((acc) => {
-                const meta = ROLE_META[acc.role];
-                const Icon = meta.Icon;
-                const isActiveSession =
-                  profile.isAuthenticated && profile.id === acc.id;
-                const isBusy = switchingId === acc.id;
 
-                return (
+            <div className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)] flex items-start gap-3">
+              <Truck className="w-4 h-4 text-[var(--ks-accent)] shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <p className="text-xs font-semibold">Guest Order Tracking</p>
+                <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
+                  Checking an existing shipment without signing in?{' '}
                   <button
-                    key={acc.id}
                     type="button"
-                    disabled={Boolean(switchingId)}
-                    onClick={() => handleQuickRole(acc)}
-                    className={`group w-full p-4 rounded-md border text-left transition-all cursor-pointer flex items-start justify-between gap-3 ${
-                      isActiveSession
-                        ? 'bg-[#FFFFFF] dark:bg-[#191917] border-[#8F6438] dark:border-[#C89B67]'
-                        : 'bg-[#FFFFFF] dark:bg-[#191917] border-[#E5E3DD] dark:border-[#2C2C28] hover:border-[#171716] dark:hover:border-[#F4F3EF]'
-                    }`}
+                    onClick={() => navigate({ name: 'track-order' })}
+                    className="underline text-[var(--ks-accent)] font-medium cursor-pointer"
                   >
-                    <div className="flex items-start gap-3 min-w-0">
-                      <span className="w-9 h-9 rounded-md bg-[#F2F0EC] dark:bg-[#22221F] flex items-center justify-center shrink-0 text-[#8F6438] dark:text-[#C89B67] mt-0.5">
-                        <Icon className="w-4 h-4" />
-                      </span>
-                      <div className="min-w-0 space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-semibold truncate">{acc.fullName}</span>
-                          <span className="text-[10px] uppercase tracking-wider font-medium px-1.5 py-0.5 rounded bg-[#F2F0EC] dark:bg-[#22221F] text-[#8F6438] dark:text-[#C89B67]">
-                            {meta.badge}
-                          </span>
-                          {isActiveSession && (
-                            <span className="text-[10px] uppercase tracking-wider font-medium text-[#15803D] dark:text-[#4ADE80]">
-                              · Active
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] truncate">
-                          {acc.studioName ? `${acc.studioName} · ` : ''}
-                          {acc.email}
-                        </p>
-                        <p className="text-[11px] text-[#84827B] leading-snug">
-                          {meta.pagesSummary}
-                        </p>
-                      </div>
-                    </div>
-
-                    <span className="text-xs font-medium text-[#171716] dark:text-[#F4F3EF] group-hover:text-[#8F6438] dark:group-hover:text-[#C89B67] shrink-0 self-start sm:self-center mt-0.5 sm:mt-0 whitespace-nowrap transition-colors">
-                      {isBusy ? 'Opening...' : 'Enter →'}
-                    </span>
+                    Track your order by Order ID
                   </button>
-                );
-              })}
+                  .
+                </p>
+              </div>
             </div>
-          )}
+
+            <div className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)] flex items-start gap-3">
+              <Store className="w-4 h-4 text-[var(--ks-accent)] shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <p className="text-xs font-semibold">Partner Maker Onboarding</p>
+                <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
+                  Apply as a verified Seller Studio under the Bangladesh marketplace framework with BDT settlement and courier integration.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <p className="text-[11px] text-[#84827B] pt-3 border-t border-[#DCD9D0] dark:border-[#2C2C28]">
-          Sessions stay synchronized securely across storefront, seller, and admin workspaces.
-        </p>
+        <div className="pt-4 border-t border-[var(--ks-border-strong)] flex items-center justify-between gap-3 text-[11px] text-[var(--ks-text-muted)]">
+          <span className="inline-flex items-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5 text-[var(--ks-accent)] shrink-0" />
+            Protected under Kinto Studio Privacy Policy
+          </span>
+          <button
+            type="button"
+            onClick={() => navigate({ name: 'legal' })}
+            className="hover:underline text-[var(--ks-text-secondary)] whitespace-nowrap cursor-pointer"
+          >
+            Legal Center →
+          </button>
+        </div>
       </div>
     </div>
   );

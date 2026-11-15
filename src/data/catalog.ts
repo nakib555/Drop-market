@@ -94,7 +94,7 @@ export const BRAND_STUDIOS: BrandStudio[] = [
   {
     id: 'kinto-atelier',
     name: 'Kinto Atelier',
-    origin: 'Portland & Dhaka Studio',
+    origin: 'Dhaka Studio & Kyoto',
     specialty: 'Furniture, Nursery, Books & Companion Ware',
     founded: '2018',
     summary:
@@ -130,7 +130,7 @@ export const BRAND_STUDIOS: BrandStudio[] = [
   {
     id: 'nordic-trail-roast',
     name: 'Nordic Trail & Roast',
-    origin: 'Oslo & Portland',
+    origin: 'Oslo & Copenhagen',
     specialty: 'Technical Packs, Trail Footwear & Coffee',
     founded: '2021',
     summary:
@@ -215,52 +215,6 @@ export const FAQ_ITEMS = [
   },
 ];
 
-export const INITIAL_ADDRESSES: Address[] = [
-  {
-    id: 'addr-1',
-    label: 'Dhaka Studio Hub',
-    fullName: 'Alex Mercer',
-    phone: '+880 1711-000194',
-    country: 'Bangladesh',
-    state: 'Dhaka',
-    city: 'Dhaka',
-    upazila: 'Dhaka North City Corporation',
-    area: 'Banani',
-    streetAddress: 'House 42, Road 11, Block F',
-    postalCode: '1213',
-    isDefault: true,
-  },
-  {
-    id: 'addr-2',
-    label: 'San Francisco Residence',
-    fullName: 'Alex Mercer',
-    phone: '+1 (415) 555-0194',
-    country: 'United States',
-    state: 'California',
-    city: 'San Francisco',
-    upazila: 'San Francisco Metro',
-    area: 'Pacific Heights',
-    streetAddress: '2140 Steiner Street, Apt 4B',
-    postalCode: '94115',
-    isDefault: false,
-  },
-];
+export const INITIAL_ADDRESSES: Address[] = [];
 
-export const INITIAL_PAYMENT_METHODS: PaymentMethodRecord[] = [
-  {
-    id: 'pm-1',
-    brand: 'Visa',
-    last4: '4242',
-    expiry: '08/29',
-    holderName: 'Alex Mercer',
-    isDefault: true,
-  },
-  {
-    id: 'pm-2',
-    brand: 'bKash Wallet',
-    last4: '0194',
-    expiry: 'Verified',
-    holderName: 'Alex Mercer',
-    isDefault: false,
-  },
-];
+export const INITIAL_PAYMENT_METHODS: PaymentMethodRecord[] = [];

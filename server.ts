@@ -14,6 +14,7 @@ import {
   buildAuthoritativeCheckoutQuote,
   buildVerifiedOrderFromSession,
   createPaymentSession,
+  getGatewayConfigStatus,
   resolveAuthoritativeItems,
   type CheckoutItemRequest,
   type CheckoutQuoteRequest,
@@ -25,16 +26,52 @@ import type {
   CategoryNode,
   CurrencyCode,
   DeliveryMethodId,
+  LanguageCode,
   LegalAcceptanceRecord,
   Order,
   OrderStage,
   PaymentMethodId,
+  SellerStoreSettings,
   ShippingZoneId,
   ShippingZoneRule,
   UserRole,
 } from './src/types/commerce.ts';
+import type { ServerUserRecord } from './server/mockDb.ts';
 
 const PORT = Number(process.env.PORT) || 3000;
+
+function requireAuth(
+  req: express.Request,
+  res: express.Response
+): ServerUserRecord | null {
+  const token = req.headers.authorization;
+  const user = db.getUserByToken(token);
+  if (!user) {
+    res.status(401).json({ error: 'Authentication required. Please sign in.' });
+    return null;
+  }
+  if (user.status === 'suspended') {
+    res.status(403).json({ error: 'This account has been suspended. Contact marketplace support.' });
+    return null;
+  }
+  return user;
+}
+
+function requireRole(
+  req: express.Request,
+  res: express.Response,
+  allowedRoles: UserRole[]
+): ServerUserRecord | null {
+  const user = requireAuth(req, res);
+  if (!user) return null;
+  if (!allowedRoles.includes(user.role)) {
+    res.status(403).json({
+      error: `Access denied. Required role: ${allowedRoles.join(' or ')}.`,
+    });
+    return null;
+  }
+  return user;
+}
 
 function formatOrderNotificationAmount(order: Order): string {
   const snap = order.currencySnapshot;
@@ -54,87 +91,39 @@ async function startServer() {
     res.json({ ok: true, service: 'kinto-studio-marketplace-api', timestamp: new Date().toISOString() });
   });
 
-  // Public account directory for Quick Switcher / Sign In selector (no passwords exposed)
-  app.get('/api/auth/accounts', (_req, res) => {
+  // Admin-only user directory (no passwords exposed)
+  app.get('/api/auth/accounts', (req, res) => {
+    const admin = requireRole(req, res, ['admin']);
+    if (!admin) return;
     res.json({
       accounts: db.users.map((u) => db.toPublicAccount(u)),
     });
   });
 
-  // Authenticate by email/name, accountId, arbitrary input, or blank credentials
+  // Email + password authentication (no blank or passwordless bypass)
   app.post('/api/auth/login', (req, res) => {
-    const { email, password, accountId } = (req.body || {}) as {
+    const { email, password } = (req.body || {}) as {
       email?: string;
       password?: string;
-      accountId?: string;
     };
 
-    let user = accountId
-      ? db.users.find((u) => u.id === accountId)
-      : undefined;
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanPassword = (password || '').trim();
 
-    const cleanInput = (email || '').trim();
-    const lowerInput = cleanInput.toLowerCase();
-
-    if (!user) {
-      if (!cleanInput) {
-        user =
-          db.users.find((u) => u.role === 'customer' && u.status === 'active') ||
-          db.users[0];
-      } else {
-        user = db.users.find(
-          (u) =>
-            u.email.toLowerCase() === lowerInput ||
-            u.fullName.toLowerCase() === lowerInput
-        );
-      }
+    if (!cleanEmail || !cleanEmail.includes('@') || !cleanPassword) {
+      res.status(400).json({ error: 'Email address and password are required.' });
+      return;
     }
 
-    if (!user) {
-      const looksLikeEmail = cleanInput.includes('@');
-      const localPart = (looksLikeEmail ? cleanInput.split('@')[0] : cleanInput)
-        .replace(/[^a-zA-Z0-9._-]+/g, ' ')
-        .trim();
-      const derivedName =
-        localPart
-          .split(/[.\s_-]+/)
-          .filter(Boolean)
-          .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-          .join(' ') || 'Marketplace Member';
+    const user = db.users.find((u) => u.email.toLowerCase() === cleanEmail);
+    if (!user || user.password !== cleanPassword) {
+      res.status(401).json({ error: 'Invalid email address or password.' });
+      return;
+    }
 
-      const emailSlug =
-        (localPart || 'guest')
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '.')
-          .replace(/(^\.|\.$)/g, '') || 'guest';
-
-      const normalizedEmail = looksLikeEmail
-        ? lowerInput
-        : `${emailSlug}@guest.kintostudio.local`;
-
-      const existingByNormalized = db.users.find(
-        (u) => u.email.toLowerCase() === normalizedEmail
-      );
-
-      if (existingByNormalized) {
-        user = existingByNormalized;
-      } else {
-        const newUser = {
-          id: `usr-guest-${Date.now().toString(36)}`,
-          fullName: looksLikeEmail ? derivedName : cleanInput,
-          email: normalizedEmail,
-          phone: '+880 1711-000100',
-          role: 'customer' as const,
-          roleLabel: 'Marketplace Member',
-          status: 'active' as const,
-          joinedAt: new Date().toISOString().slice(0, 10),
-          location: 'Dhaka & Global Hub',
-          demoPasswordHint: password?.trim() || 'studio2026',
-          password: password?.trim() || 'studio2026',
-        };
-        db.users.unshift(newUser);
-        user = newUser;
-      }
+    if (user.status === 'suspended') {
+      res.status(403).json({ error: 'This account is currently suspended.' });
+      return;
     }
 
     const token = db.issueSession(user.id);
@@ -158,8 +147,13 @@ async function startServer() {
       };
 
     const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanPassword = (password || '').trim();
     if (!fullName?.trim() || !cleanEmail || !cleanEmail.includes('@')) {
       res.status(400).json({ error: 'Valid full name and email address are required.' });
+      return;
+    }
+    if (cleanPassword.length < 6) {
+      res.status(400).json({ error: 'Password must be at least 6 characters.' });
       return;
     }
 
@@ -181,15 +175,14 @@ async function startServer() {
       id: newId,
       fullName: fullName.trim(),
       email: cleanEmail,
-      phone: phone?.trim() || '+880 1711-000100',
+      phone: phone?.trim() || '',
       role: chosenRole,
       roleLabel: chosenRole === 'seller' ? 'Seller Studio Partner' : 'Marketplace Member',
       studioName: chosenRole === 'seller' ? studioName?.trim() || `${fullName.trim()} Studio` : undefined,
       status: 'active' as const,
       joinedAt: new Date().toISOString().slice(0, 10),
-      location: 'Dhaka & Global Hub',
-      demoPasswordHint: password?.trim() || 'studio2026',
-      password: password?.trim() || 'studio2026',
+      location: 'Dhaka, Bangladesh',
+      password: cleanPassword,
       policyAcceptance: {
         ...acceptedPolicies,
         acceptedAt: acceptedPolicies.acceptedAt || new Date().toISOString(),
@@ -204,7 +197,7 @@ async function startServer() {
         ownerName: newUser.fullName,
         email: newUser.email,
         department: 'Multi-Department',
-        origin: 'Partner Network',
+        origin: 'Dhaka Partner Network',
         submittedAt: new Date().toISOString().slice(0, 10),
         status: 'approved',
         productCount: 0,
@@ -220,24 +213,40 @@ async function startServer() {
   });
 
   app.get('/api/auth/me', (req, res) => {
-    const token = req.headers.authorization;
-    const user = db.getUserByToken(token) || db.users[0];
+    const user = requireAuth(req, res);
+    if (!user) return;
     res.json({ user: db.toPublicAccount(user) });
   });
 
   app.patch('/api/auth/profile', (req, res) => {
-    const token = req.headers.authorization;
-    const user = db.getUserByToken(token);
-    if (!user) {
-      res.status(401).json({ error: 'Authentication required' });
-      return;
-    }
+    const user = requireAuth(req, res);
+    if (!user) return;
     const { fullName, email, phone, studioName } = req.body || {};
     if (typeof fullName === 'string' && fullName.trim()) user.fullName = fullName.trim();
     if (typeof email === 'string' && email.includes('@')) user.email = email.trim();
     if (typeof phone === 'string') user.phone = phone.trim();
     if (typeof studioName === 'string' && user.role === 'seller') user.studioName = studioName.trim();
     res.json({ user: db.toPublicAccount(user) });
+  });
+
+  app.post('/api/auth/change-password', (req, res) => {
+    const user = requireAuth(req, res);
+    if (!user) return;
+    const { currentPassword, newPassword } = (req.body || {}) as {
+      currentPassword?: string;
+      newPassword?: string;
+    };
+    if (!currentPassword || user.password !== currentPassword.trim()) {
+      res.status(400).json({ error: 'Current password is incorrect.' });
+      return;
+    }
+    const cleanNew = (newPassword || '').trim();
+    if (cleanNew.length < 8) {
+      res.status(400).json({ error: 'New password must be at least 8 characters.' });
+      return;
+    }
+    user.password = cleanNew;
+    res.json({ ok: true, message: 'Password updated successfully.' });
   });
 
   // Live Catalog Proxy from External DummyJSON API
@@ -274,6 +283,8 @@ async function startServer() {
   });
 
   app.patch('/api/admin/currency', (req, res) => {
+    const admin = requireRole(req, res, ['admin']);
+    if (!admin) return;
     const { bdtRate, defaultCurrency, source, updateFrequencyMinutes } = (req.body || {}) as {
       bdtRate?: number;
       defaultCurrency?: CurrencyCode;
@@ -363,6 +374,8 @@ async function startServer() {
   });
 
   app.patch('/api/admin/shipping-rules', (req, res) => {
+    const admin = requireRole(req, res, ['admin']);
+    if (!admin) return;
     const { zoneId, updates, restrictedAreaKeywords } = (req.body || {}) as {
       zoneId?: ShippingZoneId;
       updates?: Partial<ShippingZoneRule>;
@@ -480,8 +493,8 @@ async function startServer() {
         return;
       }
 
-      if (!body.customerName?.trim() || !body.email?.includes('@') || !body.shippingAddress?.streetAddress?.trim()) {
-        res.status(400).json({ error: 'Complete customer name, email, and delivery address are required.' });
+      if (!body.customerName?.trim() || !body.email?.includes('@') || !body.phone?.trim() || !body.shippingAddress?.streetAddress?.trim()) {
+        res.status(400).json({ error: 'Complete customer name, email, phone number, and delivery address are required.' });
         return;
       }
       if (!body.paymentMethod) {
@@ -500,7 +513,7 @@ async function startServer() {
         customer: {
           customerName: body.customerName.trim(),
           email: body.email.trim(),
-          phone: body.phone?.trim() || '+880 1700-000000',
+          phone: body.phone.trim(),
           shippingAddress: body.shippingAddress,
           deliveryMethod: body.deliveryMethod || 'standard',
         },
@@ -565,6 +578,23 @@ async function startServer() {
 
     const chosenOutcome =
       outcome || (ctx.session.paymentMethod === 'cod' ? 'cod_confirmed' : 'paid');
+
+    if (chosenOutcome === 'paid' && ctx.session.paymentMethod === 'cod') {
+      res.status(400).json({
+        error: 'Cash on Delivery sessions must complete with cod_confirmed status, never prepaid paid.',
+      });
+      return;
+    }
+
+    if (chosenOutcome === 'paid') {
+      const gatewayStatus = getGatewayConfigStatus(ctx.session.paymentMethod);
+      if (!gatewayStatus.enabled) {
+        res.status(400).json({
+          error: gatewayStatus.reason || 'Payment gateway credentials are not configured.',
+        });
+        return;
+      }
+    }
 
     const { session, order } = buildVerifiedOrderFromSession(ctx, chosenOutcome, {
       walletNumber,
@@ -634,9 +664,50 @@ async function startServer() {
     res.json({ ok: true, id: req.params.id });
   });
 
-  // Orders API
-  app.get('/api/orders', (_req, res) => {
-    res.json({ orders: db.orders });
+  // Orders API (scoped by authenticated role)
+  app.get('/api/orders', (req, res) => {
+    const user = db.getUserByToken(req.headers.authorization);
+    if (!user) {
+      res.json({ orders: [] });
+      return;
+    }
+    if (user.role === 'admin' || user.role === 'seller') {
+      res.json({ orders: db.orders });
+      return;
+    }
+    const customerOrders = db.orders.filter(
+      (o) => o.email.toLowerCase() === user.email.toLowerCase()
+    );
+    res.json({ orders: customerOrders });
+  });
+
+  // Public/guest order tracking lookup by Order ID + optional email/phone verification
+  app.get('/api/orders/track', (req, res) => {
+    const idQuery = String(req.query.id || '').trim().toLowerCase();
+    const contactQuery = String(req.query.contact || '').trim().toLowerCase();
+    if (!idQuery) {
+      res.status(400).json({ error: 'Order reference ID is required.' });
+      return;
+    }
+    const found = db.orders.find((o) => o.id.toLowerCase() === idQuery);
+    if (!found) {
+      res.status(404).json({ error: `No order found matching reference ${String(req.query.id || '').toUpperCase()}.` });
+      return;
+    }
+    const authUser = db.getUserByToken(req.headers.authorization);
+    const isStaff = authUser?.role === 'admin' || authUser?.role === 'seller';
+    const isOwner = authUser && authUser.email.toLowerCase() === found.email.toLowerCase();
+    if (!isStaff && !isOwner && contactQuery) {
+      const emailMatch = found.email.toLowerCase() === contactQuery;
+      const phoneMatch =
+        found.phone.replace(/\D/g, '').endsWith(contactQuery.replace(/\D/g, '')) &&
+        contactQuery.replace(/\D/g, '').length >= 6;
+      if (!emailMatch && !phoneMatch) {
+        res.status(403).json({ error: 'Verification email or phone number does not match this order.' });
+        return;
+      }
+    }
+    res.json({ order: found });
   });
 
   app.post('/api/orders', (req, res) => {
@@ -664,6 +735,8 @@ async function startServer() {
   });
 
   app.patch('/api/orders/:id/status', (req, res) => {
+    const actor = requireRole(req, res, ['seller', 'admin']);
+    if (!actor) return;
     const { stage, note } = (req.body || {}) as { stage?: OrderStage; note?: string };
     const found = db.orders.find((o) => o.id === req.params.id);
     if (!found) {
@@ -692,6 +765,8 @@ async function startServer() {
   });
 
   app.post('/api/orders/:id/action', (req, res) => {
+    const user = requireAuth(req, res);
+    if (!user) return;
     const { action, reason } = (req.body || {}) as {
       action?: 'cancel' | 'return';
       reason?: string;
@@ -699,6 +774,13 @@ async function startServer() {
     const found = db.orders.find((o) => o.id === req.params.id);
     if (!found) {
       res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+    if (
+      user.role === 'customer' &&
+      found.email.toLowerCase() !== user.email.toLowerCase()
+    ) {
+      res.status(403).json({ error: 'You may only modify your own orders.' });
       return;
     }
     if (action === 'cancel') {
@@ -722,32 +804,19 @@ async function startServer() {
     res.status(400).json({ error: 'Unsupported customer order action' });
   });
 
-  // Seller Dashboard & Product Management APIs
+  // Seller Dashboard & Product Management APIs (RBAC: seller or admin)
   app.get('/api/seller/dashboard', (req, res) => {
-    const token = req.headers.authorization;
-    const user = db.getUserByToken(token);
-    const activeStudio = user?.studioName || 'Aeterna & Loom Collective';
-    const ownerName = user?.fullName || 'Elena Vance';
+    const user = requireRole(req, res, ['seller', 'admin']);
+    if (!user) return;
+    const activeStudio = user.studioName || db.sellerStoreSettings.studioName;
+    const ownerName = user.fullName;
 
-    const combinedInventory = [
-      ...db.sellerCreatedProducts.map((p) => ({
-        id: p.id,
-        sku: p.sku,
-        name: p.name,
-        brand: p.brand,
-        category: p.category,
-        categoryLabel: p.categoryLabel,
-        price: p.price,
-        stockCount: p.stockCount,
-        availability: p.availability,
-        imagePresetKey: p.imagePresetKey,
-        monthlyUnitsSold: 4,
-      })),
-      ...db.sellerInventory,
-    ];
-
+    const combinedInventory = db.getCombinedInventory();
     const pendingOrders = db.orders.filter(
       (o) => !['Delivered', 'Cancelled', 'Return Requested'].includes(o.currentStage)
+    );
+    const returnsQueue = db.orders.filter(
+      (o) => o.currentStage === 'Return Requested' || o.currentStage === 'Cancelled'
     );
 
     const monthlyGmv = combinedInventory.reduce(
@@ -764,23 +833,85 @@ async function startServer() {
         lowStockSkus: combinedInventory.filter((i) => i.stockCount <= 8).length,
         activeListings: combinedInventory.length,
         avgRating: 4.88,
+        returnRequestsCount: returnsQueue.length,
       },
-      revenueSeries: [
-        { month: 'Jun', gmv: 34200, orders: 68 },
-        { month: 'Jul', gmv: 38900, orders: 74 },
-        { month: 'Aug', gmv: 41600, orders: 82 },
-        { month: 'Sep', gmv: 44100, orders: 89 },
-        { month: 'Oct', gmv: 46800, orders: 95 },
-        { month: 'Nov', gmv: monthlyGmv, orders: 102 + pendingOrders.length },
-      ],
+      revenueSeries: db.buildDynamicRevenueSeries(monthlyGmv, pendingOrders.length),
       inventory: combinedInventory,
-      fulfillmentQueue: db.orders.slice(0, 8),
+      fulfillmentQueue: db.orders.slice(0, 12),
+      returnsQueue,
+      authorizedCustomers: db.getAuthorizedCustomersForSeller(),
+      storeSettings: {
+        ...db.sellerStoreSettings,
+        studioName: activeStudio,
+      },
     });
   });
 
+  app.patch('/api/seller/settings', (req, res) => {
+    const user = requireRole(req, res, ['seller', 'admin']);
+    if (!user) return;
+    const updates = (req.body || {}) as Partial<SellerStoreSettings>;
+    db.sellerStoreSettings = {
+      ...db.sellerStoreSettings,
+      ...(typeof updates.studioName === 'string' && updates.studioName.trim()
+        ? { studioName: updates.studioName.trim() }
+        : {}),
+      ...(typeof updates.contactEmail === 'string' && updates.contactEmail.includes('@')
+        ? { contactEmail: updates.contactEmail.trim() }
+        : {}),
+      ...(typeof updates.dispatchLeadTime === 'string' && updates.dispatchLeadTime.trim()
+        ? { dispatchLeadTime: updates.dispatchLeadTime.trim() }
+        : {}),
+      ...(typeof updates.pickupDivision === 'string' && updates.pickupDivision.trim()
+        ? { pickupDivision: updates.pickupDivision.trim() }
+        : {}),
+      ...(typeof updates.codSupported === 'boolean' ? { codSupported: updates.codSupported } : {}),
+      ...(Array.isArray(updates.preferredCouriers)
+        ? { preferredCouriers: updates.preferredCouriers.filter(Boolean) }
+        : {}),
+      ...(typeof updates.payoutChannel === 'string' && updates.payoutChannel.trim()
+        ? { payoutChannel: updates.payoutChannel.trim() }
+        : {}),
+      ...(typeof updates.payoutSchedule === 'string' && updates.payoutSchedule.trim()
+        ? { payoutSchedule: updates.payoutSchedule.trim() }
+        : {}),
+      ...(typeof updates.payoutAccountMasked === 'string' && updates.payoutAccountMasked.trim()
+        ? { payoutAccountMasked: updates.payoutAccountMasked.trim() }
+        : {}),
+    };
+    res.json({ storeSettings: db.sellerStoreSettings });
+  });
+
+  app.post('/api/seller/returns/:orderId/resolve', (req, res) => {
+    const user = requireRole(req, res, ['seller', 'admin']);
+    if (!user) return;
+    const { decision, note } = (req.body || {}) as {
+      decision?: 'approve_refund' | 'restore_delivered';
+      note?: string;
+    };
+    const found = db.orders.find((o) => o.id === req.params.orderId);
+    if (!found) {
+      res.status(404).json({ error: 'Order not found.' });
+      return;
+    }
+    const nextStage: OrderStage = decision === 'restore_delivered' ? 'Delivered' : 'Cancelled';
+    const updated = db.advanceOrderTimeline(
+      found,
+      nextStage,
+      note ||
+        (decision === 'restore_delivered'
+          ? 'Return inspection closed · order confirmed delivered'
+          : 'Seller approved return · refund settlement queued')
+    );
+    if (decision === 'approve_refund' && updated.paymentStatus === 'paid') {
+      updated.paymentStatus = 'cancelled';
+    }
+    res.json({ order: updated });
+  });
+
   app.post('/api/seller/products', (req, res) => {
-    const token = req.headers.authorization;
-    const user = db.getUserByToken(token);
+    const user = requireRole(req, res, ['seller', 'admin']);
+    if (!user) return;
     const body = (req.body || {}) as {
       name?: string;
       brand?: string;
@@ -878,6 +1009,8 @@ async function startServer() {
   });
 
   app.patch('/api/seller/products/:id', (req, res) => {
+    const actor = requireRole(req, res, ['seller', 'admin']);
+    if (!actor) return;
     const { price, stockCount, availability } = (req.body || {}) as {
       price?: number;
       stockCount?: number;
@@ -891,8 +1024,10 @@ async function startServer() {
     res.json({ override });
   });
 
-  // Admin Console APIs
-  app.get('/api/admin/dashboard', (_req, res) => {
+  // Admin Console APIs (RBAC: admin only)
+  app.get('/api/admin/dashboard', (req, res) => {
+    const admin = requireRole(req, res, ['admin']);
+    if (!admin) return;
     const orderGmv = db.orders
       .filter((o) => o.currentStage !== 'Cancelled')
       .reduce((sum, o) => sum + o.total, 0);
@@ -900,6 +1035,11 @@ async function startServer() {
     const activeSellers = db.sellerApplications.filter((s) => s.status === 'approved').length;
     const pendingSellers = db.sellerApplications.filter((s) => s.status === 'pending').length;
     const activeTopDepartments = db.categoryTree.filter((c) => c.depth === 0 && c.isActive).length;
+    const combinedInventory = db.getCombinedInventory();
+    const openReturnsCount = db.orders.filter(
+      (o) => o.currentStage === 'Return Requested'
+    ).length;
+    const lowStockCount = combinedInventory.filter((i) => i.stockCount <= 8).length;
 
     res.json({
       kpis: {
@@ -909,6 +1049,8 @@ async function startServer() {
         pendingSellers,
         registeredUsers: db.users.length,
         activeCategories: activeTopDepartments,
+        openReturnsCount,
+        lowStockCount,
       },
       departmentShare: [
         { category: 'home-furniture-kitchen', label: 'Home, Furniture & Kitchen', gmv: 46200, sharePercent: 25 },
@@ -925,13 +1067,18 @@ async function startServer() {
       users: db.users.map((u) => db.toPublicAccount(u)),
       sellerApplications: db.sellerApplications,
       orders: db.orders,
+      inventory: combinedInventory,
+      promotions: db.promotions,
       categories: db.categoryTree,
       currencyConfig: db.currencyConfig,
       shippingConfig: db.shippingConfig,
+      platformSettings: db.platformSettings,
     });
   });
 
   app.patch('/api/admin/users/:id', (req, res) => {
+    const admin = requireRole(req, res, ['admin']);
+    if (!admin) return;
     const { role, status } = (req.body || {}) as {
       role?: UserRole;
       status?: 'active' | 'pending' | 'suspended';
@@ -945,6 +1092,8 @@ async function startServer() {
   });
 
   app.patch('/api/admin/sellers/:id/approve', (req, res) => {
+    const admin = requireRole(req, res, ['admin']);
+    if (!admin) return;
     const { status } = (req.body || {}) as { status?: 'approved' | 'pending' | 'suspended' };
     const appRec = db.sellerApplications.find((s) => s.id === req.params.id);
     if (!appRec) {
@@ -963,8 +1112,82 @@ async function startServer() {
     res.json({ application: appRec });
   });
 
+  app.patch('/api/admin/promotions', (req, res) => {
+    const admin = requireRole(req, res, ['admin']);
+    if (!admin) return;
+    const { code, active, value } = (req.body || {}) as {
+      code?: string;
+      active?: boolean;
+      value?: number;
+    };
+    const promo = db.promotions.find((p) => p.code === code);
+    if (!promo) {
+      res.status(404).json({ error: 'Promo code not found.' });
+      return;
+    }
+    if (typeof active === 'boolean') promo.active = active;
+    if (typeof value === 'number' && value >= 0 && value <= 90) promo.value = value;
+    res.json({ promotions: db.promotions });
+  });
+
+  app.post('/api/admin/refunds/:orderId', (req, res) => {
+    const admin = requireRole(req, res, ['admin']);
+    if (!admin) return;
+    const { action, note } = (req.body || {}) as {
+      action?: 'approve_refund' | 'decline_return';
+      note?: string;
+    };
+    const found = db.orders.find((o) => o.id === req.params.orderId);
+    if (!found) {
+      res.status(404).json({ error: 'Order not found.' });
+      return;
+    }
+    const nextStage: OrderStage = action === 'decline_return' ? 'Delivered' : 'Cancelled';
+    const updated = db.advanceOrderTimeline(
+      found,
+      nextStage,
+      note ||
+        (action === 'decline_return'
+          ? 'Admin compliance closed return · original delivery stands'
+          : 'Admin processed verified refund & reversed gateway settlement')
+    );
+    if (action !== 'decline_return') {
+      updated.paymentStatus = 'cancelled';
+    }
+    res.json({ order: updated });
+  });
+
+  app.patch('/api/admin/settings', (req, res) => {
+    const admin = requireRole(req, res, ['admin']);
+    if (!admin) return;
+    const updates = (req.body || {}) as Partial<{
+      storefrontName: string;
+      supportEmail: string;
+      defaultLanguage: LanguageCode;
+      maintenanceNoticeEnabled: boolean;
+    }>;
+    db.platformSettings = {
+      ...db.platformSettings,
+      ...(typeof updates.storefrontName === 'string' && updates.storefrontName.trim()
+        ? { storefrontName: updates.storefrontName.trim() }
+        : {}),
+      ...(typeof updates.supportEmail === 'string' && updates.supportEmail.includes('@')
+        ? { supportEmail: updates.supportEmail.trim() }
+        : {}),
+      ...(updates.defaultLanguage === 'en' || updates.defaultLanguage === 'bn'
+        ? { defaultLanguage: updates.defaultLanguage }
+        : {}),
+      ...(typeof updates.maintenanceNoticeEnabled === 'boolean'
+        ? { maintenanceNoticeEnabled: updates.maintenanceNoticeEnabled }
+        : {}),
+    };
+    res.json({ platformSettings: db.platformSettings });
+  });
+
   // Hierarchical Category Node Create / Update / Delete
   app.post('/api/admin/categories', (req, res) => {
+    const admin = requireRole(req, res, ['admin']);
+    if (!admin) return;
     const {
       name,
       shortName,
@@ -1087,6 +1310,8 @@ async function startServer() {
   });
 
   app.patch('/api/admin/categories/:id', (req, res) => {
+    const admin = requireRole(req, res, ['admin']);
+    if (!admin) return;
     const target = db.categoryTree.find(
       (c) => c.id === req.params.id || c.slug === req.params.id
     );
@@ -1113,6 +1338,8 @@ async function startServer() {
   });
 
   app.delete('/api/admin/categories/:idOrSlug', (req, res) => {
+    const admin = requireRole(req, res, ['admin']);
+    if (!admin) return;
     const target = db.categoryTree.find(
       (c) => c.id === req.params.idOrSlug || c.slug === req.params.idOrSlug
     );

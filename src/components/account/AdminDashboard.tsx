@@ -2,10 +2,14 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CheckCircle2,
   Coins,
+  FileText,
   FolderPlus,
   RefreshCw,
+  RotateCcw,
   Search,
+  Settings,
   ShieldCheck,
+  Tag,
   Trash2,
   Truck,
   Users,
@@ -16,27 +20,33 @@ import {
   createCategoryNodeApi,
   deleteCategoryNodeApi,
   fetchAdminDashboardApi,
+  processAdminRefundApi,
   updateAdminCurrencyApi,
+  updateAdminPlatformSettingsApi,
+  updateAdminPromotionsApi,
   updateAdminShippingRulesApi,
   updateAdminUserApi,
   updateCategoryNodeApi,
   updateOrderStatusApi,
+  updateSellerProductApi,
   updateSellerStatusApi,
 } from '../../services/api';
 import {
   AdminDashboardData,
   CategoryNode,
   CurrencyCode,
+  LanguageCode,
   OrderStage,
+  PlatformSettingsState,
   ShippingZoneRule,
   UserRole,
 } from '../../types/commerce';
 import { formatCurrency, formatDirectCurrency } from '../../utils/format';
-import { IMAGE_PRESET_OPTIONS } from '../../utils/imagePresets';
+import { IMAGE_PRESET_OPTIONS, resolveImagePreset } from '../../utils/imagePresets';
 import { STUDIO_TRANSITION } from '../../utils/motion';
 import { Button } from '../ui/Button';
 import { Input, Select } from '../ui/FormFields';
-import { SkeletonLoader } from '../ui/Primitives';
+import { ResilientImage, SkeletonLoader } from '../ui/Primitives';
 
 const ORDER_STAGES: OrderStage[] = [
   'Confirmed',
@@ -62,15 +72,28 @@ const ICON_OPTIONS = [
   'Tag',
 ];
 
+type AdminTab =
+  | 'overview'
+  | 'products'
+  | 'categories'
+  | 'orders'
+  | 'customers'
+  | 'sellers'
+  | 'inventory'
+  | 'payments'
+  | 'refunds'
+  | 'promotions'
+  | 'reports'
+  | 'content'
+  | 'settings';
+
 export const AdminDashboard: React.FC = () => {
   const { currency, showToast, refreshOrders, refreshStorefrontSync, navigate } = useStore();
 
   const [data, setData] = useState<AdminDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<
-    'orders' | 'sellers' | 'users' | 'categories' | 'currency' | 'shipping'
-  >('orders');
+  const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
@@ -95,6 +118,9 @@ export const AdminDashboard: React.FC = () => {
   const [zoneDraft, setZoneDraft] = useState<ShippingZoneRule | null>(null);
   const [restrictedKeywordsInput, setRestrictedKeywordsInput] = useState('');
 
+  // Platform Settings State
+  const [platformDraft, setPlatformDraft] = useState<PlatformSettingsState | null>(null);
+
   const loadAdmin = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -106,6 +132,7 @@ export const AdminDashboard: React.FC = () => {
       setFxSource(res.currencyConfig.source);
       setFxFreq(String(res.currencyConfig.updateFrequencyMinutes));
       setRestrictedKeywordsInput(res.shippingConfig.restrictedAreaKeywords.join(', '));
+      setPlatformDraft(res.platformSettings);
       const initialZone =
         res.shippingConfig.zones.find((z) => z.zoneId === selectedZoneId) ||
         res.shippingConfig.zones[0];
@@ -174,10 +201,33 @@ export const AdminDashboard: React.FC = () => {
     );
   }, [data, searchQuery]);
 
+  const filteredInventory = useMemo(() => {
+    if (!data) return [];
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return data.inventory;
+    return data.inventory.filter(
+      (item) =>
+        item.name.toLowerCase().includes(q) ||
+        item.sku.toLowerCase().includes(q) ||
+        item.brand.toLowerCase().includes(q)
+    );
+  }, [data, searchQuery]);
+
+  const refundOrders = useMemo(
+    () =>
+      (data?.orders || []).filter(
+        (o) =>
+          o.currentStage === 'Return Requested' ||
+          o.paymentStatus === 'cancelled' ||
+          o.currentStage === 'Cancelled'
+      ),
+    [data]
+  );
+
   const handleOrderStageChange = async (orderId: string, nextStage: OrderStage) => {
     setBusyKey(orderId);
     try {
-      await updateOrderStatusApi(orderId, nextStage, `Status updated by Platform Admin`);
+      await updateOrderStatusApi(orderId, nextStage, 'Status updated by Platform Admin');
       await Promise.all([loadAdmin(), refreshOrders()]);
       showToast(`Order #${orderId} updated`, `Fulfillment moved to ${nextStage}.`, 'success');
     } catch (err) {
@@ -214,6 +264,19 @@ export const AdminDashboard: React.FC = () => {
       showToast('Account privileges updated', undefined, 'success');
     } catch (err) {
       showToast('Update failed', err instanceof Error ? err.message : 'API error', 'error');
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleInventoryAdjust = async (id: string, stockCount: number) => {
+    setBusyKey(id);
+    try {
+      await updateSellerProductApi(id, { stockCount });
+      await Promise.all([loadAdmin(), refreshStorefrontSync()]);
+      showToast('Stock adjusted', `Updated SKU to ${stockCount} units.`, 'success');
+    } catch (err) {
+      showToast('Stock update failed', err instanceof Error ? err.message : 'API error', 'error');
     } finally {
       setBusyKey(null);
     }
@@ -260,11 +323,7 @@ export const AdminDashboard: React.FC = () => {
     try {
       await updateCategoryNodeApi(node.id, { isActive: !node.isActive });
       await Promise.all([loadAdmin(), refreshStorefrontSync()]);
-      showToast(
-        node.isActive ? 'Category deactivated' : 'Category activated',
-        node.name,
-        'info'
-      );
+      showToast(node.isActive ? 'Category deactivated' : 'Category activated', node.name, 'info');
     } catch (err) {
       showToast('Update failed', err instanceof Error ? err.message : 'API error', 'error');
     } finally {
@@ -333,6 +392,54 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleRefundDecision = async (
+    orderId: string,
+    action: 'approve_refund' | 'decline_return'
+  ) => {
+    setBusyKey(orderId);
+    try {
+      await processAdminRefundApi(orderId, action);
+      await Promise.all([loadAdmin(), refreshOrders()]);
+      showToast(
+        action === 'approve_refund' ? 'Refund approved' : 'Return declined',
+        `Order #${orderId} updated.`,
+        'success'
+      );
+    } catch (err) {
+      showToast('Refund action failed', err instanceof Error ? err.message : 'API error', 'error');
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleTogglePromo = async (code: string, active: boolean) => {
+    setBusyKey(code);
+    try {
+      await updateAdminPromotionsApi({ code, active: !active });
+      await loadAdmin();
+      showToast(`Promo ${code}`, !active ? 'Activated' : 'Paused', 'info');
+    } catch (err) {
+      showToast('Promo update failed', err instanceof Error ? err.message : 'API error', 'error');
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleSavePlatformSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!platformDraft) return;
+    setBusyKey('platform-save');
+    try {
+      await updateAdminPlatformSettingsApi(platformDraft);
+      await loadAdmin();
+      showToast('Platform settings saved', undefined, 'success');
+    } catch (err) {
+      showToast('Settings save failed', err instanceof Error ? err.message : 'API error', 'error');
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -348,8 +455,8 @@ export const AdminDashboard: React.FC = () => {
 
   if (error || !data) {
     return (
-      <div className="p-6 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] bg-[#F9F8F6] dark:bg-[#141413] space-y-3">
-        <p className="text-sm font-medium text-[#B91C1C] dark:text-[#F87171]">
+      <div className="p-6 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] bg-[var(--ks-bg)] space-y-3">
+        <p className="text-sm font-medium text-[var(--ks-error)]">
           {error || 'Admin console unavailable'}
         </p>
         <Button variant="outline" size="sm" onClick={loadAdmin}>
@@ -360,116 +467,53 @@ export const AdminDashboard: React.FC = () => {
     );
   }
 
+  const tabs: Array<{ id: AdminTab; label: string }> = [
+    { id: 'overview', label: 'Business Overview' },
+    { id: 'products', label: `Products (${data.inventory.length})` },
+    { id: 'categories', label: `Categories (${data.categories.length})` },
+    { id: 'orders', label: `Orders (${data.orders.length})` },
+    { id: 'customers', label: `Customers (${data.users.length})` },
+    { id: 'sellers', label: `Sellers (${data.sellerApplications.length})` },
+    { id: 'inventory', label: 'Inventory' },
+    { id: 'payments', label: 'Payments & FX' },
+    { id: 'refunds', label: `Refunds (${data.kpis.openReturnsCount})` },
+    { id: 'promotions', label: 'Promotions' },
+    { id: 'reports', label: 'Reports' },
+    { id: 'content', label: 'Content' },
+    { id: 'settings', label: 'Platform Settings' },
+  ];
+
   return (
     <div className="space-y-8">
       {/* Top Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[var(--ks-border)]">
         <div>
-          <p className="text-xs leading-snug uppercase tracking-wider text-[#8F6438] dark:text-[#C89B67] inline-flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 shrink-0" /> Marketplace Operations Console
+          <p className="text-xs leading-snug uppercase tracking-wider text-[var(--ks-accent)] inline-flex items-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5 shrink-0" /> Platform Admin Console
           </p>
           <h2 className="font-display text-2xl sm:text-3xl font-medium mt-0.5">
-            Platform Administration &amp; Configuration
+            Marketplace Operations &amp; Governance
           </h2>
         </div>
         <Button variant="outline" size="sm" onClick={loadAdmin}>
           <RefreshCw className="w-3.5 h-3.5" />
-          <span>Sync Live Metrics</span>
+          <span>Sync Metrics</span>
         </Button>
       </div>
 
-      {/* KPI Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28]">
-          <p className="text-xs text-[#84827B]">Platform GMV (MTD)</p>
-          <p className="font-mono-num text-xl sm:text-2xl font-semibold mt-1">
-            {formatCurrency(data.kpis.totalGmv, currency)}
-          </p>
-          <p className="text-[11px] font-mono-num text-[#5C5B57] dark:text-[#A3A19B] mt-1">
-            {data.kpis.totalOrders} total orders
-          </p>
-        </div>
-        <div className="p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28]">
-          <p className="text-xs text-[#84827B]">Verified Sellers</p>
-          <p className="font-mono-num text-xl sm:text-2xl font-semibold mt-1">
-            {data.kpis.activeSellers}
-          </p>
-          <p className="text-[11px] text-[#B45309] dark:text-[#FBBF24] mt-1 font-mono-num">
-            {data.kpis.pendingSellers} pending approval
-          </p>
-        </div>
-        <div className="p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28]">
-          <p className="text-xs text-[#84827B]">Registered Accounts</p>
-          <p className="font-mono-num text-xl sm:text-2xl font-semibold mt-1">
-            {data.kpis.registeredUsers}
-          </p>
-          <p className="text-[11px] text-[#5C5B57] dark:text-[#A3A19B] mt-1">
-            Customers, Sellers &amp; Staff
-          </p>
-        </div>
-        <div className="p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28]">
-          <p className="text-xs text-[#84827B]">Active Departments / Nodes</p>
-          <p className="font-mono-num text-xl sm:text-2xl font-semibold mt-1">
-            {data.kpis.activeCategories} / {data.categories.length}
-          </p>
-          <p className="text-[11px] text-[#1F6E43] dark:text-[#4ADE80] mt-1">
-            1 USD = ৳{data.currencyConfig.rates.BDT}
-          </p>
-        </div>
-      </div>
-
-      {/* Department Revenue Distribution */}
-      <div className="p-5 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] bg-[#F9F8F6] dark:bg-[#141413] space-y-3">
-        <p className="text-xs uppercase tracking-wider text-[#84827B] font-medium">
-          10-Department GMV Distribution
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
-          {(() => {
-            const maxShare = Math.max(...data.departmentShare.map((d) => d.sharePercent), 1);
-            return data.departmentShare.map((dept) => (
-              <div key={dept.category} className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium truncate pr-2">{dept.label}</span>
-                  <span className="font-mono-num text-[#5C5B57] dark:text-[#A3A19B] shrink-0">
-                    {formatCurrency(dept.gmv, currency)} ({dept.sharePercent}%)
-                  </span>
-                </div>
-                <div className="h-1.5 w-full rounded-full bg-[#E5E3DD] dark:bg-[#2C2C28] overflow-hidden">
-                  <div
-                    className="h-full bg-[#8F6438] dark:bg-[#C89B67]"
-                    style={{
-                      width: `${Math.min(100, Math.round((dept.sharePercent / maxShare) * 100))}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            ));
-          })()}
-        </div>
-      </div>
-
-      {/* Console Sub-Tabs */}
-      <div className="flex items-center gap-6 border-b border-[#E5E3DD] dark:border-[#2C2C28] overflow-x-auto no-scrollbar">
-        {(
-          [
-            { id: 'orders', label: `Orders (${data.orders.length})` },
-            { id: 'sellers', label: `Sellers (${data.sellerApplications.length})` },
-            { id: 'users', label: `Users (${data.users.length})` },
-            { id: 'categories', label: `Categories (${data.categories.length})` },
-            { id: 'currency', label: 'FX & Currency' },
-            { id: 'shipping', label: 'BD Shipping Rules' },
-          ] as const
-        ).map((tab) => {
+      {/* 13-Section Console Tab Strip */}
+      <div className="flex items-center gap-5 border-b border-[var(--ks-border)] overflow-x-auto no-scrollbar">
+        {tabs.map((tab) => {
           const active = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`relative pb-3 text-sm font-medium whitespace-nowrap cursor-pointer transition-colors shrink-0 ${
+              className={`relative pb-3 text-xs sm:text-sm font-medium whitespace-nowrap cursor-pointer transition-colors shrink-0 ${
                 active
-                  ? 'text-[#171716] dark:text-[#F4F3EF]'
-                  : 'text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
+                  ? 'text-[var(--ks-text-primary)]'
+                  : 'text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)]'
               }`}
             >
               {tab.label}
@@ -477,7 +521,7 @@ export const AdminDashboard: React.FC = () => {
                 <motion.span
                   layoutId="admin-console-tab"
                   transition={STUDIO_TRANSITION.springTab}
-                  className="absolute inset-x-0 bottom-0 h-0.5 bg-[#171716] dark:bg-[#F4F3EF]"
+                  className="absolute inset-x-0 bottom-0 h-0.5 bg-[var(--ks-text-primary)]"
                 />
               )}
             </button>
@@ -485,234 +529,155 @@ export const AdminDashboard: React.FC = () => {
         })}
       </div>
 
-      {/* Tab 1: Orders Control */}
-      {activeTab === 'orders' && (
-        <div className="space-y-4">
-          <div className="relative max-w-sm">
-            <Search className="w-4 h-4 text-[#84827B] absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Filter orders by ID, customer, email, or ref..."
-              className="w-full h-10 pl-9 pr-3 text-xs rounded-md bg-white dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28]"
-            />
+      {/* 1. Business Overview */}
+      {activeTab === 'overview' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)]">
+              <p className="text-xs text-[var(--ks-text-muted)]">Platform GMV</p>
+              <p className="font-mono-num text-xl sm:text-2xl font-semibold mt-1">
+                {formatCurrency(data.kpis.totalGmv, currency)}
+              </p>
+              <p className="text-[11px] font-mono-num text-[var(--ks-text-secondary)] mt-1">
+                {data.kpis.totalOrders} total orders
+              </p>
+            </div>
+            <div className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)]">
+              <p className="text-xs text-[var(--ks-text-muted)]">Verified Sellers</p>
+              <p className="font-mono-num text-xl sm:text-2xl font-semibold mt-1">
+                {data.kpis.activeSellers}
+              </p>
+              <p className="text-[11px] text-[var(--ks-warning)] mt-1 font-mono-num">
+                {data.kpis.pendingSellers} pending approval
+              </p>
+            </div>
+            <div className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)]">
+              <p className="text-xs text-[var(--ks-text-muted)]">Registered Accounts</p>
+              <p className="font-mono-num text-xl sm:text-2xl font-semibold mt-1">
+                {data.kpis.registeredUsers}
+              </p>
+              <p className="text-[11px] text-[var(--ks-text-secondary)] mt-1">
+                Open Returns: {data.kpis.openReturnsCount}
+              </p>
+            </div>
+            <div className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)]">
+              <p className="text-xs text-[var(--ks-text-muted)]">Active Departments / Nodes</p>
+              <p className="font-mono-num text-xl sm:text-2xl font-semibold mt-1">
+                {data.kpis.activeCategories} / {data.categories.length}
+              </p>
+              <p className="text-[11px] text-[var(--ks-success)] mt-1 font-mono-num">
+                1 USD = ৳{data.currencyConfig.rates.BDT}
+              </p>
+            </div>
           </div>
 
-          <div className="overflow-x-auto rounded-md border border-[#E5E3DD] dark:border-[#2C2C28]">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#F9F8F6] dark:bg-[#141413] border-b border-[#E5E3DD] dark:border-[#2C2C28] text-[#84827B] uppercase tracking-wider">
-                <tr>
-                  <th className="py-2.5 px-3 font-medium">Order</th>
-                  <th className="py-2.5 px-3 font-medium">Customer</th>
-                  <th className="py-2.5 px-3 font-medium">Payment &amp; Status</th>
-                  <th className="py-2.5 px-3 font-medium text-right">Settled Amount</th>
-                  <th className="py-2.5 px-3 font-medium">Fulfillment Stage</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] [&_td]:align-middle">
-                {filteredOrders.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-8 px-3 text-center text-xs text-[#84827B]">
-                      No orders match your current search filter.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredOrders.map((ord) => (
-                    <tr key={ord.id} className="hover:bg-[#F9F8F6]/70 dark:hover:bg-[#1F1F1C]/60">
-                      <td className="py-2.5 px-3 font-mono-num font-semibold whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => navigate({ name: 'track-order', orderId: ord.id })}
-                          className="hover:underline cursor-pointer"
-                        >
-                          #{ord.id}
-                        </button>
-                      </td>
-                      <td className="py-2.5 px-3">
-                        <p className="font-medium">{ord.customerName}</p>
-                        <p className="text-[11px] text-[#84827B]">{ord.email}</p>
-                      </td>
-                      <td className="py-2.5 px-3 text-[#5C5B57] dark:text-[#A3A19B] whitespace-nowrap">
-                        <p>{ord.paymentLabel}</p>
-                        <p className="text-[10px] font-mono-num uppercase text-[#8F6438] dark:text-[#C89B67]">
-                          {ord.paymentStatus}
-                          {ord.transactionRef ? ` · ${ord.transactionRef}` : ''}
-                        </p>
-                      </td>
-                      <td className="py-2.5 px-3 font-mono-num tabular-nums text-right whitespace-nowrap">
-                        {ord.currencySnapshot
-                          ? formatDirectCurrency(
-                              ord.currencySnapshot.chargedTotal,
-                              ord.currencySnapshot.transactionCurrency
-                            )
-                          : formatCurrency(ord.total, currency)}
-                      </td>
-                      <td className="py-2.5 px-3 whitespace-nowrap">
-                        <select
-                          aria-label={`Order ${ord.id} stage`}
-                          disabled={busyKey === ord.id}
-                          value={ord.currentStage}
-                          onChange={(e) => handleOrderStageChange(ord.id, e.target.value as OrderStage)}
-                          className="h-8 px-2 text-xs rounded border border-[#E5E3DD] dark:border-[#2C2C28] bg-white dark:bg-[#141413]"
-                        >
-                          {ORDER_STAGES.map((st) => (
-                            <option key={st} value={st}>
-                              {st}
-                            </option>
-                          ))}
-                          {ord.currentStage === 'Return Requested' && (
-                            <option value="Return Requested">Return Requested</option>
-                          )}
-                        </select>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <div className="p-5 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] bg-[var(--ks-bg)] space-y-3">
+            <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)] font-medium">
+              10-Department GMV Distribution
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
+              {(() => {
+                const maxShare = Math.max(...data.departmentShare.map((d) => d.sharePercent), 1);
+                return data.departmentShare.map((dept) => (
+                  <div key={dept.category} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium truncate pr-2">{dept.label}</span>
+                      <span className="font-mono-num text-[var(--ks-text-secondary)] shrink-0">
+                        {formatCurrency(dept.gmv, currency)} ({dept.sharePercent}%)
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full rounded-full bg-[var(--ks-border)] overflow-hidden">
+                      <div
+                        className="h-full bg-[var(--ks-accent)]"
+                        style={{
+                          width: `${Math.min(100, Math.round((dept.sharePercent / maxShare) * 100))}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
           </div>
         </div>
       )}
 
-      {/* Tab 2: Seller Approvals */}
-      {activeTab === 'sellers' && (
-        <div className="overflow-x-auto rounded-md border border-[#E5E3DD] dark:border-[#2C2C28]">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#F9F8F6] dark:bg-[#141413] border-b border-[#E5E3DD] dark:border-[#2C2C28] text-[#84827B] uppercase tracking-wider">
-              <tr>
-                <th className="py-2.5 px-3 font-medium">Studio</th>
-                <th className="py-2.5 px-3 font-medium">Department</th>
-                <th className="py-2.5 px-3 font-medium text-right">Monthly Rev</th>
-                <th className="py-2.5 px-3 font-medium">Status</th>
-                <th className="py-2.5 px-3 font-medium text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] [&_td]:align-middle">
-              {data.sellerApplications.map((app) => (
-                <tr key={app.id} className="hover:bg-[#F9F8F6]/70 dark:hover:bg-[#1F1F1C]/60">
-                  <td className="py-3 px-3">
-                    <p className="font-medium text-[#171716] dark:text-[#F4F3EF]">
-                      {app.studioName}
-                    </p>
-                    <p className="text-[11px] text-[#84827B]">
-                      {app.ownerName} · {app.origin}
-                    </p>
-                  </td>
-                  <td className="py-3 px-3">{app.department}</td>
-                  <td className="py-3 px-3 font-mono-num tabular-nums text-right whitespace-nowrap">
-                    {formatCurrency(app.monthlyRevenue, currency)}
-                  </td>
-                  <td className="py-3 px-3">
-                    <span
-                      className={`font-medium capitalize ${
-                        app.status === 'approved'
-                          ? 'text-[#1F6E43] dark:text-[#4ADE80]'
-                          : app.status === 'pending'
-                          ? 'text-[#B45309] dark:text-[#FBBF24]'
-                          : 'text-[#B91C1C] dark:text-[#F87171]'
-                      }`}
-                    >
-                      {app.status}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3 text-right whitespace-nowrap space-x-2">
-                    {app.status !== 'approved' && (
+      {/* 2 & 7. Products & Inventory */}
+      {(activeTab === 'products' || activeTab === 'inventory') && (
+        <div className="space-y-4">
+          <div className="relative max-w-sm">
+            <Search className="w-4 h-4 text-[var(--ks-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Filter products by title, SKU, or maker..."
+              className="w-full h-10 pl-9 pr-3 text-xs rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)]"
+            />
+          </div>
+          <div className="overflow-x-auto rounded-[var(--ks-radius-md)] border border-[var(--ks-border)]">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[var(--ks-bg)] border-b border-[var(--ks-border)] text-[var(--ks-text-muted)] uppercase tracking-wider">
+                <tr>
+                  <th className="py-2.5 px-3 font-medium">Product</th>
+                  <th className="py-2.5 px-3 font-medium">SKU</th>
+                  <th className="py-2.5 px-3 font-medium text-right">Price</th>
+                  <th className="py-2.5 px-3 font-medium text-right">Stock</th>
+                  <th className="py-2.5 px-3 font-medium text-right">Quick Stock</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--ks-divider)] [&_td]:align-middle">
+                {filteredInventory.slice(0, 25).map((item) => (
+                  <tr key={item.id} className="hover:bg-[var(--ks-bg)]/70">
+                    <td className="py-2.5 px-3">
+                      <div className="flex items-center gap-2.5 min-w-[200px]">
+                        <ResilientImage
+                          src={resolveImagePreset(item.imagePresetKey, item.category)}
+                          alt={item.name}
+                          className="w-9 h-7 rounded-sm object-cover shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <p className="font-medium truncate max-w-[220px]">{item.name}</p>
+                          <p className="text-[11px] text-[var(--ks-text-muted)]">
+                            {item.brand} · {item.categoryLabel}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-2.5 px-3 font-mono-num whitespace-nowrap">{item.sku}</td>
+                    <td className="py-2.5 px-3 font-mono-num tabular-nums text-right whitespace-nowrap">
+                      {formatCurrency(item.price, currency)}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono-num tabular-nums text-right whitespace-nowrap">
+                      <span
+                        className={
+                          item.stockCount <= 0
+                            ? 'text-[var(--ks-error)] font-semibold'
+                            : item.stockCount <= 8
+                            ? 'text-[var(--ks-warning)] font-semibold'
+                            : ''
+                        }
+                      >
+                        {item.stockCount}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 text-right whitespace-nowrap space-x-1.5">
                       <Button
-                        variant="primary"
+                        variant="outline"
                         size="xs"
-                        disabled={busyKey === app.id}
-                        onClick={() => handleSellerStatus(app.id, 'approved')}
+                        disabled={busyKey === item.id}
+                        onClick={() => handleInventoryAdjust(item.id, item.stockCount + 10)}
                       >
-                        <CheckCircle2 className="w-3 h-3" />
-                        <span>Approve</span>
+                        +10 Stock
                       </Button>
-                    )}
-                    {app.status !== 'suspended' && (
-                      <button
-                        type="button"
-                        disabled={busyKey === app.id}
-                        onClick={() => handleSellerStatus(app.id, 'suspended')}
-                        className="text-xs text-[#B91C1C] dark:text-[#F87171] hover:underline cursor-pointer"
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        disabled={busyKey === item.id || item.stockCount === 0}
+                        onClick={() => handleInventoryAdjust(item.id, 0)}
                       >
-                        Suspend
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Tab 3: User Accounts Directory */}
-      {activeTab === 'users' && (
-        <div className="space-y-4">
-          <div className="relative max-w-sm">
-            <Users className="w-4 h-4 text-[#84827B] absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search users by name, email, or role..."
-              className="w-full h-10 pl-9 pr-3 text-xs rounded-md bg-white dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28]"
-            />
-          </div>
-
-          <div className="overflow-x-auto rounded-md border border-[#E5E3DD] dark:border-[#2C2C28]">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#F9F8F6] dark:bg-[#141413] border-b border-[#E5E3DD] dark:border-[#2C2C28] text-[#84827B] uppercase tracking-wider">
-                <tr>
-                  <th className="py-2.5 px-3 font-medium">Account</th>
-                  <th className="py-2.5 px-3 font-medium">Location</th>
-                  <th className="py-2.5 px-3 font-medium">Role</th>
-                  <th className="py-2.5 px-3 font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] [&_td]:align-middle">
-                {filteredUsers.map((usr) => (
-                  <tr key={usr.id} className="hover:bg-[#F9F8F6]/70 dark:hover:bg-[#1F1F1C]/60">
-                    <td className="py-2.5 px-3">
-                      <p className="font-medium text-[#171716] dark:text-[#F4F3EF]">
-                        {usr.fullName}
-                      </p>
-                      <p className="text-[11px] text-[#84827B]">{usr.email}</p>
-                    </td>
-                    <td className="py-2.5 px-3 text-[#5C5B57] dark:text-[#A3A19B]">
-                      {usr.location}
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <select
-                        aria-label={`Role for ${usr.fullName}`}
-                        disabled={busyKey === usr.id}
-                        value={usr.role}
-                        onChange={(e) =>
-                          handleUserUpdate(usr.id, { role: e.target.value as UserRole })
-                        }
-                        className="h-8 px-2 text-xs rounded border border-[#E5E3DD] dark:border-[#2C2C28] bg-white dark:bg-[#141413]"
-                      >
-                        <option value="customer">Customer</option>
-                        <option value="seller">Seller</option>
-                        <option value="admin">Admin</option>
-                      </select>
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <select
-                        aria-label={`Status for ${usr.fullName}`}
-                        disabled={busyKey === usr.id}
-                        value={usr.status}
-                        onChange={(e) =>
-                          handleUserUpdate(usr.id, {
-                            status: e.target.value as 'active' | 'pending' | 'suspended',
-                          })
-                        }
-                        className="h-8 px-2 text-xs rounded border border-[#E5E3DD] dark:border-[#2C2C28] bg-white dark:bg-[#141413]"
-                      >
-                        <option value="active">Active</option>
-                        <option value="pending">Pending</option>
-                        <option value="suspended">Suspended</option>
-                      </select>
+                        Pause
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -722,33 +687,33 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 4: Hierarchical Category Tree CRUD */}
+      {/* 3. Hierarchical Category Tree CRUD */}
       {activeTab === 'categories' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          <div className="lg:col-span-7 divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] border border-[#E5E3DD] dark:border-[#2C2C28] rounded-md max-h-[580px] overflow-y-auto">
+          <div className="lg:col-span-7 divide-y divide-[var(--ks-divider)] border border-[var(--ks-border)] rounded-[var(--ks-radius-md)] max-h-[580px] overflow-y-auto">
             {orderedCategoryTree.map((node) => (
               <div
                 key={node.id}
-                className="p-3.5 flex items-start sm:items-center justify-between gap-3 hover:bg-[#F9F8F6]/70 dark:hover:bg-[#1F1F1C]/60"
+                className="p-3.5 flex items-start sm:items-center justify-between gap-3 hover:bg-[var(--ks-bg)]/70"
                 style={{ paddingLeft: `${14 + node.depth * 18}px` }}
               >
                 <div className="min-w-0">
                   <div className="flex items-baseline gap-2 min-w-0">
-                    <span className="text-[10px] font-mono-num text-[#84827B] shrink-0">
+                    <span className="text-[10px] font-mono-num text-[var(--ks-text-muted)] shrink-0">
                       L{node.depth}
                     </span>
                     <p
                       className={`text-sm truncate ${
                         node.depth === 0 ? 'font-semibold' : 'font-medium'
-                      } ${!node.isActive ? 'line-through text-[#84827B]' : ''}`}
+                      } ${!node.isActive ? 'line-through text-[var(--ks-text-muted)]' : ''}`}
                     >
                       {node.name}
                     </p>
-                    <span className="text-[11px] font-mono-num text-[#84827B] truncate">
+                    <span className="text-[11px] font-mono-num text-[var(--ks-text-muted)] truncate">
                       /{node.slug}
                     </span>
                   </div>
-                  <p className="text-[11px] text-[#5C5B57] dark:text-[#A3A19B] mt-0.5 truncate">
+                  <p className="text-[11px] text-[var(--ks-text-secondary)] mt-0.5 truncate">
                     Order #{node.sortOrder} · {node.iconName} ·{' '}
                     {node.collectionIds.join(', ') || 'featured'}
                   </p>
@@ -761,8 +726,8 @@ export const AdminDashboard: React.FC = () => {
                     onClick={() => handleToggleCategoryActive(node)}
                     className={`px-2 py-1 rounded text-[11px] font-medium border cursor-pointer ${
                       node.isActive
-                        ? 'border-[#1F6E43]/40 text-[#1F6E43] dark:text-[#4ADE80]'
-                        : 'border-[#E5E3DD] dark:border-[#2C2C28] text-[#84827B]'
+                        ? 'border-[var(--ks-success)]/40 text-[var(--ks-success)]'
+                        : 'border-[var(--ks-border)] text-[var(--ks-text-muted)]'
                     }`}
                   >
                     {node.isActive ? 'Active' : 'Inactive'}
@@ -772,7 +737,7 @@ export const AdminDashboard: React.FC = () => {
                     onClick={() => handleDeleteCategoryNode(node)}
                     disabled={busyKey === node.id}
                     aria-label={`Delete ${node.name}`}
-                    className="p-1.5 text-[#B91C1C] dark:text-[#F87171] hover:opacity-80 cursor-pointer"
+                    className="p-1.5 text-[var(--ks-error)] hover:opacity-80 cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -783,15 +748,17 @@ export const AdminDashboard: React.FC = () => {
 
           <form
             onSubmit={handleAddCategoryNode}
-            className="lg:col-span-5 p-5 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-4"
+            className="lg:col-span-5 p-5 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-4"
           >
             <div className="flex items-center gap-2">
-              <FolderPlus className="w-4 h-4 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
-              <h3 className="text-base font-medium leading-snug">Create Department or Subcategory</h3>
+              <FolderPlus className="w-4 h-4 text-[var(--ks-accent)] shrink-0" />
+              <h3 className="text-base font-medium leading-snug">
+                Create Department or Subcategory
+              </h3>
             </div>
 
             <Select
-              label="Parent Category (Optional for Nested Tree)"
+              label="Parent Category"
               value={catParentId}
               onChange={(e) => setCatParentId(e.target.value)}
               options={[
@@ -804,7 +771,7 @@ export const AdminDashboard: React.FC = () => {
             />
 
             <Input
-              label="Category / Department Name"
+              label="Category Name"
               required
               value={catName}
               onChange={(e) => setCatName(e.target.value)}
@@ -844,7 +811,7 @@ export const AdminDashboard: React.FC = () => {
               />
             </div>
             <Input
-              label="Collection Associations (comma-separated)"
+              label="Collection Associations (CSV)"
               value={catCollections}
               onChange={(e) => setCatCollections(e.target.value)}
               placeholder="featured, trending, new-arrivals"
@@ -855,22 +822,263 @@ export const AdminDashboard: React.FC = () => {
               onChange={(e) => setCatDesc(e.target.value)}
               placeholder="Curated selection with category-aware attribute facets."
             />
-            <Button type="submit" variant="primary" size="md" fullWidth disabled={busyKey === 'add-cat'}>
+            <Button
+              type="submit"
+              variant="primary"
+              size="md"
+              fullWidth
+              disabled={busyKey === 'add-cat'}
+            >
               Publish Category Node
             </Button>
           </form>
         </div>
       )}
 
-      {/* Tab 5: FX & Currency Configuration */}
-      {activeTab === 'currency' && (
+      {/* 4. Orders */}
+      {activeTab === 'orders' && (
+        <div className="space-y-4">
+          <div className="relative max-w-sm">
+            <Search className="w-4 h-4 text-[var(--ks-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Filter orders by ID, customer, email, or ref..."
+              className="w-full h-10 pl-9 pr-3 text-xs rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)]"
+            />
+          </div>
+
+          <div className="overflow-x-auto rounded-[var(--ks-radius-md)] border border-[var(--ks-border)]">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[var(--ks-bg)] border-b border-[var(--ks-border)] text-[var(--ks-text-muted)] uppercase tracking-wider">
+                <tr>
+                  <th className="py-2.5 px-3 font-medium">Order</th>
+                  <th className="py-2.5 px-3 font-medium">Customer</th>
+                  <th className="py-2.5 px-3 font-medium">Payment &amp; Status</th>
+                  <th className="py-2.5 px-3 font-medium text-right">Settled Amount</th>
+                  <th className="py-2.5 px-3 font-medium">Fulfillment Stage</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--ks-divider)] [&_td]:align-middle">
+                {filteredOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 px-3 text-center text-xs text-[var(--ks-text-muted)]">
+                      No orders match your filter.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredOrders.map((ord) => (
+                    <tr key={ord.id} className="hover:bg-[var(--ks-bg)]/70">
+                      <td className="py-2.5 px-3 font-mono-num font-semibold whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => navigate({ name: 'track-order', orderId: ord.id })}
+                          className="hover:underline cursor-pointer"
+                        >
+                          #{ord.id}
+                        </button>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <p className="font-medium">{ord.customerName}</p>
+                        <p className="text-[11px] text-[var(--ks-text-muted)]">{ord.email}</p>
+                      </td>
+                      <td className="py-2.5 px-3 text-[var(--ks-text-secondary)] whitespace-nowrap">
+                        <p>{ord.paymentLabel}</p>
+                        <p className="text-[10px] font-mono-num uppercase text-[var(--ks-accent)]">
+                          {ord.paymentStatus}
+                          {ord.transactionRef ? ` · ${ord.transactionRef}` : ''}
+                        </p>
+                      </td>
+                      <td className="py-2.5 px-3 font-mono-num tabular-nums text-right whitespace-nowrap">
+                        {ord.currencySnapshot
+                          ? formatDirectCurrency(
+                              ord.currencySnapshot.chargedTotal,
+                              ord.currencySnapshot.transactionCurrency
+                            )
+                          : formatCurrency(ord.total, currency)}
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        <select
+                          aria-label={`Order ${ord.id} stage`}
+                          disabled={busyKey === ord.id}
+                          value={ord.currentStage}
+                          onChange={(e) =>
+                            handleOrderStageChange(ord.id, e.target.value as OrderStage)
+                          }
+                          className="h-8 px-2 text-xs rounded border border-[var(--ks-border)] bg-[var(--ks-surface)]"
+                        >
+                          {ORDER_STAGES.map((st) => (
+                            <option key={st} value={st}>
+                              {st}
+                            </option>
+                          ))}
+                          {ord.currentStage === 'Return Requested' && (
+                            <option value="Return Requested">Return Requested</option>
+                          )}
+                        </select>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 5. Customers / Accounts Directory */}
+      {activeTab === 'customers' && (
+        <div className="space-y-4">
+          <div className="relative max-w-sm">
+            <Users className="w-4 h-4 text-[var(--ks-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search accounts by name, email, or role..."
+              className="w-full h-10 pl-9 pr-3 text-xs rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)]"
+            />
+          </div>
+
+          <div className="overflow-x-auto rounded-[var(--ks-radius-md)] border border-[var(--ks-border)]">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[var(--ks-bg)] border-b border-[var(--ks-border)] text-[var(--ks-text-muted)] uppercase tracking-wider">
+                <tr>
+                  <th className="py-2.5 px-3 font-medium">Account</th>
+                  <th className="py-2.5 px-3 font-medium">Location</th>
+                  <th className="py-2.5 px-3 font-medium">Role</th>
+                  <th className="py-2.5 px-3 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--ks-divider)] [&_td]:align-middle">
+                {filteredUsers.map((usr) => (
+                  <tr key={usr.id} className="hover:bg-[var(--ks-bg)]/70">
+                    <td className="py-2.5 px-3">
+                      <p className="font-medium text-[var(--ks-text-primary)]">{usr.fullName}</p>
+                      <p className="text-[11px] text-[var(--ks-text-muted)]">{usr.email}</p>
+                    </td>
+                    <td className="py-2.5 px-3 text-[var(--ks-text-secondary)]">{usr.location}</td>
+                    <td className="py-2.5 px-3">
+                      <select
+                        aria-label={`Role for ${usr.fullName}`}
+                        disabled={busyKey === usr.id}
+                        value={usr.role}
+                        onChange={(e) =>
+                          handleUserUpdate(usr.id, { role: e.target.value as UserRole })
+                        }
+                        className="h-8 px-2 text-xs rounded border border-[var(--ks-border)] bg-[var(--ks-surface)]"
+                      >
+                        <option value="customer">Customer</option>
+                        <option value="seller">Seller</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <select
+                        aria-label={`Status for ${usr.fullName}`}
+                        disabled={busyKey === usr.id}
+                        value={usr.status}
+                        onChange={(e) =>
+                          handleUserUpdate(usr.id, {
+                            status: e.target.value as 'active' | 'pending' | 'suspended',
+                          })
+                        }
+                        className="h-8 px-2 text-xs rounded border border-[var(--ks-border)] bg-[var(--ks-surface)]"
+                      >
+                        <option value="active">Active</option>
+                        <option value="pending">Pending</option>
+                        <option value="suspended">Suspended</option>
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 6. Sellers */}
+      {activeTab === 'sellers' && (
+        <div className="overflow-x-auto rounded-[var(--ks-radius-md)] border border-[var(--ks-border)]">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-[var(--ks-bg)] border-b border-[var(--ks-border)] text-[var(--ks-text-muted)] uppercase tracking-wider">
+              <tr>
+                <th className="py-2.5 px-3 font-medium">Studio</th>
+                <th className="py-2.5 px-3 font-medium">Department</th>
+                <th className="py-2.5 px-3 font-medium text-right">Monthly Rev</th>
+                <th className="py-2.5 px-3 font-medium">Status</th>
+                <th className="py-2.5 px-3 font-medium text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--ks-divider)] [&_td]:align-middle">
+              {data.sellerApplications.map((app) => (
+                <tr key={app.id} className="hover:bg-[var(--ks-bg)]/70">
+                  <td className="py-3 px-3">
+                    <p className="font-medium text-[var(--ks-text-primary)]">{app.studioName}</p>
+                    <p className="text-[11px] text-[var(--ks-text-muted)]">
+                      {app.ownerName} · {app.origin}
+                    </p>
+                  </td>
+                  <td className="py-3 px-3">{app.department}</td>
+                  <td className="py-3 px-3 font-mono-num tabular-nums text-right whitespace-nowrap">
+                    {formatCurrency(app.monthlyRevenue, currency)}
+                  </td>
+                  <td className="py-3 px-3">
+                    <span
+                      className={`font-medium capitalize ${
+                        app.status === 'approved'
+                          ? 'text-[var(--ks-success)]'
+                          : app.status === 'pending'
+                          ? 'text-[var(--ks-warning)]'
+                          : 'text-[var(--ks-error)]'
+                      }`}
+                    >
+                      {app.status}
+                    </span>
+                  </td>
+                  <td className="py-3 px-3 text-right whitespace-nowrap space-x-2">
+                    {app.status !== 'approved' && (
+                      <Button
+                        variant="primary"
+                        size="xs"
+                        disabled={busyKey === app.id}
+                        onClick={() => handleSellerStatus(app.id, 'approved')}
+                      >
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>Approve</span>
+                      </Button>
+                    )}
+                    {app.status !== 'suspended' && (
+                      <button
+                        type="button"
+                        disabled={busyKey === app.id}
+                        onClick={() => handleSellerStatus(app.id, 'suspended')}
+                        className="text-xs text-[var(--ks-error)] hover:underline cursor-pointer"
+                      >
+                        Suspend
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* 8. Payments & FX Configuration */}
+      {activeTab === 'payments' && (
         <form
           onSubmit={handleSaveCurrency}
-          className="max-w-2xl p-6 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-5"
+          className="max-w-2xl p-6 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-5"
         >
           <div className="flex items-center gap-2">
-            <Coins className="w-4 h-4 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
-            <h3 className="text-base font-medium leading-snug">Global BDT / USD Exchange Rate &amp; Rounding Rules</h3>
+            <Coins className="w-4 h-4 text-[var(--ks-accent)] shrink-0" />
+            <h3 className="text-base font-medium leading-snug">
+              Payment Settlement &amp; BDT / USD Exchange Rate
+            </h3>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
@@ -880,7 +1088,7 @@ export const AdminDashboard: React.FC = () => {
               required
               value={fxRateInput}
               onChange={(e) => setFxRateInput(e.target.value)}
-              helperText="Base catalog prices in USD; live converted to integer Taka (ceil)."
+              helperText="Base catalog prices in USD; integer Taka (ceil) at checkout."
             />
             <Select
               label="Default Storefront Currency"
@@ -892,7 +1100,7 @@ export const AdminDashboard: React.FC = () => {
               ]}
             />
             <Input
-              label="Exchange-Rate Provider Source"
+              label="Exchange-Rate Source"
               value={fxSource}
               onChange={(e) => setFxSource(e.target.value)}
             />
@@ -904,153 +1112,406 @@ export const AdminDashboard: React.FC = () => {
               onChange={(e) => setFxFreq(e.target.value)}
             />
           </div>
-          <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] font-mono-num">
+          <p className="text-xs text-[var(--ks-text-secondary)] font-mono-num">
             Last FX Snapshot Timestamp: {data.currencyConfig.updatedAt}
           </p>
           <Button type="submit" variant="primary" size="md" disabled={busyKey === 'fx-save'}>
-            Save &amp; Broadcast FX Rate
+            Save &amp; Sync FX Rules
           </Button>
         </form>
       )}
 
-      {/* Tab 6: Bangladesh Hierarchical Shipping Configuration */}
-      {activeTab === 'shipping' && zoneDraft && (
-        <form
-          onSubmit={handleSaveShippingZone}
-          className="p-6 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-5"
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Truck className="w-4 h-4 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
-              <h3 className="text-base font-medium leading-snug">Bangladesh Zone Logistics &amp; COD Rules</h3>
+      {/* 9. Refunds & Return Disputes */}
+      {activeTab === 'refunds' && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-xs text-[var(--ks-text-secondary)]">
+            <RotateCcw className="w-4 h-4 text-[var(--ks-accent)]" />
+            <span>
+              Moderate buyer refund requests, return disputes, and gateway reversals.
+            </span>
+          </div>
+          {refundOrders.length === 0 ? (
+            <div className="p-8 text-center rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] bg-[var(--ks-bg)] text-xs text-[var(--ks-text-muted)]">
+              No return or refund requests require action.
             </div>
-            <select
-              aria-label="Select shipping zone"
-              value={selectedZoneId}
-              onChange={(e) => {
-                const nextId = e.target.value;
-                setSelectedZoneId(nextId);
-                const found = data.shippingConfig.zones.find((z) => z.zoneId === nextId);
-                if (found) setZoneDraft(found);
-              }}
-              className="h-10 px-3 text-xs rounded-md bg-white dark:bg-[#191917] border border-[#DCD9D0] dark:border-[#2E2E2A]"
-            >
-              {data.shippingConfig.zones.map((z) => (
-                <option key={z.zoneId} value={z.zoneId}>
-                  {z.label}
-                </option>
+          ) : (
+            <div className="divide-y divide-[var(--ks-divider)] border border-[var(--ks-border)] rounded-[var(--ks-radius-md)]">
+              {refundOrders.map((ord) => (
+                <div
+                  key={ord.id}
+                  className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                >
+                  <div className="space-y-1">
+                    <p className="text-sm font-mono-num font-semibold">
+                      Order #{ord.id} · {ord.currentStage}
+                    </p>
+                    <p className="text-xs text-[var(--ks-text-secondary)]">
+                      {ord.customerName} ({ord.email}) · Payment: {ord.paymentStatus.toUpperCase()} ·{' '}
+                      {formatCurrency(ord.total, currency)}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {ord.currentStage === 'Return Requested' && (
+                      <>
+                        <Button
+                          variant="primary"
+                          size="xs"
+                          disabled={busyKey === ord.id}
+                          onClick={() => handleRefundDecision(ord.id, 'approve_refund')}
+                        >
+                          Approve Refund
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          disabled={busyKey === ord.id}
+                          onClick={() => handleRefundDecision(ord.id, 'decline_return')}
+                        >
+                          Decline Return
+                        </Button>
+                      </>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => navigate({ name: 'track-order', orderId: ord.id })}
+                    >
+                      Inspect
+                    </Button>
+                  </div>
+                </div>
               ))}
-            </select>
-          </div>
+            </div>
+          )}
+        </div>
+      )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Input
-              label="Standard Fee (USD)"
-              type="number"
-              step="0.05"
-              value={zoneDraft.standardFeeUsd}
-              onChange={(e) =>
-                setZoneDraft({ ...zoneDraft, standardFeeUsd: Number(e.target.value) || 0 })
-              }
-            />
-            <Input
-              label="Express Fee (USD)"
-              type="number"
-              step="0.05"
-              value={zoneDraft.expressFeeUsd}
-              onChange={(e) =>
-                setZoneDraft({ ...zoneDraft, expressFeeUsd: Number(e.target.value) || 0 })
-              }
-            />
-            <Input
-              label="Free Shipping Threshold (USD)"
-              type="number"
-              step="5"
-              value={zoneDraft.freeThresholdUsd}
-              onChange={(e) =>
-                setZoneDraft({ ...zoneDraft, freeThresholdUsd: Number(e.target.value) || 0 })
-              }
-            />
-            <Input
-              label="Extra Kg Surcharge (USD/kg)"
-              type="number"
-              step="0.05"
-              value={zoneDraft.perExtraKgUsd}
-              onChange={(e) =>
-                setZoneDraft({ ...zoneDraft, perExtraKgUsd: Number(e.target.value) || 0 })
-              }
-            />
-            <Input
-              label="Bulky Handling Surcharge (USD)"
-              type="number"
-              step="0.5"
-              value={zoneDraft.bulkySurchargeUsd}
-              onChange={(e) =>
-                setZoneDraft({ ...zoneDraft, bulkySurchargeUsd: Number(e.target.value) || 0 })
-              }
-            />
-            <Input
-              label="COD Max Order Cap (USD)"
-              type="number"
-              step="10"
-              value={zoneDraft.codMaxOrderUsd}
-              onChange={(e) =>
-                setZoneDraft({ ...zoneDraft, codMaxOrderUsd: Number(e.target.value) || 0 })
-              }
-            />
-            <Input
-              label="Standard Delivery ETA"
-              value={zoneDraft.standardEta}
-              onChange={(e) => setZoneDraft({ ...zoneDraft, standardEta: e.target.value })}
-            />
-            <Input
-              label="Express Delivery ETA"
-              value={zoneDraft.expressEta}
-              onChange={(e) => setZoneDraft({ ...zoneDraft, expressEta: e.target.value })}
-            />
-            <Input
-              label="Restricted Area Keywords (CSV)"
-              value={restrictedKeywordsInput}
-              onChange={(e) => setRestrictedKeywordsInput(e.target.value)}
-            />
+      {/* 10. Promotions */}
+      {activeTab === 'promotions' && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-xs text-[var(--ks-text-secondary)]">
+            <Tag className="w-4 h-4 text-[var(--ks-accent)]" />
+            <span>Active checkout promotional codes and qualifying thresholds.</span>
           </div>
-
-          <div className="flex flex-wrap gap-6 text-xs">
-            <label className="inline-flex items-start gap-2 leading-snug cursor-pointer">
-              <input
-                type="checkbox"
-                checked={zoneDraft.expressAvailable}
-                onChange={(e) =>
-                  setZoneDraft({ ...zoneDraft, expressAvailable: e.target.checked })
-                }
-                className="mt-[2px] shrink-0"
-              />
-              <span>Express Courier Active</span>
-            </label>
-            <label className="inline-flex items-start gap-2 leading-snug cursor-pointer">
-              <input
-                type="checkbox"
-                checked={zoneDraft.codEligible}
-                onChange={(e) => setZoneDraft({ ...zoneDraft, codEligible: e.target.checked })}
-                className="mt-[2px] shrink-0"
-              />
-              <span>Cash on Delivery (COD) Eligible</span>
-            </label>
-            <label className="inline-flex items-start gap-2 leading-snug cursor-pointer text-[#B91C1C] dark:text-[#F87171]">
-              <input
-                type="checkbox"
-                checked={zoneDraft.isRestricted}
-                onChange={(e) => setZoneDraft({ ...zoneDraft, isRestricted: e.target.checked })}
-                className="mt-[2px] shrink-0"
-              />
-              <span>Zone Restricted / Suspended</span>
-            </label>
+          <div className="divide-y divide-[var(--ks-divider)] border border-[var(--ks-border)] rounded-[var(--ks-radius-md)]">
+            {data.promotions.map((promo) => (
+              <div
+                key={promo.code}
+                className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              >
+                <div className="space-y-0.5">
+                  <p className="text-sm font-mono-num font-semibold">
+                    {promo.code}{' '}
+                    <span
+                      className={`text-[11px] font-sans ml-2 ${
+                        promo.active ? 'text-[var(--ks-success)]' : 'text-[var(--ks-text-muted)]'
+                      }`}
+                    >
+                      {promo.active ? 'Active' : 'Paused'}
+                    </span>
+                  </p>
+                  <p className="text-xs text-[var(--ks-text-secondary)]">
+                    {promo.description} · Min subtotal:{' '}
+                    {formatCurrency(promo.minSubtotal, currency)}
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="xs"
+                  disabled={busyKey === promo.code}
+                  onClick={() => handleTogglePromo(promo.code, promo.active)}
+                >
+                  {promo.active ? 'Pause Promo' : 'Activate Promo'}
+                </Button>
+              </div>
+            ))}
           </div>
+        </div>
+      )}
 
-          <Button type="submit" variant="primary" size="md" disabled={busyKey === 'ship-save'}>
-            Update Zone Shipping Rules
-          </Button>
-        </form>
+      {/* 11. Reports */}
+      {activeTab === 'reports' && (
+        <div className="space-y-4">
+          <p className="text-xs text-[var(--ks-text-secondary)]">
+            Department share and operational volume across {data.kpis.activeCategories} active departments.
+          </p>
+          <div className="overflow-x-auto rounded-[var(--ks-radius-md)] border border-[var(--ks-border)]">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[var(--ks-bg)] border-b border-[var(--ks-border)] text-[var(--ks-text-muted)] uppercase tracking-wider">
+                <tr>
+                  <th className="py-2.5 px-3 font-medium">Department</th>
+                  <th className="py-2.5 px-3 font-medium text-right">Estimated GMV</th>
+                  <th className="py-2.5 px-3 font-medium text-right">Share %</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--ks-divider)]">
+                {data.departmentShare.map((d) => (
+                  <tr key={d.category}>
+                    <td className="py-2.5 px-3 font-medium">{d.label}</td>
+                    <td className="py-2.5 px-3 font-mono-num tabular-nums text-right">
+                      {formatCurrency(d.gmv, currency)}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono-num tabular-nums text-right">
+                      {d.sharePercent}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 12. Content Governance */}
+      {activeTab === 'content' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+          {[
+            {
+              title: 'Legal & Governance Hub (17 Policies)',
+              desc: 'Bangladesh statutory policies, consumer protection, seller agreement, and privacy standards.',
+              action: () => navigate({ name: 'legal' }),
+            },
+            {
+              title: 'Studio Journal & Editorial',
+              desc: 'Manage department monographs, product research essays, and material stories.',
+              action: () => navigate({ name: 'journal' }),
+            },
+            {
+              title: 'Help & Frequently Asked Questions',
+              desc: 'Public guidance on Dhaka delivery zones, COD caps, returns, and warranties.',
+              action: () => navigate({ name: 'faq' }),
+            },
+          ].map((card) => (
+            <div
+              key={card.title}
+              className="p-5 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)] flex flex-col justify-between gap-4"
+            >
+              <div className="space-y-1.5">
+                <FileText className="w-4 h-4 text-[var(--ks-accent)]" />
+                <p className="text-sm font-semibold">{card.title}</p>
+                <p className="text-[var(--ks-text-secondary)] leading-relaxed">{card.desc}</p>
+              </div>
+              <Button variant="outline" size="xs" onClick={card.action}>
+                Open Section →
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 13. Platform Settings & Bangladesh Shipping Zones */}
+      {activeTab === 'settings' && (
+        <div className="space-y-8">
+          {platformDraft && (
+            <form
+              onSubmit={handleSavePlatformSettings}
+              className="max-w-2xl p-6 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-4"
+            >
+              <div className="flex items-center gap-2">
+                <Settings className="w-4 h-4 text-[var(--ks-accent)]" />
+                <h3 className="text-base font-medium">General Storefront Configuration</h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="Storefront Brand Name"
+                  value={platformDraft.storefrontName}
+                  onChange={(e) =>
+                    setPlatformDraft({ ...platformDraft, storefrontName: e.target.value })
+                  }
+                />
+                <Input
+                  label="Support Desk Email"
+                  type="email"
+                  value={platformDraft.supportEmail}
+                  onChange={(e) =>
+                    setPlatformDraft({ ...platformDraft, supportEmail: e.target.value })
+                  }
+                />
+                <Select
+                  label="Default Language"
+                  value={platformDraft.defaultLanguage}
+                  onChange={(e) =>
+                    setPlatformDraft({
+                      ...platformDraft,
+                      defaultLanguage: e.target.value as LanguageCode,
+                    })
+                  }
+                  options={[
+                    { value: 'en', label: 'English (EN)' },
+                    { value: 'bn', label: 'বাংলা (BN)' },
+                  ]}
+                />
+              </div>
+              <label className="inline-flex items-start gap-2 text-xs leading-snug cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={platformDraft.maintenanceNoticeEnabled}
+                  onChange={(e) =>
+                    setPlatformDraft({
+                      ...platformDraft,
+                      maintenanceNoticeEnabled: e.target.checked,
+                    })
+                  }
+                  className="mt-[2px] shrink-0"
+                />
+                <span>Display scheduled catalog maintenance notice</span>
+              </label>
+              <div>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="md"
+                  disabled={busyKey === 'platform-save'}
+                >
+                  Save Platform Settings
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {zoneDraft && (
+            <form
+              onSubmit={handleSaveShippingZone}
+              className="p-6 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-5"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-[var(--ks-accent)] shrink-0" />
+                  <h3 className="text-base font-medium leading-snug">
+                    Bangladesh Zone Logistics &amp; COD Rules
+                  </h3>
+                </div>
+                <select
+                  aria-label="Select shipping zone"
+                  value={selectedZoneId}
+                  onChange={(e) => {
+                    const nextId = e.target.value;
+                    setSelectedZoneId(nextId);
+                    const found = data.shippingConfig.zones.find((z) => z.zoneId === nextId);
+                    if (found) setZoneDraft(found);
+                  }}
+                  className="h-10 px-3 text-xs rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border-strong)]"
+                >
+                  {data.shippingConfig.zones.map((z) => (
+                    <option key={z.zoneId} value={z.zoneId}>
+                      {z.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Input
+                  label="Standard Fee (USD)"
+                  type="number"
+                  step="0.05"
+                  value={zoneDraft.standardFeeUsd}
+                  onChange={(e) =>
+                    setZoneDraft({ ...zoneDraft, standardFeeUsd: Number(e.target.value) || 0 })
+                  }
+                />
+                <Input
+                  label="Express Fee (USD)"
+                  type="number"
+                  step="0.05"
+                  value={zoneDraft.expressFeeUsd}
+                  onChange={(e) =>
+                    setZoneDraft({ ...zoneDraft, expressFeeUsd: Number(e.target.value) || 0 })
+                  }
+                />
+                <Input
+                  label="Free Shipping Threshold (USD)"
+                  type="number"
+                  step="5"
+                  value={zoneDraft.freeThresholdUsd}
+                  onChange={(e) =>
+                    setZoneDraft({ ...zoneDraft, freeThresholdUsd: Number(e.target.value) || 0 })
+                  }
+                />
+                <Input
+                  label="Extra Kg Surcharge (USD/kg)"
+                  type="number"
+                  step="0.05"
+                  value={zoneDraft.perExtraKgUsd}
+                  onChange={(e) =>
+                    setZoneDraft({ ...zoneDraft, perExtraKgUsd: Number(e.target.value) || 0 })
+                  }
+                />
+                <Input
+                  label="Bulky Handling Surcharge (USD)"
+                  type="number"
+                  step="0.5"
+                  value={zoneDraft.bulkySurchargeUsd}
+                  onChange={(e) =>
+                    setZoneDraft({ ...zoneDraft, bulkySurchargeUsd: Number(e.target.value) || 0 })
+                  }
+                />
+                <Input
+                  label="COD Max Order Cap (USD)"
+                  type="number"
+                  step="10"
+                  value={zoneDraft.codMaxOrderUsd}
+                  onChange={(e) =>
+                    setZoneDraft({ ...zoneDraft, codMaxOrderUsd: Number(e.target.value) || 0 })
+                  }
+                />
+                <Input
+                  label="Standard Delivery ETA"
+                  value={zoneDraft.standardEta}
+                  onChange={(e) => setZoneDraft({ ...zoneDraft, standardEta: e.target.value })}
+                />
+                <Input
+                  label="Express Delivery ETA"
+                  value={zoneDraft.expressEta}
+                  onChange={(e) => setZoneDraft({ ...zoneDraft, expressEta: e.target.value })}
+                />
+                <Input
+                  label="Restricted Area Keywords (CSV)"
+                  value={restrictedKeywordsInput}
+                  onChange={(e) => setRestrictedKeywordsInput(e.target.value)}
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-6 text-xs">
+                <label className="inline-flex items-start gap-2 leading-snug cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={zoneDraft.expressAvailable}
+                    onChange={(e) =>
+                      setZoneDraft({ ...zoneDraft, expressAvailable: e.target.checked })
+                    }
+                    className="mt-[2px] shrink-0"
+                  />
+                  <span>Express Courier Active</span>
+                </label>
+                <label className="inline-flex items-start gap-2 leading-snug cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={zoneDraft.codEligible}
+                    onChange={(e) => setZoneDraft({ ...zoneDraft, codEligible: e.target.checked })}
+                    className="mt-[2px] shrink-0"
+                  />
+                  <span>Cash on Delivery (COD) Eligible</span>
+                </label>
+                <label className="inline-flex items-start gap-2 leading-snug cursor-pointer text-[var(--ks-error)]">
+                  <input
+                    type="checkbox"
+                    checked={zoneDraft.isRestricted}
+                    onChange={(e) =>
+                      setZoneDraft({ ...zoneDraft, isRestricted: e.target.checked })
+                    }
+                    className="mt-[2px] shrink-0"
+                  />
+                  <span>Zone Restricted / Suspended</span>
+                </label>
+              </div>
+
+              <Button type="submit" variant="primary" size="md" disabled={busyKey === 'ship-save'}>
+                Update Zone Shipping Rules
+              </Button>
+            </form>
+          )}
+        </div>
       )}
     </div>
   );

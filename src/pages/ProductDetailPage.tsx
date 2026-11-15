@@ -37,62 +37,6 @@ import {
   ResilientImage,
 } from '../components/ui/Primitives';
 
-const CATEGORY_BUYING_GUIDES: Record<
-  string,
-  { heading: string; note: string; specFocus: string }
-> = {
-  'electronics-tech': {
-    heading: 'Power, Acoustics & Regional Compatibility',
-    note: 'Supports 100–240V universal USB-C / AC power standards with 24–36 month hardware protection and firmware support.',
-    specFocus: 'Verify processor/DSP support, port bandwidth, RAM/storage specs, and OS compatibility below.',
-  },
-  'fashion-accessories': {
-    heading: 'Garment Fit, Horology & Fabric Care',
-    note: 'Pre-washed architectural silhouettes and sapphire-crystal horology. Consult the Size Guide for flat garment dimensions.',
-    specFocus: 'Check material weave, fit profile, and wash/strap care instructions.',
-  },
-  'home-furniture-kitchen': {
-    heading: 'Spatial Placement & Surface Care',
-    note: 'Includes protective floor glides and doorway clearance dimensions; white-glove room placement is available at checkout.',
-    specFocus: 'Measure entryways and stairwells against listed dimensions and parcel size tier before delivery.',
-  },
-  'beauty-care': {
-    heading: 'Formulation & Daily Regimen',
-    note: 'Dermatologist-tested, cold-processed botanicals sealed in UV-shielded amber glass. Patch test before first full application.',
-    specFocus: 'Review net volume, skin type suitability, and active ingredient concentrations.',
-  },
-  'grocery-food-household': {
-    heading: 'Freshness Window & Storage Instructions',
-    note: 'Small-batch roasted and hermetically sealed for peak aroma retention across pour-over, espresso, or pantry storage.',
-    specFocus: 'Check best-before freshness date, net weight, and dietary profile below.',
-  },
-  'sports-outdoors-travel': {
-    heading: 'Field Capacity & Weather Sealing',
-    note: 'Abrasion-tested hardware and DWR weatherproofing built for multi-day pack loads and wet alpine transitions.',
-    specFocus: 'Confirm pack liter volume, waterproofing rating, and intended activity below.',
-  },
-  'books-stationery-office': {
-    heading: 'Archival Binding & Desk Ergonomics',
-    note: 'Smyth-sewn lay-flat binding on heavyweight acid-free stock and precision-milled metal desk instruments.',
-    specFocus: 'Review page count, archival rating, and format specifications.',
-  },
-  'automotive-tools-industrial': {
-    heading: 'Torque Spec, Voltage & Workshop Safety',
-    note: 'Industrial-grade optical sensors and brushless drivers calibrated for automotive diagnostics and heavy workshop torque.',
-    specFocus: 'Verify voltage, peak torque rating, and safety certification compliance.',
-  },
-  'baby-kids-toys-hobbies': {
-    heading: 'Child-Safe Finishes & Age Certification',
-    note: 'EN71-certified non-toxic water-based coatings and smoothed solid wood geometry designed for tactile development.',
-    specFocus: 'Confirm recommended age bracket and safety certifications below.',
-  },
-  'health-wellness-pets': {
-    heading: 'Supplement Purity & Pet Material Safety',
-    note: 'Third-party lab verified vegan formulations and lead-free porcelain pet vessels safe for everyday home use.',
-    specFocus: 'Review dosage/serving count, allergen-free verification, and dishwasher safety.',
-  },
-};
-
 export const ProductDetailPage: React.FC = () => {
   const {
     route,
@@ -192,13 +136,12 @@ export const ProductDetailPage: React.FC = () => {
   const outOfStock = isProductOutOfStock(product);
   const maxSelectableQty = Math.max(1, product.stockCount);
   const discount = getDiscountPercent(product.price, product.originalPrice);
+  const hasDiscount = Boolean(
+    product.originalPrice && product.originalPrice > product.price && discount > 0
+  );
+  const hasRatings = product.rating > 0 && product.reviewCount > 0;
   const isWishlisted = wishlistIds.includes(product.id);
   const questions = product.questions || [];
-  const domainGuide = CATEGORY_BUYING_GUIDES[product.category] || {
-    heading: `${product.categoryLabel} Advisory`,
-    note: product.careNote || 'Inspected prior to dispatch with 30-day home trial coverage.',
-    specFocus: 'Review listed dimensions, materials, and warranty coverage below.',
-  };
 
   const relatedProducts = products
     .filter(
@@ -295,7 +238,7 @@ export const ProductDetailPage: React.FC = () => {
           <div
             onTouchStart={handleGalleryTouchStart}
             onTouchEnd={handleGalleryTouchEnd}
-            className="relative aspect-[4/3] rounded-lg overflow-hidden bg-[#F2F0EC] dark:bg-[#22221F] border border-[#E5E3DD] dark:border-[#2C2C28]"
+            className="relative aspect-[4/3] rounded-lg overflow-hidden bg-[var(--ks-surface-muted)] border border-[var(--ks-border)]"
           >
             <motion.div
               key={`${product.id}-${activeImageIdx}`}
@@ -318,7 +261,7 @@ export const ProductDetailPage: React.FC = () => {
               type="button"
               onClick={() => setZoomed((z) => !z)}
               aria-label={zoomed ? 'Reset zoom' : 'Zoom product image'}
-              className="absolute top-3 right-3 w-10 h-10 rounded-md bg-white/90 dark:bg-[#191917]/90 text-[#171716] dark:text-[#F4F3EF] flex items-center justify-center shadow-sm cursor-pointer"
+              className="absolute top-3 right-3 w-10 h-10 rounded-md bg-[var(--ks-surface)]/92 text-[var(--ks-text-primary)] border border-[var(--ks-border)] flex items-center justify-center shadow-sm cursor-pointer"
             >
               {zoomed ? <ZoomOut className="w-4 h-4" /> : <ZoomIn className="w-4 h-4" />}
             </button>
@@ -333,7 +276,7 @@ export const ProductDetailPage: React.FC = () => {
                     )
                   }
                   aria-label="Previous image"
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 dark:bg-[#191917]/90 text-[#171716] dark:text-[#F4F3EF] flex items-center justify-center shadow-sm cursor-pointer"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[var(--ks-surface)]/92 text-[var(--ks-text-primary)] border border-[var(--ks-border)] flex items-center justify-center shadow-sm cursor-pointer"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -341,7 +284,7 @@ export const ProductDetailPage: React.FC = () => {
                   type="button"
                   onClick={() => setActiveImageIdx((i) => (i + 1) % product.images.length)}
                   aria-label="Next image"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 dark:bg-[#191917]/90 text-[#171716] dark:text-[#F4F3EF] flex items-center justify-center shadow-sm cursor-pointer"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[var(--ks-surface)]/92 text-[var(--ks-text-primary)] border border-[var(--ks-border)] flex items-center justify-center shadow-sm cursor-pointer"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -360,9 +303,9 @@ export const ProductDetailPage: React.FC = () => {
                     setZoomed(false);
                   }}
                   aria-label={`Select thumbnail ${idx + 1}`}
-                  className={`aspect-[4/3] rounded-md overflow-hidden border-2 transition-all cursor-pointer ${
+                  className={`aspect-[4/3] rounded-md overflow-hidden border-2 transition-all cursor-pointer bg-[var(--ks-surface-muted)] ${
                     idx === activeImageIdx
-                      ? 'border-[#171716] dark:border-[#F4F3EF]'
+                      ? 'border-[var(--ks-action)]'
                       : 'border-transparent opacity-70 hover:opacity-100'
                   }`}
                 >
@@ -374,9 +317,9 @@ export const ProductDetailPage: React.FC = () => {
         </div>
 
         {/* Sticky Purchase Module */}
-        <div className="lg:col-span-5 lg:sticky lg:top-28 space-y-6 p-5 sm:p-7 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]">
+        <div className="lg:col-span-5 lg:sticky lg:top-28 space-y-6 p-5 sm:p-7 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)]">
           <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2 text-xs text-[#84827B]">
+            <div className="flex items-center justify-between gap-2 text-xs text-[var(--ks-text-muted)]">
               <button
                 type="button"
                 onClick={() =>
@@ -386,7 +329,7 @@ export const ProductDetailPage: React.FC = () => {
                     brand: product.brand,
                   })
                 }
-                className="uppercase tracking-wider hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                className="uppercase tracking-wider hover:text-[var(--ks-accent)] cursor-pointer"
               >
                 {product.brand}
               </button>
@@ -396,32 +339,40 @@ export const ProductDetailPage: React.FC = () => {
               {product.name}
             </h1>
             {product.subtitle && (
-              <p className="text-xs font-medium text-[#8F6438] dark:text-[#C89B67]">
-                {product.subtitle}
-              </p>
+              <p className="text-xs font-medium text-[var(--ks-accent)]">{product.subtitle}</p>
             )}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1">
-              <button
-                type="button"
-                onClick={() => setActiveTab('reviews')}
-                className="inline-flex items-center gap-1.5 text-xs font-mono-num cursor-pointer hover:underline"
-              >
-                <Star className="w-3.5 h-3.5 fill-[#8F6438] text-[#8F6438] dark:fill-[#C89B67] dark:text-[#C89B67]" />
-                <span>{product.rating.toFixed(1)}</span>
-                <span className="text-[#5C5B57] dark:text-[#A3A19B]">
-                  ({product.reviewCount} reviews)
-                </span>
-              </button>
-              <span aria-hidden="true" className="text-[#84827B]">
+              {hasRatings ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('reviews')}
+                  className="inline-flex items-center gap-1.5 text-xs font-mono-num cursor-pointer hover:underline"
+                >
+                  <Star className="w-3.5 h-3.5 fill-[var(--ks-accent)] text-[var(--ks-accent)]" />
+                  <span>{product.rating.toFixed(1)}</span>
+                  <span className="text-[var(--ks-text-secondary)]">
+                    ({product.reviewCount} reviews)
+                  </span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('reviews')}
+                  className="text-xs text-[var(--ks-text-secondary)] hover:underline cursor-pointer"
+                >
+                  Be the first to review
+                </button>
+              )}
+              <span aria-hidden="true" className="text-[var(--ks-text-muted)]">
                 ·
               </span>
               <span
                 className={`text-xs font-medium inline-flex items-center gap-1 ${
                   outOfStock
-                    ? 'text-[#B91C1C] dark:text-[#F87171]'
+                    ? 'text-[var(--ks-error)]'
                     : product.availability === 'low-stock'
-                    ? 'text-[#B45309] dark:text-[#FBBF24]'
-                    : 'text-[#1F6E43] dark:text-[#4ADE80]'
+                    ? 'text-[var(--ks-warning)]'
+                    : 'text-[var(--ks-success)]'
                 }`}
               >
                 {!outOfStock && <Check className="w-3.5 h-3.5" />}
@@ -436,23 +387,23 @@ export const ProductDetailPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-baseline flex-wrap gap-x-3 gap-y-1 pb-4 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
-            <span className="text-2xl sm:text-3xl font-mono-num font-semibold">
+          <div className="flex items-baseline flex-wrap gap-x-3 gap-y-1 pb-4 border-b border-[var(--ks-border)]">
+            <span className="text-2xl sm:text-3xl font-mono-num font-semibold tabular-nums">
               {formatCurrency(product.price, currency)}
             </span>
-            {product.originalPrice && (
+            {hasDiscount && product.originalPrice && (
               <>
-                <span className="text-base font-mono-num line-through text-[#84827B]">
+                <span className="text-base font-mono-num line-through text-[var(--ks-text-muted)] tabular-nums">
                   {formatCurrency(product.originalPrice, currency)}
                 </span>
-                <span className="text-xs font-mono-num font-medium text-[#8F6438] dark:text-[#C89B67]">
+                <span className="text-xs font-mono-num font-medium text-[var(--ks-accent)]">
                   Save {discount}%
                 </span>
               </>
             )}
           </div>
 
-          <p className="text-sm text-[#5C5B57] dark:text-[#B4B2AC] leading-relaxed">
+          <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
             {product.description}
           </p>
 
@@ -460,7 +411,7 @@ export const ProductDetailPage: React.FC = () => {
           <div className="space-y-2.5">
             <p className="text-xs font-medium">
               {product.variantColorLabel || 'Finish / Color'}:{' '}
-              <span className="text-[#5C5B57] dark:text-[#A3A19B]">{color.name}</span>
+              <span className="text-[var(--ks-text-secondary)]">{color.name}</span>
             </p>
             <div className="flex flex-wrap gap-2">
               {product.colors.map((c, idx) => (
@@ -470,8 +421,8 @@ export const ProductDetailPage: React.FC = () => {
                   onClick={() => setSelectedColorIdx(idx)}
                   className={`flex items-center gap-2 px-3 py-2 min-h-[40px] rounded-md border text-xs cursor-pointer transition-colors ${
                     idx === selectedColorIdx
-                      ? 'border-[#171716] dark:border-[#F4F3EF] font-medium bg-[#F9F8F6] dark:bg-[#22221F]'
-                      : 'border-[#E5E3DD] dark:border-[#2C2C28] text-[#5C5B57] dark:text-[#A3A19B]'
+                      ? 'border-[var(--ks-action)] font-medium bg-[var(--ks-surface-muted)] text-[var(--ks-text-primary)]'
+                      : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:border-[var(--ks-border-strong)]'
                   }`}
                 >
                   <span
@@ -494,7 +445,7 @@ export const ProductDetailPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSizeGuideOpen(true)}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-[#8F6438] dark:text-[#C89B67] hover:underline cursor-pointer"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-[var(--ks-accent)] hover:underline cursor-pointer"
                 >
                   <Ruler className="w-3.5 h-3.5" />
                   <span>Size Guide</span>
@@ -509,8 +460,8 @@ export const ProductDetailPage: React.FC = () => {
                   onClick={() => setSelectedSizeIdx(idx)}
                   className={`px-3.5 py-2 min-h-[40px] rounded-md border text-xs cursor-pointer transition-colors ${
                     idx === selectedSizeIdx
-                      ? 'bg-[#171716] text-white border-[#171716] dark:bg-[#F4F3EF] dark:text-[#171716] dark:border-[#F4F3EF] font-medium'
-                      : 'border-[#E5E3DD] dark:border-[#2C2C28] text-[#5C5B57] dark:text-[#A3A19B]'
+                      ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)] font-medium'
+                      : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:border-[var(--ks-border-strong)]'
                   }`}
                 >
                   {s}
@@ -521,18 +472,18 @@ export const ProductDetailPage: React.FC = () => {
 
           {/* Quantity + CTAs */}
           <div ref={primaryCtaRef} className="space-y-3 pt-2">
-            <div className="flex flex-col min-[375px]:flex-row items-stretch gap-2.5 sm:gap-3">
-              <div className="inline-flex items-center justify-between min-[375px]:justify-center border border-[#E5E3DD] dark:border-[#2C2C28] rounded-md h-12 shrink-0">
+            <div className="flex flex-col min-[430px]:flex-row items-stretch gap-2.5 sm:gap-3">
+              <div className="inline-flex items-center justify-between min-[430px]:justify-center border border-[var(--ks-border-strong)] bg-[var(--ks-surface)] rounded-md h-12 shrink-0">
                 <button
                   type="button"
                   disabled={outOfStock || quantity <= 1}
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                   aria-label="Decrease quantity"
-                  className="w-10 sm:w-11 h-full flex items-center justify-center hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className="w-11 min-[430px]:w-10 h-full flex items-center justify-center hover:bg-[var(--ks-surface-muted)] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <Minus className="w-3.5 h-3.5" />
                 </button>
-                <span className="w-8 sm:w-10 text-center text-sm font-mono-num tabular-nums">
+                <span className="w-9 text-center text-sm font-mono-num tabular-nums">
                   {outOfStock ? 0 : quantity}
                 </span>
                 <button
@@ -540,7 +491,7 @@ export const ProductDetailPage: React.FC = () => {
                   disabled={outOfStock || quantity >= maxSelectableQty}
                   onClick={() => setQuantity((q) => Math.min(maxSelectableQty, q + 1))}
                   aria-label="Increase quantity"
-                  className="w-10 sm:w-11 h-full flex items-center justify-center hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className="w-11 min-[430px]:w-10 h-full flex items-center justify-center hover:bg-[var(--ks-surface-muted)] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
@@ -552,13 +503,13 @@ export const ProductDetailPage: React.FC = () => {
                   size="lg"
                   fullWidth
                   disabled={outOfStock}
-                  className="h-12 !py-0 !px-3.5 sm:!px-6 whitespace-nowrap !text-[13px] sm:!text-sm"
+                  className="h-12 !py-0 !px-4 sm:!px-6 whitespace-nowrap"
                   onClick={() => addToCart(product, color.name, color.hex, size, quantity, true)}
                 >
                   {outOfStock ? (
                     <span>Out of Stock</span>
                   ) : (
-                    <span className="inline-flex items-center justify-center gap-1.5 min-w-0 truncate">
+                    <span className="inline-flex items-center justify-center gap-1.5 min-w-0 whitespace-nowrap">
                       <span>Add to Bag</span>
                       <span aria-hidden="true">·</span>
                       <span className="font-mono-num tabular-nums">
@@ -583,49 +534,49 @@ export const ProductDetailPage: React.FC = () => {
                 {outOfStock ? 'Unavailable' : 'Buy Now'}
               </Button>
               <Button variant="outline" size="md" onClick={() => toggleWishlist(product)}>
-                <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-current text-[#8F6438]' : ''}`} />
+                <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-current text-[var(--ks-accent)]' : ''}`} />
                 <span>{isWishlisted ? 'Saved' : 'Wishlist'}</span>
               </Button>
             </div>
           </div>
 
           {/* Delivery, Return, Warranty Summary */}
-          <div className="pt-4 border-t border-[#E5E3DD] dark:border-[#2C2C28] space-y-2.5 text-xs leading-snug text-[#5C5B57] dark:text-[#A3A19B]">
+          <div className="pt-4 border-t border-[var(--ks-border)] space-y-2.5 text-xs leading-snug text-[var(--ks-text-secondary)]">
             <div className="flex items-start gap-2.5">
-              <Truck className="w-4 h-4 text-[#8F6438] dark:text-[#C89B67] shrink-0 mt-[2px]" />
+              <Truck className="w-4 h-4 text-[var(--ks-accent)] shrink-0 mt-[2px]" />
               <span>{product.deliveryEstimate}</span>
             </div>
             <div className="flex items-start gap-2.5">
-              <RotateCcw className="w-4 h-4 text-[#8F6438] dark:text-[#C89B67] shrink-0 mt-[2px]" />
+              <RotateCcw className="w-4 h-4 text-[var(--ks-accent)] shrink-0 mt-[2px]" />
               <span>{product.returnPolicy}</span>
             </div>
             <div className="flex items-start gap-2.5">
-              <ShieldCheck className="w-4 h-4 text-[#8F6438] dark:text-[#C89B67] shrink-0 mt-[2px]" />
+              <ShieldCheck className="w-4 h-4 text-[var(--ks-accent)] shrink-0 mt-[2px]" />
               <span>{product.warranty}</span>
             </div>
 
             {(() => {
               const safetyNotice = getDepartmentSafetyNotice(product.category);
               return (
-                <div className="mt-3 p-3.5 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-1.5">
-                  <p className="text-xs font-semibold text-[#171716] dark:text-[#F4F3EF]">
+                <div className="mt-3 p-3.5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-1.5">
+                  <p className="text-xs font-semibold text-[var(--ks-text-primary)]">
                     {safetyNotice.title}
                   </p>
-                  <p className="text-[11px] leading-relaxed text-[#5C5B57] dark:text-[#A3A19B]">
+                  <p className="text-[11px] leading-relaxed text-[var(--ks-text-secondary)]">
                     {safetyNotice.summary}
                   </p>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5 text-[11px]">
                     <button
                       type="button"
                       onClick={() => navigate({ name: 'product-safety' })}
-                      className="underline font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                      className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                     >
                       Safety Disclaimers
                     </button>
                     <button
                       type="button"
                       onClick={() => navigate({ name: 'return-policy' })}
-                      className="underline text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+                      className="underline text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer"
                     >
                       Return Eligibility
                     </button>
@@ -638,11 +589,11 @@ export const ProductDetailPage: React.FC = () => {
       </div>
 
       {/* Specifications, Reviews, Q&A & Care Tabs */}
-      <section className="pt-8 border-t border-[#E5E3DD] dark:border-[#2C2C28] space-y-8">
+      <section className="pt-8 border-t border-[var(--ks-border)] space-y-8">
         <div
           role="tablist"
           aria-label="Product documentation"
-          className="flex items-center gap-6 border-b border-[#E5E3DD] dark:border-[#2C2C28] overflow-x-auto no-scrollbar"
+          className="flex items-center gap-6 border-b border-[var(--ks-border)] overflow-x-auto no-scrollbar"
         >
           {(
             [
@@ -662,8 +613,8 @@ export const ProductDetailPage: React.FC = () => {
                 onClick={() => setActiveTab(tab.id)}
                 className={`relative pb-3.5 text-sm font-medium whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
                   isSelected
-                    ? 'text-[#171716] dark:text-[#F4F3EF]'
-                    : 'text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
+                    ? 'text-[var(--ks-text-primary)]'
+                    : 'text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)]'
                 }`}
               >
                 {tab.label}
@@ -671,7 +622,7 @@ export const ProductDetailPage: React.FC = () => {
                   <motion.span
                     layoutId="pdp-doc-tab"
                     transition={STUDIO_TRANSITION.springTab}
-                    className="absolute inset-x-0 bottom-0 h-0.5 bg-[#171716] dark:bg-[#F4F3EF]"
+                    className="absolute inset-x-0 bottom-0 h-0.5 bg-[var(--ks-action)]"
                   />
                 )}
               </button>
@@ -685,337 +636,333 @@ export const ProductDetailPage: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={STUDIO_TRANSITION.fast}
         >
-            {activeTab === 'specs' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-6">
-                  <dl className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] border-y border-[#E5E3DD] dark:border-[#2C2C28]">
-                    {product.specifications.map((spec) => (
-                      <div
-                        key={spec.label}
-                        className="py-3.5 flex items-baseline justify-between gap-4 text-sm"
-                      >
-                        <dt className="text-[#5C5B57] dark:text-[#A3A19B] min-w-0">{spec.label}</dt>
-                        <dd className="font-medium text-right font-mono-num max-w-[60%] leading-snug">
-                          {spec.value}
-                        </dd>
-                      </div>
-                    ))}
-                    {product.typedAttributes &&
-                      Object.entries(product.typedAttributes).map(([attrKey, attrVal]) => {
-                        const catFacets = getCategoryNodeBySlug(product.category)?.filterFacets || [];
-                        const facetMeta = catFacets.find((f) => f.key === attrKey);
-                        const label =
-                          facetMeta?.label ||
-                          attrKey.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase());
-                        return (
-                          <div
-                            key={`typed-${attrKey}`}
-                            className="py-3.5 flex items-baseline justify-between gap-4 text-sm"
-                          >
-                            <dt className="text-[#5C5B57] dark:text-[#A3A19B] min-w-0">{label}</dt>
-                            <dd className="font-medium text-right font-mono-num max-w-[60%] leading-snug">
-                              {formatTypedAttributeValue(attrVal, facetMeta?.unit)}
-                            </dd>
-                          </div>
-                        );
-                      })}
-                    <div className="py-3.5 flex items-baseline justify-between gap-4 text-sm">
-                      <dt className="text-[#5C5B57] dark:text-[#A3A19B] min-w-0">
-                        Shipping Weight &amp; Tier
-                      </dt>
-                      <dd className="font-medium text-right font-mono-num capitalize max-w-[60%] leading-snug">
-                        {product.weightKg ? `${product.weightKg} kg · ` : ''}
-                        {product.sizeTier || 'medium'} parcel
-                      </dd>
-                    </div>
-                    <div className="py-3.5 flex items-baseline justify-between gap-4 text-sm">
-                      <dt className="text-[#5C5B57] dark:text-[#A3A19B] min-w-0">
-                        Cash on Delivery
-                      </dt>
-                      <dd className="font-medium text-right font-mono-num max-w-[60%] leading-snug">
-                        {product.codEligible === false ? 'Prepaid Only' : 'Eligible (Bangladesh)'}
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-                <div className="p-6 rounded-lg bg-[#F2F0EC] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-4 h-fit">
-                  <div className="space-y-2">
-                    <h3 className="font-display text-2xl font-medium">
-                      Maker Provenance &amp; Care
-                    </h3>
-                    <p className="text-sm text-[#5C5B57] dark:text-[#B4B2AC] leading-relaxed">
-                      Produced in collaboration with {product.brand} for the {product.categoryLabel}{' '}
-                      department. Covered by {product.warranty.toLowerCase()}.
-                    </p>
-                  </div>
-                  {product.careNote && (
-                    <div className="pt-3 border-t border-[#DCD9D0] dark:border-[#2C2C28]">
-                      <p className="text-xs uppercase tracking-wider text-[#84827B] mb-1">
-                        Handling &amp; Care Note
-                      </p>
-                      <p className="text-sm text-[#171716] dark:text-[#F4F3EF]">
-                        {product.careNote}
-                      </p>
-                    </div>
-                  )}
-                  <div className="pt-3 border-t border-[#DCD9D0] dark:border-[#2C2C28] space-y-1">
-                    <p className="text-xs uppercase tracking-wider text-[#8F6438] dark:text-[#C89B67] font-medium">
-                      {domainGuide.heading}
-                    </p>
-                    <p className="text-sm text-[#5C5B57] dark:text-[#B4B2AC] leading-relaxed">
-                      {domainGuide.note}
-                    </p>
-                    <p className="text-xs text-[#84827B]">{domainGuide.specFocus}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'reviews' && (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-                <div className="lg:col-span-7 space-y-4">
-                  {product.reviews.length === 0 ? (
-                    <p className="text-sm text-[#5C5B57] dark:text-[#A3A19B] py-4">
-                      No written reviews yet for this product. Share the first impression using the form.
-                    </p>
-                  ) : (
-                    product.reviews.map((rev) => (
-                      <article
-                        key={rev.id}
-                        className="p-5 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-2"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-0.5 text-[#8F6438] dark:text-[#C89B67]">
-                            {Array.from({ length: rev.rating }).map((_, idx) => (
-                              <Star key={idx} className="w-3.5 h-3.5 fill-current" />
-                            ))}
-                          </div>
-                          <span className="text-xs text-[#84827B] font-mono-num">
-                            {formatShortDate(rev.date)}
-                          </span>
-                        </div>
-                        <h4 className="text-base font-medium">{rev.title}</h4>
-                        <p className="text-sm text-[#5C5B57] dark:text-[#B4B2AC] leading-relaxed">
-                          {rev.comment}
-                        </p>
-                        <p className="text-xs text-[#84827B] pt-1">
-                          {rev.author} · {rev.location} {rev.verified ? '· Verified Owner' : ''}
-                        </p>
-                      </article>
-                    ))
-                  )}
-                </div>
-
-                <form
-                  onSubmit={handleReviewSubmit}
-                  className="lg:col-span-5 p-6 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-4 h-fit"
-                >
-                  <h3 className="font-display text-2xl font-medium">Write a Review</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Input
-                      label="Your Name"
-                      required
-                      value={reviewAuthor}
-                      onChange={(e) => {
-                        setReviewAuthor(e.target.value);
-                        setReviewSubmitted(false);
-                      }}
-                      placeholder="Alex Mercer"
-                    />
-                    <Input
-                      label="City / Country"
-                      value={reviewLocation}
-                      onChange={(e) => {
-                        setReviewLocation(e.target.value);
-                        setReviewSubmitted(false);
-                      }}
-                      placeholder="Dhaka / Portland"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <span id="pdp-rating-label" className="text-xs font-medium block">
-                      Rating
-                    </span>
+          {activeTab === 'specs' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-6">
+                <dl className="divide-y divide-[var(--ks-border)] border-y border-[var(--ks-border)]">
+                  {product.specifications.map((spec) => (
                     <div
-                      role="radiogroup"
-                      aria-labelledby="pdp-rating-label"
-                      className="flex items-center gap-1"
+                      key={spec.label}
+                      className="py-3.5 flex items-baseline justify-between gap-4 text-sm"
                     >
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <button
-                          key={star}
-                          type="button"
-                          role="radio"
-                          aria-checked={star === reviewRating}
-                          onClick={() => {
-                            setReviewRating(star);
-                            setReviewSubmitted(false);
-                          }}
-                          aria-label={`${star} ${star === 1 ? 'star' : 'stars'}`}
-                          className="w-10 h-10 rounded-md flex items-center justify-center hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] cursor-pointer"
-                        >
-                          <Star
-                            className={`w-5 h-5 ${
-                              star <= reviewRating
-                                ? 'fill-[#8F6438] text-[#8F6438] dark:fill-[#C89B67] dark:text-[#C89B67]'
-                                : 'text-[#DCD9D0] dark:text-[#3A3934]'
-                            }`}
-                          />
-                        </button>
-                      ))}
+                      <dt className="text-[var(--ks-text-secondary)] min-w-0">{spec.label}</dt>
+                      <dd className="font-medium text-right font-mono-num max-w-[60%] leading-snug">
+                        {spec.value}
+                      </dd>
                     </div>
+                  ))}
+                  {product.typedAttributes &&
+                    Object.entries(product.typedAttributes).map(([attrKey, attrVal]) => {
+                      const catFacets = getCategoryNodeBySlug(product.category)?.filterFacets || [];
+                      const facetMeta = catFacets.find((f) => f.key === attrKey);
+                      const label =
+                        facetMeta?.label ||
+                        attrKey.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase());
+                      return (
+                        <div
+                          key={`typed-${attrKey}`}
+                          className="py-3.5 flex items-baseline justify-between gap-4 text-sm"
+                        >
+                          <dt className="text-[var(--ks-text-secondary)] min-w-0">{label}</dt>
+                          <dd className="font-medium text-right font-mono-num max-w-[60%] leading-snug">
+                            {formatTypedAttributeValue(attrVal, facetMeta?.unit)}
+                          </dd>
+                        </div>
+                      );
+                    })}
+                  <div className="py-3.5 flex items-baseline justify-between gap-4 text-sm">
+                    <dt className="text-[var(--ks-text-secondary)] min-w-0">
+                      Shipping Weight &amp; Tier
+                    </dt>
+                    <dd className="font-medium text-right font-mono-num capitalize max-w-[60%] leading-snug">
+                      {product.weightKg ? `${product.weightKg} kg · ` : ''}
+                      {product.sizeTier || 'medium'} parcel
+                    </dd>
                   </div>
-
-                  <Input
-                    label="Headline"
-                    required
-                    value={reviewTitle}
-                    onChange={(e) => {
-                      setReviewTitle(e.target.value);
-                      setReviewSubmitted(false);
-                    }}
-                    placeholder="Summarize your impression"
-                  />
-                  <Textarea
-                    label="Your Feedback"
-                    required
-                    rows={3}
-                    value={reviewComment}
-                    onChange={(e) => {
-                      setReviewComment(e.target.value);
-                      setReviewSubmitted(false);
-                    }}
-                    placeholder="Share notes on finish, performance, sizing, or delivery..."
-                  />
-                  {reviewError && (
-                    <p className="text-xs text-[#B91C1C] dark:text-[#F87171]">{reviewError}</p>
-                  )}
-                  {reviewSubmitted && !reviewError && (
-                    <p className="text-xs text-[#1F6E43] dark:text-[#4ADE80]">
-                      Your review has been added to this product page.
-                    </p>
-                  )}
-                  <Button type="submit" variant="primary" size="md" fullWidth>
-                    Publish Review
-                  </Button>
-                </form>
+                  <div className="py-3.5 flex items-baseline justify-between gap-4 text-sm">
+                    <dt className="text-[var(--ks-text-secondary)] min-w-0">
+                      Cash on Delivery
+                    </dt>
+                    <dd className="font-medium text-right font-mono-num max-w-[60%] leading-snug">
+                      {product.codEligible === false ? 'Prepaid Only' : 'Eligible (Bangladesh)'}
+                    </dd>
+                  </div>
+                </dl>
               </div>
-            )}
 
-            {activeTab === 'qa' && (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-                <div className="lg:col-span-7 space-y-4">
-                  {questions.length === 0 ? (
-                    <p className="text-sm text-[#5C5B57] dark:text-[#A3A19B] py-4">
-                      No questions asked yet for this product. Ask our specialists anything using the form.
-                    </p>
-                  ) : (
-                    questions.map((qa) => (
-                      <article
-                        key={qa.id}
-                        className="p-5 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-3"
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-baseline justify-between gap-2 text-xs text-[#84827B]">
-                            <span className="min-w-0 truncate">Question from {qa.author}</span>
-                            <span className="font-mono-num shrink-0">{formatShortDate(qa.date)}</span>
-                          </div>
-                          <p className="text-sm font-semibold">{qa.question}</p>
-                        </div>
-                        <div className="pt-3 border-t border-[#E5E3DD] dark:border-[#2C2C28] space-y-1">
-                          <p className="text-[11px] uppercase tracking-wider text-[#8F6438] dark:text-[#C89B67] font-medium">
-                            Answer · {qa.answeredBy}
-                          </p>
-                          <p className="text-sm text-[#5C5B57] dark:text-[#B4B2AC] leading-relaxed">
-                            {qa.answer}
-                          </p>
-                        </div>
-                      </article>
-                    ))
-                  )}
-                </div>
-
-                <form
-                  onSubmit={handleQuestionSubmit}
-                  className="lg:col-span-5 p-6 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-4 h-fit"
-                >
-                  <div className="flex items-center gap-2">
-                    <MessageSquarePlus className="w-4 h-4 text-[#8F6438] dark:text-[#C89B67]" />
-                    <h3 className="font-display text-2xl font-medium">Ask a Question</h3>
-                  </div>
-                  <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B]">
-                    Questions about sizing, voltage compatibility, dietary notes, or shipping? Post below.
+              <div className="p-6 rounded-lg bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] space-y-4 h-fit">
+                <div className="space-y-2">
+                  <h3 className="font-display text-2xl font-medium">
+                    Care, Handling &amp; Warranty
+                  </h3>
+                  <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
+                    Fulfilled from {product.brand} within our {product.categoryLabel} department.
+                    Coverage includes {product.warranty.toLowerCase()}.
                   </p>
+                </div>
+                {product.careNote && (
+                  <div className="pt-3 border-t border-[var(--ks-divider)]">
+                    <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)] mb-1">
+                      Handling &amp; Care Note
+                    </p>
+                    <p className="text-sm text-[var(--ks-text-primary)] leading-relaxed">
+                      {product.careNote}
+                    </p>
+                  </div>
+                )}
+                <div className="pt-3 border-t border-[var(--ks-divider)] space-y-1">
+                  <p className="text-xs uppercase tracking-wider text-[var(--ks-accent)] font-medium">
+                    Returns &amp; Dispatch Terms
+                  </p>
+                  <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
+                    {product.returnPolicy}. {product.deliveryEstimate}.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'reviews' && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+              <div className="lg:col-span-7 space-y-4">
+                {product.reviews.length === 0 ? (
+                  <p className="text-sm text-[var(--ks-text-secondary)] py-4">
+                    No written reviews yet for this product. Share the first impression using the form.
+                  </p>
+                ) : (
+                  product.reviews.map((rev) => (
+                    <article
+                      key={rev.id}
+                      className="p-5 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-2"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-0.5 text-[var(--ks-accent)]">
+                          {Array.from({ length: rev.rating }).map((_, idx) => (
+                            <Star key={idx} className="w-3.5 h-3.5 fill-current" />
+                          ))}
+                        </div>
+                        <span className="text-xs text-[var(--ks-text-muted)] font-mono-num">
+                          {formatShortDate(rev.date)}
+                        </span>
+                      </div>
+                      <h4 className="text-base font-medium">{rev.title}</h4>
+                      <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
+                        {rev.comment}
+                      </p>
+                      <p className="text-xs text-[var(--ks-text-muted)] pt-1">
+                        {rev.author} · {rev.location} {rev.verified ? '· Verified Owner' : ''}
+                      </p>
+                    </article>
+                  ))
+                )}
+              </div>
+
+              <form
+                onSubmit={handleReviewSubmit}
+                className="lg:col-span-5 p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-4 h-fit"
+              >
+                <h3 className="font-display text-2xl font-medium">Write a Review</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Input
                     label="Your Name"
-                    value={qaAuthor}
-                    onChange={(e) => {
-                      setQaAuthor(e.target.value);
-                      setQaSubmitted(false);
-                    }}
-                    placeholder="Alex Mercer"
-                  />
-                  <Textarea
-                    label="Your Question"
                     required
-                    rows={3}
-                    value={qaQuestion}
+                    value={reviewAuthor}
                     onChange={(e) => {
-                      setQaQuestion(e.target.value);
-                      setQaSubmitted(false);
+                      setReviewAuthor(e.target.value);
+                      setReviewSubmitted(false);
                     }}
-                    placeholder="Ask about compatibility, materials, sizing, or delivery..."
+                    placeholder="Your full name"
                   />
-                  {qaError && (
-                    <p className="text-xs text-[#B91C1C] dark:text-[#F87171]">{qaError}</p>
-                  )}
-                  {qaSubmitted && !qaError && (
-                    <p className="text-xs text-[#1F6E43] dark:text-[#4ADE80]">
-                      Question posted — specialist response is now visible in the Q&amp;A thread.
-                    </p>
-                  )}
-                  <Button type="submit" variant="primary" size="md" fullWidth>
-                    Post Question
-                  </Button>
-                </form>
-              </div>
-            )}
+                  <Input
+                    label="City / Country"
+                    value={reviewLocation}
+                    onChange={(e) => {
+                      setReviewLocation(e.target.value);
+                      setReviewSubmitted(false);
+                    }}
+                    placeholder="Dhaka, Bangladesh"
+                  />
+                </div>
 
-            {activeTab === 'shipping' && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-                <div className="p-5 rounded-lg border border-[#E5E3DD] dark:border-[#2C2C28] space-y-2">
-                  <p className="font-medium">Dispatch &amp; Bangladesh Coverage</p>
-                  <p className="text-[#5C5B57] dark:text-[#B4B2AC] leading-relaxed">
-                    {product.deliveryEstimate}. Dhaka Metro orders over{' '}
-                    {formatCurrency(
-                      shippingConfig.zones.find((z) => z.zoneId === 'dhaka_metro')?.freeThresholdUsd ?? 120,
-                      currency
-                    )}{' '}
-                    qualify for complimentary insured courier delivery.
-                  </p>
+                <div className="space-y-1.5">
+                  <span id="pdp-rating-label" className="text-xs font-medium block">
+                    Rating
+                  </span>
+                  <div
+                    role="radiogroup"
+                    aria-labelledby="pdp-rating-label"
+                    className="flex items-center gap-1"
+                  >
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        role="radio"
+                        aria-checked={star === reviewRating}
+                        onClick={() => {
+                          setReviewRating(star);
+                          setReviewSubmitted(false);
+                        }}
+                        aria-label={`${star} ${star === 1 ? 'star' : 'stars'}`}
+                        className="w-10 h-10 rounded-md flex items-center justify-center hover:bg-[var(--ks-surface-muted)] cursor-pointer"
+                      >
+                        <Star
+                          className={`w-5 h-5 ${
+                            star <= reviewRating
+                              ? 'fill-[var(--ks-accent)] text-[var(--ks-accent)]'
+                              : 'text-[var(--ks-border-strong)]'
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="p-5 rounded-lg border border-[#E5E3DD] dark:border-[#2C2C28] space-y-2">
-                  <p className="font-medium">30-Day Home Trial</p>
-                  <p className="text-[#5C5B57] dark:text-[#B4B2AC] leading-relaxed">
-                    {product.returnPolicy}. Initiate returns or exchanges directly through your Customer Account.
+
+                <Input
+                  label="Headline"
+                  required
+                  value={reviewTitle}
+                  onChange={(e) => {
+                    setReviewTitle(e.target.value);
+                    setReviewSubmitted(false);
+                  }}
+                  placeholder="Summarize your impression"
+                />
+                <Textarea
+                  label="Your Feedback"
+                  required
+                  rows={3}
+                  value={reviewComment}
+                  onChange={(e) => {
+                    setReviewComment(e.target.value);
+                    setReviewSubmitted(false);
+                  }}
+                  placeholder="Share notes on finish, performance, sizing, or delivery..."
+                />
+                {reviewError && <p className="text-xs text-[var(--ks-error)]">{reviewError}</p>}
+                {reviewSubmitted && !reviewError && (
+                  <p className="text-xs text-[var(--ks-success)]">
+                    Your review has been added to this product page.
                   </p>
-                </div>
-                <div className="p-5 rounded-lg border border-[#E5E3DD] dark:border-[#2C2C28] space-y-2">
-                  <p className="font-medium">Warranty Coverage</p>
-                  <p className="text-[#5C5B57] dark:text-[#B4B2AC] leading-relaxed">
-                    {product.warranty}. Covers craftsmanship defects, hardware failures, and transit breakage.
+                )}
+                <Button type="submit" variant="primary" size="md" fullWidth>
+                  Publish Review
+                </Button>
+              </form>
+            </div>
+          )}
+
+          {activeTab === 'qa' && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+              <div className="lg:col-span-7 space-y-4">
+                {questions.length === 0 ? (
+                  <p className="text-sm text-[var(--ks-text-secondary)] py-4">
+                    No questions asked yet for this product. Ask our specialists anything using the form.
                   </p>
-                </div>
+                ) : (
+                  questions.map((qa) => (
+                    <article
+                      key={qa.id}
+                      className="p-5 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-3"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-baseline justify-between gap-2 text-xs text-[var(--ks-text-muted)]">
+                          <span className="min-w-0 truncate">Question from {qa.author}</span>
+                          <span className="font-mono-num shrink-0">{formatShortDate(qa.date)}</span>
+                        </div>
+                        <p className="text-sm font-semibold">{qa.question}</p>
+                      </div>
+                      <div className="pt-3 border-t border-[var(--ks-border)] space-y-1">
+                        <p className="text-[11px] uppercase tracking-wider text-[var(--ks-accent)] font-medium">
+                          Answer · {qa.answeredBy}
+                        </p>
+                        <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
+                          {qa.answer}
+                        </p>
+                      </div>
+                    </article>
+                  ))
+                )}
               </div>
-            )}
-          </motion.div>
+
+              <form
+                onSubmit={handleQuestionSubmit}
+                className="lg:col-span-5 p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-4 h-fit"
+              >
+                <div className="flex items-center gap-2">
+                  <MessageSquarePlus className="w-4 h-4 text-[var(--ks-accent)]" />
+                  <h3 className="font-display text-2xl font-medium">Ask a Question</h3>
+                </div>
+                <p className="text-xs text-[var(--ks-text-secondary)]">
+                  Questions about sizing, compatibility, materials, or shipping? Post below.
+                </p>
+                <Input
+                  label="Your Name"
+                  value={qaAuthor}
+                  onChange={(e) => {
+                    setQaAuthor(e.target.value);
+                    setQaSubmitted(false);
+                  }}
+                  placeholder="Your full name"
+                />
+                <Textarea
+                  label="Your Question"
+                  required
+                  rows={3}
+                  value={qaQuestion}
+                  onChange={(e) => {
+                    setQaQuestion(e.target.value);
+                    setQaSubmitted(false);
+                  }}
+                  placeholder="Ask about compatibility, materials, sizing, or delivery..."
+                />
+                {qaError && <p className="text-xs text-[var(--ks-error)]">{qaError}</p>}
+                {qaSubmitted && !qaError && (
+                  <p className="text-xs text-[var(--ks-success)]">
+                    Question posted — specialist response is now visible in the Q&amp;A thread.
+                  </p>
+                )}
+                <Button type="submit" variant="primary" size="md" fullWidth>
+                  Post Question
+                </Button>
+              </form>
+            </div>
+          )}
+
+          {activeTab === 'shipping' && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+              <div className="p-5 rounded-lg border border-[var(--ks-border)] bg-[var(--ks-surface)] space-y-2">
+                <p className="font-medium">Dispatch &amp; Bangladesh Coverage</p>
+                <p className="text-[var(--ks-text-secondary)] leading-relaxed">
+                  {product.deliveryEstimate}. Dhaka Metro orders over{' '}
+                  {formatCurrency(
+                    shippingConfig.zones.find((z) => z.zoneId === 'dhaka_metro')?.freeThresholdUsd ?? 120,
+                    currency
+                  )}{' '}
+                  qualify for complimentary insured courier delivery.
+                </p>
+              </div>
+              <div className="p-5 rounded-lg border border-[var(--ks-border)] bg-[var(--ks-surface)] space-y-2">
+                <p className="font-medium">Returns &amp; Exchanges</p>
+                <p className="text-[var(--ks-text-secondary)] leading-relaxed">
+                  {product.returnPolicy}. Initiate returns or exchanges directly through your Customer Account.
+                </p>
+              </div>
+              <div className="p-5 rounded-lg border border-[var(--ks-border)] bg-[var(--ks-surface)] space-y-2">
+                <p className="font-medium">Warranty Coverage</p>
+                <p className="text-[var(--ks-text-secondary)] leading-relaxed">
+                  {product.warranty}. Covers manufacturing defects and verified transit damage.
+                </p>
+              </div>
+            </div>
+          )}
+        </motion.div>
       </section>
 
       {/* Related & Recently Viewed */}
       {relatedProducts.length > 0 && (
-        <section className="space-y-6 pt-8 border-t border-[#E5E3DD] dark:border-[#2C2C28]">
-          <h2 className="font-display text-3xl font-medium">Complementary Products</h2>
+        <section className="space-y-6 pt-8 border-t border-[var(--ks-border)]">
+          <h2 className="font-display text-3xl font-medium">Related Products</h2>
           <div className="grid grid-cols-1 min-[390px]:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {relatedProducts.map((p) => (
               <ProductCard key={p.id} product={p} />
@@ -1025,7 +972,7 @@ export const ProductDetailPage: React.FC = () => {
       )}
 
       {recentlyViewed.length > 0 && (
-        <section className="space-y-6 pt-8 border-t border-[#E5E3DD] dark:border-[#2C2C28]">
+        <section className="space-y-6 pt-8 border-t border-[var(--ks-border)]">
           <h2 className="font-display text-3xl font-medium">Recently Viewed</h2>
           <div className="grid grid-cols-1 min-[390px]:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {recentlyViewed.map((p) => (
@@ -1042,12 +989,12 @@ export const ProductDetailPage: React.FC = () => {
         title="Apparel & Fit Size Guide"
       >
         <div className="space-y-4 text-sm">
-          <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B]">
+          <p className="text-xs text-[var(--ks-text-secondary)]">
             Measurements reflect relaxed garment dimensions laid flat. Select your normal size for intended layering room.
           </p>
-          <div className="overflow-x-auto rounded-md border border-[#E5E3DD] dark:border-[#2C2C28]">
+          <div className="overflow-x-auto rounded-md border border-[var(--ks-border)]">
             <table className="w-full text-left text-xs font-mono-num tabular-nums">
-              <thead className="bg-[#F9F8F6] dark:bg-[#141413] border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+              <thead className="bg-[var(--ks-surface-muted)] border-b border-[var(--ks-border)]">
                 <tr>
                   <th className="p-3 font-medium text-left">Size</th>
                   <th className="p-3 font-medium text-right">Chest (in)</th>
@@ -1055,7 +1002,7 @@ export const ProductDetailPage: React.FC = () => {
                   <th className="p-3 font-medium text-right">Length (in)</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28]">
+              <tbody className="divide-y divide-[var(--ks-border)]">
                 <tr>
                   <td className="p-3 font-semibold text-left">S</td>
                   <td className="p-3 text-right">41.5</td>
@@ -1095,11 +1042,11 @@ export const ProductDetailPage: React.FC = () => {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: '100%', opacity: 0 }}
             transition={STUDIO_TRANSITION.base}
-            className="lg:hidden fixed bottom-0 inset-x-0 z-30 h-12 px-3 sm:px-4 bg-[#FFFFFF]/95 dark:bg-[#191917]/95 backdrop-blur-md border-t border-[#E5E3DD] dark:border-[#2C2C28] flex items-center justify-between gap-3"
+            className="lg:hidden fixed bottom-0 inset-x-0 z-30 h-12 px-3 sm:px-4 bg-[var(--ks-surface)]/95 backdrop-blur-md border-t border-[var(--ks-border)] flex items-center justify-between gap-3"
           >
             <div className="min-w-0 flex-1 flex items-center gap-2">
               <span className="text-xs font-medium truncate">{product.name}</span>
-              <span className="text-xs font-mono-num font-semibold shrink-0">
+              <span className="text-xs font-mono-num font-semibold shrink-0 tabular-nums">
                 {formatCurrency(product.price, currency)}
               </span>
             </div>

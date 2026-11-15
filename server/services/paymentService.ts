@@ -62,62 +62,101 @@ interface ProviderAdapterMeta {
 const env: Record<string, string | undefined> =
   typeof process !== 'undefined' && process.env ? process.env : {};
 
+export function getGatewayConfigStatus(method: PaymentMethodId): {
+  enabled: boolean;
+  reason?: string;
+} {
+  switch (method) {
+    case 'cod':
+      return { enabled: true };
+    case 'bkash':
+      return env.BKASH_APP_KEY && env.BKASH_APP_SECRET
+        ? { enabled: true }
+        : { enabled: false, reason: 'bKash merchant gateway credentials are not configured.' };
+    case 'nagad':
+      return env.NAGAD_MERCHANT_ID
+        ? { enabled: true }
+        : { enabled: false, reason: 'Nagad merchant credentials are not configured.' };
+    case 'rocket':
+      return env.ROCKET_MERCHANT_ID
+        ? { enabled: true }
+        : { enabled: false, reason: 'Rocket merchant credentials are not configured.' };
+    case 'sslcommerz':
+      return env.SSLCOMMERZ_STORE_ID && env.SSLCOMMERZ_STORE_PASSWORD
+        ? { enabled: true }
+        : { enabled: false, reason: 'SSLCommerz store credentials are not configured.' };
+    case 'visa':
+    case 'mastercard':
+    case 'card':
+      return env.STRIPE_SECRET_KEY || (env.SSLCOMMERZ_STORE_ID && env.SSLCOMMERZ_STORE_PASSWORD)
+        ? { enabled: true }
+        : { enabled: false, reason: 'Online card processor credentials are not configured.' };
+    case 'bank-transfer':
+      return env.BANK_TRANSFER_ACCOUNT_NO
+        ? { enabled: true }
+        : { enabled: false, reason: 'Bank settlement account details are not configured.' };
+    case 'wallet':
+    default:
+      return { enabled: false, reason: 'Payment provider is not configured.' };
+  }
+}
+
 const PROVIDER_ADAPTERS: Record<PaymentMethodId, ProviderAdapterMeta> = {
   bkash: {
-    provider: 'bKash Merchant Checkout v1.2',
+    provider: 'bKash Merchant Checkout',
     label: 'bKash Mobile Wallet',
     buildInstructions: (ref, amount, cur) =>
-      `bKash PGW Sandbox (${env.BKASH_APP_KEY ? 'Configured Merchant' : 'Demo Gateway'}) · Authorize ${amount.toLocaleString()} ${cur} · Ref ${ref}`,
+      `bKash PGW · Pay ${amount.toLocaleString()} ${cur} · Ref ${ref}`,
   },
   nagad: {
     provider: 'Nagad MFS Payment Gateway',
     label: 'Nagad Mobile Wallet',
     buildInstructions: (ref, amount, cur) =>
-      `Nagad Instant API (${env.NAGAD_MERCHANT_ID ? 'Configured Merchant' : 'Demo Gateway'}) · Authorize ${amount.toLocaleString()} ${cur} · Ref ${ref}`,
+      `Nagad Gateway · Pay ${amount.toLocaleString()} ${cur} · Ref ${ref}`,
   },
   rocket: {
     provider: 'DBBL Rocket E-Commerce Gateway',
     label: 'Rocket (DBBL)',
     buildInstructions: (ref, amount, cur) =>
-      `Dutch-Bangla Rocket PGW · Authorize ${amount.toLocaleString()} ${cur} · Ref ${ref}`,
+      `Dutch-Bangla Rocket PGW · Pay ${amount.toLocaleString()} ${cur} · Ref ${ref}`,
   },
   visa: {
-    provider: 'SSLCommerz / Visa 3DS Secure',
-    label: 'Visa Card (Local & Global)',
+    provider: 'Visa 3DS Secure',
+    label: 'Visa Card',
     buildInstructions: (ref, amount, cur) =>
-      `Visa 3DS Verification · Authorize ${amount.toLocaleString()} ${cur} · Trace ${ref}`,
+      `Visa 3DS Authorization · ${amount.toLocaleString()} ${cur} · Trace ${ref}`,
   },
   mastercard: {
-    provider: 'SSLCommerz / Mastercard ID Check',
+    provider: 'Mastercard ID Check',
     label: 'Mastercard',
     buildInstructions: (ref, amount, cur) =>
-      `Mastercard SecureCode Verification · Authorize ${amount.toLocaleString()} ${cur} · Trace ${ref}`,
+      `Mastercard 3DS Authorization · ${amount.toLocaleString()} ${cur} · Trace ${ref}`,
   },
   sslcommerz: {
-    provider: 'SSLCommerz Multi-Channel Gateway',
-    label: 'SSLCommerz Unified Checkout',
+    provider: 'SSLCommerz Payment Gateway',
+    label: 'SSLCommerz Gateway',
     buildInstructions: (ref, amount, cur) =>
-      `SSLCommerz Gateway (${env.SSLCOMMERZ_STORE_ID ? 'Live Store' : 'Sandbox'}) · ${amount.toLocaleString()} ${cur} · Ref ${ref}`,
+      `SSLCommerz · ${amount.toLocaleString()} ${cur} · Ref ${ref}`,
   },
   'bank-transfer': {
-    provider: 'BEFTN / NPSB Verified Transfer',
-    label: 'Local Bank Transfer (NPSB / Wire)',
+    provider: 'BEFTN / NPSB Bank Transfer',
+    label: 'Bank Transfer (NPSB / BEFTN)',
     buildInstructions: (ref, amount, cur) =>
       `NPSB / BEFTN Settlement · Include reference ${ref} for ${amount.toLocaleString()} ${cur}.`,
   },
   cod: {
-    provider: 'Kinto Courier COD Ledger',
+    provider: 'Courier Cash on Delivery',
     label: 'Cash on Delivery (Bangladesh)',
     buildInstructions: (ref, amount, cur) =>
-      `Pay ${amount.toLocaleString()} ${cur} in cash upon inspected parcel delivery · Docket ${ref}`,
+      `Pay ${amount.toLocaleString()} ${cur} in cash upon delivery · Docket ${ref}`,
   },
   card: {
-    provider: 'Visa / Mastercard 3DS',
+    provider: 'Card 3DS Payment',
     label: 'Credit / Debit Card',
-    buildInstructions: (ref, amount, cur) => `3DS Card Verification · ${amount.toLocaleString()} ${cur} · Ref ${ref}`,
+    buildInstructions: (ref, amount, cur) => `Card 3DS Authorization · ${amount.toLocaleString()} ${cur} · Ref ${ref}`,
   },
   wallet: {
-    provider: 'Digital Express Wallet',
+    provider: 'Digital Wallet',
     label: 'Digital Wallet',
     buildInstructions: (ref, amount, cur) => `Wallet Authorization · ${amount.toLocaleString()} ${cur} · Ref ${ref}`,
   },
@@ -282,15 +321,38 @@ export function buildAuthoritativeCheckoutQuote(params: {
     currencyState
   );
 
-  const allowedPaymentMethods: PaymentMethodId[] = [];
+  const candidateMethods: PaymentMethodId[] = [];
   const isBangladesh = (request.address?.country || 'Bangladesh').trim().toLowerCase() === 'bangladesh';
   if (isBangladesh) {
-    allowedPaymentMethods.push('bkash', 'nagad', 'rocket', 'visa', 'mastercard', 'sslcommerz', 'bank-transfer');
-    if (shippingQuote.codEligible) {
-      allowedPaymentMethods.push('cod');
-    }
+    candidateMethods.push('cod', 'bkash', 'nagad', 'rocket', 'visa', 'mastercard', 'sslcommerz', 'bank-transfer');
   } else {
-    allowedPaymentMethods.push('visa', 'mastercard', 'bank-transfer', 'sslcommerz');
+    candidateMethods.push('visa', 'mastercard', 'bank-transfer', 'sslcommerz');
+  }
+
+  const allowedPaymentMethods: PaymentMethodId[] = [];
+  const paymentMethodAvailability: Partial<
+    Record<PaymentMethodId, { enabled: boolean; reason?: string }>
+  > = {};
+
+  for (const methodId of candidateMethods) {
+    if (methodId === 'cod') {
+      if (isBangladesh && shippingQuote.codEligible) {
+        allowedPaymentMethods.push('cod');
+        paymentMethodAvailability.cod = { enabled: true };
+      } else {
+        paymentMethodAvailability.cod = {
+          enabled: false,
+          reason: shippingQuote.codReason || 'Cash on Delivery is unavailable for this order.',
+        };
+      }
+      continue;
+    }
+
+    const status = getGatewayConfigStatus(methodId);
+    paymentMethodAvailability[methodId] = status;
+    if (status.enabled) {
+      allowedPaymentMethods.push(methodId);
+    }
   }
 
   const subtotalCharged = convertUsdToCurrency(subtotalUsd, transactionCurrency, currencyState);
@@ -317,6 +379,7 @@ export function buildAuthoritativeCheckoutQuote(params: {
       totalCharged,
       promoApplied,
       allowedPaymentMethods,
+      paymentMethodAvailability,
     },
   };
 }
@@ -386,6 +449,13 @@ export function createPaymentSession(params: {
   if (params.paymentMethod === 'cod' && !quote.shippingQuote.codEligible) {
     throw new Error(
       quote.shippingQuote.codReason || 'Cash on Delivery is not eligible for this order.'
+    );
+  }
+
+  const gatewayStatus = getGatewayConfigStatus(params.paymentMethod);
+  if (!gatewayStatus.enabled) {
+    throw new Error(
+      gatewayStatus.reason || 'Selected online payment gateway is not configured.'
     );
   }
 

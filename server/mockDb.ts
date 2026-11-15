@@ -5,16 +5,20 @@ import type {
   CategoryNode,
   CurrencyRateState,
   DynamicCategoryRecord,
+  ManagedPromoRecord,
   Order,
   OrderStage,
+  PlatformSettingsState,
   ProductOverride,
   SellerApplicationRecord,
+  SellerAuthorizedCustomerSummary,
   SellerInventoryItem,
+  SellerStoreSettings,
   ShippingRuleConfig,
   StoreNotification,
   UserRole,
 } from '../src/types/commerce.ts';
-import { INITIAL_CATEGORY_TREE } from './shared/marketplaceSchema.ts';
+import { INITIAL_CATEGORY_TREE, PROMO_CODES } from './shared/marketplaceSchema.ts';
 import { createInitialCurrencyState } from './services/currencyService.ts';
 import { createInitialShippingConfig } from './services/shippingService.ts';
 import type { PendingSessionContext } from './services/paymentService.ts';
@@ -25,71 +29,66 @@ export interface ServerUserRecord extends AccountDirectoryEntry {
 
 export const INITIAL_SERVER_USERS: ServerUserRecord[] = [
   {
-    id: 'usr-customer-alex',
-    fullName: 'Alex Mercer',
-    email: 'alex.mercer@studio.example',
-    phone: '+1 (415) 555-0194',
+    id: 'usr-customer-rafiq',
+    fullName: 'Rafiqul Islam',
+    email: 'rafiq.islam@kintostudio.bd',
+    phone: '+880 1711-240914',
     role: 'customer',
     roleLabel: 'Marketplace Member',
     status: 'active',
     joinedAt: '2025-04-12',
-    location: 'San Francisco, US · Dhaka Hub',
-    demoPasswordHint: 'studio2026',
+    location: 'Gulshan, Dhaka, Bangladesh',
     password: 'studio2026',
   },
   {
     id: 'usr-seller-elena',
     fullName: 'Elena Vance',
     email: 'elena@aeterna-loom.studio',
-    phone: '+1 (503) 555-0148',
+    phone: '+880 1819-420148',
     role: 'seller',
     roleLabel: 'Verified Seller Studio',
     studioName: 'Aeterna & Loom Collective',
     status: 'active',
     joinedAt: '2024-09-03',
-    location: 'Copenhagen & Portland',
-    demoPasswordHint: 'seller2026',
+    location: 'Dhaka & Copenhagen',
     password: 'seller2026',
   },
   {
     id: 'usr-admin-kenji',
     fullName: 'Kenji Takahashi',
-    email: 'admin@kintostudio.example',
-    phone: '+1 (212) 555-0182',
+    email: 'admin@kintostudio.bd',
+    phone: '+880 1911-880182',
     role: 'admin',
     roleLabel: 'Platform Administrator',
     studioName: 'Kinto Studio Global Ops',
     status: 'active',
     joinedAt: '2023-11-18',
-    location: 'New York & Dhaka',
-    demoPasswordHint: 'admin2026',
+    location: 'Dhaka Operations Hub, Bangladesh',
     password: 'admin2026',
   },
   {
     id: 'usr-customer-nadia',
     fullName: 'Nadia Rahman',
-    email: 'nadia.rahman@dhaka-atelier.example',
+    email: 'nadia.rahman@dhaka-atelier.bd',
     phone: '+880 1711-004821',
     role: 'customer',
     roleLabel: 'Design Trade Buyer',
     status: 'active',
     joinedAt: '2025-08-21',
-    location: 'Banani, Dhaka',
-    demoPasswordHint: 'studio2026',
+    location: 'Banani, Dhaka, Bangladesh',
     password: 'studio2026',
   },
   {
     id: 'usr-seller-soren',
     fullName: 'Soren Lindholm',
     email: 'soren@nordicroast.example',
-    phone: '+47 21 98 44 10',
+    phone: '+880 1612-309844',
     role: 'seller',
     roleLabel: 'Maker Partner',
     studioName: 'Nordic Trail & Roast',
     status: 'pending',
     joinedAt: '2026-10-29',
-    location: 'Oslo & Portland',
-    demoPasswordHint: 'seller2026',
+    location: 'Oslo & Dhaka Hub',
     password: 'seller2026',
   },
   {
@@ -101,8 +100,7 @@ export const INITIAL_SERVER_USERS: ServerUserRecord[] = [
     roleLabel: 'Marketplace Member',
     status: 'active',
     joinedAt: '2026-01-19',
-    location: 'Copenhagen, DK',
-    demoPasswordHint: 'studio2026',
+    location: 'Copenhagen, Denmark',
     password: 'studio2026',
   },
 ];
@@ -126,7 +124,7 @@ export const INITIAL_SELLER_APPLICATIONS: SellerApplicationRecord[] = [
     ownerName: 'Soren Lindholm',
     email: 'soren@nordicroast.example',
     department: 'Grocery & Outdoor',
-    origin: 'Oslo & Oregon',
+    origin: 'Oslo & Dhaka Hub',
     submittedAt: '2026-10-29',
     status: 'pending',
     productCount: 4,
@@ -138,7 +136,7 @@ export const INITIAL_SELLER_APPLICATIONS: SellerApplicationRecord[] = [
     ownerName: 'Margaux Delacroix',
     email: 'margaux@aethel.studio',
     department: 'Beauty, Health & Pets',
-    origin: 'Grasse & Seattle',
+    origin: 'Grasse & Dhaka Hub',
     submittedAt: '2025-05-14',
     status: 'approved',
     productCount: 5,
@@ -273,39 +271,39 @@ export const INITIAL_SERVER_ORDERS: Order[] = [
   {
     id: 'KS-10482',
     createdAt: '2026-11-08T15:30:00Z',
-    customerName: 'Alex Mercer',
-    email: 'alex.mercer@studio.example',
-    phone: '+1 (415) 555-0194',
+    customerName: 'Rafiqul Islam',
+    email: 'rafiq.islam@kintostudio.bd',
+    phone: '+880 1711-240914',
     shippingAddress: {
-      country: 'United States',
-      state: 'California',
-      city: 'San Francisco',
-      upazila: 'San Francisco Metro',
-      area: 'Pacific Heights',
-      streetAddress: '2140 Steiner Street, Apt 4B',
-      postalCode: '94115',
-      instructions: 'Call 15 minutes prior to arrival at service entrance.',
+      country: 'Bangladesh',
+      state: 'Dhaka',
+      city: 'Dhaka',
+      upazila: 'Dhaka North City Corporation',
+      area: 'Gulshan 2',
+      streetAddress: 'House 28, Road 90, Gulshan 2',
+      postalCode: '1212',
+      instructions: 'Call 15 minutes prior to arrival at reception gate.',
     },
     deliveryMethod: 'express',
     deliveryLabel: 'Express Insured Courier',
     estimatedArrival: 'Nov 15, 2026',
-    courierName: 'DHL Express Air',
-    trackingNumber: 'APF-9940218-US',
-    paymentMethod: 'visa',
-    paymentLabel: 'Visa ending in 4242',
+    courierName: 'RedX Priority Express',
+    trackingNumber: 'KS-BD-9940218',
+    paymentMethod: 'sslcommerz',
+    paymentLabel: 'SSLCommerz Card Gateway (Ref 884120)',
     paymentStatus: 'paid',
     transactionRef: 'KS-VISA-884120',
-    gatewayProvider: 'SSLCommerz / Visa 3DS Secure',
+    gatewayProvider: 'SSLCommerz Multi-Currency Gateway',
     currencySnapshot: {
       baseCurrency: 'USD',
-      transactionCurrency: 'USD',
-      exchangeRate: 1,
+      transactionCurrency: 'BDT',
+      exchangeRate: 120.5,
       rateSource: 'Bangladesh Bank & OpenFX Studio Reference Feed',
       rateTimestamp: '2026-11-08T15:30:00Z',
-      roundingRule: 'half_even_cents',
+      roundingRule: 'ceil_integer_taka',
       baseSubtotalUsd: 615,
       baseTotalUsd: 576.89,
-      chargedTotal: 576.89,
+      chargedTotal: 69516,
     },
     promoCode: 'STUDIO15',
     items: [
@@ -351,10 +349,10 @@ export const INITIAL_SERVER_ORDERS: Order[] = [
     total: 576.89,
     currentStage: 'Shipped',
     timeline: [
-      { stage: 'Confirmed', timestamp: 'Nov 8, 2026 · 7:30 AM', note: 'Server-verified settlement via Visa 3DS (KS-VISA-884120)', completed: true },
+      { stage: 'Confirmed', timestamp: 'Nov 8, 2026 · 7:30 AM', note: 'Server-verified settlement via SSLCommerz (KS-VISA-884120)', completed: true },
       { stage: 'Processing', timestamp: 'Nov 9, 2026 · 10:15 AM', note: 'Coffee roasted & audio unit tested', completed: true },
       { stage: 'Packed', timestamp: 'Nov 10, 2026 · 2:40 PM', note: 'Cradled in molded pulp protective transit packaging', completed: true },
-      { stage: 'Shipped', timestamp: 'Nov 11, 2026 · 9:05 AM', note: 'Departed Portland distribution hub', completed: true },
+      { stage: 'Shipped', timestamp: 'Nov 11, 2026 · 9:05 AM', note: 'Departed Dhaka Central Distribution Hub', completed: true },
       { stage: 'Out for Delivery', timestamp: 'Estimated Nov 15', note: 'Pending local courier dispatch', completed: false },
       { stage: 'Delivered', timestamp: 'Estimated Nov 15', note: 'Signature confirmation at residence', completed: false },
     ],
@@ -363,7 +361,7 @@ export const INITIAL_SERVER_ORDERS: Order[] = [
     id: 'KS-10495',
     createdAt: '2026-11-12T09:15:00Z',
     customerName: 'Nadia Rahman',
-    email: 'nadia.rahman@dhaka-atelier.example',
+    email: 'nadia.rahman@dhaka-atelier.bd',
     phone: '+880 1711-004821',
     shippingAddress: {
       country: 'Bangladesh',
@@ -433,17 +431,17 @@ export const INITIAL_SERVER_ORDERS: Order[] = [
   {
     id: 'KS-10501',
     createdAt: '2026-11-13T16:40:00Z',
-    customerName: 'Alex Mercer',
-    email: 'alex.mercer@studio.example',
-    phone: '+1 (415) 555-0194',
+    customerName: 'Clara Lindqvist',
+    email: 'clara@nordic-arch.example',
+    phone: '+45 33 14 28 90',
     shippingAddress: {
-      country: 'United States',
-      state: 'California',
-      city: 'San Francisco',
-      upazila: 'San Francisco Metro',
-      area: 'Pacific Heights',
-      streetAddress: '2140 Steiner Street, Apt 4B',
-      postalCode: '94115',
+      country: 'Denmark',
+      state: 'Capital Region',
+      city: 'Copenhagen',
+      upazila: 'Indre By',
+      area: 'Bredgade',
+      streetAddress: 'Bredgade 45, 2. th',
+      postalCode: '1260',
     },
     deliveryMethod: 'standard',
     deliveryLabel: 'Standard Tracked Courier',
@@ -451,10 +449,10 @@ export const INITIAL_SERVER_ORDERS: Order[] = [
     courierName: 'DHL Global Freight',
     trackingNumber: 'KS-TRK-7710294',
     paymentMethod: 'visa',
-    paymentLabel: 'Visa Card ending in 4242',
+    paymentLabel: 'Card Gateway Token (Ref 771029)',
     paymentStatus: 'paid',
     transactionRef: 'KS-VISA-771029',
-    gatewayProvider: 'SSLCommerz / Visa 3DS Secure',
+    gatewayProvider: 'SSLCommerz / Card 3DS Secure',
     currencySnapshot: {
       baseCurrency: 'USD',
       transactionCurrency: 'USD',
@@ -503,9 +501,9 @@ export const INITIAL_SERVER_ORDERS: Order[] = [
   {
     id: 'KS-10319',
     createdAt: '2026-10-12T11:20:00Z',
-    customerName: 'Alex Mercer',
-    email: 'alex.mercer@studio.example',
-    phone: '+1 (415) 555-0194',
+    customerName: 'Rafiqul Islam',
+    email: 'rafiq.islam@kintostudio.bd',
+    phone: '+880 1711-240914',
     shippingAddress: {
       country: 'Bangladesh',
       state: 'Dhaka',
@@ -576,7 +574,7 @@ export const INITIAL_NOTIFICATIONS: StoreNotification[] = [
   {
     id: 'notif-1',
     title: 'Shipment Dispatched · #KS-10482',
-    message: 'Your Aeterna AE-1 Headphones & Yirgacheffe Pour-Over Set departed our fulfillment hub.',
+    message: 'Your Aeterna AE-1 Headphones & Yirgacheffe Pour-Over Set departed Dhaka Central Hub.',
     category: 'order',
     createdAt: '2h ago',
     read: false,
@@ -586,7 +584,7 @@ export const INITIAL_NOTIFICATIONS: StoreNotification[] = [
   {
     id: 'notif-2',
     title: 'Seasonal Privilege Active',
-    message: 'Apply code STUDIO15 across all 10 marketplace departments on qualifying orders ($300+ / ৳36,150+).',
+    message: 'Apply code STUDIO15 across all 10 marketplace departments on qualifying orders (৳36,150+ / $300+).',
     category: 'promotion',
     createdAt: '1d ago',
     read: true,
@@ -624,6 +622,25 @@ export const INITIAL_NOTIFICATIONS: StoreNotification[] = [
   },
 ];
 
+export const INITIAL_SELLER_STORE_SETTINGS: SellerStoreSettings = {
+  studioName: 'Aeterna & Loom Collective',
+  contactEmail: 'elena@aeterna-loom.studio',
+  dispatchLeadTime: '24–48 hours (Sunday–Thursday, Dhaka Ops)',
+  pickupDivision: 'Dhaka',
+  codSupported: true,
+  preferredCouriers: ['RedX Priority', 'Pathao Courier', 'Steadfast Logistics'],
+  payoutChannel: 'bKash Merchant Settlement / BRAC Bank EFT',
+  payoutSchedule: 'Bi-weekly (1st & 15th following delivery confirmation)',
+  payoutAccountMasked: 'BRAC Bank •••• 4910',
+};
+
+export const INITIAL_PLATFORM_SETTINGS: PlatformSettingsState = {
+  storefrontName: 'Kinto Studio',
+  supportEmail: 'support@kintostudio.bd',
+  defaultLanguage: 'en',
+  maintenanceNoticeEnabled: false,
+};
+
 export class MockMarketplaceDb {
   users: ServerUserRecord[] = INITIAL_SERVER_USERS.map((u) => ({ ...u }));
   sellerApplications: SellerApplicationRecord[] = INITIAL_SELLER_APPLICATIONS.map((s) => ({ ...s }));
@@ -647,7 +664,13 @@ export class MockMarketplaceDb {
     timeline: o.timeline.map((t) => ({ ...t })),
   }));
   notifications: StoreNotification[] = INITIAL_NOTIFICATIONS.map((n) => ({ ...n }));
-  sessions: Map<string, string> = new Map([['demo-token-alex', 'usr-customer-alex']]);
+  sellerStoreSettings: SellerStoreSettings = {
+    ...INITIAL_SELLER_STORE_SETTINGS,
+    preferredCouriers: [...INITIAL_SELLER_STORE_SETTINGS.preferredCouriers],
+  };
+  promotions: ManagedPromoRecord[] = PROMO_CODES.map((p) => ({ ...p, active: true }));
+  platformSettings: PlatformSettingsState = { ...INITIAL_PLATFORM_SETTINGS };
+  sessions: Map<string, string> = new Map();
 
   toPublicAccount(u: ServerUserRecord): AccountDirectoryEntry {
     return {
@@ -661,7 +684,6 @@ export class MockMarketplaceDb {
       status: u.status,
       joinedAt: u.joinedAt,
       location: u.location,
-      demoPasswordHint: u.demoPasswordHint,
       policyAcceptance: u.policyAcceptance,
     };
   }
@@ -675,9 +697,70 @@ export class MockMarketplaceDb {
   }
 
   issueSession(userId: string): string {
-    const token = `ks-tok-${userId}-${Date.now().toString(36)}`;
+    const token = `ks-tok-${userId}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
     this.sessions.set(token, userId);
     return token;
+  }
+
+  getCombinedInventory(): SellerInventoryItem[] {
+    return [
+      ...this.sellerCreatedProducts.map((p) => ({
+        id: p.id,
+        sku: p.sku,
+        name: p.name,
+        brand: p.brand,
+        category: p.category,
+        categoryLabel: p.categoryLabel,
+        price: p.price,
+        stockCount: p.stockCount,
+        availability: p.availability,
+        imagePresetKey: p.imagePresetKey,
+        monthlyUnitsSold: 4,
+      })),
+      ...this.sellerInventory,
+    ];
+  }
+
+  buildDynamicRevenueSeries(currentMonthGmv: number, pendingOrdersCount: number) {
+    const formatter = new Intl.DateTimeFormat('en-US', { month: 'short' });
+    const now = new Date();
+    const multipliers = [0.74, 0.81, 0.86, 0.91, 0.95, 1];
+    const baseOrders = [68, 74, 82, 89, 95, 102 + pendingOrdersCount];
+    return multipliers.map((mult, idx) => {
+      const date = new Date(now.getFullYear(), now.getMonth() - (5 - idx), 1);
+      return {
+        month: formatter.format(date),
+        gmv: idx === 5 ? Math.round(currentMonthGmv) : Math.round(currentMonthGmv * mult),
+        orders: baseOrders[idx],
+      };
+    });
+  }
+
+  getAuthorizedCustomersForSeller(): SellerAuthorizedCustomerSummary[] {
+    const map = new Map<string, SellerAuthorizedCustomerSummary>();
+    for (const order of this.orders) {
+      if (order.currentStage === 'Cancelled') continue;
+      const key = order.email.toLowerCase();
+      const existing = map.get(key);
+      const cityArea = `${order.shippingAddress.area}, ${order.shippingAddress.city}`;
+      if (existing) {
+        existing.orderCount += 1;
+        existing.totalSpentUsd = Number((existing.totalSpentUsd + order.total).toFixed(2));
+        if (order.createdAt > existing.lastOrderDate) {
+          existing.lastOrderDate = order.createdAt.slice(0, 10);
+        }
+      } else {
+        map.set(key, {
+          customerKey: order.id,
+          displayName: order.customerName,
+          cityArea,
+          orderCount: 1,
+          lastOrderDate: order.createdAt.slice(0, 10),
+          totalSpentUsd: Number(order.total.toFixed(2)),
+        });
+      }
+    }
+    return Array.from(map.values());
   }
 
   advanceOrderTimeline(order: Order, nextStage: OrderStage, note?: string): Order {
@@ -799,3 +882,4 @@ export class MockMarketplaceDb {
 }
 
 export const db = new MockMarketplaceDb();
+

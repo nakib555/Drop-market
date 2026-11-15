@@ -10,15 +10,19 @@ import type {
   CurrencyRateState,
   DeliveryMethodId,
   DynamicCategoryRecord,
+  LanguageCode,
   LegalAcceptanceRecord,
+  ManagedPromoRecord,
   Order,
   OrderStage,
   PaymentMethodId,
   PaymentSession,
+  PlatformSettingsState,
   Product,
   ProductOverride,
   SellerApplicationRecord,
   SellerDashboardData,
+  SellerStoreSettings,
   ShippingQuoteResponse,
   ShippingRuleConfig,
   ShippingZoneId,
@@ -122,14 +126,13 @@ export async function fetchAuthAccounts(): Promise<AccountDirectoryEntry[]> {
       }
       return data.accounts;
     },
-    (mod) => mod.staticFetchAuthAccounts()
+    (mod) => mod.staticFetchAuthAccounts(getStoredToken())
   );
 }
 
 export async function loginWithApi(payload: {
-  email?: string;
-  password?: string;
-  accountId?: string;
+  email: string;
+  password: string;
 }): Promise<{ token: string; user: AccountDirectoryEntry }> {
   const res = await withStaticFallback(
     () =>
@@ -195,6 +198,20 @@ export async function updateProfileApi(updates: {
   );
 }
 
+export async function changePasswordApi(
+  currentPassword: string,
+  newPassword: string
+): Promise<{ ok: boolean; message: string }> {
+  return withStaticFallback(
+    () =>
+      requestJson<{ ok: boolean; message: string }>('/api/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ currentPassword, newPassword }),
+      }),
+    (mod) => mod.staticChangePassword(getStoredToken(), currentPassword, newPassword)
+  );
+}
+
 export async function fetchCatalogProductsApi(): Promise<Product[]> {
   return withStaticFallback(
     async () => {
@@ -246,7 +263,7 @@ export async function updateAdminCurrencyApi(updates: {
       });
       return res.currencyConfig;
     },
-    (mod) => mod.staticUpdateAdminCurrency(updates)
+    (mod) => mod.staticUpdateAdminCurrency(updates, getStoredToken())
   );
 }
 
@@ -307,7 +324,7 @@ export async function updateAdminShippingRulesApi(payload: {
       );
       return res.shippingConfig;
     },
-    (mod) => mod.staticUpdateAdminShippingRules(payload)
+    (mod) => mod.staticUpdateAdminShippingRules(payload, getStoredToken())
   );
 }
 
@@ -418,7 +435,19 @@ export async function fetchOrdersApi(): Promise<Order[]> {
       }
       return res.orders;
     },
-    (mod) => mod.staticFetchOrders()
+    (mod) => mod.staticFetchOrders(getStoredToken())
+  );
+}
+
+export async function trackOrderApi(id: string, contact?: string): Promise<Order> {
+  return withStaticFallback(
+    async () => {
+      const params = new URLSearchParams({ id });
+      if (contact?.trim()) params.set('contact', contact.trim());
+      const res = await requestJson<{ order: Order }>(`/api/orders/track?${params.toString()}`);
+      return res.order;
+    },
+    (mod) => mod.staticTrackOrder(id, contact, getStoredToken())
   );
 }
 
@@ -451,7 +480,7 @@ export async function updateOrderStatusApi(
       );
       return res.order;
     },
-    (mod) => mod.staticUpdateOrderStatus(orderId, stage, note)
+    (mod) => mod.staticUpdateOrderStatus(orderId, stage, note, getStoredToken())
   );
 }
 
@@ -471,7 +500,7 @@ export async function performOrderCustomerActionApi(
       );
       return res.order;
     },
-    (mod) => mod.staticPerformOrderCustomerAction(orderId, action, reason)
+    (mod) => mod.staticPerformOrderCustomerAction(orderId, action, reason, getStoredToken())
   );
 }
 
@@ -479,6 +508,44 @@ export async function fetchSellerDashboardApi(): Promise<SellerDashboardData> {
   return withStaticFallback(
     () => requestJson<SellerDashboardData>('/api/seller/dashboard'),
     (mod) => mod.staticFetchSellerDashboard(getStoredToken())
+  );
+}
+
+export async function updateSellerSettingsApi(
+  updates: Partial<SellerStoreSettings>
+): Promise<SellerStoreSettings> {
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ storeSettings: SellerStoreSettings }>(
+        '/api/seller/settings',
+        {
+          method: 'PATCH',
+          body: JSON.stringify(updates),
+        }
+      );
+      return res.storeSettings;
+    },
+    (mod) => mod.staticUpdateSellerSettings(getStoredToken(), updates)
+  );
+}
+
+export async function resolveSellerReturnApi(
+  orderId: string,
+  decision: 'approve_refund' | 'restore_delivered',
+  note?: string
+): Promise<Order> {
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ order: Order }>(
+        `/api/seller/returns/${encodeURIComponent(orderId)}/resolve`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ decision, note }),
+        }
+      );
+      return res.order;
+    },
+    (mod) => mod.staticResolveSellerReturn(getStoredToken(), orderId, decision, note)
   );
 }
 
@@ -527,14 +594,14 @@ export async function updateSellerProductApi(
       );
       return res.override;
     },
-    (mod) => mod.staticUpdateSellerProduct(id, updates)
+    (mod) => mod.staticUpdateSellerProduct(id, updates, getStoredToken())
   );
 }
 
 export async function fetchAdminDashboardApi(): Promise<AdminDashboardData> {
   return withStaticFallback(
     () => requestJson<AdminDashboardData>('/api/admin/dashboard'),
-    (mod) => mod.staticFetchAdminDashboard()
+    (mod) => mod.staticFetchAdminDashboard(getStoredToken())
   );
 }
 
@@ -553,7 +620,7 @@ export async function updateAdminUserApi(
       );
       return res.user;
     },
-    (mod) => mod.staticUpdateAdminUser(id, updates)
+    (mod) => mod.staticUpdateAdminUser(id, updates, getStoredToken())
   );
 }
 
@@ -572,7 +639,67 @@ export async function updateSellerStatusApi(
       );
       return res.application;
     },
-    (mod) => mod.staticUpdateSellerStatus(id, status)
+    (mod) => mod.staticUpdateSellerStatus(id, status, getStoredToken())
+  );
+}
+
+export async function updateAdminPromotionsApi(payload: {
+  code: string;
+  active?: boolean;
+  value?: number;
+}): Promise<ManagedPromoRecord[]> {
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ promotions: ManagedPromoRecord[] }>('/api/admin/promotions', {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+      return res.promotions;
+    },
+    (mod) => mod.staticUpdateAdminPromotions(payload, getStoredToken())
+  );
+}
+
+export async function processAdminRefundApi(
+  orderId: string,
+  action: 'approve_refund' | 'decline_return',
+  note?: string
+): Promise<Order> {
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ order: Order }>(
+        `/api/admin/refunds/${encodeURIComponent(orderId)}`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ action, note }),
+        }
+      );
+      return res.order;
+    },
+    (mod) => mod.staticProcessAdminRefund(orderId, action, note, getStoredToken())
+  );
+}
+
+export async function updateAdminPlatformSettingsApi(
+  updates: Partial<{
+    storefrontName: string;
+    supportEmail: string;
+    defaultLanguage: LanguageCode;
+    maintenanceNoticeEnabled: boolean;
+  }>
+): Promise<PlatformSettingsState> {
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ platformSettings: PlatformSettingsState }>(
+        '/api/admin/settings',
+        {
+          method: 'PATCH',
+          body: JSON.stringify(updates),
+        }
+      );
+      return res.platformSettings;
+    },
+    (mod) => mod.staticUpdateAdminPlatformSettings(updates, getStoredToken())
   );
 }
 
@@ -598,7 +725,7 @@ export async function createCategoryNodeApi(payload: {
         method: 'POST',
         body: JSON.stringify(payload),
       }),
-    (mod) => mod.staticCreateCategoryNode(payload)
+    (mod) => mod.staticCreateCategoryNode(payload, getStoredToken())
   );
 }
 
@@ -612,7 +739,7 @@ export async function updateCategoryNodeApi(
         method: 'PATCH',
         body: JSON.stringify(updates),
       }),
-    (mod) => mod.staticUpdateCategoryNode(id, updates)
+    (mod) => mod.staticUpdateCategoryNode(id, updates, getStoredToken())
   );
 }
 
@@ -624,6 +751,6 @@ export async function deleteCategoryNodeApi(
       requestJson(`/api/admin/categories/${encodeURIComponent(idOrSlug)}`, {
         method: 'DELETE',
       }),
-    (mod) => mod.staticDeleteCategoryNode(idOrSlug)
+    (mod) => mod.staticDeleteCategoryNode(idOrSlug, getStoredToken())
   );
 }

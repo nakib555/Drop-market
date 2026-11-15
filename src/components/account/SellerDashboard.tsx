@@ -1,21 +1,54 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, Package, Plus, RefreshCw, Search, Store, Truck } from 'lucide-react';
+import {
+  BarChart3,
+  Check,
+  CreditCard,
+  Download,
+  Package,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  Search,
+  Settings,
+  Store,
+  Truck,
+  Users,
+} from 'lucide-react';
 import { motion } from 'motion/react';
 import { useStore } from '../../context/StoreContext';
 import { buildPolicyAcceptance } from '../../data/legalPolicies';
 import {
   createSellerProductApi,
   fetchSellerDashboardApi,
+  resolveSellerReturnApi,
   updateOrderStatusApi,
   updateSellerProductApi,
+  updateSellerSettingsApi,
 } from '../../services/api';
-import { OrderStage, ProductSizeTier, SellerDashboardData } from '../../types/commerce';
-import { formatCurrency } from '../../utils/format';
+import {
+  OrderStage,
+  ProductSizeTier,
+  SellerDashboardData,
+  SellerStoreSettings,
+} from '../../types/commerce';
+import { formatCurrency, formatDirectCurrency } from '../../utils/format';
 import { IMAGE_PRESET_OPTIONS, resolveImagePreset } from '../../utils/imagePresets';
 import { STUDIO_TRANSITION } from '../../utils/motion';
 import { Button } from '../ui/Button';
 import { Input, Select, Textarea } from '../ui/FormFields';
 import { Modal, ResilientImage, SkeletonLoader } from '../ui/Primitives';
+
+type SellerTab =
+  | 'overview'
+  | 'products'
+  | 'inventory'
+  | 'orders'
+  | 'returns'
+  | 'customers'
+  | 'reports'
+  | 'store-settings'
+  | 'shipping-settings'
+  | 'payouts';
 
 export const SellerDashboard: React.FC = () => {
   const {
@@ -31,12 +64,13 @@ export const SellerDashboard: React.FC = () => {
   const [data, setData] = useState<SellerDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [subTab, setSubTab] = useState<'inventory' | 'fulfillment'>('inventory');
+  const [activeTab, setActiveTab] = useState<SellerTab>('overview');
   const [searchTerm, setSearchTerm] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState('');
   const [editStock, setEditStock] = useState('');
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [settingsDraft, setSettingsDraft] = useState<SellerStoreSettings | null>(null);
 
   // Add Product modal
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -60,10 +94,9 @@ export const SellerDashboard: React.FC = () => {
     try {
       const res = await fetchSellerDashboardApi();
       setData(res);
+      setSettingsDraft(res.storeSettings);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Unable to reach Seller API endpoint.'
-      );
+      setError(err instanceof Error ? err.message : 'Unable to reach Seller API endpoint.');
     } finally {
       setLoading(false);
     }
@@ -88,7 +121,12 @@ export const SellerDashboard: React.FC = () => {
   const handleSaveInline = async (id: string) => {
     const parsedPrice = Number(editPrice);
     const parsedStock = Number(editStock);
-    if (Number.isNaN(parsedPrice) || parsedPrice <= 0 || Number.isNaN(parsedStock) || parsedStock < 0) {
+    if (
+      Number.isNaN(parsedPrice) ||
+      parsedPrice <= 0 ||
+      Number.isNaN(parsedStock) ||
+      parsedStock < 0
+    ) {
       showToast('Invalid inventory values', 'Enter positive price and non-negative stock.', 'error');
       return;
     }
@@ -100,7 +138,7 @@ export const SellerDashboard: React.FC = () => {
       });
       await Promise.all([loadDashboard(), refreshStorefrontSync()]);
       setEditingId(null);
-      showToast('Inventory synced to storefront', 'Live price & stock updated via API.', 'success');
+      showToast('Inventory synced', 'Live price & stock updated across catalog.', 'success');
     } catch (err) {
       showToast('Update failed', err instanceof Error ? err.message : 'API error', 'error');
     } finally {
@@ -120,6 +158,42 @@ export const SellerDashboard: React.FC = () => {
       showToast(`Order #${orderId} updated`, `Status moved to ${nextStage}.`, 'success');
     } catch (err) {
       showToast('Order update failed', err instanceof Error ? err.message : 'API error', 'error');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleResolveReturn = async (
+    orderId: string,
+    decision: 'approve_refund' | 'restore_delivered'
+  ) => {
+    setSavingId(orderId);
+    try {
+      await resolveSellerReturnApi(orderId, decision);
+      await Promise.all([loadDashboard(), refreshOrders()]);
+      showToast(
+        decision === 'approve_refund' ? 'Return approved & refunded' : 'Return closed',
+        `Order #${orderId} updated.`,
+        'success'
+      );
+    } catch (err) {
+      showToast('Return action failed', err instanceof Error ? err.message : 'API error', 'error');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!settingsDraft) return;
+    setSavingId('settings');
+    try {
+      const updated = await updateSellerSettingsApi(settingsDraft);
+      setSettingsDraft(updated);
+      await loadDashboard();
+      showToast('Seller settings saved', 'Studio configuration updated.', 'success');
+    } catch (err) {
+      showToast('Save failed', err instanceof Error ? err.message : 'API error', 'error');
     } finally {
       setSavingId(null);
     }
@@ -167,7 +241,7 @@ export const SellerDashboard: React.FC = () => {
       await Promise.all([loadDashboard(), refreshStorefrontSync()]);
       showToast(
         'Product published live',
-        `${created.name} is now discoverable in the storefront catalog.`,
+        `${created.name} is now active in the storefront catalog.`,
         'success'
       );
     } catch (err) {
@@ -175,6 +249,23 @@ export const SellerDashboard: React.FC = () => {
     } finally {
       setCreatingProduct(false);
     }
+  };
+
+  const exportCsvReport = () => {
+    if (!data) return;
+    const rows = [
+      ['Month', 'GMV (USD)', 'Orders'],
+      ...data.revenueSeries.map((r) => [r.month, r.gmv.toFixed(2), String(r.orders)]),
+    ];
+    const csv = rows.map((r) => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'kinto-seller-report.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast('Sales report exported', 'Downloaded kinto-seller-report.csv', 'success');
   };
 
   if (loading) {
@@ -192,8 +283,8 @@ export const SellerDashboard: React.FC = () => {
 
   if (error || !data) {
     return (
-      <div className="p-6 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] bg-[#F9F8F6] dark:bg-[#141413] space-y-3">
-        <p className="text-sm font-medium text-[#B91C1C] dark:text-[#F87171]">
+      <div className="p-6 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] bg-[var(--ks-bg)] space-y-3">
+        <p className="text-sm font-medium text-[var(--ks-error)]">
           {error || 'Seller dashboard unavailable'}
         </p>
         <Button variant="outline" size="sm" onClick={loadDashboard}>
@@ -206,17 +297,30 @@ export const SellerDashboard: React.FC = () => {
 
   const maxSeries = Math.max(...data.revenueSeries.map((r) => r.gmv), 1);
 
+  const tabs: Array<{ id: SellerTab; label: string }> = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'products', label: `Products (${data.inventory.length})` },
+    { id: 'inventory', label: 'Inventory' },
+    { id: 'orders', label: `Orders (${data.fulfillmentQueue.length})` },
+    { id: 'returns', label: `Returns (${data.returnsQueue.length})` },
+    { id: 'customers', label: `Customers (${data.authorizedCustomers.length})` },
+    { id: 'reports', label: 'Sales Reports' },
+    { id: 'store-settings', label: 'Store Settings' },
+    { id: 'shipping-settings', label: 'Shipping' },
+    { id: 'payouts', label: 'Payout Info' },
+  ];
+
   return (
     <div className="space-y-8">
       {/* Top Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[var(--ks-border)]">
         <div>
-          <p className="text-xs leading-snug uppercase tracking-wider text-[#8F6438] dark:text-[#C89B67] inline-flex items-center gap-1.5">
-            <Store className="w-3.5 h-3.5 shrink-0" /> Seller Studio Portal
+          <p className="text-xs leading-snug uppercase tracking-wider text-[var(--ks-accent)] inline-flex items-center gap-1.5">
+            <Store className="w-3.5 h-3.5 shrink-0" /> Seller Dashboard
           </p>
           <h2 className="font-display text-2xl sm:text-3xl font-medium mt-0.5">{data.studioName}</h2>
-          <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5">
-            Operator: {data.ownerName} · Live API Inventory &amp; Dispatch Sync
+          <p className="text-xs text-[var(--ks-text-secondary)] mt-0.5">
+            Operator: {data.ownerName} · Live Storefront &amp; Dispatch Sync
           </p>
         </div>
 
@@ -227,93 +331,24 @@ export const SellerDashboard: React.FC = () => {
           </Button>
           <Button variant="primary" size="sm" onClick={() => setAddModalOpen(true)}>
             <Plus className="w-3.5 h-3.5" />
-            <span>Add Listing</span>
+            <span>Add Product</span>
           </Button>
         </div>
       </div>
 
-      {/* KPI Metrics Strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28]">
-          <p className="text-xs text-[#84827B]">30-Day Studio GMV</p>
-          <p className="font-mono-num text-xl sm:text-2xl font-semibold mt-1">
-            {formatCurrency(data.kpis.monthlyGmv, currency)}
-          </p>
-          <p className="text-[11px] text-[#1F6E43] dark:text-[#4ADE80] mt-1 font-mono-num">
-            {data.kpis.avgRating.toFixed(2)} ★ Partner Score
-          </p>
-        </div>
-        <div className="p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28]">
-          <p className="text-xs text-[#84827B]">Active Listings</p>
-          <p className="font-mono-num text-xl sm:text-2xl font-semibold mt-1">
-            {data.kpis.activeListings}
-          </p>
-          <p className="text-[11px] text-[#5C5B57] dark:text-[#A3A19B] mt-1">
-            Synced with live catalog
-          </p>
-        </div>
-        <div className="p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28]">
-          <p className="text-xs text-[#84827B]">Pending Fulfillment</p>
-          <p className="font-mono-num text-xl sm:text-2xl font-semibold mt-1">
-            {data.kpis.pendingFulfillment}
-          </p>
-          <p className="text-[11px] text-[#B45309] dark:text-[#FBBF24] mt-1">
-            Awaiting carrier dispatch
-          </p>
-        </div>
-        <div className="p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28]">
-          <p className="text-xs text-[#84827B]">Low Stock SKUs</p>
-          <p className="font-mono-num text-xl sm:text-2xl font-semibold mt-1">
-            {data.kpis.lowStockSkus}
-          </p>
-          <p className="text-[11px] text-[#84827B] mt-1">Threshold ≤ 8 units</p>
-        </div>
-      </div>
-
-      {/* 6-Month Revenue Strip */}
-      <div className="p-5 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] bg-[#F9F8F6] dark:bg-[#141413] space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold">Monthly Studio Volume ({currency})</h3>
-          <span className="text-xs font-mono-num text-[#84827B]">Jun – Nov 2026</span>
-        </div>
-        <div className="grid grid-cols-6 gap-2 sm:gap-4 items-end h-28 pt-2">
-          {data.revenueSeries.map((point) => {
-            const pct = Math.max(18, Math.round((point.gmv / maxSeries) * 100));
-            return (
-              <div key={point.month} className="flex flex-col items-center gap-1.5 h-full justify-end">
-                <span className="text-[10px] font-mono-num text-[#5C5B57] dark:text-[#A3A19B] hidden sm:inline">
-                  {formatCurrency(point.gmv, currency)}
-                </span>
-                <div
-                  className="w-full max-w-[40px] rounded-t-sm bg-[#8F6438] dark:bg-[#C89B67] transition-all duration-300"
-                  style={{ height: `${pct}%` }}
-                  title={`${point.month}: ${formatCurrency(point.gmv, currency)}`}
-                />
-                <span className="text-[11px] font-mono-num text-[#84827B]">{point.month}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Sub-navigation Tabs */}
-      <div className="flex items-center gap-6 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
-        {(
-          [
-            { id: 'inventory', label: `Inventory (${data.inventory.length})` },
-            { id: 'fulfillment', label: `Fulfillment Queue (${data.fulfillmentQueue.length})` },
-          ] as const
-        ).map((tab) => {
-          const active = subTab === tab.id;
+      {/* 10-Section Seller Navigation Strip */}
+      <div className="flex items-center gap-5 border-b border-[var(--ks-border)] overflow-x-auto no-scrollbar">
+        {tabs.map((tab) => {
+          const active = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               type="button"
-              onClick={() => setSubTab(tab.id)}
-              className={`relative pb-3 text-sm font-medium cursor-pointer transition-colors ${
+              onClick={() => setActiveTab(tab.id)}
+              className={`relative pb-3 text-xs sm:text-sm font-medium whitespace-nowrap shrink-0 cursor-pointer transition-colors ${
                 active
-                  ? 'text-[#171716] dark:text-[#F4F3EF]'
-                  : 'text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
+                  ? 'text-[var(--ks-text-primary)]'
+                  : 'text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)]'
               }`}
             >
               {tab.label}
@@ -321,7 +356,7 @@ export const SellerDashboard: React.FC = () => {
                 <motion.span
                   layoutId="seller-sub-tab"
                   transition={STUDIO_TRANSITION.springTab}
-                  className="absolute inset-x-0 bottom-0 h-0.5 bg-[#171716] dark:bg-[#F4F3EF]"
+                  className="absolute inset-x-0 bottom-0 h-0.5 bg-[var(--ks-text-primary)]"
                 />
               )}
             </button>
@@ -329,23 +364,100 @@ export const SellerDashboard: React.FC = () => {
         })}
       </div>
 
-      {/* Inventory Table */}
-      {subTab === 'inventory' && (
-        <div className="space-y-4">
-          <div className="relative max-w-sm">
-            <Search className="w-4 h-4 text-[#84827B] absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="search"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search SKU, product name, or category..."
-              className="w-full h-10 pl-9 pr-3 text-xs rounded-md bg-white dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28]"
-            />
+      {/* 1. Overview */}
+      {activeTab === 'overview' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)]">
+              <p className="text-xs text-[var(--ks-text-muted)]">30-Day Studio GMV</p>
+              <p className="font-mono-num text-xl sm:text-2xl font-semibold mt-1">
+                {formatCurrency(data.kpis.monthlyGmv, currency)}
+              </p>
+              <p className="text-[11px] text-[var(--ks-success)] mt-1 font-mono-num">
+                {data.kpis.avgRating.toFixed(2)} ★ Partner Score
+              </p>
+            </div>
+            <div className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)]">
+              <p className="text-xs text-[var(--ks-text-muted)]">Active Listings</p>
+              <p className="font-mono-num text-xl sm:text-2xl font-semibold mt-1">
+                {data.kpis.activeListings}
+              </p>
+              <p className="text-[11px] text-[var(--ks-text-secondary)] mt-1">
+                Synced with live catalog
+              </p>
+            </div>
+            <div className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)]">
+              <p className="text-xs text-[var(--ks-text-muted)]">Pending Fulfillment</p>
+              <p className="font-mono-num text-xl sm:text-2xl font-semibold mt-1">
+                {data.kpis.pendingFulfillment}
+              </p>
+              <p className="text-[11px] text-[var(--ks-warning)] mt-1">
+                Open Returns: {data.kpis.returnRequestsCount}
+              </p>
+            </div>
+            <div className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)]">
+              <p className="text-xs text-[var(--ks-text-muted)]">Low Stock SKUs</p>
+              <p className="font-mono-num text-xl sm:text-2xl font-semibold mt-1">
+                {data.kpis.lowStockSkus}
+              </p>
+              <p className="text-[11px] text-[var(--ks-text-muted)] mt-1">Threshold ≤ 8 units</p>
+            </div>
           </div>
 
-          <div className="overflow-x-auto rounded-md border border-[#E5E3DD] dark:border-[#2C2C28]">
+          <div className="p-5 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] bg-[var(--ks-bg)] space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold">Trailing 6-Month Sales Volume ({currency})</h3>
+              <span className="text-xs font-mono-num text-[var(--ks-text-muted)]">
+                {data.revenueSeries[0]?.month} – {data.revenueSeries[data.revenueSeries.length - 1]?.month}
+              </span>
+            </div>
+            <div className="grid grid-cols-6 gap-2 sm:gap-4 items-end h-28 pt-2">
+              {data.revenueSeries.map((point) => {
+                const pct = Math.max(18, Math.round((point.gmv / maxSeries) * 100));
+                return (
+                  <div key={point.month} className="flex flex-col items-center gap-1.5 h-full justify-end">
+                    <span className="text-[10px] font-mono-num text-[var(--ks-text-secondary)] hidden sm:inline">
+                      {formatCurrency(point.gmv, currency)}
+                    </span>
+                    <div
+                      className="w-full max-w-[40px] rounded-t-sm bg-[var(--ks-accent)] transition-all duration-300"
+                      style={{ height: `${pct}%` }}
+                      title={`${point.month}: ${formatCurrency(point.gmv, currency)}`}
+                    />
+                    <span className="text-[11px] font-mono-num text-[var(--ks-text-muted)]">
+                      {point.month}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2 & 3. Products & Inventory */}
+      {(activeTab === 'products' || activeTab === 'inventory') && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="relative max-w-sm flex-1 min-w-[220px]">
+              <Search className="w-4 h-4 text-[var(--ks-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="search"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search SKU, product name, or department..."
+                className="w-full h-10 pl-9 pr-3 text-xs rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)]"
+              />
+            </div>
+            <Button variant="primary" size="sm" onClick={() => setAddModalOpen(true)}>
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Product</span>
+            </Button>
+          </div>
+
+          <div className="overflow-x-auto rounded-[var(--ks-radius-md)] border border-[var(--ks-border)]">
             <table className="w-full text-left text-xs">
-              <thead className="bg-[#F9F8F6] dark:bg-[#141413] border-b border-[#E5E3DD] dark:border-[#2C2C28] text-[#84827B] uppercase tracking-wider">
+              <thead className="bg-[var(--ks-bg)] border-b border-[var(--ks-border)] text-[var(--ks-text-muted)] uppercase tracking-wider">
                 <tr>
                   <th className="py-2.5 px-3 font-medium">Product</th>
                   <th className="py-2.5 px-3 font-medium">SKU</th>
@@ -355,10 +467,10 @@ export const SellerDashboard: React.FC = () => {
                   <th className="py-2.5 px-3 font-medium text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] [&_td]:align-middle">
+              <tbody className="divide-y divide-[var(--ks-divider)] [&_td]:align-middle">
                 {filteredInventory.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-8 px-3 text-center text-xs text-[#84827B]">
+                    <td colSpan={6} className="py-8 px-3 text-center text-xs text-[var(--ks-text-muted)]">
                       No inventory listings match your search filter.
                     </td>
                   </tr>
@@ -366,7 +478,7 @@ export const SellerDashboard: React.FC = () => {
                   filteredInventory.map((item) => {
                     const isEditing = editingId === item.id;
                     return (
-                      <tr key={item.id} className="hover:bg-[#F9F8F6]/70 dark:hover:bg-[#1F1F1C]/60">
+                      <tr key={item.id} className="hover:bg-[var(--ks-bg)]/70">
                         <td className="py-2.5 px-3">
                           <div className="flex items-center gap-2.5 min-w-[200px]">
                             <ResilientImage
@@ -375,14 +487,16 @@ export const SellerDashboard: React.FC = () => {
                               className="w-9 h-7 rounded-sm object-cover shrink-0"
                             />
                             <div className="min-w-0">
-                              <p className="font-medium text-[#171716] dark:text-[#F4F3EF] truncate max-w-[220px]">
+                              <p className="font-medium text-[var(--ks-text-primary)] truncate max-w-[220px]">
                                 {item.name}
                               </p>
-                              <p className="text-[11px] text-[#84827B]">{item.categoryLabel}</p>
+                              <p className="text-[11px] text-[var(--ks-text-muted)]">
+                                {item.categoryLabel}
+                              </p>
                             </div>
                           </div>
                         </td>
-                        <td className="py-2.5 px-3 font-mono-num text-[#5C5B57] dark:text-[#A3A19B] whitespace-nowrap">
+                        <td className="py-2.5 px-3 font-mono-num text-[var(--ks-text-secondary)] whitespace-nowrap">
                           {item.sku}
                         </td>
                         <td className="py-2.5 px-3 font-mono-num tabular-nums text-right whitespace-nowrap">
@@ -392,7 +506,7 @@ export const SellerDashboard: React.FC = () => {
                               aria-label={`Price for ${item.name}`}
                               value={editPrice}
                               onChange={(e) => setEditPrice(e.target.value)}
-                              className="w-20 h-8 px-2 text-xs text-right tabular-nums rounded border border-[#171716] dark:border-[#F4F3EF] bg-white dark:bg-[#141413]"
+                              className="w-20 h-8 px-2 text-xs text-right tabular-nums rounded border border-[var(--ks-action)] bg-[var(--ks-surface)]"
                             />
                           ) : (
                             formatCurrency(item.price, currency)
@@ -405,7 +519,7 @@ export const SellerDashboard: React.FC = () => {
                               aria-label={`Stock for ${item.name}`}
                               value={editStock}
                               onChange={(e) => setEditStock(e.target.value)}
-                              className="w-16 h-8 px-2 text-xs text-right tabular-nums rounded border border-[#171716] dark:border-[#F4F3EF] bg-white dark:bg-[#141413]"
+                              className="w-16 h-8 px-2 text-xs text-right tabular-nums rounded border border-[var(--ks-action)] bg-[var(--ks-surface)]"
                             />
                           ) : (
                             item.stockCount
@@ -415,10 +529,10 @@ export const SellerDashboard: React.FC = () => {
                           <span
                             className={`font-medium ${
                               item.stockCount <= 0
-                                ? 'text-[#B91C1C] dark:text-[#F87171]'
+                                ? 'text-[var(--ks-error)]'
                                 : item.stockCount <= 8
-                                ? 'text-[#B45309] dark:text-[#FBBF24]'
-                                : 'text-[#1F6E43] dark:text-[#4ADE80]'
+                                ? 'text-[var(--ks-warning)]'
+                                : 'text-[var(--ks-success)]'
                             }`}
                           >
                             {item.stockCount <= 0
@@ -443,7 +557,7 @@ export const SellerDashboard: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => setEditingId(null)}
-                                className="text-[#84827B] hover:text-[#171716] dark:hover:text-[#F4F3EF] px-1.5 cursor-pointer"
+                                className="text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] px-1.5 cursor-pointer"
                               >
                                 Cancel
                               </button>
@@ -456,7 +570,7 @@ export const SellerDashboard: React.FC = () => {
                                 setEditPrice(String(item.price));
                                 setEditStock(String(item.stockCount));
                               }}
-                              className="text-xs font-medium text-[#8F6438] dark:text-[#C89B67] hover:underline cursor-pointer"
+                              className="text-xs font-medium text-[var(--ks-accent)] hover:underline cursor-pointer"
                             >
                               Edit Stock / Price
                             </button>
@@ -472,11 +586,11 @@ export const SellerDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Fulfillment Queue */}
-      {subTab === 'fulfillment' && (
-        <div className="overflow-x-auto rounded-md border border-[#E5E3DD] dark:border-[#2C2C28]">
+      {/* 4. Orders */}
+      {activeTab === 'orders' && (
+        <div className="overflow-x-auto rounded-[var(--ks-radius-md)] border border-[var(--ks-border)]">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#F9F8F6] dark:bg-[#141413] border-b border-[#E5E3DD] dark:border-[#2C2C28] text-[#84827B] uppercase tracking-wider">
+            <thead className="bg-[var(--ks-bg)] border-b border-[var(--ks-border)] text-[var(--ks-text-muted)] uppercase tracking-wider">
               <tr>
                 <th className="py-2.5 px-3 font-medium">Order</th>
                 <th className="py-2.5 px-3 font-medium">Customer</th>
@@ -486,11 +600,11 @@ export const SellerDashboard: React.FC = () => {
                 <th className="py-2.5 px-3 font-medium text-right whitespace-nowrap">Dispatch Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] [&_td]:align-middle">
+            <tbody className="divide-y divide-[var(--ks-divider)] [&_td]:align-middle">
               {data.fulfillmentQueue.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 px-3 text-center text-xs text-[#84827B]">
-                    All orders in your fulfillment queue have been dispatched.
+                  <td colSpan={6} className="py-8 px-3 text-center text-xs text-[var(--ks-text-muted)]">
+                    No active fulfillment orders right now.
                   </td>
                 </tr>
               ) : (
@@ -505,7 +619,7 @@ export const SellerDashboard: React.FC = () => {
                       : null;
 
                   return (
-                    <tr key={ord.id} className="hover:bg-[#F9F8F6]/70 dark:hover:bg-[#1F1F1C]/60">
+                    <tr key={ord.id} className="hover:bg-[var(--ks-bg)]/70">
                       <td className="py-2.5 px-3 font-mono-num font-semibold whitespace-nowrap">
                         <button
                           type="button"
@@ -516,13 +630,20 @@ export const SellerDashboard: React.FC = () => {
                         </button>
                       </td>
                       <td className="py-2.5 px-3 whitespace-nowrap">{ord.customerName}</td>
-                      <td className="py-2.5 px-3 text-[#5C5B57] dark:text-[#A3A19B] whitespace-nowrap">
+                      <td className="py-2.5 px-3 text-[var(--ks-text-secondary)] whitespace-nowrap">
                         {ord.shippingAddress.city}, {ord.shippingAddress.country}
                       </td>
                       <td className="py-2.5 px-3 font-mono-num text-right whitespace-nowrap">
-                        {formatCurrency(ord.total, currency)}
+                        {ord.currencySnapshot
+                          ? formatDirectCurrency(
+                              ord.currencySnapshot.chargedTotal,
+                              ord.currencySnapshot.transactionCurrency
+                            )
+                          : formatCurrency(ord.total, currency)}
                       </td>
-                      <td className="py-2.5 px-3 whitespace-nowrap font-medium">{ord.currentStage}</td>
+                      <td className="py-2.5 px-3 whitespace-nowrap font-medium">
+                        {ord.currentStage}
+                      </td>
                       <td className="py-2.5 px-3 text-right whitespace-nowrap">
                         {nextAction ? (
                           <Button
@@ -535,7 +656,7 @@ export const SellerDashboard: React.FC = () => {
                             <span>{nextAction.label}</span>
                           </Button>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-[#84827B]">
+                          <span className="inline-flex items-center gap-1 text-[var(--ks-text-muted)]">
                             <Package className="w-3 h-3" />
                             <span>{ord.currentStage}</span>
                           </span>
@@ -548,6 +669,288 @@ export const SellerDashboard: React.FC = () => {
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* 5. Returns */}
+      {activeTab === 'returns' && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-xs text-[var(--ks-text-secondary)]">
+            <RotateCcw className="w-4 h-4 text-[var(--ks-accent)]" />
+            <span>
+              Review buyer return requests under Kinto Studio&apos;s Return &amp; Refund Policy.
+            </span>
+          </div>
+          {data.returnsQueue.length === 0 ? (
+            <div className="p-8 text-center rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] bg-[var(--ks-bg)] text-xs text-[var(--ks-text-muted)]">
+              No pending return requests in your studio queue.
+            </div>
+          ) : (
+            <div className="divide-y divide-[var(--ks-divider)] border border-[var(--ks-border)] rounded-[var(--ks-radius-md)]">
+              {data.returnsQueue.map((ord) => (
+                <div
+                  key={ord.id}
+                  className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                >
+                  <div className="space-y-1">
+                    <p className="text-sm font-mono-num font-semibold">Order #{ord.id}</p>
+                    <p className="text-xs text-[var(--ks-text-secondary)]">
+                      {ord.customerName} · {ord.shippingAddress.city} ·{' '}
+                      {formatCurrency(ord.total, currency)}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="primary"
+                      size="xs"
+                      disabled={savingId === ord.id}
+                      onClick={() => handleResolveReturn(ord.id, 'approve_refund')}
+                    >
+                      Approve &amp; Refund
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      disabled={savingId === ord.id}
+                      onClick={() => handleResolveReturn(ord.id, 'restore_delivered')}
+                    >
+                      Close Claim
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 6. Authorized Customer Summaries (Privacy-scoped) */}
+      {activeTab === 'customers' && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-xs text-[var(--ks-text-secondary)]">
+            <Users className="w-4 h-4 text-[var(--ks-accent)]" />
+            <span>
+              Privacy-scoped fulfillment summary of buyers who ordered from your studio. Direct personal emails and passwords remain hidden.
+            </span>
+          </div>
+          <div className="overflow-x-auto rounded-[var(--ks-radius-md)] border border-[var(--ks-border)]">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[var(--ks-bg)] border-b border-[var(--ks-border)] text-[var(--ks-text-muted)] uppercase tracking-wider">
+                <tr>
+                  <th className="py-2.5 px-3 font-medium">Buyer Reference</th>
+                  <th className="py-2.5 px-3 font-medium">Delivery Area</th>
+                  <th className="py-2.5 px-3 font-medium text-right">Orders</th>
+                  <th className="py-2.5 px-3 font-medium text-right">Volume</th>
+                  <th className="py-2.5 px-3 font-medium text-right">Last Order</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--ks-divider)]">
+                {data.authorizedCustomers.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 px-3 text-center text-xs text-[var(--ks-text-muted)]">
+                      No studio buyer records recorded yet.
+                    </td>
+                  </tr>
+                ) : (
+                  data.authorizedCustomers.map((c) => (
+                    <tr key={c.customerKey} className="hover:bg-[var(--ks-bg)]/70">
+                      <td className="py-2.5 px-3 font-medium">{c.displayName}</td>
+                      <td className="py-2.5 px-3 text-[var(--ks-text-secondary)]">{c.cityArea}</td>
+                      <td className="py-2.5 px-3 font-mono-num tabular-nums text-right">
+                        {c.orderCount}
+                      </td>
+                      <td className="py-2.5 px-3 font-mono-num tabular-nums text-right">
+                        {formatCurrency(c.totalSpentUsd, currency)}
+                      </td>
+                      <td className="py-2.5 px-3 font-mono-num tabular-nums text-right text-[var(--ks-text-muted)]">
+                        {c.lastOrderDate.slice(0, 10)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 7. Sales Reports */}
+      {activeTab === 'reports' && (
+        <div className="space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-[var(--ks-accent)]" />
+              <h3 className="text-base font-medium">6-Month Studio Performance Report</h3>
+            </div>
+            <Button variant="outline" size="sm" onClick={exportCsvReport}>
+              <Download className="w-3.5 h-3.5" />
+              <span>Export CSV</span>
+            </Button>
+          </div>
+          <div className="overflow-x-auto rounded-[var(--ks-radius-md)] border border-[var(--ks-border)]">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[var(--ks-bg)] border-b border-[var(--ks-border)] text-[var(--ks-text-muted)] uppercase tracking-wider">
+                <tr>
+                  <th className="py-2.5 px-3 font-medium">Period</th>
+                  <th className="py-2.5 px-3 font-medium text-right">Orders</th>
+                  <th className="py-2.5 px-3 font-medium text-right">Studio GMV ({currency})</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--ks-divider)]">
+                {data.revenueSeries.map((pt) => (
+                  <tr key={pt.month}>
+                    <td className="py-2.5 px-3 font-mono-num font-medium">{pt.month}</td>
+                    <td className="py-2.5 px-3 font-mono-num tabular-nums text-right">
+                      {pt.orders}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono-num tabular-nums text-right font-semibold">
+                      {formatCurrency(pt.gmv, currency)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 8. Store Settings */}
+      {activeTab === 'store-settings' && settingsDraft && (
+        <form
+          onSubmit={handleSaveSettings}
+          className="max-w-xl p-5 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-4"
+        >
+          <div className="flex items-center gap-2">
+            <Settings className="w-4 h-4 text-[var(--ks-accent)]" />
+            <h3 className="text-base font-medium">Store Identity &amp; Contact Settings</h3>
+          </div>
+          <Input
+            label="Studio / Storefront Name"
+            value={settingsDraft.studioName}
+            onChange={(e) =>
+              setSettingsDraft({ ...settingsDraft, studioName: e.target.value })
+            }
+          />
+          <Input
+            label="Merchant Dispatch Email"
+            type="email"
+            value={settingsDraft.contactEmail}
+            onChange={(e) =>
+              setSettingsDraft({ ...settingsDraft, contactEmail: e.target.value })
+            }
+          />
+          <Input
+            label="Standard Dispatch Lead Time"
+            value={settingsDraft.dispatchLeadTime}
+            onChange={(e) =>
+              setSettingsDraft({ ...settingsDraft, dispatchLeadTime: e.target.value })
+            }
+          />
+          <Button type="submit" variant="primary" size="md" disabled={savingId === 'settings'}>
+            {savingId === 'settings' ? 'Saving...' : 'Save Store Settings'}
+          </Button>
+        </form>
+      )}
+
+      {/* 9. Shipping Settings */}
+      {activeTab === 'shipping-settings' && settingsDraft && (
+        <form
+          onSubmit={handleSaveSettings}
+          className="max-w-xl p-5 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-4"
+        >
+          <div className="flex items-center gap-2">
+            <Truck className="w-4 h-4 text-[var(--ks-accent)]" />
+            <h3 className="text-base font-medium">Seller Courier &amp; Pickup Preferences</h3>
+          </div>
+          <Select
+            label="Primary Pickup Division"
+            value={settingsDraft.pickupDivision}
+            onChange={(e) =>
+              setSettingsDraft({ ...settingsDraft, pickupDivision: e.target.value })
+            }
+            options={[
+              { value: 'Dhaka', label: 'Dhaka Division' },
+              { value: 'Chattogram', label: 'Chattogram Division' },
+              { value: 'Sylhet', label: 'Sylhet Division' },
+              { value: 'Rajshahi', label: 'Rajshahi Division' },
+              { value: 'Khulna', label: 'Khulna Division' },
+            ]}
+          />
+          <Input
+            label="Preferred Courier Partners (CSV)"
+            value={settingsDraft.preferredCouriers.join(', ')}
+            onChange={(e) =>
+              setSettingsDraft({
+                ...settingsDraft,
+                preferredCouriers: e.target.value
+                  .split(',')
+                  .map((s) => s.trim())
+                  .filter(Boolean),
+              })
+            }
+          />
+          <label className="inline-flex items-start gap-2 text-xs leading-snug cursor-pointer">
+            <input
+              type="checkbox"
+              checked={settingsDraft.codSupported}
+              onChange={(e) =>
+                setSettingsDraft({ ...settingsDraft, codSupported: e.target.checked })
+              }
+              className="mt-[2px] shrink-0"
+            />
+            <span>Enable Cash on Delivery (COD) for eligible Bangladesh orders</span>
+          </label>
+          <div>
+            <Button type="submit" variant="primary" size="md" disabled={savingId === 'settings'}>
+              Save Shipping Preferences
+            </Button>
+          </div>
+        </form>
+      )}
+
+      {/* 10. Payout Information */}
+      {activeTab === 'payouts' && settingsDraft && (
+        <form
+          onSubmit={handleSaveSettings}
+          className="max-w-xl p-5 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-4"
+        >
+          <div className="flex items-center gap-2">
+            <CreditCard className="w-4 h-4 text-[var(--ks-accent)]" />
+            <h3 className="text-base font-medium">BDT Merchant Payout Settings</h3>
+          </div>
+          <Select
+            label="Settlement Channel"
+            value={settingsDraft.payoutChannel}
+            onChange={(e) =>
+              setSettingsDraft({ ...settingsDraft, payoutChannel: e.target.value })
+            }
+            options={[
+              { value: 'Bangladesh Bank NPSB Transfer', label: 'Bangladesh Bank NPSB Transfer' },
+              { value: 'bKash Merchant Wallet', label: 'bKash Merchant Wallet' },
+              { value: 'Nagad Merchant Wallet', label: 'Nagad Merchant Wallet' },
+            ]}
+          />
+          <Select
+            label="Payout Schedule"
+            value={settingsDraft.payoutSchedule}
+            onChange={(e) =>
+              setSettingsDraft({ ...settingsDraft, payoutSchedule: e.target.value })
+            }
+            options={[
+              { value: 'Weekly (Sunday Settlement)', label: 'Weekly (Sunday Settlement)' },
+              { value: 'Bi-Weekly (1st & 15th)', label: 'Bi-Weekly (1st & 15th)' },
+            ]}
+          />
+          <Input
+            label="Masked Destination Reference"
+            value={settingsDraft.payoutAccountMasked}
+            onChange={(e) =>
+              setSettingsDraft({ ...settingsDraft, payoutAccountMasked: e.target.value })
+            }
+          />
+          <Button type="submit" variant="primary" size="md" disabled={savingId === 'settings'}>
+            Update Payout Preferences
+          </Button>
+        </form>
       )}
 
       {/* Add Seller Listing Modal */}
@@ -572,7 +975,7 @@ export const SellerDashboard: React.FC = () => {
               <select
                 value={newCategory}
                 onChange={(e) => setNewCategory(e.target.value)}
-                className="w-full h-10 px-3 text-sm rounded-md bg-white dark:bg-[#141413] border border-[#DCD9D0] dark:border-[#2E2E2A]"
+                className="w-full h-10 px-3 text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border-strong)]"
               >
                 {categories.map((c) => (
                   <option key={c.slug} value={c.slug}>
@@ -587,7 +990,7 @@ export const SellerDashboard: React.FC = () => {
               <select
                 value={newPreset}
                 onChange={(e) => setNewPreset(e.target.value)}
-                className="w-full h-10 px-3 text-sm rounded-md bg-white dark:bg-[#141413] border border-[#DCD9D0] dark:border-[#2E2E2A]"
+                className="w-full h-10 px-3 text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border-strong)]"
               >
                 {IMAGE_PRESET_OPTIONS.map((opt) => (
                   <option key={opt.key} value={opt.key}>
@@ -665,23 +1068,23 @@ export const SellerDashboard: React.FC = () => {
             rows={3}
             value={newDesc}
             onChange={(e) => setNewDesc(e.target.value)}
-            placeholder="Concise summary describing materials, compatibility, and craftsmanship..."
+            placeholder="Concise summary describing materials, compatibility, and specifications..."
           />
 
-          <div className="p-3.5 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28]">
-            <label className="flex items-start gap-2.5 cursor-pointer text-xs leading-relaxed text-[#5C5B57] dark:text-[#A3A19B] select-none">
+          <div className="p-3.5 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)]">
+            <label className="flex items-start gap-2.5 cursor-pointer text-xs leading-relaxed text-[var(--ks-text-secondary)] select-none">
               <input
                 type="checkbox"
                 checked={newAcceptedSellerTerms}
                 onChange={(e) => setNewAcceptedSellerTerms(e.target.checked)}
-                className="mt-0.5 w-4 h-4 shrink-0 accent-[#171716] dark:accent-[#F4F3EF] cursor-pointer"
+                className="mt-0.5 w-4 h-4 shrink-0 accent-[var(--ks-action)] cursor-pointer"
               />
               <span>
                 I certify this product is authentic, complies with{' '}
                 <button
                   type="button"
                   onClick={() => openPolicyPreview('prohibited-items')}
-                  className="underline font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                  className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                 >
                   Prohibited Items
                 </button>{' '}
@@ -689,7 +1092,7 @@ export const SellerDashboard: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => openPolicyPreview('product-safety')}
-                  className="underline font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                  className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                 >
                   Product Safety
                 </button>{' '}
@@ -697,7 +1100,7 @@ export const SellerDashboard: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => openPolicyPreview('seller-agreement')}
-                  className="underline font-medium text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                  className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                 >
                   Seller Marketplace Agreement
                 </button>

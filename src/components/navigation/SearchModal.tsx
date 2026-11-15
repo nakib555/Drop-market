@@ -156,7 +156,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: -6 }}
             transition={STUDIO_TRANSITION.base}
-            className="w-full max-w-2xl rounded-lg bg-[#FFFFFF] dark:bg-[#191917] text-[#171716] dark:text-[#F4F3EF] border border-[#E5E3DD] dark:border-[#2C2C28] shadow-2xl overflow-hidden focus:outline-none"
+            className="w-full max-w-2xl rounded-lg bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)] shadow-2xl overflow-hidden focus:outline-none"
             onClick={(e) => e.stopPropagation()}
           >
             <form
@@ -164,25 +164,25 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
                 e.preventDefault();
                 submitSearch(term);
               }}
-              className="flex items-center gap-3 px-4 sm:px-5 h-14 border-b border-[#E5E3DD] dark:border-[#2C2C28]"
+              className="flex items-center gap-3 px-4 sm:px-5 h-14 border-b border-[var(--ks-border)]"
             >
-              <Search className="w-4 h-4 text-[#84827B] shrink-0" aria-hidden="true" />
+              <Search className="w-4 h-4 text-[var(--ks-text-muted)] shrink-0" aria-hidden="true" />
               <input
                 ref={inputRef}
                 type="search"
                 value={term}
                 onChange={(e) => setTerm(e.target.value)}
                 onKeyDown={handleInputKeyDown}
-                placeholder="Search products, brands, or categories (typo-tolerant)..."
+                placeholder="Search products, brands, or departments..."
                 aria-label="Search catalog"
-                className="flex-1 bg-transparent text-sm text-[#171716] dark:text-[#F4F3EF] placeholder:text-[#84827B] focus:outline-none"
+                className="flex-1 bg-transparent text-sm text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)] focus:outline-none"
               />
               {term && (
                 <button
                   type="button"
                   onClick={() => setTerm('')}
                   aria-label="Clear search query"
-                  className="text-xs text-[#84827B] hover:text-[#171716] dark:hover:text-[#F4F3EF] px-2 py-1 cursor-pointer"
+                  className="text-xs text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] px-2 py-1 cursor-pointer"
                 >
                   Clear
                 </button>
@@ -191,7 +191,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
                 type="button"
                 onClick={onClose}
                 aria-label="Close search"
-                className="w-10 h-10 -mr-1 rounded-md flex items-center justify-center text-[#5C5B57] dark:text-[#A3A19B] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] cursor-pointer"
+                className="w-10 h-10 -mr-1 rounded-md flex items-center justify-center text-[var(--ks-text-secondary)] hover:bg-[var(--ks-surface-muted)] cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -211,9 +211,9 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
                             onClose();
                             navigate({ name: 'category', category: cat.slug });
                           }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#F2F0EC] dark:bg-[#22221F] text-xs font-medium hover:border-[#171716] border border-transparent dark:hover:border-[#F4F3EF] cursor-pointer transition-colors"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[var(--ks-surface-muted)] text-xs font-medium border border-[var(--ks-border)] hover:border-[var(--ks-action)] cursor-pointer transition-colors"
                         >
-                          <Layers className="w-3.5 h-3.5 text-[#8F6438] dark:text-[#C89B67]" />
+                          <Layers className="w-3.5 h-3.5 text-[var(--ks-accent)]" />
                           <span>Department: {cat.name}</span>
                         </button>
                       ))}
@@ -229,36 +229,50 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
                               brand: b.name,
                             });
                           }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] text-xs font-medium hover:border-[#171716] dark:hover:border-[#F4F3EF] cursor-pointer transition-colors"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[var(--ks-border)] text-xs font-medium hover:border-[var(--ks-action)] cursor-pointer transition-colors"
                         >
-                          <Store className="w-3.5 h-3.5 text-[#8F6438] dark:text-[#C89B67]" />
+                          <Store className="w-3.5 h-3.5 text-[var(--ks-accent)]" />
                           <span>Brand: {b.name}</span>
                         </button>
                       ))}
                     </div>
                   )}
 
-                  {/* Fuzzy-matched Products */}
+                  {/* Matched Products */}
                   <div>
                     <div className="flex items-baseline justify-between gap-3 mb-3">
-                      <p className="text-xs font-medium text-[#84827B] min-w-0">
+                      <p className="text-xs font-medium text-[var(--ks-text-muted)] min-w-0">
                         Matching Products ({suggestions.length})
                       </p>
                       <button
                         type="button"
                         onClick={() => submitSearch(term)}
-                        className="text-xs font-medium text-[#8F6438] dark:text-[#C89B67] inline-flex items-center gap-1 hover:underline cursor-pointer shrink-0 whitespace-nowrap"
+                        className="text-xs font-medium text-[var(--ks-accent)] inline-flex items-center gap-1 hover:underline cursor-pointer shrink-0 whitespace-nowrap"
                       >
                         <span>View all results</span>
                         <ArrowRight className="w-3 h-3" />
                       </button>
                     </div>
                     {suggestions.length === 0 ? (
-                      <p className="text-sm text-[#5C5B57] dark:text-[#A3A19B] py-4">
-                        No direct matches for &ldquo;{term}&rdquo;. Try browsing a department or press Enter for full search options.
-                      </p>
+                      <div className="py-4 space-y-3">
+                        <p className="text-sm text-[var(--ks-text-secondary)]">
+                          No direct matches for &ldquo;{term}&rdquo;. Try one of these popular terms or browse all departments.
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {POPULAR_SEARCHES.map((q) => (
+                            <button
+                              key={q}
+                              type="button"
+                              onClick={() => submitSearch(q)}
+                              className="px-3 py-1.5 rounded-md bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] text-xs font-medium hover:border-[var(--ks-action)] cursor-pointer transition-colors"
+                            >
+                              {q}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     ) : (
-                      <ul className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28]">
+                      <ul className="divide-y divide-[var(--ks-border)]">
                         {suggestions.map((item, idx) => (
                           <li key={item.id}>
                             <button
@@ -270,8 +284,8 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
                               }}
                               className={`w-full py-3 flex items-center gap-4 text-left px-2.5 -mx-2.5 rounded-md transition-colors cursor-pointer ${
                                 idx === activeIndex
-                                  ? 'bg-[#F2F0EC] dark:bg-[#22221F]'
-                                  : 'hover:bg-[#F9F8F6] dark:hover:bg-[#22221F]'
+                                  ? 'bg-[var(--ks-surface-muted)]'
+                                  : 'hover:bg-[var(--ks-surface-muted)]'
                               }`}
                             >
                               <ResilientImage
@@ -281,7 +295,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
                               />
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium truncate">{item.name}</p>
-                                <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] truncate">
+                                <p className="text-xs text-[var(--ks-text-secondary)] truncate">
                                   {item.brand} · {item.categoryLabel}
                                 </p>
                               </div>
@@ -300,11 +314,11 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
                   {recentSearches.length > 0 && (
                     <div>
                       <div className="flex items-center justify-between mb-2.5">
-                        <p className="text-xs font-medium text-[#84827B]">Recent Searches</p>
+                        <p className="text-xs font-medium text-[var(--ks-text-muted)]">Recent Searches</p>
                         <button
                           type="button"
                           onClick={clearRecentSearches}
-                          className="text-xs text-[#84827B] hover:text-[#171716] dark:hover:text-[#F4F3EF] inline-flex items-center gap-1 cursor-pointer"
+                          className="text-xs text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] inline-flex items-center gap-1 cursor-pointer"
                         >
                           <Trash2 className="w-3 h-3" />
                           <span>Clear</span>
@@ -316,9 +330,9 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
                             key={q}
                             type="button"
                             onClick={() => submitSearch(q)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] text-xs hover:border-[#171716] dark:hover:border-[#F4F3EF] cursor-pointer transition-colors"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[var(--ks-border)] text-xs hover:border-[var(--ks-action)] cursor-pointer transition-colors"
                           >
-                            <Clock className="w-3 h-3 text-[#84827B]" />
+                            <Clock className="w-3 h-3 text-[var(--ks-text-muted)]" />
                             <span>{q}</span>
                           </button>
                         ))}
@@ -327,14 +341,14 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
                   )}
 
                   <div>
-                    <p className="text-xs font-medium text-[#84827B] mb-2.5">Popular Searches</p>
+                    <p className="text-xs font-medium text-[var(--ks-text-muted)] mb-2.5">Popular Searches</p>
                     <div className="flex flex-wrap gap-2">
                       {POPULAR_SEARCHES.map((q) => (
                         <button
                           key={q}
                           type="button"
                           onClick={() => submitSearch(q)}
-                          className="px-3 py-1.5 rounded-md bg-[#F2F0EC] dark:bg-[#22221F] text-xs font-medium hover:bg-[#E5E3DD] dark:hover:bg-[#2E2E2A] cursor-pointer transition-colors"
+                          className="px-3 py-1.5 rounded-md bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] text-xs font-medium hover:border-[var(--ks-action)] cursor-pointer transition-colors"
                         >
                           {q}
                         </button>
@@ -343,7 +357,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
                   </div>
 
                   <div>
-                    <p className="text-xs font-medium text-[#84827B] mb-2.5">
+                    <p className="text-xs font-medium text-[var(--ks-text-muted)] mb-2.5">
                       Browse All Departments ({categories.length})
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -355,10 +369,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
                             onClose();
                             navigate({ name: 'category', category: cat.slug });
                           }}
-                          className="flex items-center justify-between gap-2 p-2.5 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] hover:border-[#171716] dark:hover:border-[#F4F3EF] text-left cursor-pointer transition-colors"
+                          className="flex items-center justify-between gap-2 p-2.5 rounded-md border border-[var(--ks-border)] hover:border-[var(--ks-action)] text-left cursor-pointer transition-colors"
                         >
                           <span className="text-sm font-medium min-w-0 truncate">{cat.name}</span>
-                          <ArrowRight className="w-3.5 h-3.5 text-[#84827B] shrink-0" />
+                          <ArrowRight className="w-3.5 h-3.5 text-[var(--ks-text-muted)] shrink-0" />
                         </button>
                       ))}
                     </div>

@@ -72,9 +72,9 @@ class RouteChunkErrorBoundary extends React.Component<
     if (this.state.hasError) {
       return (
         <div className="min-h-[60vh] max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-16 flex items-center justify-center">
-          <div className="max-w-md w-full p-6 sm:p-8 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] text-center space-y-4">
-            <h2 className="font-display text-2xl font-medium">Unable to load view</h2>
-            <p className="text-sm text-[#5C5B57] dark:text-[#A3A19B]">
+          <div className="max-w-md w-full p-6 sm:p-8 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] text-center space-y-4">
+            <h2 className="font-display text-2xl font-medium text-[var(--ks-text-primary)]">Unable to load view</h2>
+            <p className="text-sm text-[var(--ks-text-secondary)]">
               A temporary network interruption prevented loading this section.
             </p>
             <div className="flex items-center justify-center gap-3 pt-1">
@@ -149,14 +149,20 @@ export const StorefrontRouter: React.FC<StorefrontRouterProps> = ({ route }) => 
         return <LegalCenterPage />;
       case 'shipping-policy':
       case 'return-policy':
+      case 'cancellation-policy':
+      case 'payment-policy':
+      case 'warranty-policy':
       case 'privacy-policy':
       case 'cookie-policy':
       case 'terms':
       case 'seller-agreement':
+      case 'marketplace-terms':
       case 'prohibited-items':
       case 'product-safety':
       case 'acceptable-use':
       case 'intellectual-property':
+      case 'customer-support-policy':
+      case 'data-retention-policy':
       case 'accessibility':
         return <PolicyPage policyId={route.name} />;
       case 'maintenance':

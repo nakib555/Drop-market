@@ -3,6 +3,7 @@ import {
   Bell,
   CreditCard,
   Heart,
+  HelpCircle,
   Lock,
   LogOut,
   MapPin,
@@ -12,11 +13,9 @@ import {
   Shield,
   ShieldCheck,
   ShoppingBag,
-  Star,
   Store,
   Trash2,
   User,
-  UserCheck,
   XCircle,
 } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -35,32 +34,56 @@ import {
   formatShortDate,
   isProductOutOfStock,
 } from '../utils/format';
+import { t } from '../utils/i18n';
 import { STUDIO_TRANSITION } from '../utils/motion';
+import { isValidContactPhone } from '../utils/validation';
 
 type AccountSection =
   | 'overview'
-  | 'seller-hub'
-  | 'admin-console'
   | 'profile'
-  | 'password'
   | 'addresses'
   | 'orders'
   | 'wishlist'
-  | 'reviews'
-  | 'notifications'
   | 'payments'
-  | 'privacy';
+  | 'returns'
+  | 'support'
+  | 'security'
+  | 'seller-hub'
+  | 'admin-console';
+
+function normalizeAccountTab(raw?: string): AccountSection {
+  if (!raw) return 'overview';
+  if (raw === 'password' || raw === 'notifications' || raw === 'privacy') {
+    return 'security';
+  }
+  if (
+    raw === 'overview' ||
+    raw === 'profile' ||
+    raw === 'addresses' ||
+    raw === 'orders' ||
+    raw === 'wishlist' ||
+    raw === 'payments' ||
+    raw === 'returns' ||
+    raw === 'support' ||
+    raw === 'security' ||
+    raw === 'seller-hub' ||
+    raw === 'admin-console'
+  ) {
+    return raw;
+  }
+  return 'overview';
+}
 
 export const AccountPage: React.FC = () => {
   const {
+    language,
     currency,
     route,
     navigate,
     profile,
-    authAccounts,
     updateProfile,
+    changePassword,
     logoutDemo,
-    switchDemoAccount,
     orders,
     reorderFromOrder,
     cancelOrder,
@@ -74,7 +97,6 @@ export const AccountPage: React.FC = () => {
     addToCart,
     products,
     paymentMethods,
-    addPaymentMethod,
     deletePaymentMethod,
     setDefaultPaymentMethod,
     notificationPrefs,
@@ -91,7 +113,7 @@ export const AccountPage: React.FC = () => {
       ? 'seller-hub'
       : route.name === 'admin'
       ? 'admin-console'
-      : (route.accountTab as AccountSection) || 'overview';
+      : normalizeAccountTab(route.accountTab);
 
   const [section, setSection] = useState<AccountSection>(initialTab);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -101,6 +123,7 @@ export const AccountPage: React.FC = () => {
   const [emailInput, setEmailInput] = useState(profile.email);
   const [phoneInput, setPhoneInput] = useState(profile.phone);
   const [studioInput, setStudioInput] = useState(profile.studioName || '');
+  const [profileError, setProfileError] = useState('');
 
   useEffect(() => {
     setNameInput(profile.fullName);
@@ -115,7 +138,7 @@ export const AccountPage: React.FC = () => {
     } else if (route.name === 'admin') {
       setSection('admin-console');
     } else if (route.accountTab) {
-      setSection(route.accountTab as AccountSection);
+      setSection(normalizeAccountTab(route.accountTab));
     }
   }, [route.name, route.accountTab]);
 
@@ -124,6 +147,14 @@ export const AccountPage: React.FC = () => {
   const [newPwd, setNewPwd] = useState('');
   const [confirmPwd, setConfirmPwd] = useState('');
   const [pwdError, setPwdError] = useState('');
+  const [pwdSaving, setPwdSaving] = useState(false);
+
+  // Return reason state
+  const [returnReasonMap, setReturnReasonMap] = useState<Record<string, string>>({});
+
+  // Support quick inquiry
+  const [supportSubject, setSupportSubject] = useState('');
+  const [supportMessage, setSupportMessage] = useState('');
 
   // Add address form (defaults to Bangladesh 5-level hierarchy)
   const bdDefaultDiv = BANGLADESH_GEO_TREE[0];
@@ -142,48 +173,35 @@ export const AccountPage: React.FC = () => {
   const [addrZip, setAddrZip] = useState(bdDefaultArea.postalCode);
   const [addrError, setAddrError] = useState('');
 
-  // Add payment card form
-  const [cardBrand, setCardBrand] = useState('Visa');
-  const [cardLast4, setCardLast4] = useState('');
-  const [cardExp, setCardExp] = useState('');
-  const [cardError, setCardError] = useState('');
-
   const wishlistedProducts = products.filter((p) => wishlistIds.includes(p.id));
-  const authoredReviews = products.flatMap((p) =>
-    p.reviews.map((r) => ({ ...r, productName: p.name, productSlug: p.slug }))
-  );
-
-  const primaryRoleAccounts = ['customer', 'seller', 'admin']
-    .map((roleKey) => authAccounts.find((a) => a.role === roleKey))
-    .filter((a): a is NonNullable<typeof a> => Boolean(a));
+  const returnEligibleOrders = orders.filter((o) => o.currentStage === 'Delivered');
+  const returnRequestedOrders = orders.filter((o) => o.currentStage === 'Return Requested');
 
   if (!profile.isAuthenticated || route.name === 'login') {
     return (
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-8">
+      <div className="ks-container py-8 lg:py-12 space-y-8">
         <Breadcrumb
           items={[
             { label: 'Home', onClick: () => navigate({ name: 'home' }) },
-            { label: 'Sign In & Marketplace Portals' },
+            { label: t(language, 'signIn') },
           ]}
         />
 
         <div className="max-w-2xl space-y-2">
-          <p className="text-xs uppercase tracking-[0.14em] text-[#8F6438] dark:text-[#C89B67] font-medium">
-            Kinto Studio Access
-          </p>
+          <p className="ks-eyebrow text-[var(--ks-accent)]">Kinto Studio Account</p>
           <h1 className="font-display text-3xl sm:text-5xl font-medium tracking-tight">
-            Account Sign In &amp; Role Portals
+            Sign In or Create Account
           </h1>
-          <p className="text-sm text-[#5C5B57] dark:text-[#B4B2AC] leading-relaxed">
-            Sign in or select a role workspace below to unlock your Customer Orders, Wishlist, Seller Studio inventory, or Platform Admin Console.
+          <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
+            Access your orders, Bangladesh shipping addresses, tokenized payment preferences, or verified Seller Studio workspace.
           </p>
         </div>
 
         {profile.isAuthenticated && route.name === 'login' && (
-          <div className="p-4 sm:p-5 rounded-lg bg-[#F2F0EC] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] flex flex-wrap items-center justify-between gap-4">
+          <div className="p-4 sm:p-5 rounded-[var(--ks-radius-lg)] bg-[var(--ks-bg-secondary)] border border-[var(--ks-border)] flex flex-wrap items-center justify-between gap-4">
             <div className="space-y-0.5">
-              <p className="text-xs uppercase tracking-wider text-[#8F6438] dark:text-[#C89B67] font-medium">
-                Active Session Detected
+              <p className="text-xs uppercase tracking-wider text-[var(--ks-accent)] font-medium">
+                Active Session
               </p>
               <p className="text-sm font-medium">
                 Signed in as {profile.fullName} ({profile.studioRole})
@@ -204,7 +222,7 @@ export const AccountPage: React.FC = () => {
                 })
               }
             >
-              Continue to Active Pages →
+              Open Active Workspace →
             </Button>
           </div>
         )}
@@ -235,28 +253,27 @@ export const AccountPage: React.FC = () => {
     Icon: React.FC<{ className?: string }>;
     visible: boolean;
   }[] = [
-    { id: 'overview', label: 'Overview', Icon: User, visible: true },
+    { id: 'overview', label: t(language, 'accountOverview'), Icon: User, visible: true },
+    { id: 'profile', label: t(language, 'personalInfo'), Icon: User, visible: true },
+    { id: 'addresses', label: t(language, 'addresses'), Icon: MapPin, visible: true },
+    { id: 'orders', label: t(language, 'orders'), Icon: Package, visible: true },
+    { id: 'wishlist', label: t(language, 'wishlist'), Icon: Heart, visible: true },
+    { id: 'payments', label: t(language, 'paymentMethods'), Icon: CreditCard, visible: true },
+    { id: 'returns', label: t(language, 'returns'), Icon: RotateCcw, visible: true },
+    { id: 'support', label: t(language, 'support'), Icon: HelpCircle, visible: true },
+    { id: 'security', label: t(language, 'accountSecurity'), Icon: Lock, visible: true },
     {
       id: 'seller-hub',
-      label: 'Seller Studio',
+      label: t(language, 'sellerWorkspace'),
       Icon: Store,
       visible: profile.role === 'seller' || profile.role === 'admin',
     },
     {
       id: 'admin-console',
-      label: 'Admin Console',
+      label: t(language, 'adminWorkspace'),
       Icon: ShieldCheck,
       visible: profile.role === 'admin',
     },
-    { id: 'orders', label: 'Order History', Icon: Package, visible: true },
-    { id: 'wishlist', label: 'Wishlist', Icon: Heart, visible: true },
-    { id: 'addresses', label: 'Address Book', Icon: MapPin, visible: true },
-    { id: 'payments', label: 'Payment Methods', Icon: CreditCard, visible: true },
-    { id: 'profile', label: 'Personal Information', Icon: User, visible: true },
-    { id: 'password', label: 'Change Password', Icon: Lock, visible: true },
-    { id: 'reviews', label: 'Product Reviews', Icon: Star, visible: true },
-    { id: 'notifications', label: 'Notifications', Icon: Bell, visible: true },
-    { id: 'privacy', label: 'Privacy Settings', Icon: Shield, visible: true },
   ];
 
   const switchSection = (next: AccountSection) => {
@@ -271,7 +288,7 @@ export const AccountPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-8">
+    <div className="ks-container py-8 lg:py-12 space-y-8">
       <Breadcrumb
         items={[
           { label: 'Home', onClick: () => navigate({ name: 'home' }) },
@@ -280,67 +297,43 @@ export const AccountPage: React.FC = () => {
               section === 'admin-console'
                 ? 'Admin Console'
                 : section === 'seller-hub'
-                ? 'Seller Studio'
-                : 'Account Workspace',
+                ? 'Seller Dashboard'
+                : t(language, 'myAccount'),
           },
         ]}
       />
 
-      {/* Header with Live API Role Switcher */}
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 pb-6 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+      {/* Authenticated Account Header (zero role-switching shortcuts) */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-[var(--ks-border)]">
         <div>
-          <p className="text-xs uppercase tracking-wider text-[#8F6438] dark:text-[#C89B67] font-medium">
+          <p className="text-xs uppercase tracking-wider text-[var(--ks-accent)] font-medium">
             {profile.studioRole}
             {profile.studioName ? ` · ${profile.studioName}` : ''}
           </p>
           <h1 className="font-display text-[clamp(1.85rem,3.5vw,3rem)] font-medium mt-1">
-            Welcome, {profile.fullName}
+            {profile.fullName || 'My Account'}
           </h1>
+          <p className="text-xs text-[var(--ks-text-secondary)] mt-0.5 font-mono-num">
+            {profile.email}
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {primaryRoleAccounts.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-md bg-[#F2F0EC] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]">
-              <span className="text-[11px] leading-none text-[#84827B] px-2 inline-flex items-center gap-1">
-                <UserCheck className="w-3 h-3 shrink-0" /> Role:
-              </span>
-              {primaryRoleAccounts.map((acc) => {
-                const active = profile.role === acc.role;
-                return (
-                  <button
-                    key={acc.id}
-                    type="button"
-                    onClick={async () => {
-                      const ok = await switchDemoAccount(acc.id);
-                      if (ok) {
-                        if (acc.role === 'seller') switchSection('seller-hub');
-                        else if (acc.role === 'admin') switchSection('admin-console');
-                        else switchSection('overview');
-                      }
-                    }}
-                    className={`px-2.5 py-1 rounded text-xs font-medium capitalize cursor-pointer transition-colors ${
-                      active
-                        ? 'bg-[#171716] text-white dark:bg-[#F4F3EF] dark:text-[#171716]'
-                        : 'text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
-                    }`}
-                  >
-                    {acc.role}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          <Button variant="outline" size="sm" onClick={logoutDemo}>
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Sign Out</span>
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            logoutDemo();
+            navigate({ name: 'login' });
+          }}
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          <span>{t(language, 'signOut')}</span>
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
-        {/* Role-aware Sidebar */}
-        <aside className="lg:col-span-3 p-2 sm:p-3 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]">
+        {/* Role-scoped Sidebar */}
+        <aside className="lg:col-span-3 p-2 sm:p-3 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)]">
           <nav
             aria-label="Account sections"
             className="flex overflow-x-auto lg:flex-col gap-1 pb-1 lg:pb-0 no-scrollbar"
@@ -354,17 +347,17 @@ export const AccountPage: React.FC = () => {
                     key={id}
                     type="button"
                     onClick={() => switchSection(id)}
-                    className={`relative flex items-center gap-2.5 px-3.5 py-2.5 min-h-[40px] rounded-md text-xs sm:text-sm font-medium text-left whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                    className={`relative flex items-center gap-2.5 px-3.5 py-2.5 min-h-[40px] rounded-[var(--ks-radius-md)] text-xs sm:text-sm font-medium text-left whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
                       active
-                        ? 'text-white dark:text-[#171716]'
-                        : 'text-[#5C5B57] dark:text-[#B4B2AC] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
+                        ? 'text-[var(--ks-action-text)]'
+                        : 'text-[var(--ks-text-secondary)] hover:bg-[var(--ks-surface-muted)] hover:text-[var(--ks-text-primary)]'
                     }`}
                   >
                     {active && (
                       <motion.span
                         layoutId="account-nav-pill"
                         transition={STUDIO_TRANSITION.springTab}
-                        className="absolute inset-0 rounded-md bg-[#171716] dark:bg-[#F4F3EF]"
+                        className="absolute inset-0 rounded-[var(--ks-radius-md)] bg-[var(--ks-action)]"
                       />
                     )}
                     <Icon className="w-4 h-4 shrink-0 relative z-10" />
@@ -375,416 +368,359 @@ export const AccountPage: React.FC = () => {
           </nav>
         </aside>
 
-        {/* Active Panel */}
-        <div className="lg:col-span-9 p-5 sm:p-8 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-6">
+        {/* Active Section Content */}
+        <div className="lg:col-span-9 p-5 sm:p-8 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-6">
           <motion.div
             key={section}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={STUDIO_TRANSITION.fast}
           >
-          {section === 'seller-hub' &&
-            (profile.role === 'seller' || profile.role === 'admin' ? (
-              <SellerDashboard />
-            ) : (
-              <div className="py-10 text-center space-y-4 max-w-md mx-auto">
-                <Store className="w-7 h-7 mx-auto text-[#8F6438] dark:text-[#C89B67]" />
-                <h2 className="font-display text-2xl font-medium">Seller Studio Access Required</h2>
-                <p className="text-sm text-[#5C5B57] dark:text-[#A3A19B]">
-                  Switch to a Verified Seller Studio account from the role bar above to manage inventory and dispatch orders.
-                </p>
-                {primaryRoleAccounts.find((a) => a.role === 'seller') && (
-                  <Button
-                    variant="primary"
-                    size="md"
-                    onClick={() => {
-                      const seller = primaryRoleAccounts.find((a) => a.role === 'seller');
-                      if (seller) switchDemoAccount(seller.id);
-                    }}
-                  >
-                    Switch to Seller Studio Account
+            {section === 'seller-hub' &&
+              (profile.role === 'seller' || profile.role === 'admin' ? (
+                <SellerDashboard />
+              ) : (
+                <div className="py-12 text-center space-y-4 max-w-md mx-auto">
+                  <Store className="w-7 h-7 mx-auto text-[var(--ks-accent)]" />
+                  <h2 className="font-display text-2xl font-medium">Seller Authorization Required</h2>
+                  <p className="text-sm text-[var(--ks-text-secondary)]">
+                    This workspace is restricted to approved Seller Studio accounts and platform administrators.
+                  </p>
+                  <Button variant="primary" size="md" onClick={() => switchSection('overview')}>
+                    Return to Account Overview
                   </Button>
-                )}
-              </div>
-            ))}
+                </div>
+              ))}
 
-          {section === 'admin-console' &&
-            (profile.role === 'admin' ? (
-              <AdminDashboard />
-            ) : (
-              <div className="py-10 text-center space-y-4 max-w-md mx-auto">
-                <ShieldCheck className="w-7 h-7 mx-auto text-[#8F6438] dark:text-[#C89B67]" />
-                <h2 className="font-display text-2xl font-medium">Platform Admin Access Required</h2>
-                <p className="text-sm text-[#5C5B57] dark:text-[#A3A19B]">
-                  Administrator privileges are required to moderate sellers, users, and dynamic marketplace departments.
-                </p>
-                {primaryRoleAccounts.find((a) => a.role === 'admin') && (
-                  <Button
-                    variant="primary"
-                    size="md"
-                    onClick={() => {
-                      const admin = primaryRoleAccounts.find((a) => a.role === 'admin');
-                      if (admin) switchDemoAccount(admin.id);
-                    }}
-                  >
-                    Switch to Platform Admin Account
+            {section === 'admin-console' &&
+              (profile.role === 'admin' ? (
+                <AdminDashboard />
+              ) : (
+                <div className="py-12 text-center space-y-4 max-w-md mx-auto">
+                  <ShieldCheck className="w-7 h-7 mx-auto text-[var(--ks-accent)]" />
+                  <h2 className="font-display text-2xl font-medium">Administrator Access Required</h2>
+                  <p className="text-sm text-[var(--ks-text-secondary)]">
+                    Platform Administration tools are restricted to authorized admin sessions.
+                  </p>
+                  <Button variant="primary" size="md" onClick={() => switchSection('overview')}>
+                    Return to Account Overview
                   </Button>
-                )}
-              </div>
-            ))}
+                </div>
+              ))}
 
-          {section === 'overview' && (
-            <div className="space-y-8">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="p-5 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28]">
-                  <p className="text-xs text-[#84827B]">Total Orders</p>
-                  <p className="font-mono-num text-2xl font-semibold mt-1">{orders.length}</p>
-                </div>
-                <div className="p-5 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28]">
-                  <p className="text-xs text-[#84827B]">Saved Wishlist</p>
-                  <p className="font-mono-num text-2xl font-semibold mt-1">{wishlistedProducts.length}</p>
-                </div>
-                <div className="p-5 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28]">
-                  <p className="text-xs text-[#84827B]">Account Role</p>
-                  <p className="font-mono-num text-xl font-semibold mt-1 capitalize">{profile.role}</p>
-                </div>
-              </div>
-
-              {(profile.role === 'seller' || profile.role === 'admin') && (
-                <div className="p-5 rounded-md bg-[#F2F0EC] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <p className="text-xs uppercase tracking-wider text-[#8F6438] dark:text-[#C89B67] font-medium">
-                      Active Workspace Shortcut
-                    </p>
-                    <p className="text-sm font-medium mt-0.5">
-                      {profile.role === 'admin'
-                        ? 'Open Platform Admin Console to moderate orders, sellers & categories.'
-                        : 'Open Seller Studio to update inventory stock, prices, or fulfill shipments.'}
+            {section === 'overview' && (
+              <div className="space-y-8">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="p-5 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)]">
+                    <p className="text-xs text-[var(--ks-text-muted)]">Total Orders</p>
+                    <p className="font-mono-num text-2xl font-semibold mt-1">{orders.length}</p>
+                  </div>
+                  <div className="p-5 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)]">
+                    <p className="text-xs text-[var(--ks-text-muted)]">Saved Wishlist</p>
+                    <p className="font-mono-num text-2xl font-semibold mt-1">
+                      {wishlistedProducts.length}
                     </p>
                   </div>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() =>
-                      switchSection(profile.role === 'admin' ? 'admin-console' : 'seller-hub')
-                    }
-                  >
-                    {profile.role === 'admin' ? 'Open Admin Console' : 'Open Seller Studio'}
-                  </Button>
+                  <div className="p-5 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)]">
+                    <p className="text-xs text-[var(--ks-text-muted)]">Account Role</p>
+                    <p className="font-mono-num text-xl font-semibold mt-1 capitalize">
+                      {profile.role}
+                    </p>
+                  </div>
                 </div>
-              )}
 
-              {/* Quick Launcher for All Post-Login Pages */}
-              <div className="space-y-3">
-                <h2 className="font-display text-2xl font-medium">Your Account Pages</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {[
-                    {
-                      id: 'orders' as AccountSection,
-                      title: 'Order History',
-                      desc: `${orders.length} orders · Track, reorder & returns`,
-                      Icon: Package,
-                      visible: true,
-                    },
-                    {
-                      id: 'wishlist' as AccountSection,
-                      title: 'Saved Wishlist',
-                      desc: `${wishlistedProducts.length} saved pieces`,
-                      Icon: Heart,
-                      visible: true,
-                    },
-                    {
-                      id: 'addresses' as AccountSection,
-                      title: 'Address Book',
-                      desc: `${addresses.length} shipping destinations`,
-                      Icon: MapPin,
-                      visible: true,
-                    },
-                    {
-                      id: 'payments' as AccountSection,
-                      title: 'Payment Methods',
-                      desc: `${paymentMethods.length} saved cards`,
-                      Icon: CreditCard,
-                      visible: true,
-                    },
-                    {
-                      id: 'profile' as AccountSection,
-                      title: 'Personal Information',
-                      desc: 'Name, email & contact phone',
-                      Icon: User,
-                      visible: true,
-                    },
-                    {
-                      id: 'notifications' as AccountSection,
-                      title: 'Notifications & Alerts',
-                      desc: 'Dispatch, restock & journal prefs',
-                      Icon: Bell,
-                      visible: true,
-                    },
-                    {
-                      id: 'seller-hub' as AccountSection,
-                      title: 'Seller Studio',
-                      desc: 'Inventory, listings & dispatch',
-                      Icon: Store,
-                      visible: profile.role === 'seller' || profile.role === 'admin',
-                    },
-                    {
-                      id: 'admin-console' as AccountSection,
-                      title: 'Admin Console',
-                      desc: 'Platform GMV, sellers & categories',
-                      Icon: ShieldCheck,
-                      visible: profile.role === 'admin',
-                    },
-                  ]
-                    .filter((card) => card.visible)
-                    .map(({ id, title, desc, Icon }) => (
+                {(profile.role === 'seller' || profile.role === 'admin') && (
+                  <div className="p-5 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg-secondary)] border border-[var(--ks-border)] flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-wider text-[var(--ks-accent)] font-medium">
+                        Partner Workspace
+                      </p>
+                      <p className="text-sm font-medium mt-0.5">
+                        {profile.role === 'admin'
+                          ? 'Open Platform Admin Console to manage orders, sellers, promotions, and categories.'
+                          : 'Open Seller Dashboard to manage inventory, shipments, returns, and payouts.'}
+                      </p>
+                    </div>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() =>
+                        switchSection(profile.role === 'admin' ? 'admin-console' : 'seller-hub')
+                      }
+                    >
+                      {profile.role === 'admin' ? 'Open Admin Console' : 'Open Seller Dashboard'}
+                    </Button>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <h2 className="font-display text-2xl font-medium">Account Sections</h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {[
+                      {
+                        id: 'orders' as AccountSection,
+                        title: 'Orders',
+                        desc: `${orders.length} orders · Track, reorder & cancel`,
+                        Icon: Package,
+                      },
+                      {
+                        id: 'wishlist' as AccountSection,
+                        title: 'Wishlist',
+                        desc: `${wishlistedProducts.length} saved products`,
+                        Icon: Heart,
+                      },
+                      {
+                        id: 'addresses' as AccountSection,
+                        title: 'Addresses',
+                        desc: `${addresses.length} delivery destinations`,
+                        Icon: MapPin,
+                      },
+                      {
+                        id: 'payments' as AccountSection,
+                        title: 'Payment Methods',
+                        desc: `${paymentMethods.length} tokenized methods`,
+                        Icon: CreditCard,
+                      },
+                      {
+                        id: 'returns' as AccountSection,
+                        title: 'Returns',
+                        desc: `${returnRequestedOrders.length} active · ${returnEligibleOrders.length} eligible`,
+                        Icon: RotateCcw,
+                      },
+                      {
+                        id: 'support' as AccountSection,
+                        title: 'Support',
+                        desc: 'Order help, FAQ & customer care',
+                        Icon: HelpCircle,
+                      },
+                      {
+                        id: 'profile' as AccountSection,
+                        title: 'Personal Information',
+                        desc: 'Name, email & phone number',
+                        Icon: User,
+                      },
+                      {
+                        id: 'security' as AccountSection,
+                        title: 'Account Security',
+                        desc: 'Password, alerts & privacy',
+                        Icon: Shield,
+                      },
+                    ].map(({ id, title, desc, Icon }) => (
                       <button
                         key={id}
                         type="button"
                         onClick={() => switchSection(id)}
-                        className="group p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] hover:border-[#8F6438] dark:hover:border-[#C89B67] text-left transition-colors cursor-pointer flex items-start gap-3"
+                        className="group p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)] hover:border-[var(--ks-accent)] text-left transition-colors cursor-pointer flex items-start gap-3"
                       >
-                        <span className="w-8 h-8 mt-0.5 rounded bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] flex items-center justify-center text-[#8F6438] dark:text-[#C89B67] shrink-0">
+                        <span className="w-8 h-8 mt-0.5 rounded-[var(--ks-radius-sm)] bg-[var(--ks-surface)] border border-[var(--ks-border)] flex items-center justify-center text-[var(--ks-accent)] shrink-0">
                           <Icon className="w-4 h-4" />
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium leading-snug truncate group-hover:text-[#8F6438] dark:group-hover:text-[#C89B67] transition-colors">
+                          <p className="text-sm font-medium leading-snug truncate group-hover:text-[var(--ks-accent)] transition-colors">
                             {title}
                           </p>
-                          <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5 truncate leading-snug">
+                          <p className="text-xs text-[var(--ks-text-secondary)] mt-0.5 truncate leading-snug">
                             {desc}
                           </p>
                         </div>
                       </button>
                     ))}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="font-display text-2xl font-medium">Recent Orders</h2>
-                  <button
-                    type="button"
-                    onClick={() => switchSection('orders')}
-                    className="text-xs font-medium text-[#8F6438] dark:text-[#C89B67] hover:underline cursor-pointer"
-                  >
-                    View all orders
-                  </button>
-                </div>
-                {orders.length === 0 ? (
-                  <p className="text-sm text-[#5C5B57] dark:text-[#A3A19B] py-4 border-y border-[#E5E3DD] dark:border-[#2C2C28]">
-                    No orders recorded yet. Explore the marketplace catalog to place your first order.
-                  </p>
-                ) : (
-                  <div className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] border-y border-[#E5E3DD] dark:border-[#2C2C28]">
-                    {orders.slice(0, 3).map((ord) => (
-                      <div
-                        key={ord.id}
-                        className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-mono-num font-semibold">Order #{ord.id}</p>
-                          <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] mt-0.5 leading-snug">
-                            {formatShortDate(ord.createdAt)} · {ord.currentStage} ·{' '}
-                            <span className="uppercase font-mono-num">{ord.paymentStatus}</span>
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2.5 shrink-0">
-                          <span className="text-sm font-mono-num font-medium">
-                            {ord.currencySnapshot
-                              ? formatDirectCurrency(
-                                  ord.currencySnapshot.chargedTotal,
-                                  ord.currencySnapshot.transactionCurrency
-                                )
-                              : formatCurrency(ord.total, currency)}
-                          </span>
-                          <Button
-                            variant="outline"
-                            size="xs"
-                            onClick={() => navigate({ name: 'track-order', orderId: ord.id })}
-                          >
-                            Track
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
                   </div>
-                )}
-              </div>
-            </div>
-          )}
+                </div>
 
-          {section === 'profile' && (
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                await updateProfile({
-                  fullName: nameInput.trim(),
-                  email: emailInput.trim(),
-                  phone: phoneInput.trim(),
-                  studioName: profile.role === 'seller' ? studioInput.trim() : undefined,
-                });
-              }}
-              className="max-w-lg space-y-5"
-            >
-              <h2 className="font-display text-2xl font-medium">Personal Information</h2>
-              <Input
-                label="Full Name"
-                required
-                value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
-              />
-              {profile.role === 'seller' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h2 className="font-display text-2xl font-medium">Recent Orders</h2>
+                    <button
+                      type="button"
+                      onClick={() => switchSection('orders')}
+                      className="text-xs font-medium text-[var(--ks-accent)] hover:underline cursor-pointer"
+                    >
+                      View all orders
+                    </button>
+                  </div>
+                  {orders.length === 0 ? (
+                    <p className="text-sm text-[var(--ks-text-secondary)] py-4 border-y border-[var(--ks-border)]">
+                      No orders recorded yet. Explore the marketplace catalog to place your first order.
+                    </p>
+                  ) : (
+                    <div className="divide-y divide-[var(--ks-divider)] border-y border-[var(--ks-border)]">
+                      {orders.slice(0, 3).map((ord) => (
+                        <div
+                          key={ord.id}
+                          className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-mono-num font-semibold">Order #{ord.id}</p>
+                            <p className="text-xs text-[var(--ks-text-secondary)] mt-0.5 leading-snug">
+                              {formatShortDate(ord.createdAt)} · {ord.currentStage} ·{' '}
+                              <span className="uppercase font-mono-num">{ord.paymentStatus}</span>
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2.5 shrink-0">
+                            <span className="text-sm font-mono-num font-medium">
+                              {ord.currencySnapshot
+                                ? formatDirectCurrency(
+                                    ord.currencySnapshot.chargedTotal,
+                                    ord.currencySnapshot.transactionCurrency
+                                  )
+                                : formatCurrency(ord.total, currency)}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="xs"
+                              onClick={() => navigate({ name: 'track-order', orderId: ord.id })}
+                            >
+                              Track
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {section === 'profile' && (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!nameInput.trim() || !emailInput.trim()) {
+                    setProfileError('Full name and email address are required.');
+                    return;
+                  }
+                  if (phoneInput.trim() && !isValidContactPhone(phoneInput.trim(), 'Bangladesh')) {
+                    setProfileError('Enter a valid Bangladesh phone number (e.g. +880 1711-000100) or international format.');
+                    return;
+                  }
+                  setProfileError('');
+                  await updateProfile({
+                    fullName: nameInput.trim(),
+                    email: emailInput.trim(),
+                    phone: phoneInput.trim(),
+                    studioName: profile.role === 'seller' ? studioInput.trim() : undefined,
+                  });
+                }}
+                className="max-w-lg space-y-5"
+              >
+                <h2 className="font-display text-2xl font-medium">Personal Information</h2>
                 <Input
-                  label="Seller Studio Name"
-                  value={studioInput}
-                  onChange={(e) => setStudioInput(e.target.value)}
+                  label="Full Name"
+                  required
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
                 />
-              )}
-              <Input
-                label="Email Address"
-                type="email"
-                required
-                value={emailInput}
-                onChange={(e) => setEmailInput(e.target.value)}
-              />
-              <Input
-                label="Phone Number"
-                value={phoneInput}
-                onChange={(e) => setPhoneInput(e.target.value)}
-              />
-              <Button type="submit" variant="primary" size="md">
-                Save Profile Changes
-              </Button>
-            </form>
-          )}
-
-          {section === 'password' && (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!currentPwd || newPwd.length < 8 || newPwd !== confirmPwd) {
-                  setPwdError('Ensure new password is at least 8 characters and matches confirmation.');
-                  return;
-                }
-                setPwdError('');
-                setCurrentPwd('');
-                setNewPwd('');
-                setConfirmPwd('');
-                showToast('Password updated', 'Your session credentials have been refreshed.', 'success');
-              }}
-              className="max-w-lg space-y-5"
-            >
-              <h2 className="font-display text-2xl font-medium">Change Password</h2>
-              <Input
-                label="Current Password"
-                type="password"
-                required
-                value={currentPwd}
-                onChange={(e) => setCurrentPwd(e.target.value)}
-              />
-              <Input
-                label="New Password"
-                type="password"
-                required
-                helperText="Minimum 8 characters."
-                value={newPwd}
-                onChange={(e) => setNewPwd(e.target.value)}
-              />
-              <Input
-                label="Confirm New Password"
-                type="password"
-                required
-                value={confirmPwd}
-                onChange={(e) => setConfirmPwd(e.target.value)}
-                error={pwdError}
-              />
-              <Button type="submit" variant="primary" size="md">
-                Update Password
-              </Button>
-            </form>
-          )}
-
-          {section === 'addresses' && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between gap-4">
-                <h2 className="font-display text-2xl font-medium">Address Book</h2>
-                <Button variant="primary" size="sm" onClick={() => setShowAddrForm((p) => !p)}>
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Address</span>
+                {profile.role === 'seller' && (
+                  <Input
+                    label="Seller Studio Name"
+                    value={studioInput}
+                    onChange={(e) => setStudioInput(e.target.value)}
+                  />
+                )}
+                <Input
+                  label="Email Address"
+                  type="email"
+                  required
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                />
+                <Input
+                  label="Phone Number"
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(e.target.value)}
+                  placeholder="+880 1711-000100"
+                />
+                {profileError && (
+                  <p className="text-xs text-[var(--ks-error)]" role="alert">
+                    {profileError}
+                  </p>
+                )}
+                <Button type="submit" variant="primary" size="md">
+                  Save Profile Changes
                 </Button>
-              </div>
+              </form>
+            )}
 
-              {showAddrForm && (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!addrLabel.trim() || !addrStreet.trim() || !addrCity.trim()) {
-                      setAddrError('Label, street address, and city/district are required.');
-                      return;
-                    }
-                    setAddrError('');
-                    saveAddress({
-                      label: addrLabel.trim(),
-                      fullName: profile.fullName,
-                      phone: profile.phone,
-                      country: addrCountry,
-                      state: addrState.trim() || (addrCountry === 'Bangladesh' ? 'Dhaka' : 'CA'),
-                      city: addrCity.trim(),
-                      upazila: addrCountry === 'Bangladesh' ? addrUpazila.trim() : undefined,
-                      area: addrArea.trim() || addrCity.trim(),
-                      streetAddress: addrStreet.trim(),
-                      postalCode: addrZip.trim() || (addrCountry === 'Bangladesh' ? '1213' : '94115'),
-                      isDefault: false,
-                    });
-                    setAddrLabel('');
-                    setAddrStreet('');
-                    setShowAddrForm(false);
-                  }}
-                  className="p-5 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-4"
-                >
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Input
-                      label="Label (e.g., Dhaka Studio, Residence)"
-                      required
-                      value={addrLabel}
-                      onChange={(e) => {
-                        setAddrLabel(e.target.value);
-                        setAddrError('');
-                      }}
-                    />
-                    <Select
-                      label="Country / Region"
-                      value={addrCountry}
-                      onChange={(e) => {
-                        const next = e.target.value;
-                        setAddrCountry(next);
-                        setAddrError('');
-                        if (next === 'Bangladesh') {
-                          setAddrState(bdDefaultDiv.name);
-                          setAddrCity(bdDefaultDist.name);
-                          setAddrUpazila(bdDefaultUpa.name);
-                          setAddrArea(bdDefaultArea.name);
-                          setAddrZip(bdDefaultArea.postalCode);
-                        } else {
-                          setAddrState('');
-                          setAddrCity('');
-                          setAddrUpazila('');
-                          setAddrArea('');
-                          setAddrZip('');
-                        }
-                      }}
-                      options={[
-                        { value: 'Bangladesh', label: 'Bangladesh' },
-                        { value: 'United States', label: 'United States' },
-                        { value: 'Canada', label: 'Canada' },
-                        { value: 'United Kingdom', label: 'United Kingdom' },
-                      ]}
-                    />
+            {section === 'addresses' && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between gap-4">
+                  <h2 className="font-display text-2xl font-medium">Address Book</h2>
+                  <Button variant="primary" size="sm" onClick={() => setShowAddrForm((p) => !p)}>
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Address</span>
+                  </Button>
+                </div>
 
-                    {addrCountry === 'Bangladesh' ? (
-                      <>
-                        {(() => {
+                {showAddrForm && (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (!addrLabel.trim() || !addrStreet.trim() || !addrCity.trim()) {
+                        setAddrError('Label, street address, and city/district are required.');
+                        return;
+                      }
+                      setAddrError('');
+                      saveAddress({
+                        label: addrLabel.trim(),
+                        fullName: profile.fullName || 'Customer',
+                        phone: profile.phone,
+                        country: addrCountry,
+                        state: addrState.trim() || (addrCountry === 'Bangladesh' ? 'Dhaka' : ''),
+                        city: addrCity.trim(),
+                        upazila: addrCountry === 'Bangladesh' ? addrUpazila.trim() : undefined,
+                        area: addrArea.trim() || addrCity.trim(),
+                        streetAddress: addrStreet.trim(),
+                        postalCode: addrZip.trim() || (addrCountry === 'Bangladesh' ? '1213' : ''),
+                        isDefault: false,
+                      });
+                      setAddrLabel('');
+                      setAddrStreet('');
+                      setShowAddrForm(false);
+                    }}
+                    className="p-5 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-4"
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Input
+                        label="Label (e.g., Home, Office)"
+                        required
+                        value={addrLabel}
+                        onChange={(e) => {
+                          setAddrLabel(e.target.value);
+                          setAddrError('');
+                        }}
+                      />
+                      <Select
+                        label="Country / Region"
+                        value={addrCountry}
+                        onChange={(e) => {
+                          const next = e.target.value;
+                          setAddrCountry(next);
+                          setAddrError('');
+                          if (next === 'Bangladesh') {
+                            setAddrState(bdDefaultDiv.name);
+                            setAddrCity(bdDefaultDist.name);
+                            setAddrUpazila(bdDefaultUpa.name);
+                            setAddrArea(bdDefaultArea.name);
+                            setAddrZip(bdDefaultArea.postalCode);
+                          } else {
+                            setAddrState('');
+                            setAddrCity('');
+                            setAddrUpazila('');
+                            setAddrArea('');
+                            setAddrZip('');
+                          }
+                        }}
+                        options={[
+                          { value: 'Bangladesh', label: 'Bangladesh' },
+                          { value: 'United States', label: 'United States' },
+                          { value: 'Canada', label: 'Canada' },
+                          { value: 'United Kingdom', label: 'United Kingdom' },
+                        ]}
+                      />
+
+                      {addrCountry === 'Bangladesh' ? (
+                        (() => {
                           const divObj =
                             BANGLADESH_GEO_TREE.find((d) => d.name === addrState) ||
                             BANGLADESH_GEO_TREE[0];
@@ -871,488 +807,673 @@ export const AccountPage: React.FC = () => {
                               />
                             </>
                           );
-                        })()}
-                      </>
-                    ) : (
-                      <>
-                        <Input
-                          label="State / Province"
-                          value={addrState}
-                          onChange={(e) => setAddrState(e.target.value)}
-                        />
-                        <Input
-                          label="City"
-                          required
-                          value={addrCity}
-                          onChange={(e) => {
-                            setAddrCity(e.target.value);
-                            setAddrArea(e.target.value);
-                            setAddrError('');
-                          }}
-                        />
-                      </>
-                    )}
-
-                    <Input
-                      label="Street Address"
-                      required
-                      value={addrStreet}
-                      onChange={(e) => {
-                        setAddrStreet(e.target.value);
-                        setAddrError('');
-                      }}
-                    />
-                    <Input
-                      label="Postal Code"
-                      value={addrZip}
-                      onChange={(e) => setAddrZip(e.target.value)}
-                    />
-                  </div>
-                  {addrError && (
-                    <p className="text-xs text-[#B91C1C] dark:text-[#F87171]">{addrError}</p>
-                  )}
-                  <Button type="submit" variant="primary" size="sm">
-                    Save Address
-                  </Button>
-                </form>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {addresses.map((addr) => (
-                  <div
-                    key={addr.id}
-                    className="p-5 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] flex flex-col justify-between gap-4"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-semibold">{addr.label}</p>
-                        {addr.isDefault && (
-                          <span className="text-xs font-medium text-[#8F6438] dark:text-[#C89B67]">
-                            Default
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B]">{addr.streetAddress}</p>
-                      <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B]">
-                        {[addr.area, addr.upazila, addr.city, addr.state, addr.postalCode]
-                          .filter(Boolean)
-                          .join(', ')}{' '}
-                        · {addr.country}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3 pt-2 border-t border-[#E5E3DD] dark:border-[#2C2C28] text-xs">
-                      {!addr.isDefault && (
-                        <button
-                          type="button"
-                          onClick={() => setDefaultAddress(addr.id)}
-                          className="font-medium hover:underline cursor-pointer"
-                        >
-                          Set as default
-                        </button>
+                        })()
+                      ) : (
+                        <>
+                          <Input
+                            label="State / Province"
+                            value={addrState}
+                            onChange={(e) => setAddrState(e.target.value)}
+                          />
+                          <Input
+                            label="City"
+                            required
+                            value={addrCity}
+                            onChange={(e) => {
+                              setAddrCity(e.target.value);
+                              setAddrArea(e.target.value);
+                              setAddrError('');
+                            }}
+                          />
+                        </>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => deleteAddress(addr.id)}
-                        className="text-[#84827B] hover:text-[#B91C1C] cursor-pointer ml-auto"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
-          {section === 'orders' && (
-            <div className="space-y-6">
-              <h2 className="font-display text-2xl font-medium">Order History</h2>
-              {orders.length === 0 ? (
-                <EmptyState
-                  icon={<Package className="w-5 h-5" />}
-                  title="No orders placed yet"
-                  description="Completed marketplace orders and shipment tracking details will appear here."
-                  actionLabel="Browse Catalog"
-                  onAction={() => navigate({ name: 'shop', category: 'all' })}
-                />
-              ) : (
-                <div className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] border-y border-[#E5E3DD] dark:border-[#2C2C28]">
-                  {orders.map((ord) => {
-                    const canCancel = ['Confirmed', 'Processing'].includes(ord.currentStage);
-                    const canReturn = ord.currentStage === 'Delivered';
-                    return (
-                      <div key={ord.id} className="py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="space-y-1 min-w-0 flex-1">
-                          <p className="text-sm font-mono-num font-semibold">Order #{ord.id}</p>
-                          <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] leading-snug">
-                            Placed {formatShortDate(ord.createdAt)} · {ord.items.length} item(s) ·{' '}
-                            <span
-                              className={`font-medium ${
-                                ord.currentStage === 'Cancelled'
-                                  ? 'text-[#B91C1C] dark:text-[#F87171]'
-                                  : ord.currentStage === 'Return Requested'
-                                  ? 'text-[#B45309] dark:text-[#FBBF24]'
-                                  : 'text-[#171716] dark:text-[#F4F3EF]'
-                              }`}
-                            >
-                              {ord.currentStage}
-                            </span>{' '}
-                            · <span className="uppercase font-mono-num">{ord.paymentStatus}</span>
+                      <Input
+                        label="Street / House / Road"
+                        required
+                        value={addrStreet}
+                        onChange={(e) => {
+                          setAddrStreet(e.target.value);
+                          setAddrError('');
+                        }}
+                      />
+                      <Input
+                        label="Postal Code"
+                        value={addrZip}
+                        onChange={(e) => setAddrZip(e.target.value)}
+                      />
+                    </div>
+                    {addrError && <p className="text-xs text-[var(--ks-error)]">{addrError}</p>}
+                    <Button type="submit" variant="primary" size="sm">
+                      Save Address
+                    </Button>
+                  </form>
+                )}
+
+                {addresses.length === 0 ? (
+                  <EmptyState
+                    icon={<MapPin className="w-5 h-5" />}
+                    title="No saved addresses"
+                    description="Add a Bangladesh division, district, upazila, and street address for faster checkout."
+                    actionLabel="Add Delivery Address"
+                    onAction={() => setShowAddrForm(true)}
+                  />
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {addresses.map((addr) => (
+                      <div
+                        key={addr.id}
+                        className="p-5 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] flex flex-col justify-between gap-4"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-semibold">{addr.label}</p>
+                            {addr.isDefault && (
+                              <span className="text-xs font-medium text-[var(--ks-accent)]">
+                                Default
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-[var(--ks-text-secondary)]">
+                            {addr.streetAddress}
+                          </p>
+                          <p className="text-xs text-[var(--ks-text-secondary)]">
+                            {[addr.area, addr.upazila, addr.city, addr.state, addr.postalCode]
+                              .filter(Boolean)
+                              .join(', ')}{' '}
+                            · {addr.country}
                           </p>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2 shrink-0">
-                          <span className="text-sm font-mono-num font-semibold mr-1">
-                            {ord.currencySnapshot
-                              ? formatDirectCurrency(
-                                  ord.currencySnapshot.chargedTotal,
-                                  ord.currencySnapshot.transactionCurrency
-                                )
-                              : formatCurrency(ord.total, currency)}
-                          </span>
-                          <Button variant="outline" size="xs" onClick={() => setSelectedOrder(ord)}>
-                            Details
-                          </Button>
-                          <Button variant="outline" size="xs" onClick={() => reorderFromOrder(ord)}>
-                            Reorder
-                          </Button>
-                          {canCancel && (
-                            <Button
-                              variant="outline"
-                              size="xs"
-                              onClick={() => cancelOrder(ord.id)}
-                              className="text-[#B91C1C] dark:text-[#F87171]"
+                        <div className="flex items-center gap-3 pt-2 border-t border-[var(--ks-border)] text-xs">
+                          {!addr.isDefault && (
+                            <button
+                              type="button"
+                              onClick={() => setDefaultAddress(addr.id)}
+                              className="font-medium hover:underline cursor-pointer"
                             >
-                              <XCircle className="w-3 h-3" />
-                              <span>Cancel</span>
-                            </Button>
+                              Set as default
+                            </button>
                           )}
-                          {canReturn && (
-                            <Button
-                              variant="outline"
-                              size="xs"
-                              onClick={() => requestOrderReturn(ord.id)}
-                            >
-                              <RotateCcw className="w-3 h-3" />
-                              <span>Return</span>
-                            </Button>
-                          )}
-                          <Button
-                            variant="primary"
-                            size="xs"
-                            onClick={() => navigate({ name: 'track-order', orderId: ord.id })}
+                          <button
+                            type="button"
+                            onClick={() => deleteAddress(addr.id)}
+                            className="text-[var(--ks-text-muted)] hover:text-[var(--ks-error)] cursor-pointer ml-auto"
                           >
-                            Track
-                          </Button>
+                            Remove
+                          </button>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {section === 'wishlist' && (
-            <div className="space-y-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="font-display text-2xl font-medium">
-                  Saved Wishlist ({wishlistedProducts.length})
-                </h2>
-                <Button variant="outline" size="sm" onClick={() => navigate({ name: 'wishlist' })}>
-                  Open Dedicated Wishlist
-                </Button>
+                    ))}
+                  </div>
+                )}
               </div>
-              {wishlistedProducts.length === 0 ? (
-                <p className="text-sm text-[#5C5B57] dark:text-[#A3A19B]">
-                  No objects saved yet. Tap the heart icon on any piece to save it here.
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {wishlistedProducts.map((item) => {
-                    const outOfStock = isProductOutOfStock(item);
-                    const primaryColor = item.colors[0] || { name: 'Standard', hex: '#84827B' };
-                    const primarySize = item.sizes[0] || 'Standard';
-                    return (
-                      <div
-                        key={item.id}
-                        className="p-4 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] flex gap-4 items-center"
-                      >
-                        <ResilientImage
-                          src={item.images[0]}
-                          alt={item.name}
-                          onClick={() => navigate({ name: 'product', slug: item.slug })}
-                          className="w-20 h-16 rounded-sm object-cover shrink-0 cursor-pointer"
-                        />
-                        <div className="flex-1 min-w-0 space-y-1.5">
-                          <p
-                            onClick={() => navigate({ name: 'product', slug: item.slug })}
-                            className="text-sm font-medium truncate cursor-pointer hover:text-[#8F6438] dark:hover:text-[#C89B67]"
-                          >
-                            {item.name}
-                          </p>
-                          <p className="text-xs font-mono-num font-semibold">
-                            {formatCurrency(item.price, currency)}
-                          </p>
-                          <div className="flex items-center gap-2 pt-1">
+            )}
+
+            {section === 'orders' && (
+              <div className="space-y-6">
+                <h2 className="font-display text-2xl font-medium">Order History</h2>
+                {orders.length === 0 ? (
+                  <EmptyState
+                    icon={<Package className="w-5 h-5" />}
+                    title="No orders placed yet"
+                    description="Completed marketplace orders and shipment tracking details will appear here."
+                    actionLabel="Browse Catalog"
+                    onAction={() => navigate({ name: 'shop', category: 'all' })}
+                  />
+                ) : (
+                  <div className="divide-y divide-[var(--ks-divider)] border-y border-[var(--ks-border)]">
+                    {orders.map((ord) => {
+                      const canCancel = ['Confirmed', 'Processing'].includes(ord.currentStage);
+                      const canReturn = ord.currentStage === 'Delivered';
+                      return (
+                        <div
+                          key={ord.id}
+                          className="py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                        >
+                          <div className="space-y-1 min-w-0 flex-1">
+                            <p className="text-sm font-mono-num font-semibold">Order #{ord.id}</p>
+                            <p className="text-xs text-[var(--ks-text-secondary)] leading-snug">
+                              Placed {formatShortDate(ord.createdAt)} · {ord.items.length} item(s) ·{' '}
+                              <span
+                                className={`font-medium ${
+                                  ord.currentStage === 'Cancelled'
+                                    ? 'text-[var(--ks-error)]'
+                                    : ord.currentStage === 'Return Requested'
+                                    ? 'text-[var(--ks-warning)]'
+                                    : 'text-[var(--ks-text-primary)]'
+                                }`}
+                              >
+                                {ord.currentStage}
+                              </span>{' '}
+                              · <span className="uppercase font-mono-num">{ord.paymentStatus}</span>
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2 shrink-0">
+                            <span className="text-sm font-mono-num font-semibold mr-1">
+                              {ord.currencySnapshot
+                                ? formatDirectCurrency(
+                                    ord.currencySnapshot.chargedTotal,
+                                    ord.currencySnapshot.transactionCurrency
+                                  )
+                                : formatCurrency(ord.total, currency)}
+                            </span>
+                            <Button variant="outline" size="xs" onClick={() => setSelectedOrder(ord)}>
+                              Details
+                            </Button>
+                            <Button variant="outline" size="xs" onClick={() => reorderFromOrder(ord)}>
+                              Reorder
+                            </Button>
+                            {canCancel && (
+                              <Button
+                                variant="outline"
+                                size="xs"
+                                onClick={() => cancelOrder(ord.id)}
+                                className="text-[var(--ks-error)]"
+                              >
+                                <XCircle className="w-3 h-3" />
+                                <span>Cancel</span>
+                              </Button>
+                            )}
+                            {canReturn && (
+                              <Button
+                                variant="outline"
+                                size="xs"
+                                onClick={() => requestOrderReturn(ord.id)}
+                              >
+                                <RotateCcw className="w-3 h-3" />
+                                <span>Return</span>
+                              </Button>
+                            )}
                             <Button
                               variant="primary"
                               size="xs"
-                              disabled={outOfStock}
+                              onClick={() => navigate({ name: 'track-order', orderId: ord.id })}
+                            >
+                              Track
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {section === 'wishlist' && (
+              <div className="space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h2 className="font-display text-2xl font-medium">
+                    Saved Wishlist ({wishlistedProducts.length})
+                  </h2>
+                  <Button variant="outline" size="sm" onClick={() => navigate({ name: 'wishlist' })}>
+                    Open Full Wishlist
+                  </Button>
+                </div>
+                {wishlistedProducts.length === 0 ? (
+                  <EmptyState
+                    icon={<Heart className="w-5 h-5" />}
+                    title="No objects saved yet"
+                    description="Tap the heart icon on any product to save it for later."
+                    actionLabel="Explore Catalog"
+                    onAction={() => navigate({ name: 'shop', category: 'all' })}
+                  />
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {wishlistedProducts.map((item) => {
+                      const outOfStock = isProductOutOfStock(item);
+                      const primaryColor = item.colors[0] || { name: 'Standard', hex: '#84827B' };
+                      const primarySize = item.sizes[0] || 'Standard';
+                      return (
+                        <div
+                          key={item.id}
+                          className="p-4 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] flex gap-4 items-center"
+                        >
+                          <ResilientImage
+                            src={item.images[0]}
+                            alt={item.name}
+                            onClick={() => navigate({ name: 'product', slug: item.slug })}
+                            className="w-20 h-16 rounded-[var(--ks-radius-sm)] object-cover shrink-0 cursor-pointer"
+                          />
+                          <div className="flex-1 min-w-0 space-y-1.5">
+                            <p
+                              onClick={() => navigate({ name: 'product', slug: item.slug })}
+                              className="text-sm font-medium truncate cursor-pointer hover:text-[var(--ks-accent)]"
+                            >
+                              {item.name}
+                            </p>
+                            <p className="text-xs font-mono-num font-semibold">
+                              {formatCurrency(item.price, currency)}
+                            </p>
+                            <div className="flex items-center gap-2 pt-1">
+                              <Button
+                                variant="primary"
+                                size="xs"
+                                disabled={outOfStock}
+                                onClick={() =>
+                                  addToCart(
+                                    item,
+                                    primaryColor.name,
+                                    primaryColor.hex,
+                                    primarySize,
+                                    1,
+                                    true
+                                  )
+                                }
+                              >
+                                <ShoppingBag className="w-3 h-3" />
+                                <span>{outOfStock ? 'Out of Stock' : 'Add'}</span>
+                              </Button>
+                              <button
+                                type="button"
+                                onClick={() => toggleWishlist(item)}
+                                className="text-xs text-[var(--ks-text-muted)] hover:text-[var(--ks-error)] cursor-pointer min-h-[32px] px-1.5"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {section === 'payments' && (
+              <div className="space-y-6">
+                <div className="space-y-1">
+                  <h2 className="font-display text-2xl font-medium">Payment Methods</h2>
+                  <p className="text-xs text-[var(--ks-text-secondary)]">
+                    Kinto Studio never stores raw card numbers or PINs on local servers. Only gateway-tokenized wallet or card references saved via bKash, Nagad, or SSLCommerz appear here.
+                  </p>
+                </div>
+
+                {paymentMethods.length === 0 ? (
+                  <EmptyState
+                    icon={<CreditCard className="w-5 h-5" />}
+                    title="No saved tokenized payment methods"
+                    description="Tokenized wallets and cards authorized through bKash, Nagad, or SSLCommerz during checkout will appear here."
+                    actionLabel="Review Payment Policy"
+                    onAction={() => navigate({ name: 'payment-policy' })}
+                  />
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {paymentMethods.map((pm) => (
+                      <div
+                        key={pm.id}
+                        className="p-4 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] flex items-center justify-between gap-4"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium font-mono-num truncate">
+                            {pm.brand} · {pm.referenceMasked}
+                          </p>
+                          <p className="text-xs text-[var(--ks-text-secondary)] mt-0.5">
+                            {pm.provider} {pm.isDefault ? '· Default' : ''}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {!pm.isDefault && (
+                            <button
+                              type="button"
+                              onClick={() => setDefaultPaymentMethod(pm.id)}
+                              className="text-xs hover:underline cursor-pointer"
+                            >
+                              Set Default
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => deletePaymentMethod(pm.id)}
+                            aria-label="Remove payment method"
+                            className="w-9 h-9 rounded-[var(--ks-radius-md)] flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-error)] cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {section === 'returns' && (
+              <div className="space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="font-display text-2xl font-medium">Returns &amp; Refunds</h2>
+                    <p className="text-xs text-[var(--ks-text-secondary)] mt-1">
+                      Submit a return claim for delivered orders or monitor open return authorizations.
+                    </p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => navigate({ name: 'return-policy' })}>
+                    Read Return Policy
+                  </Button>
+                </div>
+
+                {returnRequestedOrders.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)] font-medium">
+                      Active Return Requests
+                    </h3>
+                    <div className="divide-y divide-[var(--ks-divider)] border border-[var(--ks-border)] rounded-[var(--ks-radius-md)]">
+                      {returnRequestedOrders.map((ord) => (
+                        <div
+                          key={ord.id}
+                          className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                        >
+                          <div className="space-y-1">
+                            <p className="text-sm font-mono-num font-semibold">Order #{ord.id}</p>
+                            <p className="text-xs text-[var(--ks-warning)] font-medium">
+                              {ord.currentStage} · {ord.estimatedArrival}
+                            </p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            onClick={() => navigate({ name: 'track-order', orderId: ord.id })}
+                          >
+                            View Timeline
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <h3 className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)] font-medium">
+                    Eligible Delivered Orders
+                  </h3>
+                  {returnEligibleOrders.length === 0 ? (
+                    <EmptyState
+                      icon={<RotateCcw className="w-5 h-5" />}
+                      title="No delivered orders eligible for new returns"
+                      description="Once an order is marked Delivered, you may initiate a return pickup request here."
+                      actionLabel="View All Orders"
+                      onAction={() => switchSection('orders')}
+                    />
+                  ) : (
+                    <div className="space-y-4">
+                      {returnEligibleOrders.map((ord) => (
+                        <div
+                          key={ord.id}
+                          className="p-4 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] bg-[var(--ks-bg)] space-y-3"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-mono-num font-semibold">Order #{ord.id}</p>
+                              <p className="text-xs text-[var(--ks-text-secondary)]">
+                                Delivered · {ord.items.length} item(s) ·{' '}
+                                {ord.currencySnapshot
+                                  ? formatDirectCurrency(
+                                      ord.currencySnapshot.chargedTotal,
+                                      ord.currencySnapshot.transactionCurrency
+                                    )
+                                  : formatCurrency(ord.total, currency)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <input
+                              type="text"
+                              value={returnReasonMap[ord.id] || ''}
+                              onChange={(e) =>
+                                setReturnReasonMap((prev) => ({
+                                  ...prev,
+                                  [ord.id]: e.target.value,
+                                }))
+                              }
+                              placeholder="Reason for return (e.g., damaged parcel, wrong variant)"
+                              className="flex-1 h-9 px-3 text-xs rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)]"
+                            />
+                            <Button
+                              variant="primary"
+                              size="sm"
                               onClick={() =>
-                                addToCart(
-                                  item,
-                                  primaryColor.name,
-                                  primaryColor.hex,
-                                  primarySize,
-                                  1,
-                                  true
+                                requestOrderReturn(
+                                  ord.id,
+                                  returnReasonMap[ord.id]?.trim() ||
+                                    'Return requested via Customer Account'
                                 )
                               }
                             >
-                              <ShoppingBag className="w-3 h-3" />
-                              <span>{outOfStock ? 'Out of Stock' : 'Add'}</span>
+                              Request Return Pickup
                             </Button>
-                            <button
-                              type="button"
-                              onClick={() => toggleWishlist(item)}
-                              className="text-xs text-[#84827B] hover:text-[#B91C1C] cursor-pointer min-h-[32px] px-1.5"
-                            >
-                              Remove
-                            </button>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {section === 'reviews' && (
-            <div className="space-y-4">
-              <h2 className="font-display text-2xl font-medium">Community &amp; Verified Reviews</h2>
-              {authoredReviews.length === 0 ? (
-                <EmptyState
-                  icon={<Star className="w-5 h-5" />}
-                  title="No product reviews yet"
-                  description="Reviews submitted on any Kinto Studio product page will appear here."
-                  actionLabel="Explore Catalog"
-                  onAction={() => navigate({ name: 'shop', category: 'all' })}
-                />
-              ) : (
-                <div className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28]">
-                  {authoredReviews.slice(0, 6).map((rev) => (
-                    <div key={rev.id} className="py-4 space-y-1">
-                      <div className="flex items-baseline justify-between gap-3 text-xs text-[#84827B]">
-                        <button
-                          type="button"
-                          onClick={() => navigate({ name: 'product', slug: rev.productSlug })}
-                          className="text-left min-w-0 truncate font-medium text-[#8F6438] dark:text-[#C89B67] hover:underline cursor-pointer"
-                        >
-                          {rev.productName}
-                        </button>
-                        <span className="font-mono-num shrink-0">{rev.rating}.0 / 5.0</span>
-                      </div>
-                      <p className="text-sm font-medium">{rev.title}</p>
-                      <p className="text-xs text-[#5C5B57] dark:text-[#B4B2AC]">{rev.comment}</p>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
 
-          {section === 'payments' && (
-            <div className="space-y-6">
-              <h2 className="font-display text-2xl font-medium">Saved Payment Methods (Demo)</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {paymentMethods.map((pm) => (
-                  <div
-                    key={pm.id}
-                    className="p-4 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] flex items-center justify-between gap-4"
+            {section === 'support' && (
+              <div className="space-y-6">
+                <div className="space-y-1">
+                  <h2 className="font-display text-2xl font-medium">Customer Support</h2>
+                  <p className="text-xs text-[var(--ks-text-secondary)]">
+                    Direct assistance for orders, courier issues, warranty claims, and Bangladesh payment inquiries.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => navigate({ name: 'track-order' })}
+                    className="p-4 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] bg-[var(--ks-bg)] text-left hover:border-[var(--ks-accent)] cursor-pointer space-y-1"
                   >
-                    <div>
-                      <p className="text-sm font-medium font-mono-num">
-                        {pm.brand} •••• {pm.last4}
-                      </p>
-                      <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B]">
-                        Expires {pm.expiry} {pm.isDefault ? '· Default' : ''}
-                      </p>
+                    <p className="font-semibold text-sm">Track an Order</p>
+                    <p className="text-[var(--ks-text-secondary)]">
+                      Inspect courier milestones with your Order ID.
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate({ name: 'customer-support-policy' })}
+                    className="p-4 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] bg-[var(--ks-bg)] text-left hover:border-[var(--ks-accent)] cursor-pointer space-y-1"
+                  >
+                    <p className="font-semibold text-sm">Grievance &amp; SLA Policy</p>
+                    <p className="text-[var(--ks-text-secondary)]">
+                      Response timelines &amp; escalation channels.
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate({ name: 'faq' })}
+                    className="p-4 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] bg-[var(--ks-bg)] text-left hover:border-[var(--ks-accent)] cursor-pointer space-y-1"
+                  >
+                    <p className="font-semibold text-sm">Help &amp; FAQ</p>
+                    <p className="text-[var(--ks-text-secondary)]">
+                      Shipping zones, COD limits &amp; returns guide.
+                    </p>
+                  </button>
+                </div>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!supportSubject.trim() || !supportMessage.trim()) {
+                      showToast('Incomplete message', 'Enter a subject and details.', 'error');
+                      return;
+                    }
+                    setSupportSubject('');
+                    setSupportMessage('');
+                    showToast(
+                      'Support ticket logged',
+                      'Our Dhaka customer care team will reply to your email within 1 business day.',
+                      'success'
+                    );
+                  }}
+                  className="p-5 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-4 max-w-xl"
+                >
+                  <p className="text-sm font-semibold">
+                    Send Support Request (Desk: support@kintostudio.bd)
+                  </p>
+                  <Input
+                    label="Order ID or Topic"
+                    value={supportSubject}
+                    onChange={(e) => setSupportSubject(e.target.value)}
+                    placeholder="e.g., Order #KS-10482 delivery schedule"
+                  />
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium block">Message</span>
+                    <textarea
+                      rows={3}
+                      value={supportMessage}
+                      onChange={(e) => setSupportMessage(e.target.value)}
+                      placeholder="Describe your question or shipment issue..."
+                      className="w-full p-3 text-xs rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)]"
+                    />
+                  </label>
+                  <Button type="submit" variant="primary" size="sm">
+                    Submit Support Request
+                  </Button>
+                </form>
+              </div>
+            )}
+
+            {section === 'security' && (
+              <div className="space-y-10 max-w-xl">
+                {/* Password Update */}
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!currentPwd || newPwd.length < 6 || newPwd !== confirmPwd) {
+                      setPwdError(
+                        'Enter your current password and ensure the new password is at least 6 characters and matches.'
+                      );
+                      return;
+                    }
+                    setPwdError('');
+                    setPwdSaving(true);
+                    const res = await changePassword(currentPwd, newPwd);
+                    setPwdSaving(false);
+                    if (res.ok) {
+                      setCurrentPwd('');
+                      setNewPwd('');
+                      setConfirmPwd('');
+                    } else if (res.error) {
+                      setPwdError(res.error);
+                    }
+                  }}
+                  className="space-y-4 pb-8 border-b border-[var(--ks-border)]"
+                >
+                  <h2 className="font-display text-2xl font-medium">Account Security</h2>
+                  <Input
+                    label="Current Password"
+                    type="password"
+                    required
+                    value={currentPwd}
+                    onChange={(e) => setCurrentPwd(e.target.value)}
+                  />
+                  <Input
+                    label="New Password"
+                    type="password"
+                    required
+                    helperText="Minimum 6 characters."
+                    value={newPwd}
+                    onChange={(e) => setNewPwd(e.target.value)}
+                  />
+                  <Input
+                    label="Confirm New Password"
+                    type="password"
+                    required
+                    value={confirmPwd}
+                    onChange={(e) => setConfirmPwd(e.target.value)}
+                    error={pwdError}
+                  />
+                  <Button type="submit" variant="primary" size="md" disabled={pwdSaving}>
+                    {pwdSaving ? 'Updating Password...' : 'Update Password'}
+                  </Button>
+                </form>
+
+                {/* Notifications */}
+                <div className="space-y-4 pb-8 border-b border-[var(--ks-border)]">
+                  <div className="flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-[var(--ks-accent)]" />
+                    <h3 className="text-lg font-medium">Notification Preferences</h3>
+                  </div>
+                  <div className="space-y-3">
+                    <Checkbox
+                      label="Order & Courier Dispatch Updates"
+                      description="Receive stage transitions from confirmation through delivery."
+                      checked={notificationPrefs.orderUpdates}
+                      onChange={(v) =>
+                        setNotificationPrefs({ ...notificationPrefs, orderUpdates: v })
+                      }
+                    />
+                    <Checkbox
+                      label="Restock Alerts"
+                      description="Be notified when wishlisted items return to stock."
+                      checked={notificationPrefs.restockAlerts}
+                      onChange={(v) =>
+                        setNotificationPrefs({ ...notificationPrefs, restockAlerts: v })
+                      }
+                    />
+                    <Checkbox
+                      label="Studio Journal Updates"
+                      description="Periodic notes across departments and curated collections."
+                      checked={notificationPrefs.studioJournal}
+                      onChange={(v) =>
+                        setNotificationPrefs({ ...notificationPrefs, studioJournal: v })
+                      }
+                    />
+                  </div>
+                </div>
+
+                {/* Privacy & Cookie Settings */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-[var(--ks-accent)]" />
+                    <h3 className="text-lg font-medium">Privacy &amp; Cookie Consent</h3>
+                  </div>
+                  <div className="space-y-3">
+                    <Checkbox
+                      label="Save Local Search History"
+                      description="Keep recent catalog searches on this device for quicker lookup."
+                      checked={privacyPrefs.saveSearchHistory}
+                      onChange={(v) =>
+                        setPrivacyPrefs({ ...privacyPrefs, saveSearchHistory: v })
+                      }
+                    />
+                    <Checkbox
+                      label="Personalized Recommendations"
+                      description="Display related objects based on recently viewed items."
+                      checked={privacyPrefs.personalizedCatalog}
+                      onChange={(v) =>
+                        setPrivacyPrefs({ ...privacyPrefs, personalizedCatalog: v })
+                      }
+                    />
+                  </div>
+                  <div className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-3 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium">Cookie Consent Status</span>
+                      <span className="font-mono-num capitalize text-[var(--ks-accent)]">
+                        {cookieConsent.status === 'unset'
+                          ? 'Pending Selection'
+                          : cookieConsent.status.replace('-', ' ')}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {!pm.isDefault && (
-                        <button
-                          type="button"
-                          onClick={() => setDefaultPaymentMethod(pm.id)}
-                          className="text-xs hover:underline cursor-pointer"
-                        >
-                          Default
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => deletePaymentMethod(pm.id)}
-                        aria-label="Remove payment card"
-                        className="w-10 h-10 rounded-md flex items-center justify-center text-[#84827B] hover:text-[#B91C1C] cursor-pointer"
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" size="sm" onClick={openCookiePreferences}>
+                        Cookie Preferences
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate({ name: 'legal' })}
                       >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                        Open Legal Center
+                      </Button>
                     </div>
                   </div>
-                ))}
-              </div>
-
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (!/^\d{4}$/.test(cardLast4.trim())) {
-                    setCardError('Enter exact 4 ending digits (e.g., 9012).');
-                    return;
-                  }
-                  if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(cardExp.trim())) {
-                    setCardError('Enter valid expiry in MM/YY format.');
-                    return;
-                  }
-                  setCardError('');
-                  addPaymentMethod({
-                    brand: cardBrand.trim() || 'Visa',
-                    last4: cardLast4.trim(),
-                    expiry: cardExp.trim(),
-                    holderName: profile.fullName,
-                    isDefault: false,
-                  });
-                  setCardLast4('');
-                  setCardExp('');
-                }}
-                className="p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-3"
-              >
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
-                  <Input
-                    label="Card Network"
-                    value={cardBrand}
-                    onChange={(e) => {
-                      setCardBrand(e.target.value);
-                      setCardError('');
-                    }}
-                  />
-                  <Input
-                    label="Last 4 Digits"
-                    maxLength={4}
-                    placeholder="9012"
-                    value={cardLast4}
-                    onChange={(e) => {
-                      setCardLast4(e.target.value.replace(/\D/g, ''));
-                      setCardError('');
-                    }}
-                  />
-                  <Input
-                    label="Expiry (MM/YY)"
-                    placeholder="09/29"
-                    value={cardExp}
-                    onChange={(e) => {
-                      setCardExp(e.target.value);
-                      setCardError('');
-                    }}
-                  />
-                  <Button type="submit" variant="primary" size="md">
-                    Add Card
-                  </Button>
-                </div>
-                {cardError && (
-                  <p className="text-xs text-[#B91C1C] dark:text-[#F87171]">{cardError}</p>
-                )}
-              </form>
-            </div>
-          )}
-
-          {section === 'notifications' && (
-            <div className="space-y-5 max-w-lg">
-              <h2 className="font-display text-2xl font-medium">Notification Preferences</h2>
-              <div className="space-y-4">
-                <Checkbox
-                  label="Order & Courier Dispatch Updates"
-                  description="Receive stage transitions from processing through white-glove delivery."
-                  checked={notificationPrefs.orderUpdates}
-                  onChange={(v) => setNotificationPrefs({ ...notificationPrefs, orderUpdates: v })}
-                />
-                <Checkbox
-                  label="Kiln & Atelier Restock Alerts"
-                  description="Be notified when small-batch ceramics and timber editions return."
-                  checked={notificationPrefs.restockAlerts}
-                  onChange={(v) => setNotificationPrefs({ ...notificationPrefs, restockAlerts: v })}
-                />
-                <Checkbox
-                  label="Studio Journal Monograph"
-                  description="Monthly essays on acoustic craft, textiles, botanical skincare, and interiors."
-                  checked={notificationPrefs.studioJournal}
-                  onChange={(v) => setNotificationPrefs({ ...notificationPrefs, studioJournal: v })}
-                />
-                <Checkbox
-                  label="Private Archive & Trade Offers"
-                  description="Seasonal invitations to floor-sample releases."
-                  checked={notificationPrefs.privateOffers}
-                  onChange={(v) => setNotificationPrefs({ ...notificationPrefs, privateOffers: v })}
-                />
-              </div>
-            </div>
-          )}
-
-          {section === 'privacy' && (
-            <div className="space-y-5 max-w-lg">
-              <h2 className="font-display text-2xl font-medium">Privacy &amp; Cookie Settings</h2>
-              <div className="space-y-4">
-                <Checkbox
-                  label="Save Local Search History"
-                  description="Keep recent catalog searches on this device for quicker lookup."
-                  checked={privacyPrefs.saveSearchHistory}
-                  onChange={(v) => setPrivacyPrefs({ ...privacyPrefs, saveSearchHistory: v })}
-                />
-                <Checkbox
-                  label="Personalized Object Recommendations"
-                  description="Display related objects based on recently viewed items."
-                  checked={privacyPrefs.personalizedCatalog}
-                  onChange={(v) => setPrivacyPrefs({ ...privacyPrefs, personalizedCatalog: v })}
-                />
-                <Checkbox
-                  label="Anonymous Performance Diagnostics"
-                  description="Help refine storefront speed and responsiveness."
-                  checked={privacyPrefs.analyticsOptIn}
-                  onChange={(v) => setPrivacyPrefs({ ...privacyPrefs, analyticsOptIn: v })}
-                />
-              </div>
-
-              <div className="p-4 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-3 text-xs">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium text-[#171716] dark:text-[#F4F3EF]">
-                    Cookie Consent Status
-                  </span>
-                  <span className="font-mono-num capitalize text-[#8F6438] dark:text-[#C89B67]">
-                    {cookieConsent.status === 'unset'
-                      ? 'Pending Selection'
-                      : cookieConsent.status.replace('-', ' ')}
-                  </span>
-                </div>
-                {cookieConsent.decidedAt && (
-                  <p className="text-[11px] font-mono-num text-[#84827B]">
-                    Recorded v{cookieConsent.version} · {cookieConsent.decidedAt.slice(0, 10)}
-                  </p>
-                )}
-                <div className="flex flex-wrap gap-2 pt-1">
-                  <Button variant="outline" size="sm" onClick={openCookiePreferences}>
-                    Cookie Preferences
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => navigate({ name: 'legal' })}
-                  >
-                    Open Legal Center
-                  </Button>
                 </div>
               </div>
-            </div>
-          )}
+            )}
           </motion.div>
         </div>
       </div>
@@ -1367,21 +1488,21 @@ export const AccountPage: React.FC = () => {
           <div className="space-y-5 text-sm">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div>
-                <p className="text-[#84827B]">Courier &amp; Tracking</p>
+                <p className="text-[var(--ks-text-muted)]">Courier &amp; Tracking</p>
                 <p className="font-medium mt-0.5">{selectedOrder.courierName}</p>
-                <p className="font-mono-num text-[#5C5B57] dark:text-[#A3A19B]">
+                <p className="font-mono-num text-[var(--ks-text-secondary)]">
                   {selectedOrder.trackingNumber}
                 </p>
                 {selectedOrder.transactionRef && (
-                  <p className="font-mono-num text-[#8F6438] dark:text-[#C89B67] mt-1">
+                  <p className="font-mono-num text-[var(--ks-accent)] mt-1">
                     Ref: {selectedOrder.transactionRef} ({selectedOrder.paymentStatus})
                   </p>
                 )}
               </div>
               <div>
-                <p className="text-[#84827B]">Shipping Destination</p>
+                <p className="text-[var(--ks-text-muted)]">Shipping Destination</p>
                 <p className="font-medium mt-0.5">{selectedOrder.shippingAddress.streetAddress}</p>
-                <p className="text-[#5C5B57] dark:text-[#A3A19B]">
+                <p className="text-[var(--ks-text-secondary)]">
                   {[
                     selectedOrder.shippingAddress.area,
                     selectedOrder.shippingAddress.upazila,
@@ -1396,7 +1517,7 @@ export const AccountPage: React.FC = () => {
               </div>
             </div>
 
-            <ul className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] border-y border-[#E5E3DD] dark:border-[#2C2C28]">
+            <ul className="divide-y divide-[var(--ks-divider)] border-y border-[var(--ks-border)]">
               {selectedOrder.items.map((item) => (
                 <li key={item.key} className="py-3 flex items-baseline justify-between gap-4">
                   <span className="min-w-0">
@@ -1422,7 +1543,7 @@ export const AccountPage: React.FC = () => {
                 </span>
               </div>
               {selectedOrder.currencySnapshot && (
-                <p className="text-[11px] font-mono-num text-[#84827B]">
+                <p className="text-[11px] font-mono-num text-[var(--ks-text-muted)]">
                   Snapshot: 1 USD = ৳{selectedOrder.currencySnapshot.exchangeRate} ·{' '}
                   {selectedOrder.currencySnapshot.rateSource}
                 </p>

@@ -26,8 +26,8 @@
   --ks-info: #1D4ED8;
 
   /* Typography & Layout Tokens */
-  --ks-font-display: 'Cormorant Garamond', Georgia, serif;
-  --ks-font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --ks-font-display: 'Cormorant Garamond', 'Noto Sans Bengali', Georgia, serif;
+  --ks-font-sans: 'Plus Jakarta Sans', 'Noto Sans Bengali', -apple-system, BlinkMacSystemFont, sans-serif;
   --ks-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
   --ks-container-max: 1440px;
 

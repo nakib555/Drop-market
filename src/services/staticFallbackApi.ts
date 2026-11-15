@@ -7,6 +7,7 @@ import {
   buildAuthoritativeCheckoutQuote,
   buildVerifiedOrderFromSession,
   createPaymentSession,
+  getGatewayConfigStatus,
   resolveAuthoritativeItems,
   type CheckoutItemRequest,
   type PendingSessionContext,
@@ -35,15 +36,19 @@ import type {
   CurrencyRateState,
   DeliveryMethodId,
   DynamicCategoryRecord,
+  LanguageCode,
   LegalAcceptanceRecord,
+  ManagedPromoRecord,
   Order,
   OrderStage,
   PaymentMethodId,
   PaymentSession,
+  PlatformSettingsState,
   Product,
   ProductOverride,
   SellerApplicationRecord,
   SellerDashboardData,
+  SellerStoreSettings,
   ShippingQuoteResponse,
   ShippingRuleConfig,
   ShippingZoneId,
@@ -53,7 +58,7 @@ import type {
 } from '../types/commerce';
 import { ApiError } from './apiError';
 
-const STATIC_DB_STORAGE_KEY = 'kinto-static-db-v1';
+const STATIC_DB_STORAGE_KEY = 'kinto-static-db-v2';
 
 interface SerializedStaticDb {
   users: ServerUserRecord[];
@@ -67,6 +72,9 @@ interface SerializedStaticDb {
   productOverrides: Record<string, ProductOverride>;
   orders: Order[];
   notifications: StoreNotification[];
+  sellerStoreSettings: SellerStoreSettings;
+  promotions: ManagedPromoRecord[];
+  platformSettings: PlatformSettingsState;
   sessions: Array<[string, string]>;
   paymentSessions: Array<[string, PendingSessionContext]>;
 }
@@ -124,6 +132,15 @@ function getStaticDb(): MockMarketplaceDb {
         if (Array.isArray(parsed.notifications)) {
           instance.notifications = parsed.notifications;
         }
+        if (parsed.sellerStoreSettings) {
+          instance.sellerStoreSettings = parsed.sellerStoreSettings;
+        }
+        if (Array.isArray(parsed.promotions)) {
+          instance.promotions = parsed.promotions;
+        }
+        if (parsed.platformSettings) {
+          instance.platformSettings = parsed.platformSettings;
+        }
         if (Array.isArray(parsed.sessions)) {
           instance.sessions = new Map(parsed.sessions);
         }
@@ -155,6 +172,9 @@ function persistStaticDb(db: MockMarketplaceDb): void {
       productOverrides: db.productOverrides,
       orders: db.orders,
       notifications: db.notifications,
+      sellerStoreSettings: db.sellerStoreSettings,
+      promotions: db.promotions,
+      platformSettings: db.platformSettings,
       sessions: Array.from(db.sessions.entries()),
       paymentSessions: Array.from(db.paymentSessions.entries()),
     };
@@ -164,82 +184,54 @@ function persistStaticDb(db: MockMarketplaceDb): void {
   }
 }
 
-export function staticFetchAuthAccounts(): AccountDirectoryEntry[] {
+function assertStaticAuth(db: MockMarketplaceDb, token?: string): ServerUserRecord {
+  const user = db.getUserByToken(token);
+  if (!user) {
+    throw new ApiError('Authentication required. Please sign in.', 401, false);
+  }
+  if (user.status === 'suspended') {
+    throw new ApiError('This account is suspended. Contact marketplace support.', 403, false);
+  }
+  return user;
+}
+
+function assertStaticRole(
+  db: MockMarketplaceDb,
+  token: string | undefined,
+  allowed: UserRole[]
+): ServerUserRecord {
+  const user = assertStaticAuth(db, token);
+  if (!allowed.includes(user.role)) {
+    throw new ApiError(`Access denied. Required role: ${allowed.join(' or ')}.`, 403, false);
+  }
+  return user;
+}
+
+export function staticFetchAuthAccounts(token?: string): AccountDirectoryEntry[] {
   const db = getStaticDb();
+  assertStaticRole(db, token, ['admin']);
   return db.users.map((u) => db.toPublicAccount(u));
 }
 
 export function staticLogin(payload: {
   email?: string;
   password?: string;
-  accountId?: string;
 }): { token: string; user: AccountDirectoryEntry } {
   const db = getStaticDb();
-  const { email, password, accountId } = payload || {};
+  const cleanEmail = (payload?.email || '').trim().toLowerCase();
+  const cleanPassword = (payload?.password || '').trim();
 
-  let user = accountId ? db.users.find((u) => u.id === accountId) : undefined;
-  const cleanInput = (email || '').trim();
-  const lowerInput = cleanInput.toLowerCase();
-
-  if (!user) {
-    if (!cleanInput) {
-      user =
-        db.users.find((u) => u.role === 'customer' && u.status === 'active') ||
-        db.users[0];
-    } else {
-      user = db.users.find(
-        (u) =>
-          u.email.toLowerCase() === lowerInput ||
-          u.fullName.toLowerCase() === lowerInput
-      );
-    }
+  if (!cleanEmail || !cleanEmail.includes('@') || !cleanPassword) {
+    throw new ApiError('Email address and password are required.', 400, false);
   }
 
-  if (!user) {
-    const looksLikeEmail = cleanInput.includes('@');
-    const localPart = (looksLikeEmail ? cleanInput.split('@')[0] : cleanInput)
-      .replace(/[^a-zA-Z0-9._-]+/g, ' ')
-      .trim();
-    const derivedName =
-      localPart
-        .split(/[.\s_-]+/)
-        .filter(Boolean)
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join(' ') || 'Marketplace Member';
+  const user = db.users.find((u) => u.email.toLowerCase() === cleanEmail);
+  if (!user || user.password !== cleanPassword) {
+    throw new ApiError('Invalid email address or password.', 401, false);
+  }
 
-    const emailSlug =
-      (localPart || 'guest')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '.')
-        .replace(/(^\.|\.$)/g, '') || 'guest';
-
-    const normalizedEmail = looksLikeEmail
-      ? lowerInput
-      : `${emailSlug}@guest.kintostudio.local`;
-
-    const existingByNormalized = db.users.find(
-      (u) => u.email.toLowerCase() === normalizedEmail
-    );
-
-    if (existingByNormalized) {
-      user = existingByNormalized;
-    } else {
-      const newUser: ServerUserRecord = {
-        id: `usr-guest-${Date.now().toString(36)}`,
-        fullName: looksLikeEmail ? derivedName : cleanInput,
-        email: normalizedEmail,
-        phone: '+880 1711-000100',
-        role: 'customer',
-        roleLabel: 'Marketplace Member',
-        status: 'active',
-        joinedAt: new Date().toISOString().slice(0, 10),
-        location: 'Dhaka & Global Hub',
-        demoPasswordHint: password?.trim() || 'studio2026',
-        password: password?.trim() || 'studio2026',
-      };
-      db.users.unshift(newUser);
-      user = newUser;
-    }
+  if (user.status === 'suspended') {
+    throw new ApiError('This account is currently suspended.', 403, false);
   }
 
   const token = db.issueSession(user.id);
@@ -261,9 +253,13 @@ export function staticRegister(payload: {
 }): { token: string; user: AccountDirectoryEntry } {
   const db = getStaticDb();
   const cleanEmail = (payload.email || '').trim().toLowerCase();
+  const cleanPassword = (payload.password || '').trim();
 
   if (!payload.fullName?.trim() || !cleanEmail || !cleanEmail.includes('@')) {
     throw new ApiError('Valid full name and email address are required.', 400, false);
+  }
+  if (cleanPassword.length < 6) {
+    throw new ApiError('Password must be at least 6 characters.', 400, false);
   }
 
   if (!payload.acceptedPolicies?.accepted || !payload.acceptedPolicies.version) {
@@ -284,7 +280,7 @@ export function staticRegister(payload: {
     id: newId,
     fullName: payload.fullName.trim(),
     email: cleanEmail,
-    phone: payload.phone?.trim() || '+880 1711-000100',
+    phone: payload.phone?.trim() || '',
     role: chosenRole,
     roleLabel: chosenRole === 'seller' ? 'Seller Studio Partner' : 'Marketplace Member',
     studioName:
@@ -293,9 +289,8 @@ export function staticRegister(payload: {
         : undefined,
     status: 'active',
     joinedAt: new Date().toISOString().slice(0, 10),
-    location: 'Dhaka & Global Hub',
-    demoPasswordHint: payload.password?.trim() || 'studio2026',
-    password: payload.password?.trim() || 'studio2026',
+    location: 'Dhaka, Bangladesh',
+    password: cleanPassword,
     policyAcceptance: {
       ...payload.acceptedPolicies,
       acceptedAt: payload.acceptedPolicies.acceptedAt || new Date().toISOString(),
@@ -310,7 +305,7 @@ export function staticRegister(payload: {
       ownerName: newUser.fullName,
       email: newUser.email,
       department: 'Multi-Department',
-      origin: 'Partner Network',
+      origin: 'Dhaka Partner Network',
       submittedAt: new Date().toISOString().slice(0, 10),
       status: 'approved',
       productCount: 0,
@@ -328,7 +323,7 @@ export function staticRegister(payload: {
 
 export function staticFetchCurrentUser(token?: string): AccountDirectoryEntry {
   const db = getStaticDb();
-  const user = db.getUserByToken(token) || db.users[0];
+  const user = assertStaticAuth(db, token);
   return db.toPublicAccount(user);
 }
 
@@ -342,7 +337,7 @@ export function staticUpdateProfile(
   }
 ): AccountDirectoryEntry {
   const db = getStaticDb();
-  const user = db.getUserByToken(token) || db.users[0];
+  const user = assertStaticAuth(db, token);
   if (typeof updates.fullName === 'string' && updates.fullName.trim()) {
     user.fullName = updates.fullName.trim();
   }
@@ -357,6 +352,25 @@ export function staticUpdateProfile(
   }
   persistStaticDb(db);
   return db.toPublicAccount(user);
+}
+
+export function staticChangePassword(
+  token: string,
+  currentPassword: string,
+  newPassword: string
+): { ok: boolean; message: string } {
+  const db = getStaticDb();
+  const user = assertStaticAuth(db, token);
+  if (!currentPassword || user.password !== currentPassword.trim()) {
+    throw new ApiError('Current password is incorrect.', 400, false);
+  }
+  const cleanNew = (newPassword || '').trim();
+  if (cleanNew.length < 8) {
+    throw new ApiError('New password must be at least 8 characters.', 400, false);
+  }
+  user.password = cleanNew;
+  persistStaticDb(db);
+  return { ok: true, message: 'Password updated successfully.' };
 }
 
 export async function staticFetchCatalogProducts(): Promise<Product[]> {
@@ -387,13 +401,17 @@ export function staticFetchCurrencyRates(): CurrencyRateState {
   return getStaticDb().currencyConfig;
 }
 
-export function staticUpdateAdminCurrency(updates: {
-  bdtRate?: number;
-  defaultCurrency?: CurrencyCode;
-  source?: string;
-  updateFrequencyMinutes?: number;
-}): CurrencyRateState {
+export function staticUpdateAdminCurrency(
+  updates: {
+    bdtRate?: number;
+    defaultCurrency?: CurrencyCode;
+    source?: string;
+    updateFrequencyMinutes?: number;
+  },
+  token?: string
+): CurrencyRateState {
   const db = getStaticDb();
+  assertStaticRole(db, token, ['admin']);
   db.currencyConfig = updateCurrencyState(db.currencyConfig, updates);
   persistStaticDb(db);
   return db.currencyConfig;
@@ -460,12 +478,16 @@ export async function staticQuoteShipping(payload: {
   });
 }
 
-export function staticUpdateAdminShippingRules(payload: {
-  zoneId?: ShippingZoneId;
-  updates?: Partial<ShippingZoneRule>;
-  restrictedAreaKeywords?: string[];
-}): ShippingRuleConfig {
+export function staticUpdateAdminShippingRules(
+  payload: {
+    zoneId?: ShippingZoneId;
+    updates?: Partial<ShippingZoneRule>;
+    restrictedAreaKeywords?: string[];
+  },
+  token?: string
+): ShippingRuleConfig {
   const db = getStaticDb();
+  assertStaticRole(db, token, ['admin']);
   const { zoneId, updates, restrictedAreaKeywords } = payload;
 
   if (Array.isArray(restrictedAreaKeywords)) {
@@ -596,10 +618,11 @@ export async function staticInitiatePayment(payload: {
   if (
     !payload.customerName?.trim() ||
     !payload.email?.includes('@') ||
+    !payload.phone?.trim() ||
     !payload.shippingAddress?.streetAddress?.trim()
   ) {
     throw new ApiError(
-      'Complete customer name, email, and delivery address are required.',
+      'Complete customer name, email, phone number, and delivery address are required.',
       400,
       false
     );
@@ -614,7 +637,7 @@ export async function staticInitiatePayment(payload: {
     customer: {
       customerName: payload.customerName.trim(),
       email: payload.email.trim(),
-      phone: payload.phone?.trim() || '+880 1700-000000',
+      phone: payload.phone.trim(),
       shippingAddress: payload.shippingAddress,
       deliveryMethod: payload.deliveryMethod || 'standard',
     },
@@ -665,6 +688,25 @@ export function staticVerifyPayment(payload: {
   const chosenOutcome =
     payload.outcome || (ctx.session.paymentMethod === 'cod' ? 'cod_confirmed' : 'paid');
 
+  if (chosenOutcome === 'paid' && ctx.session.paymentMethod === 'cod') {
+    throw new ApiError(
+      'Cash on Delivery sessions must complete with cod_confirmed status, never prepaid paid.',
+      400,
+      false
+    );
+  }
+
+  if (chosenOutcome === 'paid') {
+    const gatewayStatus = getGatewayConfigStatus(ctx.session.paymentMethod);
+    if (!gatewayStatus.enabled) {
+      throw new ApiError(
+        gatewayStatus.reason || 'Payment gateway credentials are not configured.',
+        400,
+        false
+      );
+    }
+  }
+
   const { session, order } = buildVerifiedOrderFromSession(ctx, chosenOutcome, {
     walletNumber: payload.walletNumber,
     failureReason: payload.failureReason,
@@ -714,8 +756,38 @@ export function staticMarkNotificationRead(id: string): void {
   }
 }
 
-export function staticFetchOrders(): Order[] {
-  return getStaticDb().orders;
+export function staticFetchOrders(token?: string): Order[] {
+  const db = getStaticDb();
+  const user = db.getUserByToken(token);
+  if (!user) return [];
+  if (user.role === 'admin' || user.role === 'seller') return db.orders;
+  return db.orders.filter((o) => o.email.toLowerCase() === user.email.toLowerCase());
+}
+
+export function staticTrackOrder(id: string, contact?: string, token?: string): Order {
+  const db = getStaticDb();
+  const cleanId = (id || '').trim().toLowerCase();
+  if (!cleanId) {
+    throw new ApiError('Order reference ID is required.', 400, false);
+  }
+  const found = db.orders.find((o) => o.id.toLowerCase() === cleanId);
+  if (!found) {
+    throw new ApiError(`No order found matching reference ${id.toUpperCase()}.`, 404, false);
+  }
+  const user = db.getUserByToken(token);
+  const isStaff = user?.role === 'admin' || user?.role === 'seller';
+  const isOwner = user && user.email.toLowerCase() === found.email.toLowerCase();
+  const cleanContact = (contact || '').trim().toLowerCase();
+  if (!isStaff && !isOwner && cleanContact) {
+    const emailMatch = found.email.toLowerCase() === cleanContact;
+    const phoneMatch =
+      found.phone.replace(/\D/g, '').endsWith(cleanContact.replace(/\D/g, '')) &&
+      cleanContact.replace(/\D/g, '').length >= 6;
+    if (!emailMatch && !phoneMatch) {
+      throw new ApiError('Verification email or phone number does not match this order.', 403, false);
+    }
+  }
+  return found;
 }
 
 export function staticCreateOrder(order: Order): Order {
@@ -742,9 +814,11 @@ export function staticCreateOrder(order: Order): Order {
 export function staticUpdateOrderStatus(
   orderId: string,
   stage: OrderStage,
-  note?: string
+  note?: string,
+  token?: string
 ): Order {
   const db = getStaticDb();
+  assertStaticRole(db, token, ['seller', 'admin']);
   const found = db.orders.find((o) => o.id === orderId);
   if (!found) {
     throw new ApiError('Order not found', 404, false);
@@ -770,12 +844,17 @@ export function staticUpdateOrderStatus(
 export function staticPerformOrderCustomerAction(
   orderId: string,
   action: 'cancel' | 'return',
-  reason?: string
+  reason?: string,
+  token?: string
 ): Order {
   const db = getStaticDb();
+  const user = assertStaticAuth(db, token);
   const found = db.orders.find((o) => o.id === orderId);
   if (!found) {
     throw new ApiError('Order not found', 404, false);
+  }
+  if (user.role === 'customer' && found.email.toLowerCase() !== user.email.toLowerCase()) {
+    throw new ApiError('You may only modify your own orders.', 403, false);
   }
   if (action === 'cancel') {
     if (!['Confirmed', 'Processing'].includes(found.currentStage)) {
@@ -798,29 +877,16 @@ export function staticPerformOrderCustomerAction(
 
 export function staticFetchSellerDashboard(token?: string): SellerDashboardData {
   const db = getStaticDb();
-  const user = db.getUserByToken(token);
-  const activeStudio = user?.studioName || 'Aeterna & Loom Collective';
-  const ownerName = user?.fullName || 'Elena Vance';
+  const user = assertStaticRole(db, token, ['seller', 'admin']);
+  const activeStudio = user.studioName || db.sellerStoreSettings.studioName;
+  const ownerName = user.fullName;
 
-  const combinedInventory = [
-    ...db.sellerCreatedProducts.map((p) => ({
-      id: p.id,
-      sku: p.sku,
-      name: p.name,
-      brand: p.brand,
-      category: p.category,
-      categoryLabel: p.categoryLabel,
-      price: p.price,
-      stockCount: p.stockCount,
-      availability: p.availability,
-      imagePresetKey: p.imagePresetKey,
-      monthlyUnitsSold: 4,
-    })),
-    ...db.sellerInventory,
-  ];
-
+  const combinedInventory = db.getCombinedInventory();
   const pendingOrders = db.orders.filter(
     (o) => !['Delivered', 'Cancelled', 'Return Requested'].includes(o.currentStage)
+  );
+  const returnsQueue = db.orders.filter(
+    (o) => o.currentStage === 'Return Requested' || o.currentStage === 'Cancelled'
   );
 
   const monthlyGmv = combinedInventory.reduce(
@@ -837,18 +903,84 @@ export function staticFetchSellerDashboard(token?: string): SellerDashboardData 
       lowStockSkus: combinedInventory.filter((i) => i.stockCount <= 8).length,
       activeListings: combinedInventory.length,
       avgRating: 4.88,
+      returnRequestsCount: returnsQueue.length,
     },
-    revenueSeries: [
-      { month: 'Jun', gmv: 34200, orders: 68 },
-      { month: 'Jul', gmv: 38900, orders: 74 },
-      { month: 'Aug', gmv: 41600, orders: 82 },
-      { month: 'Sep', gmv: 44100, orders: 89 },
-      { month: 'Oct', gmv: 46800, orders: 95 },
-      { month: 'Nov', gmv: monthlyGmv, orders: 102 + pendingOrders.length },
-    ],
+    revenueSeries: db.buildDynamicRevenueSeries(monthlyGmv, pendingOrders.length),
     inventory: combinedInventory,
-    fulfillmentQueue: db.orders.slice(0, 8),
+    fulfillmentQueue: db.orders.slice(0, 12),
+    returnsQueue,
+    authorizedCustomers: db.getAuthorizedCustomersForSeller(),
+    storeSettings: {
+      ...db.sellerStoreSettings,
+      studioName: activeStudio,
+    },
   };
+}
+
+export function staticUpdateSellerSettings(
+  token: string,
+  updates: Partial<SellerStoreSettings>
+): SellerStoreSettings {
+  const db = getStaticDb();
+  assertStaticRole(db, token, ['seller', 'admin']);
+  db.sellerStoreSettings = {
+    ...db.sellerStoreSettings,
+    ...(typeof updates.studioName === 'string' && updates.studioName.trim()
+      ? { studioName: updates.studioName.trim() }
+      : {}),
+    ...(typeof updates.contactEmail === 'string' && updates.contactEmail.includes('@')
+      ? { contactEmail: updates.contactEmail.trim() }
+      : {}),
+    ...(typeof updates.dispatchLeadTime === 'string' && updates.dispatchLeadTime.trim()
+      ? { dispatchLeadTime: updates.dispatchLeadTime.trim() }
+      : {}),
+    ...(typeof updates.pickupDivision === 'string' && updates.pickupDivision.trim()
+      ? { pickupDivision: updates.pickupDivision.trim() }
+      : {}),
+    ...(typeof updates.codSupported === 'boolean' ? { codSupported: updates.codSupported } : {}),
+    ...(Array.isArray(updates.preferredCouriers)
+      ? { preferredCouriers: updates.preferredCouriers.filter(Boolean) }
+      : {}),
+    ...(typeof updates.payoutChannel === 'string' && updates.payoutChannel.trim()
+      ? { payoutChannel: updates.payoutChannel.trim() }
+      : {}),
+    ...(typeof updates.payoutSchedule === 'string' && updates.payoutSchedule.trim()
+      ? { payoutSchedule: updates.payoutSchedule.trim() }
+      : {}),
+    ...(typeof updates.payoutAccountMasked === 'string' && updates.payoutAccountMasked.trim()
+      ? { payoutAccountMasked: updates.payoutAccountMasked.trim() }
+      : {}),
+  };
+  persistStaticDb(db);
+  return db.sellerStoreSettings;
+}
+
+export function staticResolveSellerReturn(
+  token: string,
+  orderId: string,
+  decision: 'approve_refund' | 'restore_delivered',
+  note?: string
+): Order {
+  const db = getStaticDb();
+  assertStaticRole(db, token, ['seller', 'admin']);
+  const found = db.orders.find((o) => o.id === orderId);
+  if (!found) {
+    throw new ApiError('Order not found.', 404, false);
+  }
+  const nextStage: OrderStage = decision === 'restore_delivered' ? 'Delivered' : 'Cancelled';
+  const updated = db.advanceOrderTimeline(
+    found,
+    nextStage,
+    note ||
+      (decision === 'restore_delivered'
+        ? 'Return inspection closed · order confirmed delivered'
+        : 'Seller approved return · refund settlement queued')
+  );
+  if (decision === 'approve_refund' && updated.paymentStatus === 'paid') {
+    updated.paymentStatus = 'cancelled';
+  }
+  persistStaticDb(db);
+  return updated;
 }
 
 export function staticCreateSellerProduct(
@@ -873,7 +1005,7 @@ export function staticCreateSellerProduct(
   }
 ): ApiSellerProductRecord {
   const db = getStaticDb();
-  const user = db.getUserByToken(token);
+  const user = assertStaticRole(db, token, ['seller', 'admin']);
 
   if (!payload.acceptedPolicies?.accepted || !payload.acceptedPolicies.version) {
     throw new ApiError(
@@ -953,9 +1085,11 @@ export function staticCreateSellerProduct(
 
 export function staticUpdateSellerProduct(
   id: string,
-  updates: { price?: number; stockCount?: number; availability?: AvailabilityStatus }
+  updates: { price?: number; stockCount?: number; availability?: AvailabilityStatus },
+  token?: string
 ): ProductOverride {
   const db = getStaticDb();
+  assertStaticRole(db, token, ['seller', 'admin']);
   const override = db.updateInventoryItem(id, {
     price: typeof updates.price === 'number' && updates.price > 0 ? updates.price : undefined,
     stockCount:
@@ -968,8 +1102,9 @@ export function staticUpdateSellerProduct(
   return override;
 }
 
-export function staticFetchAdminDashboard(): AdminDashboardData {
+export function staticFetchAdminDashboard(token?: string): AdminDashboardData {
   const db = getStaticDb();
+  assertStaticRole(db, token, ['admin']);
   const orderGmv = db.orders
     .filter((o) => o.currentStage !== 'Cancelled')
     .reduce((sum, o) => sum + o.total, 0);
@@ -977,6 +1112,9 @@ export function staticFetchAdminDashboard(): AdminDashboardData {
   const activeSellers = db.sellerApplications.filter((s) => s.status === 'approved').length;
   const pendingSellers = db.sellerApplications.filter((s) => s.status === 'pending').length;
   const activeTopDepartments = db.categoryTree.filter((c) => c.depth === 0 && c.isActive).length;
+  const combinedInventory = db.getCombinedInventory();
+  const openReturnsCount = db.orders.filter((o) => o.currentStage === 'Return Requested').length;
+  const lowStockCount = combinedInventory.filter((i) => i.stockCount <= 8).length;
 
   return {
     kpis: {
@@ -986,6 +1124,8 @@ export function staticFetchAdminDashboard(): AdminDashboardData {
       pendingSellers,
       registeredUsers: db.users.length,
       activeCategories: activeTopDepartments,
+      openReturnsCount,
+      lowStockCount,
     },
     departmentShare: [
       { category: 'home-furniture-kitchen', label: 'Home, Furniture & Kitchen', gmv: 46200, sharePercent: 25 },
@@ -1002,17 +1142,22 @@ export function staticFetchAdminDashboard(): AdminDashboardData {
     users: db.users.map((u) => db.toPublicAccount(u)),
     sellerApplications: db.sellerApplications,
     orders: db.orders,
+    inventory: combinedInventory,
+    promotions: db.promotions,
     categories: db.categoryTree,
     currencyConfig: db.currencyConfig,
     shippingConfig: db.shippingConfig,
+    platformSettings: db.platformSettings,
   };
 }
 
 export function staticUpdateAdminUser(
   id: string,
-  updates: { role?: UserRole; status?: 'active' | 'pending' | 'suspended' }
+  updates: { role?: UserRole; status?: 'active' | 'pending' | 'suspended' },
+  token?: string
 ): AccountDirectoryEntry {
   const db = getStaticDb();
+  assertStaticRole(db, token, ['admin']);
   const updated = db.updateUserRoleAndStatus(id, updates);
   if (!updated) {
     throw new ApiError('User not found', 404, false);
@@ -1023,9 +1168,11 @@ export function staticUpdateAdminUser(
 
 export function staticUpdateSellerStatus(
   id: string,
-  status: 'approved' | 'pending' | 'suspended'
+  status: 'approved' | 'pending' | 'suspended',
+  token?: string
 ): SellerApplicationRecord {
   const db = getStaticDb();
+  assertStaticRole(db, token, ['admin']);
   const appRec = db.sellerApplications.find((s) => s.id === id);
   if (!appRec) {
     throw new ApiError('Seller application not found', 404, false);
@@ -1043,23 +1190,103 @@ export function staticUpdateSellerStatus(
   return appRec;
 }
 
-export function staticCreateCategoryNode(payload: {
-  name: string;
-  shortName?: string;
-  parentId?: string | null;
-  description?: string;
-  bannerTagline?: string;
-  iconName?: string;
-  imagePresetKey?: string;
-  sortOrder?: number;
-  seoTitle?: string;
-  seoDescription?: string;
-  collectionIds?: string[];
-  featuredBrands?: string[];
-  filterFacets?: CategoryFacetConfig[];
-  subcategoryName?: string;
-}): { category: CategoryNode; categoryTree: CategoryNode[] } {
+export function staticUpdateAdminPromotions(
+  payload: { code: string; active?: boolean; value?: number },
+  token?: string
+): ManagedPromoRecord[] {
   const db = getStaticDb();
+  assertStaticRole(db, token, ['admin']);
+  const promo = db.promotions.find((p) => p.code === payload.code);
+  if (!promo) {
+    throw new ApiError('Promo code not found.', 404, false);
+  }
+  if (typeof payload.active === 'boolean') promo.active = payload.active;
+  if (typeof payload.value === 'number' && payload.value >= 0 && payload.value <= 90) {
+    promo.value = payload.value;
+  }
+  persistStaticDb(db);
+  return db.promotions;
+}
+
+export function staticProcessAdminRefund(
+  orderId: string,
+  action: 'approve_refund' | 'decline_return',
+  note?: string,
+  token?: string
+): Order {
+  const db = getStaticDb();
+  assertStaticRole(db, token, ['admin']);
+  const found = db.orders.find((o) => o.id === orderId);
+  if (!found) {
+    throw new ApiError('Order not found.', 404, false);
+  }
+  const nextStage: OrderStage = action === 'decline_return' ? 'Delivered' : 'Cancelled';
+  const updated = db.advanceOrderTimeline(
+    found,
+    nextStage,
+    note ||
+      (action === 'decline_return'
+        ? 'Admin compliance closed return · original delivery stands'
+        : 'Admin processed verified refund & reversed gateway settlement')
+  );
+  if (action !== 'decline_return') {
+    updated.paymentStatus = 'cancelled';
+  }
+  persistStaticDb(db);
+  return updated;
+}
+
+export function staticUpdateAdminPlatformSettings(
+  updates: Partial<{
+    storefrontName: string;
+    supportEmail: string;
+    defaultLanguage: LanguageCode;
+    maintenanceNoticeEnabled: boolean;
+  }>,
+  token?: string
+): PlatformSettingsState {
+  const db = getStaticDb();
+  assertStaticRole(db, token, ['admin']);
+  db.platformSettings = {
+    ...db.platformSettings,
+    ...(typeof updates.storefrontName === 'string' && updates.storefrontName.trim()
+      ? { storefrontName: updates.storefrontName.trim() }
+      : {}),
+    ...(typeof updates.supportEmail === 'string' && updates.supportEmail.includes('@')
+      ? { supportEmail: updates.supportEmail.trim() }
+      : {}),
+    ...(updates.defaultLanguage === 'en' || updates.defaultLanguage === 'bn'
+      ? { defaultLanguage: updates.defaultLanguage }
+      : {}),
+    ...(typeof updates.maintenanceNoticeEnabled === 'boolean'
+      ? { maintenanceNoticeEnabled: updates.maintenanceNoticeEnabled }
+      : {}),
+  };
+  persistStaticDb(db);
+  return db.platformSettings;
+}
+
+export function staticCreateCategoryNode(
+  payload: {
+    name: string;
+    shortName?: string;
+    parentId?: string | null;
+    description?: string;
+    bannerTagline?: string;
+    iconName?: string;
+    imagePresetKey?: string;
+    sortOrder?: number;
+    seoTitle?: string;
+    seoDescription?: string;
+    collectionIds?: string[];
+    featuredBrands?: string[];
+    filterFacets?: CategoryFacetConfig[];
+    subcategoryName?: string;
+  },
+  token?: string
+): { category: CategoryNode; categoryTree: CategoryNode[] } {
+  const db = getStaticDb();
+  assertStaticRole(db, token, ['admin']);
   if (!payload.name?.trim()) {
     throw new ApiError('Category name is required.', 400, false);
   }
@@ -1158,9 +1385,11 @@ export function staticCreateCategoryNode(payload: {
 
 export function staticUpdateCategoryNode(
   id: string,
-  updates: Partial<CategoryNode>
+  updates: Partial<CategoryNode>,
+  token?: string
 ): { category: CategoryNode; categoryTree: CategoryNode[] } {
   const db = getStaticDb();
+  assertStaticRole(db, token, ['admin']);
   const target = db.categoryTree.find((c) => c.id === id || c.slug === id);
   if (!target) {
     throw new ApiError('Category node not found.', 404, false);
@@ -1184,9 +1413,11 @@ export function staticUpdateCategoryNode(
 }
 
 export function staticDeleteCategoryNode(
-  idOrSlug: string
+  idOrSlug: string,
+  token?: string
 ): { ok: boolean; removedCount: number; categoryTree: CategoryNode[] } {
   const db = getStaticDb();
+  assertStaticRole(db, token, ['admin']);
   const target = db.categoryTree.find((c) => c.id === idOrSlug || c.slug === idOrSlug);
   if (!target) {
     throw new ApiError('Category node not found.', 404, false);

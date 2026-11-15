@@ -18,6 +18,8 @@ export type UserRole = 'customer' | 'seller' | 'admin';
 
 export type CurrencyCode = 'BDT' | 'USD';
 
+export type LanguageCode = 'en' | 'bn';
+
 export type AttributeType =
   | 'text'
   | 'number'
@@ -344,6 +346,9 @@ export interface CheckoutQuoteResponse {
   totalCharged: number;
   promoApplied?: string;
   allowedPaymentMethods: PaymentMethodId[];
+  paymentMethodAvailability?: Partial<
+    Record<PaymentMethodId, { enabled: boolean; reason?: string }>
+  >;
 }
 
 export interface PaymentSession {
@@ -461,11 +466,17 @@ export type LegalDocumentId =
   | 'cookie-policy'
   | 'shipping-policy'
   | 'return-policy'
+  | 'cancellation-policy'
+  | 'payment-policy'
+  | 'warranty-policy'
   | 'seller-agreement'
+  | 'marketplace-terms'
   | 'prohibited-items'
   | 'product-safety'
   | 'acceptable-use'
   | 'intellectual-property'
+  | 'customer-support-policy'
+  | 'data-retention-policy'
   | 'accessibility';
 
 export interface AccountDirectoryEntry {
@@ -479,7 +490,6 @@ export interface AccountDirectoryEntry {
   status: 'active' | 'pending' | 'suspended';
   joinedAt: string;
   location: string;
-  demoPasswordHint: string;
   policyAcceptance?: LegalAcceptanceRecord;
 }
 
@@ -601,6 +611,27 @@ export interface SellerInventoryItem {
   monthlyUnitsSold: number;
 }
 
+export interface SellerStoreSettings {
+  studioName: string;
+  contactEmail: string;
+  dispatchLeadTime: string;
+  pickupDivision: string;
+  codSupported: boolean;
+  preferredCouriers: string[];
+  payoutChannel: string;
+  payoutSchedule: string;
+  payoutAccountMasked: string;
+}
+
+export interface SellerAuthorizedCustomerSummary {
+  customerKey: string;
+  displayName: string;
+  cityArea: string;
+  orderCount: number;
+  lastOrderDate: string;
+  totalSpentUsd: number;
+}
+
 export interface SellerDashboardData {
   studioName: string;
   ownerName: string;
@@ -610,10 +641,25 @@ export interface SellerDashboardData {
     lowStockSkus: number;
     activeListings: number;
     avgRating: number;
+    returnRequestsCount: number;
   };
   revenueSeries: { month: string; gmv: number; orders: number }[];
   inventory: SellerInventoryItem[];
   fulfillmentQueue: Order[];
+  returnsQueue: Order[];
+  authorizedCustomers: SellerAuthorizedCustomerSummary[];
+  storeSettings: SellerStoreSettings;
+}
+
+export interface ManagedPromoRecord extends PromoCode {
+  active: boolean;
+}
+
+export interface PlatformSettingsState {
+  storefrontName: string;
+  supportEmail: string;
+  defaultLanguage: LanguageCode;
+  maintenanceNoticeEnabled: boolean;
 }
 
 export interface AdminDashboardData {
@@ -624,21 +670,27 @@ export interface AdminDashboardData {
     pendingSellers: number;
     registeredUsers: number;
     activeCategories: number;
+    openReturnsCount: number;
+    lowStockCount: number;
   };
   departmentShare: { category: string; label: string; gmv: number; sharePercent: number }[];
   users: AccountDirectoryEntry[];
   sellerApplications: SellerApplicationRecord[];
   orders: Order[];
+  inventory: SellerInventoryItem[];
+  promotions: ManagedPromoRecord[];
   categories: CategoryNode[];
   currencyConfig: CurrencyRateState;
   shippingConfig: ShippingRuleConfig;
+  platformSettings: PlatformSettingsState;
 }
 
 export interface PaymentMethodRecord {
   id: string;
+  provider: string;
   brand: string;
-  last4: string;
-  expiry: string;
+  referenceMasked: string;
+  tokenId?: string;
   holderName: string;
   isDefault: boolean;
 }
@@ -725,14 +777,20 @@ export type RouteName =
   | 'legal'
   | 'shipping-policy'
   | 'return-policy'
+  | 'cancellation-policy'
+  | 'payment-policy'
+  | 'warranty-policy'
   | 'privacy-policy'
   | 'cookie-policy'
   | 'terms'
   | 'seller-agreement'
+  | 'marketplace-terms'
   | 'prohibited-items'
   | 'product-safety'
   | 'acceptable-use'
   | 'intellectual-property'
+  | 'customer-support-policy'
+  | 'data-retention-policy'
   | 'accessibility'
   | 'maintenance'
   | 'not-found';

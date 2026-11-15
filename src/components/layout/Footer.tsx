@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
+import { t } from '../../utils/i18n';
 import { PWAInstallButton } from '../pwa/PWAInstallButton';
 import { Button } from '../ui/Button';
 
@@ -8,7 +9,9 @@ export const Footer: React.FC = () => {
   const {
     categories,
     currency,
+    language,
     toggleCurrency,
+    toggleLanguage,
     navigate,
     showToast,
     openCookiePreferences,
@@ -87,7 +90,7 @@ export const Footer: React.FC = () => {
                     onClick={() => navigate({ name: 'shop', category: 'all' })}
                     className="hover:text-[var(--ks-text-primary)] cursor-pointer text-left leading-snug font-medium"
                   >
-                    Shop All Products
+                    {t(language, 'shopAll')}
                   </button>
                 </li>
                 {categories.map((cat) => (
@@ -164,7 +167,7 @@ export const Footer: React.FC = () => {
                     onClick={() => navigate({ name: 'track-order' })}
                     className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
-                    Track Order
+                    {t(language, 'trackOrder')}
                   </button>
                 </li>
                 <li>
@@ -173,7 +176,7 @@ export const Footer: React.FC = () => {
                     onClick={() => navigate({ name: 'account', accountTab: 'overview' })}
                     className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
-                    My Account
+                    {t(language, 'myAccount')}
                   </button>
                 </li>
                 <li>
@@ -182,7 +185,7 @@ export const Footer: React.FC = () => {
                     onClick={() => navigate({ name: 'shipping-policy' })}
                     className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
-                    Delivery Information
+                    Shipping &amp; Delivery
                   </button>
                 </li>
                 <li>
@@ -197,10 +200,19 @@ export const Footer: React.FC = () => {
                 <li>
                   <button
                     type="button"
+                    onClick={() => navigate({ name: 'warranty-policy' })}
+                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
+                  >
+                    Warranty Policy
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
                     onClick={() => navigate({ name: 'contact' })}
                     className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
-                    Contact &amp; Support
+                    {t(language, 'contact')} &amp; Support
                   </button>
                 </li>
                 <li>
@@ -209,7 +221,7 @@ export const Footer: React.FC = () => {
                     onClick={() => navigate({ name: 'faq' })}
                     className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
-                    Help &amp; FAQ
+                    Help &amp; {t(language, 'faq')}
                   </button>
                 </li>
               </ul>
@@ -224,7 +236,7 @@ export const Footer: React.FC = () => {
                     onClick={() => navigate({ name: 'legal' })}
                     className="text-left font-medium text-[var(--ks-text-primary)] leading-snug hover:text-[var(--ks-accent)] cursor-pointer"
                   >
-                    Legal Center
+                    {t(language, 'legalCenter')} (17)
                   </button>
                 </li>
                 <li>
@@ -248,6 +260,24 @@ export const Footer: React.FC = () => {
                 <li>
                   <button
                     type="button"
+                    onClick={() => navigate({ name: 'cancellation-policy' })}
+                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
+                  >
+                    Cancellation Policy
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => navigate({ name: 'payment-policy' })}
+                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
+                  >
+                    Payment Policy
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
                     onClick={() => navigate({ name: 'cookie-policy' })}
                     className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
@@ -257,37 +287,19 @@ export const Footer: React.FC = () => {
                 <li>
                   <button
                     type="button"
+                    onClick={() => navigate({ name: 'marketplace-terms' })}
+                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
+                  >
+                    Marketplace Terms
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
                     onClick={() => navigate({ name: 'seller-agreement' })}
                     className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
                     Seller Terms
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'product-safety' })}
-                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    Product Safety
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'intellectual-property' })}
-                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    IP Policy
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'accessibility' })}
-                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    Accessibility
                   </button>
                 </li>
               </ul>
@@ -306,10 +318,18 @@ export const Footer: React.FC = () => {
             </span>
             <button
               type="button"
+              onClick={toggleLanguage}
+              className="text-left whitespace-nowrap hover:text-[var(--ks-text-primary)] cursor-pointer"
+            >
+              {t(language, 'languageLabel')}: {language === 'en' ? 'EN | বাংলা' : 'বাংলা | EN'}
+            </button>
+            <span aria-hidden="true">·</span>
+            <button
+              type="button"
               onClick={toggleCurrency}
               className="font-mono-num text-left whitespace-nowrap hover:text-[var(--ks-text-primary)] cursor-pointer"
             >
-              Currency: {currency === 'BDT' ? 'BDT (৳)' : 'USD ($)'}
+              {t(language, 'currencyLabel')}: {currency === 'BDT' ? 'BDT (৳)' : 'USD ($)'}
             </button>
             <span aria-hidden="true">·</span>
             <button
