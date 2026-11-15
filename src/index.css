@@ -10,18 +10,18 @@
   --ks-surface-muted: #F0EFEB;
   --ks-text-primary: #222220;
   --ks-text-secondary: #5E5D58;
-  --ks-text-muted: #777773;
+  --ks-text-muted: #61605B;
   --ks-action: #222222;
   --ks-action-hover: #383835;
   --ks-action-text: #FAF9F6;
-  --ks-accent: #8C6239;
-  --ks-accent-hover: #734E2B;
+  --ks-accent: #7A532E;
+  --ks-accent-hover: #644223;
   --ks-accent-text: #FFFFFF;
   --ks-border: #E5E3DE;
   --ks-border-strong: #D3D0C8;
   --ks-divider: #EAE8E1;
   --ks-success: #1E6B43;
-  --ks-warning: #B45309;
+  --ks-warning: #9A4306;
   --ks-error: #B91C1C;
   --ks-info: #1D4ED8;
 
@@ -78,7 +78,7 @@
   --ks-surface-muted: #242420;
   --ks-text-primary: #F4F3EF;
   --ks-text-secondary: #B4B2AC;
-  --ks-text-muted: #8C8A83;
+  --ks-text-muted: #9E9C95;
   --ks-action: #F4F3EF;
   --ks-action-hover: #DFDDD6;
   --ks-action-text: #171716;
@@ -226,37 +226,7 @@
   }
 }
 
-@keyframes kinto-gradient-flow {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-@keyframes kinto-caret-blink {
-  0%, 48% {
-    opacity: 1;
-  }
-  50%, 100% {
-    opacity: 0;
-  }
-}
-
-.typing-gradient-shimmer {
-  background-size: 220% auto;
-  animation: kinto-gradient-flow 6.5s ease-in-out infinite;
-  will-change: background-position;
-}
-
-.typing-caret-blink {
-  animation: kinto-caret-blink 1.05s steps(1, end) infinite;
-  will-change: opacity;
-}
+/* Subtle static display accents replace continuous typing/shimmer animations */
 
 @keyframes kinto-page-enter-forward {
   from {

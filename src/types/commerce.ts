@@ -683,6 +683,8 @@ export interface AdminDashboardData {
   currencyConfig: CurrencyRateState;
   shippingConfig: ShippingRuleConfig;
   platformSettings: PlatformSettingsState;
+  supportInquiries?: SupportInquiryRecord[];
+  newsletterSubscribersCount?: number;
 }
 
 export interface PaymentMethodRecord {
@@ -794,3 +796,55 @@ export type RouteName =
   | 'accessibility'
   | 'maintenance'
   | 'not-found';
+
+export interface SupportInquiryRecord {
+  id: string;
+  ticketRef: string;
+  name: string;
+  email: string;
+  phone?: string;
+  topic: string;
+  orderId?: string;
+  message: string;
+  userId?: string;
+  status: 'open' | 'acknowledged' | 'resolved';
+  createdAt: string;
+}
+
+export interface NewsletterSubscriptionRecord {
+  id: string;
+  email: string;
+  source: string;
+  subscribedAt: string;
+}
+
+export interface PasswordResetRequestResult {
+  ok: boolean;
+  message: string;
+  deliveryMode: 'smtp' | 'in-app-preview';
+  previewCode?: string;
+  expiresInMinutes: number;
+}
+
+export interface AdminReadinessCheckItem {
+  id: string;
+  label: string;
+  status: 'operational' | 'pending-config' | 'in-memory';
+  summary: string;
+  requiredAction?: string;
+}
+
+export interface AdminSystemReadiness {
+  checkedAt: string;
+  persistence: AdminReadinessCheckItem;
+  emailTransport: AdminReadinessCheckItem;
+  paymentGateways: AdminReadinessCheckItem[];
+  businessCompliance: AdminReadinessCheckItem[];
+  crawlerSurface: AdminReadinessCheckItem;
+  metrics: {
+    openSupportInquiries: number;
+    newsletterSubscribers: number;
+    pendingSellers: number;
+  };
+}
+

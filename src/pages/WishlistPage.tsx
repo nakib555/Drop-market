@@ -1,7 +1,8 @@
 import React from 'react';
 import { Heart, ShoppingBag, Trash2 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { formatCurrency, isProductOutOfStock } from '../utils/format';
+import { isProductOutOfStock } from '../utils/format';
+import { PriceDisplay } from '../components/product/CommercePrimitives';
 import { Button } from '../components/ui/Button';
 import {
   Breadcrumb,
@@ -31,10 +32,10 @@ export const WishlistPage: React.FC = () => {
         ]}
       />
 
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-[var(--ks-border)]">
         <div>
           <h1 className="font-display text-3xl sm:text-5xl font-medium">Saved Wishlist</h1>
-          <p className="text-sm text-[#5C5B57] dark:text-[#A3A19B] mt-1 font-mono-num">
+          <p className="text-sm text-[var(--ks-text-secondary)] mt-1 font-mono-num">
             {savedProducts.length} saved {savedProducts.length === 1 ? 'product' : 'products'}
           </p>
         </div>
@@ -50,7 +51,7 @@ export const WishlistPage: React.FC = () => {
           label="Loading saved wishlist"
         />
       ) : savedProducts.length === 0 ? (
-        <div className="rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]">
+        <div className="rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)]">
           <EmptyState
             icon={<Heart className="w-6 h-6" />}
             title="Your wishlist is empty"
@@ -68,30 +69,32 @@ export const WishlistPage: React.FC = () => {
             return (
               <article
                 key={product.id}
-                className="rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] overflow-hidden flex flex-col"
+                className="rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] overflow-hidden flex flex-col"
               >
-                <div
+                <button
+                  type="button"
                   onClick={() => navigate({ name: 'product', slug: product.slug })}
-                  className="aspect-[4/3] bg-[#F2F0EC] dark:bg-[#22221F] overflow-hidden cursor-pointer"
+                  aria-label={`View ${product.name}`}
+                  className="aspect-[4/3] w-full bg-[var(--ks-surface-muted)] overflow-hidden cursor-pointer block text-left"
                 >
                   <ResilientImage
                     src={product.images[0]}
                     alt={product.name}
                     className="w-full h-full object-cover hover:scale-[1.03] transition-transform duration-300"
                   />
-                </div>
+                </button>
 
                 <div className="p-5 flex-1 flex flex-col justify-between gap-4">
                   <div>
-                    <div className="flex items-baseline justify-between gap-2 text-xs text-[#84827B]">
+                    <div className="flex items-baseline justify-between gap-2 text-xs text-[var(--ks-text-muted)]">
                       <span className="uppercase tracking-wider min-w-0 truncate">{product.brand}</span>
                       <span
                         className={`shrink-0 text-right ${
                           outOfStock
-                            ? 'text-[#B91C1C] dark:text-[#F87171]'
+                            ? 'text-[var(--ks-error)]'
                             : product.availability === 'low-stock'
-                            ? 'text-[#B45309] dark:text-[#FBBF24]'
-                            : 'text-[#1F6E43] dark:text-[#4ADE80]'
+                            ? 'text-[var(--ks-warning)]'
+                            : 'text-[var(--ks-success)]'
                         }`}
                       >
                         {outOfStock
@@ -103,18 +106,25 @@ export const WishlistPage: React.FC = () => {
                           : 'Made to Order'}
                       </span>
                     </div>
-                    <h3
-                      onClick={() => navigate({ name: 'product', slug: product.slug })}
-                      className="text-base font-semibold mt-1 cursor-pointer hover:text-[#8F6438] dark:hover:text-[#C89B67]"
-                    >
-                      {product.name}
-                    </h3>
-                    <p className="text-sm font-mono-num font-semibold mt-2">
-                      {formatCurrency(product.price, currency)}
-                    </p>
+                    <h2 className="text-base font-semibold mt-1">
+                      <button
+                        type="button"
+                        onClick={() => navigate({ name: 'product', slug: product.slug })}
+                        className="text-left hover:text-[var(--ks-accent)] cursor-pointer"
+                      >
+                        {product.name}
+                      </button>
+                    </h2>
+                    <PriceDisplay
+                      price={product.price}
+                      originalPrice={product.originalPrice}
+                      currency={currency}
+                      size="sm"
+                      className="mt-2"
+                    />
                   </div>
 
-                  <div className="flex items-center gap-2 pt-3 border-t border-[#E5E3DD] dark:border-[#2C2C28]">
+                  <div className="flex items-center gap-2 pt-3 border-t border-[var(--ks-border)]">
                     <Button
                       variant="primary"
                       size="sm"
@@ -138,7 +148,7 @@ export const WishlistPage: React.FC = () => {
                       type="button"
                       onClick={() => toggleWishlist(product)}
                       aria-label={`Remove ${product.name} from wishlist`}
-                      className="w-10 h-10 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] flex items-center justify-center text-[#5C5B57] hover:text-[#B91C1C] dark:hover:text-[#F87171] cursor-pointer shrink-0"
+                      className="w-10 h-10 rounded-md border border-[var(--ks-border)] flex items-center justify-center text-[var(--ks-text-secondary)] hover:text-[var(--ks-error)] cursor-pointer shrink-0"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

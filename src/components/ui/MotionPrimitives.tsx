@@ -1,6 +1,5 @@
 import React from 'react';
 import { motion, useScroll, useSpring } from 'motion/react';
-import { MOTION_DURATION, ENTER_EASE } from '../../utils/motion';
 
 interface ScrollRevealProps {
   children: React.ReactNode;
@@ -14,60 +13,24 @@ export const ScrollReveal: React.FC<ScrollRevealProps> = ({
   children,
   id,
   className = '',
-  delay = 0,
-  yOffset = 8,
 }) => (
-  <motion.div
-    id={id}
-    initial={{ opacity: 0.96, y: yOffset }}
-    whileInView={{ opacity: 1, y: 0 }}
-    viewport={{ once: true, amount: 0 }}
-    transition={{ duration: MOTION_DURATION.moderate, ease: ENTER_EASE, delay }}
-    className={className}
-  >
+  <div id={id} className={className}>
     {children}
-  </motion.div>
+  </div>
 );
 
 export const StaggerGrid: React.FC<{
   children: React.ReactNode;
   className?: string;
 }> = ({ children, className = '' }) => (
-  <motion.div
-    initial="hidden"
-    whileInView="visible"
-    viewport={{ once: true, amount: 'some' }}
-    variants={{
-      hidden: {},
-      visible: {
-        transition: {
-          staggerChildren: 0.05,
-        },
-      },
-    }}
-    className={className}
-  >
-    {children}
-  </motion.div>
+  <div className={className}>{children}</div>
 );
 
 export const StaggerItem: React.FC<{
   children: React.ReactNode;
   className?: string;
 }> = ({ children, className = '' }) => (
-  <motion.div
-    variants={{
-      hidden: { opacity: 0, y: 12 },
-      visible: {
-        opacity: 1,
-        y: 0,
-        transition: { duration: MOTION_DURATION.moderate, ease: ENTER_EASE },
-      },
-    }}
-    className={className}
-  >
-    {children}
-  </motion.div>
+  <div className={className}>{children}</div>
 );
 
 export const ScrollProgressHairline: React.FC = () => {

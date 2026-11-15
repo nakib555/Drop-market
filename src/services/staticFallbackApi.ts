@@ -27,6 +27,7 @@ import {
 import type {
   AccountDirectoryEntry,
   AdminDashboardData,
+  AdminSystemReadiness,
   ApiSellerProductRecord,
   AvailabilityStatus,
   CategoryFacetConfig,
@@ -39,8 +40,10 @@ import type {
   LanguageCode,
   LegalAcceptanceRecord,
   ManagedPromoRecord,
+  NewsletterSubscriptionRecord,
   Order,
   OrderStage,
+  PasswordResetRequestResult,
   PaymentMethodId,
   PaymentSession,
   PlatformSettingsState,
@@ -54,6 +57,7 @@ import type {
   ShippingZoneId,
   ShippingZoneRule,
   StoreNotification,
+  SupportInquiryRecord,
   UserRole,
 } from '../types/commerce';
 import { ApiError } from './apiError';
@@ -740,8 +744,10 @@ export function staticVerifyPayment(payload: {
   return { session, order };
 }
 
-export function staticFetchNotifications(role: UserRole): StoreNotification[] {
+export function staticFetchNotifications(token?: string): StoreNotification[] {
   const db = getStaticDb();
+  const user = db.getUserByToken(token);
+  const role: UserRole = user?.role || 'customer';
   return db.notifications.filter(
     (n) => n.roleScope === 'all' || n.roleScope === role || (role === 'admin' && n.roleScope !== 'customer')
   );
@@ -776,13 +782,21 @@ export function staticTrackOrder(id: string, contact?: string, token?: string): 
   }
   const user = db.getUserByToken(token);
   const isStaff = user?.role === 'admin' || user?.role === 'seller';
-  const isOwner = user && user.email.toLowerCase() === found.email.toLowerCase();
+  const isOwner = Boolean(user && user.email.toLowerCase() === found.email.toLowerCase());
   const cleanContact = (contact || '').trim().toLowerCase();
-  if (!isStaff && !isOwner && cleanContact) {
+  if (!isStaff && !isOwner) {
+    if (!cleanContact) {
+      throw new ApiError(
+        'Sign in or enter the matching email address or phone number used at checkout to track this order.',
+        401,
+        false
+      );
+    }
     const emailMatch = found.email.toLowerCase() === cleanContact;
+    const contactDigits = cleanContact.replace(/\D/g, '');
     const phoneMatch =
-      found.phone.replace(/\D/g, '').endsWith(cleanContact.replace(/\D/g, '')) &&
-      cleanContact.replace(/\D/g, '').length >= 6;
+      contactDigits.length >= 6 &&
+      found.phone.replace(/\D/g, '').endsWith(contactDigits);
     if (!emailMatch && !phoneMatch) {
       throw new ApiError('Verification email or phone number does not match this order.', 403, false);
     }
@@ -790,25 +804,12 @@ export function staticTrackOrder(id: string, contact?: string, token?: string): 
   return found;
 }
 
-export function staticCreateOrder(order: Order): Order {
-  const db = getStaticDb();
-  const safeOrder: Order = {
-    ...order,
-    paymentStatus: order.paymentStatus || (order.paymentMethod === 'cod' ? 'cod_pending' : 'paid'),
-  };
-  db.orders = [safeOrder, ...db.orders.filter((o) => o.id !== safeOrder.id)];
-  db.notifications.unshift({
-    id: `notif-${Date.now()}`,
-    title: `Order Confirmed · #${safeOrder.id}`,
-    message: `${safeOrder.customerName} placed an order totaling ${formatOrderNotificationAmount(safeOrder)}.`,
-    category: 'order',
-    createdAt: 'Just now',
-    read: false,
-    roleScope: 'all',
-    orderId: safeOrder.id,
-  });
-  persistStaticDb(db);
-  return safeOrder;
+export function staticCreateOrder(_order: Order): Order {
+  throw new ApiError(
+    'Direct order creation is disabled. Complete checkout through verified payment initiation and verification.',
+    403,
+    false
+  );
 }
 
 export function staticUpdateOrderStatus(
@@ -902,7 +903,7 @@ export function staticFetchSellerDashboard(token?: string): SellerDashboardData 
       pendingFulfillment: pendingOrders.length,
       lowStockSkus: combinedInventory.filter((i) => i.stockCount <= 8).length,
       activeListings: combinedInventory.length,
-      avgRating: 4.88,
+      avgRating: 0,
       returnRequestsCount: returnsQueue.length,
     },
     revenueSeries: db.buildDynamicRevenueSeries(monthlyGmv, pendingOrders.length),
@@ -1042,8 +1043,8 @@ export function staticCreateSellerProduct(
     sizeTier: payload.sizeTier || 'small',
     codEligible: typeof payload.codEligible === 'boolean' ? payload.codEligible : true,
     price: Number(payload.price.toFixed(2)),
-    rating: 4.9,
-    reviewCount: 1,
+    rating: 0,
+    reviewCount: 0,
     stockCount: stock,
     availability,
     badgeText: 'New Seller Listing',
@@ -1148,6 +1149,8 @@ export function staticFetchAdminDashboard(token?: string): AdminDashboardData {
     currencyConfig: db.currencyConfig,
     shippingConfig: db.shippingConfig,
     platformSettings: db.platformSettings,
+    supportInquiries: db.supportInquiries,
+    newsletterSubscribersCount: db.newsletterSubscribers.length,
   };
 }
 
@@ -1439,3 +1442,159 @@ export function staticDeleteCategoryNode(
   persistStaticDb(db);
   return { ok: true, removedCount: toRemoveIds.size, categoryTree: db.categoryTree };
 }
+
+export function staticRequestPasswordReset(email: string): PasswordResetRequestResult {
+  const db = getStaticDb();
+  const cleanEmail = (email || '').trim().toLowerCase();
+  if (!cleanEmail || !cleanEmail.includes('@')) {
+    throw new ApiError('Enter a valid registered email address.', 400, false);
+  }
+  const user = db.users.find((u) => u.email.toLowerCase() === cleanEmail);
+  const expiresInMinutes = 15;
+  if (!user) {
+    return {
+      ok: true,
+      deliveryMode: 'in-app-preview',
+      expiresInMinutes,
+      message: 'No matching account found or SMTP is unconfigured. Verify your email address and try again.',
+    };
+  }
+  const code = String(Math.floor(100000 + Math.random() * 899999));
+  db.passwordResetTokens.set(cleanEmail, {
+    email: cleanEmail,
+    userId: user.id,
+    code,
+    expiresAt: Date.now() + expiresInMinutes * 60_000,
+    used: false,
+  });
+  persistStaticDb(db);
+  return {
+    ok: true,
+    deliveryMode: 'in-app-preview',
+    previewCode: code,
+    expiresInMinutes,
+    message:
+      'Offline/static mode: SMTP email transport is unavailable. Use the verification code shown below within 15 minutes.',
+  };
+}
+
+export function staticConfirmPasswordReset(payload: {
+  email: string;
+  code: string;
+  newPassword: string;
+}): { ok: boolean; message: string } {
+  const db = getStaticDb();
+  const cleanEmail = (payload.email || '').trim().toLowerCase();
+  const cleanCode = (payload.code || '').trim();
+  const cleanNew = (payload.newPassword || '').trim();
+  if (!cleanEmail || !cleanCode) {
+    throw new ApiError('Email address and 6-digit verification code are required.', 400, false);
+  }
+  if (cleanNew.length < 6) {
+    throw new ApiError('New password must be at least 6 characters long.', 400, false);
+  }
+  const record = db.passwordResetTokens.get(cleanEmail);
+  if (!record || record.used || record.code !== cleanCode || Date.now() > record.expiresAt) {
+    throw new ApiError('Verification code is invalid or expired. Request a new code.', 400, false);
+  }
+  const user = db.users.find((u) => u.id === record.userId);
+  if (!user) {
+    throw new ApiError('Account record could not be located.', 404, false);
+  }
+  user.password = cleanNew;
+  record.used = true;
+  db.invalidateUserSessions(user.id);
+  persistStaticDb(db);
+  return {
+    ok: true,
+    message: 'Password has been reset and existing sessions cleared. Sign in with your new password.',
+  };
+}
+
+export function staticSubmitSupportInquiry(
+  payload: {
+    name: string;
+    email: string;
+    phone?: string;
+    topic: string;
+    orderId?: string;
+    message: string;
+  },
+  token?: string
+): SupportInquiryRecord {
+  const db = getStaticDb();
+  const cleanName = (payload.name || '').trim();
+  const cleanEmail = (payload.email || '').trim().toLowerCase();
+  const cleanMessage = (payload.message || '').trim();
+  if (!cleanName || !cleanEmail || !cleanEmail.includes('@') || cleanMessage.length < 5) {
+    throw new ApiError(
+      'Name, valid email address, and a brief inquiry message (5+ chars) are required.',
+      400,
+      false
+    );
+  }
+  const actor = db.getUserByToken(token);
+  const ticketRef = `KS-TKT-${Math.floor(10000 + Math.random() * 89999)}`;
+  const inquiry: SupportInquiryRecord = {
+    id: `inq-${Date.now().toString(36)}`,
+    ticketRef,
+    name: cleanName,
+    email: cleanEmail,
+    phone: payload.phone?.trim() || undefined,
+    topic: payload.topic?.trim() || 'client-care',
+    orderId: payload.orderId?.trim() || undefined,
+    message: cleanMessage,
+    userId: actor?.id,
+    status: 'open',
+    createdAt: new Date().toISOString(),
+  };
+  db.supportInquiries.unshift(inquiry);
+  persistStaticDb(db);
+  return inquiry;
+}
+
+export function staticSubscribeNewsletter(
+  email: string,
+  source = 'footer'
+): {
+  ok: boolean;
+  alreadySubscribed: boolean;
+  subscription: NewsletterSubscriptionRecord;
+  message: string;
+} {
+  const db = getStaticDb();
+  const cleanEmail = (email || '').trim().toLowerCase();
+  if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+    throw new ApiError('Please enter a valid email address.', 400, false);
+  }
+  const existing = db.newsletterSubscribers.find((s) => s.email === cleanEmail);
+  if (existing) {
+    return {
+      ok: true,
+      alreadySubscribed: true,
+      subscription: existing,
+      message: 'This email address is already subscribed to Kinto Studio updates.',
+    };
+  }
+  const subscription: NewsletterSubscriptionRecord = {
+    id: `sub-${Date.now().toString(36)}`,
+    email: cleanEmail,
+    source: source || 'footer',
+    subscribedAt: new Date().toISOString(),
+  };
+  db.newsletterSubscribers.unshift(subscription);
+  persistStaticDb(db);
+  return {
+    ok: true,
+    alreadySubscribed: false,
+    subscription,
+    message: 'Subscribed to Kinto Studio product & release updates.',
+  };
+}
+
+export function staticFetchAdminReadiness(token?: string): AdminSystemReadiness {
+  const db = getStaticDb();
+  assertStaticRole(db, token, ['admin']);
+  return db.buildSystemReadiness(getGatewayConfigStatus);
+}
+

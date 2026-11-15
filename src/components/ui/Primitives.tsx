@@ -66,21 +66,21 @@ export interface BreadcrumbItem {
 }
 
 export const Breadcrumb: React.FC<{ items: BreadcrumbItem[] }> = ({ items }) => (
-  <nav aria-label="Breadcrumb" className="flex items-baseline flex-wrap gap-x-2 gap-y-1 text-xs text-[#5C5B57] dark:text-[#A3A19B]">
+  <nav aria-label="Breadcrumb" className="flex items-baseline flex-wrap gap-x-2 gap-y-1 text-xs text-[var(--ks-text-secondary)]">
     {items.map((item, idx) => {
       const isLast = idx === items.length - 1;
       return (
         <React.Fragment key={`${item.label}-${idx}`}>
           {idx > 0 && <span aria-hidden="true">/</span>}
           {isLast || !item.onClick ? (
-            <span className={isLast ? 'text-[#171716] dark:text-[#F4F3EF] font-medium' : ''}>
+            <span className={isLast ? 'text-[var(--ks-text-primary)] font-medium' : ''}>
               {item.label}
             </span>
           ) : (
             <button
               type="button"
               onClick={item.onClick}
-              className="text-left hover:text-[#171716] dark:hover:text-[#F4F3EF] transition-colors cursor-pointer"
+              className="text-left hover:text-[var(--ks-text-primary)] transition-colors cursor-pointer"
             >
               {item.label}
             </button>
@@ -112,7 +112,7 @@ export const Pagination: React.FC<PaginationProps> = ({
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
         aria-label="Previous page"
-        className="w-10 h-10 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] flex items-center justify-center text-[#171716] dark:text-[#F4F3EF] disabled:opacity-40 cursor-pointer hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] transition-colors"
+        className="w-10 h-10 rounded-md border border-[var(--ks-border)] flex items-center justify-center text-[var(--ks-text-primary)] disabled:opacity-40 cursor-pointer hover:bg-[var(--ks-surface-muted)] transition-colors"
       >
         <ChevronLeft className="w-4 h-4" />
       </button>
@@ -124,8 +124,8 @@ export const Pagination: React.FC<PaginationProps> = ({
           aria-current={page === currentPage ? 'page' : undefined}
           className={`w-10 h-10 rounded-md text-sm font-mono-num transition-colors cursor-pointer ${
             page === currentPage
-              ? 'bg-[#171716] text-white dark:bg-[#F4F3EF] dark:text-[#171716] font-medium'
-              : 'border border-[#E5E3DD] dark:border-[#2C2C28] text-[#5C5B57] dark:text-[#B4B2AC] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
+              ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] font-medium'
+              : 'border border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)]'
           }`}
         >
           {page}
@@ -136,7 +136,7 @@ export const Pagination: React.FC<PaginationProps> = ({
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
         aria-label="Next page"
-        className="w-10 h-10 rounded-md border border-[#E5E3DD] dark:border-[#2C2C28] flex items-center justify-center text-[#171716] dark:text-[#F4F3EF] disabled:opacity-40 cursor-pointer hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] transition-colors"
+        className="w-10 h-10 rounded-md border border-[var(--ks-border)] flex items-center justify-center text-[var(--ks-text-primary)] disabled:opacity-40 cursor-pointer hover:bg-[var(--ks-surface-muted)] transition-colors"
       >
         <ChevronRight className="w-4 h-4" />
       </button>
@@ -155,7 +155,7 @@ export const Accordion: React.FC<{ items: AccordionItemData[] }> = ({ items }) =
   const [openId, setOpenId] = useState<string | null>(items[0]?.id || null);
 
   return (
-    <div className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28] border-y border-[#E5E3DD] dark:border-[#2C2C28]">
+    <div className="divide-y divide-[var(--ks-border)] border-y border-[var(--ks-border)]">
       {items.map((item) => {
         const isOpen = openId === item.id;
         return (
@@ -168,9 +168,9 @@ export const Accordion: React.FC<{ items: AccordionItemData[] }> = ({ items }) =
             >
               <div className="flex flex-col gap-1 min-w-0 flex-1">
                 {item.meta && (
-                  <span className="text-xs text-[#84827B] dark:text-[#85837D]">{item.meta}</span>
+                  <span className="text-xs text-[var(--ks-text-muted)]">{item.meta}</span>
                 )}
-                <span className="text-base font-medium leading-snug text-[#171716] dark:text-[#F4F3EF] group-hover:text-[#8F6438] dark:group-hover:text-[#C89B67] transition-colors">
+                <span className="text-base font-medium leading-snug text-[var(--ks-text-primary)] group-hover:text-[var(--ks-accent)] transition-colors">
                   {item.title}
                 </span>
               </div>
@@ -256,16 +256,16 @@ export const Modal: React.FC<ModalProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: 6 }}
             transition={STUDIO_TRANSITION.base}
-            className={`relative w-full ${maxWidthClass} max-h-[90vh] overflow-y-auto rounded-lg bg-[#FFFFFF] dark:bg-[#191917] text-[#171716] dark:text-[#F4F3EF] border border-[#E5E3DD] dark:border-[#2C2C28] shadow-2xl focus:outline-none`}
+            className={`relative w-full ${maxWidthClass} max-h-[90vh] overflow-y-auto rounded-lg bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)] shadow-2xl focus:outline-none`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-6 py-4 bg-[#FFFFFF]/95 dark:bg-[#191917]/95 backdrop-blur-sm border-b border-[#E5E3DD] dark:border-[#2C2C28]">
-              {title ? <h3 className="text-lg font-medium leading-snug min-w-0 truncate">{title}</h3> : <span />}
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-6 py-4 bg-[var(--ks-surface)]/95 backdrop-blur-sm border-b border-[var(--ks-border)]">
+              {title ? <h2 className="text-lg font-medium leading-snug min-w-0 truncate">{title}</h2> : <span />}
               <button
                 type="button"
                 onClick={onClose}
                 aria-label="Close modal"
-                className="w-10 h-10 -mr-1 shrink-0 rounded-md flex items-center justify-center text-[#5C5B57] dark:text-[#B4B2AC] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer transition-colors"
+                className="w-10 h-10 -mr-1 shrink-0 rounded-md flex items-center justify-center text-[var(--ks-text-secondary)] hover:bg-[var(--ks-surface-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -332,18 +332,18 @@ export const Drawer: React.FC<DrawerProps> = ({
             animate={{ x: 0 }}
             exit={{ x: side === 'right' ? '100%' : '-100%' }}
             transition={STUDIO_TRANSITION.drawer}
-            className={`relative w-full max-w-md h-full bg-[#FFFFFF] dark:bg-[#191917] text-[#171716] dark:text-[#F4F3EF] border-[#E5E3DD] dark:border-[#2C2C28] shadow-2xl flex flex-col focus:outline-none ${
+            className={`relative w-full max-w-md h-full bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border-[var(--ks-border)] shadow-2xl flex flex-col focus:outline-none ${
               side === 'right' ? 'ml-auto border-l' : 'mr-auto border-r'
             }`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between gap-3 px-6 py-4 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+            <div className="flex items-center justify-between gap-3 px-6 py-4 border-b border-[var(--ks-border)]">
               <h2 className="font-display text-2xl font-medium tracking-tight min-w-0 truncate">{title}</h2>
               <button
                 type="button"
                 onClick={onClose}
                 aria-label={`Close ${title}`}
-                className="w-10 h-10 -mr-1 shrink-0 rounded-md flex items-center justify-center text-[#5C5B57] dark:text-[#B4B2AC] hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] cursor-pointer transition-colors"
+                className="w-10 h-10 -mr-1 shrink-0 rounded-md flex items-center justify-center text-[var(--ks-text-secondary)] hover:bg-[var(--ks-surface-muted)] cursor-pointer transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -372,11 +372,11 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   onAction,
 }) => (
   <div className="py-16 px-6 text-center max-w-md mx-auto flex flex-col items-center gap-4">
-    <div className="w-12 h-12 rounded-lg bg-[#F2F0EC] dark:bg-[#22221F] flex items-center justify-center text-[#5C5B57] dark:text-[#B4B2AC]">
+    <div className="w-12 h-12 rounded-lg bg-[var(--ks-surface-muted)] flex items-center justify-center text-[var(--ks-text-secondary)]">
       {icon || <Package className="w-5 h-5" />}
     </div>
-    <h3 className="font-display text-2xl font-medium text-[#171716] dark:text-[#F4F3EF]">{title}</h3>
-    <p className="text-sm text-[#5C5B57] dark:text-[#A3A19B] leading-relaxed">{description}</p>
+    <h2 className="font-display text-2xl font-medium text-[var(--ks-text-primary)]">{title}</h2>
+    <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">{description}</p>
     {actionLabel && onAction && (
       <Button variant="primary" size="md" onClick={onAction} className="mt-2">
         {actionLabel}
@@ -388,7 +388,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 export const SkeletonLoader: React.FC<{ className?: string }> = ({ className = 'h-6 w-full' }) => (
   <div
     aria-hidden="true"
-    className={`animate-pulse rounded-md bg-[#EAE7E0] dark:bg-[#262623] ${className}`}
+    className={`animate-pulse rounded-md bg-[var(--ks-surface-muted)] ${className}`}
   />
 );
 
@@ -409,6 +409,7 @@ export const ResilientImage: React.FC<ResilientImageProps> = ({
   fallbackTitle,
   className = '',
   decoding = 'async',
+  fetchPriority,
   ...rest
 }) => {
   const [failed, setFailed] = useState(false);
@@ -422,7 +423,7 @@ export const ResilientImage: React.FC<ResilientImageProps> = ({
       <div
         role="img"
         aria-label={alt}
-        className={`flex flex-col items-center justify-center gap-2 bg-[#EFECE5] dark:bg-[#22221F] text-[#5C5B57] dark:text-[#A3A19B] p-4 text-center ${className}`}
+        className={`flex flex-col items-center justify-center gap-2 bg-[var(--ks-surface-muted)] text-[var(--ks-text-secondary)] p-4 text-center ${className}`}
       >
         <Package className="w-6 h-6 opacity-60" aria-hidden="true" />
         <span className="text-xs font-medium">{fallbackTitle || alt}</span>
@@ -435,6 +436,7 @@ export const ResilientImage: React.FC<ResilientImageProps> = ({
       src={src}
       alt={alt}
       decoding={decoding}
+      fetchPriority={fetchPriority}
       referrerPolicy="no-referrer"
       onError={() => setFailed(true)}
       className={className}

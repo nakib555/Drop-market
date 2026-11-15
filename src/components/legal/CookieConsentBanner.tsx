@@ -45,28 +45,28 @@ export const CookieConsentBanner: React.FC = () => {
             transition={STUDIO_TRANSITION.fast}
             role="region"
             aria-label="Cookie and storage consent"
-            className="fixed bottom-2 left-2 right-2 sm:left-auto sm:right-5 sm:bottom-5 sm:max-w-md z-40 rounded-lg bg-[#FFFFFF]/95 dark:bg-[#191917]/95 backdrop-blur-md border border-[#E5E3DD] dark:border-[#2C2C28] shadow-xl p-2.5 sm:p-4"
+            className="fixed bottom-2 left-2 right-2 sm:left-auto sm:right-5 sm:bottom-5 sm:max-w-md z-40 rounded-lg bg-[var(--ks-surface)]/95 backdrop-blur-md border border-[var(--ks-border)] shadow-xl p-2.5 sm:p-4"
             style={{ paddingBottom: 'calc(0.625rem + var(--sab, 0px))' }}
           >
             <div className="space-y-1.5 sm:space-y-2.5">
               <div className="flex items-start gap-2 sm:gap-2.5">
                 <Cookie
-                  className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#8F6438] dark:text-[#C89B67] shrink-0 mt-0.5"
+                  className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--ks-accent)] shrink-0 mt-0.5"
                   aria-hidden="true"
                 />
                 <div className="space-y-0.5 sm:space-y-1 min-w-0">
-                  <p className="hidden sm:block text-xs font-semibold text-[#171716] dark:text-[#F4F3EF]">
+                  <p className="hidden sm:block text-xs font-semibold text-[var(--ks-text-primary)]">
                     Cookies &amp; Privacy Preferences
                   </p>
-                  <p className="text-[11px] leading-snug text-[#5C5B57] dark:text-[#A3A19B]">
-                    <span className="sm:hidden font-semibold text-[#171716] dark:text-[#F4F3EF]">
+                  <p className="text-[11px] leading-snug text-[var(--ks-text-secondary)]">
+                    <span className="sm:hidden font-semibold text-[var(--ks-text-primary)]">
                       Cookies &amp; Privacy:{' '}
                     </span>
                     Essential storage runs bag &amp; currency; optional preferences stay under your control.{' '}
                     <button
                       type="button"
                       onClick={() => openPolicyPreview('cookie-policy')}
-                      className="underline text-[#171716] dark:text-[#F4F3EF] hover:text-[#8F6438] dark:hover:text-[#C89B67] cursor-pointer"
+                      className="underline text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                     >
                       Cookie Policy
                     </button>
@@ -112,21 +112,21 @@ export const CookieConsentBanner: React.FC = () => {
         maxWidthClass="max-w-lg"
       >
         <div className="space-y-5 text-sm">
-          <p className="text-xs leading-relaxed text-[#5C5B57] dark:text-[#A3A19B]">
+          <p className="text-xs leading-relaxed text-[var(--ks-text-secondary)]">
             Manage how {LEGAL_ENTITY.legalName} stores browser data and optional storefront preferences (Policy v{LEGAL_VERSION}). Changes apply immediately across this browser.
           </p>
 
-          <div className="p-3.5 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] flex items-start justify-between gap-3">
+          <div className="p-3.5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] flex items-start justify-between gap-3">
             <div className="space-y-0.5 min-w-0">
               <p className="text-xs font-semibold inline-flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
+                <Lock className="w-3.5 h-3.5 text-[var(--ks-accent)] shrink-0" />
                 <span>Strictly Necessary Cookies &amp; Session Storage</span>
               </p>
-              <p className="text-[11px] text-[#5C5B57] dark:text-[#A3A19B] leading-snug">
+              <p className="text-[11px] text-[var(--ks-text-secondary)] leading-snug">
                 Required for shopping bag state, account login tokens, CSRF protection, currency selection, and offline PWA navigation.
               </p>
             </div>
-            <span className="text-[11px] font-mono-num font-medium text-[#1F6E43] dark:text-[#4ADE80] shrink-0 whitespace-nowrap">
+            <span className="text-[11px] font-mono-num font-medium text-[var(--ks-success)] shrink-0 whitespace-nowrap">
               Always Active
             </span>
           </div>
@@ -158,14 +158,14 @@ export const CookieConsentBanner: React.FC = () => {
             />
           </div>
 
-          <div className="pt-2 border-t border-[#E5E3DD] dark:border-[#2C2C28] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="pt-2 border-t border-[var(--ks-border)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <button
               type="button"
               onClick={() => {
                 closeCookiePreferences();
                 navigate({ name: 'cookie-policy' });
               }}
-              className="text-xs underline text-left text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF] cursor-pointer"
+              className="text-xs underline text-left text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer"
             >
               Read full Cookie &amp; Storage Policy
             </button>

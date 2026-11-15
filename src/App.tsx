@@ -15,10 +15,23 @@ import { PWAInstallBanner } from './components/pwa/PWAInstallBanner';
 import { PWAStatusBanners } from './components/pwa/PWAStatusBanners';
 import { CookieConsentBanner } from './components/legal/CookieConsentBanner';
 import { LegalModalPreview } from './components/legal/LegalModalPreview';
+import { FAQ_ITEMS } from './data/catalog';
+import { applyDocumentSeo, resolveSeoMetadata } from './utils/seo';
 
 const AppShell: React.FC = () => {
-  const { route, navigationDirection } = useStore();
+  const { route, navigationDirection, products, categories } = useStore();
   const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    const meta = resolveSeoMetadata({
+      route,
+      products,
+      categories,
+      origin: typeof window !== 'undefined' ? window.location.origin : 'https://kintostudio.bd',
+      faqItems: FAQ_ITEMS,
+    });
+    applyDocumentSeo(meta);
+  }, [route, products, categories]);
 
   useEffect(() => {
     const onGlobalKey = (e: KeyboardEvent) => {
@@ -38,9 +51,15 @@ const AppShell: React.FC = () => {
   const routeKey = getRouteKey(route);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F9F8F6] dark:bg-[#111110] text-[#171716] dark:text-[#F4F3EF]">
+    <div className="min-h-screen flex flex-col bg-[var(--ks-bg)] text-[var(--ks-text-primary)]">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[70] focus:px-4 focus:py-2.5 focus:rounded-[var(--ks-radius-md)] focus:bg-[var(--ks-action)] focus:text-[var(--ks-action-text)] focus:text-xs focus:font-semibold focus:shadow-lg"
+      >
+        Skip to main content
+      </a>
       <Header onOpenSearch={() => setSearchOpen(true)} />
-      <main className="flex-1 overflow-x-clip">
+      <main id="main-content" tabIndex={-1} className="flex-1 overflow-x-clip focus:outline-none">
         <div
           key={routeKey}
           className={navigationDirection >= 0 ? 'page-enter-forward' : 'page-enter-back'}
@@ -96,7 +115,7 @@ class RootErrorBoundary extends React.Component<
       return (
         <div className="min-h-screen flex items-center justify-center bg-[#F9F8F6] dark:bg-[#111110] text-[#171716] dark:text-[#F4F3EF] px-4 py-12">
           <div className="max-w-md w-full rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] p-6 sm:p-8 text-center space-y-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8F6438] dark:text-[#C89B67]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7A532E] dark:text-[#C89B67]">
               KINTO STUDIO
             </p>
             <h1 className="font-display text-2xl sm:text-3xl font-medium">

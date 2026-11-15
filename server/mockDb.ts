@@ -1,13 +1,16 @@
 import type {
   AccountDirectoryEntry,
+  AdminSystemReadiness,
   ApiSellerProductRecord,
   AvailabilityStatus,
   CategoryNode,
   CurrencyRateState,
   DynamicCategoryRecord,
   ManagedPromoRecord,
+  NewsletterSubscriptionRecord,
   Order,
   OrderStage,
+  PaymentMethodId,
   PlatformSettingsState,
   ProductOverride,
   SellerApplicationRecord,
@@ -16,6 +19,7 @@ import type {
   SellerStoreSettings,
   ShippingRuleConfig,
   StoreNotification,
+  SupportInquiryRecord,
   UserRole,
 } from '../src/types/commerce.ts';
 import { INITIAL_CATEGORY_TREE, PROMO_CODES } from './shared/marketplaceSchema.ts';
@@ -671,6 +675,12 @@ export class MockMarketplaceDb {
   promotions: ManagedPromoRecord[] = PROMO_CODES.map((p) => ({ ...p, active: true }));
   platformSettings: PlatformSettingsState = { ...INITIAL_PLATFORM_SETTINGS };
   sessions: Map<string, string> = new Map();
+  supportInquiries: SupportInquiryRecord[] = [];
+  newsletterSubscribers: NewsletterSubscriptionRecord[] = [];
+  passwordResetTokens: Map<
+    string,
+    { email: string; userId: string; code: string; expiresAt: number; used: boolean }
+  > = new Map();
 
   toPublicAccount(u: ServerUserRecord): AccountDirectoryEntry {
     return {
@@ -700,6 +710,115 @@ export class MockMarketplaceDb {
     const token = `ks-tok-${userId}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
     this.sessions.set(token, userId);
     return token;
+  }
+
+  invalidateUserSessions(userId: string): void {
+    for (const [tok, uid] of this.sessions.entries()) {
+      if (uid === userId) {
+        this.sessions.delete(tok);
+      }
+    }
+  }
+
+  buildSystemReadiness(
+    getGatewayStatus: (method: PaymentMethodId) => { enabled: boolean; reason?: string }
+  ): AdminSystemReadiness {
+    const env = typeof process !== 'undefined' && process.env ? process.env : {};
+    const gatewayIds: Array<{ id: PaymentMethodId; label: string; envHint: string }> = [
+      { id: 'cod', label: 'Cash on Delivery (Bangladesh)', envHint: 'Zone eligibility config' },
+      { id: 'bkash', label: 'bKash Merchant PGW', envHint: 'BKASH_APP_KEY + BKASH_APP_SECRET' },
+      { id: 'nagad', label: 'Nagad MFS Gateway', envHint: 'NAGAD_MERCHANT_ID' },
+      { id: 'rocket', label: 'DBBL Rocket PGW', envHint: 'ROCKET_MERCHANT_ID' },
+      {
+        id: 'sslcommerz',
+        label: 'SSLCommerz PGW',
+        envHint: 'SSLCOMMERZ_STORE_ID + SSLCOMMERZ_STORE_PASSWORD',
+      },
+      { id: 'visa', label: 'Visa / Mastercard 3DS', envHint: 'STRIPE_SECRET_KEY or SSLCommerz' },
+      { id: 'bank-transfer', label: 'NPSB / BEFTN Bank Transfer', envHint: 'BANK_TRANSFER_ACCOUNT_NO' },
+    ];
+
+    const hasDbUrl = Boolean(env.DATABASE_URL || env.FIREBASE_PROJECT_ID);
+    const hasSmtp = Boolean(env.SMTP_HOST && env.SMTP_FROM);
+    const hasTradeLicense = Boolean(env.KINTO_TRADE_LICENSE_NO);
+    const hasDbid = Boolean(env.KINTO_DBID_NO);
+    const hasBinVat = Boolean(env.KINTO_BIN_VAT_NO);
+
+    return {
+      checkedAt: new Date().toISOString(),
+      persistence: {
+        id: 'storage-persistence',
+        label: 'Marketplace Data Storage',
+        status: hasDbUrl ? 'operational' : 'in-memory',
+        summary: hasDbUrl
+          ? 'External database connection string detected in server environment.'
+          : 'Running in-memory MockMarketplaceDb store; state resets on full server restart.',
+        requiredAction: hasDbUrl
+          ? undefined
+          : 'Provision PostgreSQL (Cloud SQL) or Firestore when ready for persistent multi-instance deployment.',
+      },
+      emailTransport: {
+        id: 'smtp-transport',
+        label: 'Transactional Email & Password Recovery',
+        status: hasSmtp ? 'operational' : 'pending-config',
+        summary: hasSmtp
+          ? 'SMTP credentials configured for order receipts and password reset codes.'
+          : 'SMTP_HOST and SMTP_FROM are unconfigured; password reset issues a 15-minute in-app verification code preview without sending external email.',
+        requiredAction: hasSmtp ? undefined : 'Set SMTP_HOST, SMTP_USER, SMTP_PASS, and SMTP_FROM in server env.',
+      },
+      paymentGateways: gatewayIds.map((gw) => {
+        const st = getGatewayStatus(gw.id);
+        return {
+          id: `gw-${gw.id}`,
+          label: gw.label,
+          status: st.enabled ? 'operational' : 'pending-config',
+          summary: st.enabled
+            ? 'Operational in server checkout quotes and session verification.'
+            : st.reason || 'Merchant credentials pending.',
+          requiredAction: st.enabled ? undefined : `Configure ${gw.envHint} in server environment.`,
+        };
+      }),
+      businessCompliance: [
+        {
+          id: 'reg-trade-license',
+          label: 'Dhaka City Corporation Trade License',
+          status: hasTradeLicense ? 'operational' : 'pending-config',
+          summary: hasTradeLicense
+            ? 'Registered Trade License identifier provided.'
+            : 'Pending commercial Trade License filing before public launch.',
+          requiredAction: hasTradeLicense ? undefined : 'Populate verified Trade License number prior to go-live.',
+        },
+        {
+          id: 'reg-dbid',
+          label: 'Bangladesh Digital Business ID (DBID)',
+          status: hasDbid ? 'operational' : 'pending-config',
+          summary: hasDbid
+            ? 'DBID registration configured.'
+            : 'Pending Ministry of Commerce DBID registration under Digital Commerce Guidelines 2021.',
+          requiredAction: hasDbid ? undefined : 'Obtain DBID and verify legal entity copy with Bangladesh counsel.',
+        },
+        {
+          id: 'reg-bin',
+          label: 'NBR BIN / VAT & e-TIN',
+          status: hasBinVat ? 'operational' : 'pending-config',
+          summary: hasBinVat
+            ? 'BIN/VAT registration configured for tax invoices.'
+            : 'Using 5% configurable VAT rate estimate; official BIN/VAT number pending.',
+          requiredAction: hasBinVat ? undefined : 'Configure official NBR BIN/VAT identifier before tax filing.',
+        },
+      ],
+      crawlerSurface: {
+        id: 'seo-crawler',
+        label: 'SEO Routing, Sitemap & Robots Surface',
+        status: 'operational',
+        summary: 'History API routes, canonical tags, JSON-LD Schema.org, /robots.txt, and dynamic /sitemap.xml are active.',
+      },
+      metrics: {
+        openSupportInquiries: this.supportInquiries.filter((i) => i.status !== 'resolved').length,
+        newsletterSubscribers: this.newsletterSubscribers.length,
+        pendingSellers: this.sellerApplications.filter((s) => s.status === 'pending').length,
+      },
+    };
   }
 
   getCombinedInventory(): SellerInventoryItem[] {

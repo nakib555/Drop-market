@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  AlertTriangle,
   CheckCircle2,
   Coins,
+  Database,
   FileText,
   FolderPlus,
   RefreshCw,
@@ -20,6 +22,7 @@ import {
   createCategoryNodeApi,
   deleteCategoryNodeApi,
   fetchAdminDashboardApi,
+  fetchAdminReadinessApi,
   processAdminRefundApi,
   updateAdminCurrencyApi,
   updateAdminPlatformSettingsApi,
@@ -33,6 +36,7 @@ import {
 } from '../../services/api';
 import {
   AdminDashboardData,
+  AdminSystemReadiness,
   CategoryNode,
   CurrencyCode,
   LanguageCode,
@@ -118,15 +122,20 @@ export const AdminDashboard: React.FC = () => {
   const [zoneDraft, setZoneDraft] = useState<ShippingZoneRule | null>(null);
   const [restrictedKeywordsInput, setRestrictedKeywordsInput] = useState('');
 
-  // Platform Settings State
+  // Platform Settings & System Readiness State
   const [platformDraft, setPlatformDraft] = useState<PlatformSettingsState | null>(null);
+  const [readiness, setReadiness] = useState<AdminSystemReadiness | null>(null);
 
   const loadAdmin = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetchAdminDashboardApi();
+      const [res, readinessRes] = await Promise.all([
+        fetchAdminDashboardApi(),
+        fetchAdminReadinessApi().catch(() => null),
+      ]);
       setData(res);
+      setReadiness(readinessRes);
       setFxRateInput(String(res.currencyConfig.rates.BDT));
       setFxDefaultCurrency(res.currencyConfig.defaultCurrency);
       setFxSource(res.currencyConfig.source);
@@ -1259,6 +1268,38 @@ export const AdminDashboard: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          <div className="pt-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold">
+                Customer Support Inquiries ({data.supportInquiries?.length ?? 0})
+              </h3>
+              <span className="text-xs text-[var(--ks-text-secondary)]">
+                Newsletter subscribers: {data.newsletterSubscribersCount ?? 0}
+              </span>
+            </div>
+            {data.supportInquiries && data.supportInquiries.length > 0 ? (
+              <div className="divide-y divide-[var(--ks-divider)] border border-[var(--ks-border)] rounded-[var(--ks-radius-md)]">
+                {data.supportInquiries.slice(0, 10).map((inq) => (
+                  <div key={inq.id} className="p-3.5 text-xs space-y-1">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-mono-num font-semibold text-[var(--ks-accent)]">
+                        {inq.ticketRef} · {inq.topic}
+                      </span>
+                      <span className="text-[var(--ks-text-muted)]">
+                        {inq.name} ({inq.email})
+                      </span>
+                    </div>
+                    <p className="text-[var(--ks-text-secondary)] leading-relaxed">{inq.message}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-[var(--ks-text-muted)]">
+                No customer support inquiries submitted during the active server session.
+              </p>
+            )}
+          </div>
         </div>
       )}
 
@@ -1302,6 +1343,126 @@ export const AdminDashboard: React.FC = () => {
       {/* 13. Platform Settings & Bangladesh Shipping Zones */}
       {activeTab === 'settings' && (
         <div className="space-y-8">
+          {readiness && (
+            <section
+              aria-label="System Readiness and Integration Audit"
+              className="p-6 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-5"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Database className="w-4 h-4 text-[var(--ks-accent)] shrink-0" />
+                  <div>
+                    <h3 className="text-base font-medium leading-snug">
+                      System Readiness &amp; Configuration Transparency
+                    </h3>
+                    <p className="text-xs text-[var(--ks-text-secondary)]">
+                      Live server audit of persistence, email transport, payment gateways, and Bangladesh statutory compliance.
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[11px] font-mono-num text-[var(--ks-text-muted)]">
+                  Support open: {readiness.metrics.openSupportInquiries} · Newsletter:{' '}
+                  {readiness.metrics.newsletterSubscribers}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                {[readiness.persistence, readiness.emailTransport, readiness.crawlerSurface].map(
+                  (item) => (
+                    <div
+                      key={item.id}
+                      className="p-3.5 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-1"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-[var(--ks-text-primary)]">
+                          {item.label}
+                        </span>
+                        <span
+                          className={`inline-flex items-center gap-1 font-medium ${
+                            item.status === 'operational'
+                              ? 'text-[var(--ks-success)]'
+                              : 'text-[var(--ks-warning)]'
+                          }`}
+                        >
+                          {item.status === 'operational' ? (
+                            <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
+                          ) : (
+                            <AlertTriangle className="w-3.5 h-3.5" aria-hidden="true" />
+                          )}
+                          <span>
+                            {item.status === 'operational'
+                              ? 'Operational'
+                              : item.status === 'in-memory'
+                              ? 'In-Memory Only'
+                              : 'Pending Config'}
+                          </span>
+                        </span>
+                      </div>
+                      <p className="text-[var(--ks-text-secondary)] leading-relaxed">
+                        {item.summary}
+                      </p>
+                      {item.requiredAction && (
+                        <p className="text-[11px] text-[var(--ks-accent)]">
+                          Next: {item.requiredAction}
+                        </p>
+                      )}
+                    </div>
+                  )
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 text-xs">
+                <div className="space-y-2">
+                  <p className="ks-eyebrow">Payment Gateway Readiness</p>
+                  <div className="divide-y divide-[var(--ks-divider)] border border-[var(--ks-border)] rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)]">
+                    {readiness.paymentGateways.map((gw) => (
+                      <div key={gw.id} className="p-3 flex items-start justify-between gap-3">
+                        <div className="space-y-0.5">
+                          <p className="font-medium text-[var(--ks-text-primary)]">{gw.label}</p>
+                          <p className="text-[var(--ks-text-secondary)]">
+                            {gw.requiredAction || gw.summary}
+                          </p>
+                        </div>
+                        <span
+                          className={`shrink-0 font-medium ${
+                            gw.status === 'operational'
+                              ? 'text-[var(--ks-success)]'
+                              : 'text-[var(--ks-text-muted)]'
+                          }`}
+                        >
+                          {gw.status === 'operational' ? 'Enabled' : 'Pending'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="ks-eyebrow">Bangladesh Legal &amp; Regulatory Checklist</p>
+                  <div className="divide-y divide-[var(--ks-divider)] border border-[var(--ks-border)] rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)]">
+                    {readiness.businessCompliance.map((reg) => (
+                      <div key={reg.id} className="p-3 flex items-start justify-between gap-3">
+                        <div className="space-y-0.5">
+                          <p className="font-medium text-[var(--ks-text-primary)]">{reg.label}</p>
+                          <p className="text-[var(--ks-text-secondary)]">{reg.summary}</p>
+                        </div>
+                        <span
+                          className={`shrink-0 font-medium ${
+                            reg.status === 'operational'
+                              ? 'text-[var(--ks-success)]'
+                              : 'text-[var(--ks-warning)]'
+                          }`}
+                        >
+                          {reg.status === 'operational' ? 'Filed' : 'Pending'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
           {platformDraft && (
             <form
               onSubmit={handleSavePlatformSettings}

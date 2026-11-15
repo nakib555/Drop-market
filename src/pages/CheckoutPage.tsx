@@ -1483,6 +1483,7 @@ export const CheckoutPage: React.FC = () => {
                   quoteLoading ||
                   !hasOperationalPayment
                 }
+                className="whitespace-normal text-center leading-snug"
               >
                 <span>
                   {initiatingPayment
@@ -1509,7 +1510,7 @@ export const CheckoutPage: React.FC = () => {
         {/* Sticky Bag Summary Sidebar */}
         <aside className="lg:col-span-5 lg:sticky lg:top-28 p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-5">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="font-display text-2xl font-medium">In Your Bag ({cart.length})</h3>
+            <h2 className="font-display text-2xl font-medium">In Your Bag ({cart.length})</h2>
             {quoteLoading && (
               <span className="text-[11px] font-mono-num text-[var(--ks-accent)]">
                 Calculating...

@@ -29,9 +29,9 @@ export const LegalModalPreview: React.FC = () => {
     >
       {doc && (
         <div className="space-y-6 text-sm">
-          <div className="p-3.5 rounded-md bg-[#F9F8F6] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] flex flex-wrap items-center justify-between gap-2 text-xs text-[#5C5B57] dark:text-[#A3A19B]">
-            <span className="inline-flex items-center gap-1.5 font-medium text-[#171716] dark:text-[#F4F3EF]">
-              <Scale className="w-3.5 h-3.5 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
+          <div className="p-3.5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--ks-text-secondary)]">
+            <span className="inline-flex items-center gap-1.5 font-medium text-[var(--ks-text-primary)]">
+              <Scale className="w-3.5 h-3.5 text-[var(--ks-accent)] shrink-0" />
               <span>{LEGAL_ENTITY.legalName}</span>
             </span>
             <span className="font-mono-num">
@@ -39,20 +39,20 @@ export const LegalModalPreview: React.FC = () => {
             </span>
           </div>
 
-          <p className="text-xs text-[#5C5B57] dark:text-[#A3A19B] leading-relaxed">
+          <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
             {doc.subtitle}
           </p>
 
           <div className="space-y-6">
             {doc.sections.map((section) => (
               <section key={section.id} className="space-y-2.5">
-                <h4 className="text-sm font-semibold text-[#171716] dark:text-[#F4F3EF]">
+                <h3 className="text-sm font-semibold text-[var(--ks-text-primary)]">
                   {section.heading}
-                </h4>
+                </h3>
                 {section.paragraphs.map((para, idx) => (
                   <p
                     key={idx}
-                    className="text-xs sm:text-sm leading-relaxed text-[#5C5B57] dark:text-[#B4B2AC]"
+                    className="text-xs sm:text-sm leading-relaxed text-[var(--ks-text-secondary)]"
                   >
                     {para}
                   </p>
@@ -97,8 +97,8 @@ export const LegalModalPreview: React.FC = () => {
             ))}
           </div>
 
-          <div className="pt-4 border-t border-[#E5E3DD] dark:border-[#2C2C28] flex flex-wrap items-center justify-between gap-3">
-            <span className="text-xs text-[#84827B] font-mono-num">
+          <div className="pt-4 border-t border-[var(--ks-border)] flex flex-wrap items-center justify-between gap-3">
+            <span className="text-xs text-[var(--ks-text-muted)] font-mono-num">
               Legal Inquiries: {LEGAL_ENTITY.legalEmail}
             </span>
             <div className="flex items-center gap-2">

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { ArrowRight, Minus, Plus, ShoppingBag, Tag, Trash2, X } from 'lucide-react';
+import { ArrowRight, ShoppingBag, Tag, Trash2, X } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { formatCurrency } from '../../utils/format';
+import { QuantityStepper } from '../product/CommercePrimitives';
 import { Button } from '../ui/Button';
 import { Drawer, EmptyState, ResilientImage } from '../ui/Primitives';
 
@@ -81,15 +82,21 @@ export const CartDrawer: React.FC = () => {
               const atMaxStock = item.quantity >= item.stockCount;
               return (
                 <li key={item.key} className="py-5 flex gap-4">
-                  <ResilientImage
-                    src={item.image}
-                    alt={item.name}
-                    className="w-20 h-16 rounded-md object-cover bg-[var(--ks-surface-muted)] shrink-0 cursor-pointer"
+                  <button
+                    type="button"
                     onClick={() => {
                       setCartDrawerOpen(false);
                       navigate({ name: 'product', slug: item.slug });
                     }}
-                  />
+                    aria-label={`View ${item.name}`}
+                    className="w-20 h-16 rounded-md overflow-hidden bg-[var(--ks-surface-muted)] shrink-0 cursor-pointer block"
+                  >
+                    <ResilientImage
+                      src={item.image}
+                      alt={item.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <button
@@ -119,28 +126,15 @@ export const CartDrawer: React.FC = () => {
                       {atMaxStock ? ` · Max ${item.stockCount} available` : ''}
                     </p>
                     <div className="mt-3 flex items-center justify-between gap-3">
-                      <div className="inline-flex items-center border border-[var(--ks-border-strong)] rounded-md h-10 bg-[var(--ks-surface)]">
-                        <button
-                          type="button"
-                          onClick={() => updateCartQty(item.key, item.quantity - 1)}
-                          aria-label={item.quantity <= 1 ? `Remove ${item.name}` : 'Decrease quantity'}
-                          className="w-10 h-full flex items-center justify-center hover:bg-[var(--ks-surface-muted)] cursor-pointer"
-                        >
-                          <Minus className="w-3.5 h-3.5" />
-                        </button>
-                        <span className="w-8 text-center text-xs font-mono-num tabular-nums">
-                          {item.quantity}
-                        </span>
-                        <button
-                          type="button"
-                          disabled={atMaxStock}
-                          onClick={() => updateCartQty(item.key, item.quantity + 1)}
-                          aria-label="Increase quantity"
-                          className="w-10 h-full flex items-center justify-center hover:bg-[var(--ks-surface-muted)] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                      <QuantityStepper
+                        value={item.quantity}
+                        min={1}
+                        max={item.stockCount}
+                        allowRemoveAtMin
+                        onChange={(next) => updateCartQty(item.key, next)}
+                        itemName={item.name}
+                        size="sm"
+                      />
                       <span className="text-sm font-mono-num font-medium tabular-nums">
                         {formatCurrency(item.price * item.quantity, currency)}
                       </span>

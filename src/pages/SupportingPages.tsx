@@ -24,6 +24,7 @@ import {
   LEGAL_VERSION,
 } from '../data/legalPolicies';
 import { useStore } from '../context/StoreContext';
+import { submitSupportInquiryApi } from '../services/api';
 import { JournalArticle, LegalDocumentId } from '../types/commerce';
 import { isValidContactPhone } from '../utils/validation';
 import { Button } from '../components/ui/Button';
@@ -37,12 +38,12 @@ export const BrandsPage: React.FC = () => {
       <Breadcrumb
         items={[{ label: 'Home', onClick: () => navigate({ name: 'home' }) }, { label: 'Partner Makers' }]}
       />
-      <div className="max-w-2xl space-y-2 pb-6 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
-        <p className="text-xs uppercase tracking-wider text-[#8F6438] dark:text-[#C89B67]">
+      <div className="max-w-2xl space-y-2 pb-6 border-b border-[var(--ks-border)]">
+        <p className="text-xs uppercase tracking-wider text-[var(--ks-accent)]">
           Maker Directory
         </p>
         <h1 className="font-display text-3xl sm:text-5xl font-medium">Partner Makers &amp; Studios</h1>
-        <p className="text-sm sm:text-base text-[#5C5B57] dark:text-[#B4B2AC]">
+        <p className="text-sm sm:text-base text-[var(--ks-text-secondary)]">
           Independent acoustic labs, textile weavers, botanical formulators, specialty roasters, and architectural foundries behind Kinto Studio.
         </p>
       </div>
@@ -53,23 +54,23 @@ export const BrandsPage: React.FC = () => {
           return (
             <article
               key={studio.id}
-              className="p-6 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] flex flex-col justify-between gap-6"
+              className="p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] flex flex-col justify-between gap-6"
             >
               <div className="space-y-2.5">
-                <div className="flex items-baseline justify-between gap-2 text-xs text-[#84827B]">
+                <div className="flex items-baseline justify-between gap-2 text-xs text-[var(--ks-text-muted)]">
                   <span className="min-w-0 truncate">{studio.origin}</span>
                   <span className="font-mono-num shrink-0">Est. {studio.founded}</span>
                 </div>
                 <h2 className="font-display text-2xl font-medium">{studio.name}</h2>
-                <p className="text-xs font-medium text-[#8F6438] dark:text-[#C89B67]">
+                <p className="text-xs font-medium text-[var(--ks-accent)]">
                   {studio.specialty}
                 </p>
-                <p className="text-sm text-[#5C5B57] dark:text-[#B4B2AC] leading-relaxed">
+                <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
                   {studio.summary}
                 </p>
               </div>
-              <div className="pt-4 border-t border-[#E5E3DD] dark:border-[#2C2C28] flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
-                <span className="text-xs font-mono-num text-[#84827B] min-w-0">
+              <div className="pt-4 border-t border-[var(--ks-border)] flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
+                <span className="text-xs font-mono-num text-[var(--ks-text-muted)] min-w-0">
                   {studioProducts.length} {studioProducts.length === 1 ? 'product' : 'products'} in catalog
                 </span>
                 <button
@@ -104,12 +105,12 @@ export const JournalPage: React.FC = () => {
       <Breadcrumb
         items={[{ label: 'Home', onClick: () => navigate({ name: 'home' }) }, { label: 'Studio Journal' }]}
       />
-      <div className="max-w-2xl space-y-2 pb-6 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
-        <p className="text-xs uppercase tracking-wider text-[#8F6438] dark:text-[#C89B67]">
+      <div className="max-w-2xl space-y-2 pb-6 border-b border-[var(--ks-border)]">
+        <p className="text-xs uppercase tracking-wider text-[var(--ks-accent)]">
           Monographs &amp; Essays
         </p>
         <h1 className="font-display text-3xl sm:text-5xl font-medium">The Studio Journal</h1>
-        <p className="text-sm sm:text-base text-[#5C5B57] dark:text-[#B4B2AC]">
+        <p className="text-sm sm:text-base text-[var(--ks-text-secondary)]">
           Field notes on acoustic engineering, textile provenance, botanical formulation, and living rituals.
         </p>
       </div>
@@ -118,9 +119,9 @@ export const JournalPage: React.FC = () => {
         {JOURNAL_ARTICLES.map((article) => (
           <article
             key={article.slug}
-            className="rounded-lg overflow-hidden bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] flex flex-col"
+            className="rounded-lg overflow-hidden bg-[var(--ks-surface)] border border-[var(--ks-border)] flex flex-col"
           >
-            <div className="aspect-[16/10] bg-[#EFECE5] dark:bg-[#22221F]">
+            <div className="aspect-[16/10] bg-[var(--ks-surface-muted)]">
               <ResilientImage
                 src={article.image}
                 alt={article.title}
@@ -129,18 +130,18 @@ export const JournalPage: React.FC = () => {
             </div>
             <div className="p-6 sm:p-8 flex-1 flex flex-col justify-between gap-6">
               <div className="space-y-3">
-                <p className="text-xs text-[#84827B]">
+                <p className="text-xs text-[var(--ks-text-muted)]">
                   {article.category} · {article.publishedAt} · {article.readTime}
                 </p>
                 <h2 className="font-display text-2xl sm:text-3xl font-medium leading-snug">
                   {article.title}
                 </h2>
-                <p className="text-sm text-[#5C5B57] dark:text-[#B4B2AC] leading-relaxed">
+                <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
                   {article.excerpt}
                 </p>
               </div>
-              <div className="flex items-center justify-between pt-4 border-t border-[#E5E3DD] dark:border-[#2C2C28]">
-                <span className="text-xs text-[#84827B]">{article.author}</span>
+              <div className="flex items-center justify-between pt-4 border-t border-[var(--ks-border)]">
+                <span className="text-xs text-[var(--ks-text-muted)]">{article.author}</span>
                 <Button variant="outline" size="sm" onClick={() => setSelectedArticle(article)}>
                   Read Essay
                 </Button>
@@ -158,7 +159,7 @@ export const JournalPage: React.FC = () => {
         {selectedArticle && (
           <div className="space-y-5">
             <h2 className="font-display text-3xl font-medium">{selectedArticle.title}</h2>
-            <p className="text-xs text-[#84827B]">
+            <p className="text-xs text-[var(--ks-text-muted)]">
               By {selectedArticle.author} · {selectedArticle.publishedAt}
             </p>
             <ResilientImage
@@ -166,7 +167,7 @@ export const JournalPage: React.FC = () => {
               alt={selectedArticle.title}
               className="w-full aspect-[16/9] object-cover rounded-md"
             />
-            <div className="space-y-4 text-sm sm:text-base leading-relaxed text-[#5C5B57] dark:text-[#B4B2AC]">
+            <div className="space-y-4 text-sm sm:text-base leading-relaxed text-[var(--ks-text-secondary)]">
               {selectedArticle.body.map((para, i) => (
                 <p key={i}>{para}</p>
               ))}
@@ -253,13 +254,14 @@ export const ContactPage: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [topic, setTopic] = useState('client-care');
   const [message, setMessage] = useState('');
-  const [submitted, setSubmitted] = useState(false);
+  const [submittedTicketRef, setSubmittedTicketRef] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !message.trim()) {
-      setError('Please provide your name, a valid email address, and your message.');
+    if (!name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || message.trim().length < 5) {
+      setError('Please provide your name, a valid email address, and a message (at least 5 characters).');
       return;
     }
     if (phone.trim() && !isValidContactPhone(phone, 'Bangladesh')) {
@@ -267,8 +269,26 @@ export const ContactPage: React.FC = () => {
       return;
     }
     setError('');
-    setSubmitted(true);
-    showToast('Inquiry received', 'Our customer care desk responds within 1 business day.', 'success');
+    setSubmitting(true);
+    try {
+      const inquiry = await submitSupportInquiryApi({
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim() || undefined,
+        topic,
+        message: message.trim(),
+      });
+      setSubmittedTicketRef(inquiry.ticketRef);
+      showToast(
+        `Ticket ${inquiry.ticketRef} logged`,
+        'Our customer care desk responds within 1 business day.',
+        'success'
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to submit your inquiry right now.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -312,18 +332,21 @@ export const ContactPage: React.FC = () => {
         </div>
 
         <div className="lg:col-span-7 p-6 sm:p-8 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)]">
-          {submitted ? (
+          {submittedTicketRef ? (
             <div className="py-10 text-center space-y-4">
               <CheckCircle2 className="w-10 h-10 mx-auto text-[var(--ks-success)]" />
               <h2 className="font-display text-3xl font-medium">Message Received</h2>
+              <p className="text-xs font-mono-num uppercase tracking-wider text-[var(--ks-accent)]">
+                Reference: {submittedTicketRef}
+              </p>
               <p className="text-sm text-[var(--ks-text-secondary)] max-w-md mx-auto">
-                Thank you, {name}. A customer care specialist will reply to {email} within one business day.
+                Thank you, {name}. Your support ticket has been recorded on the server. A customer care specialist will reply to {email} within one business day.
               </p>
               <Button
                 variant="outline"
                 size="md"
                 onClick={() => {
-                  setSubmitted(false);
+                  setSubmittedTicketRef('');
                   setMessage('');
                 }}
               >
@@ -390,8 +413,8 @@ export const ContactPage: React.FC = () => {
                 </button>
                 .
               </p>
-              <Button type="submit" variant="primary" size="lg">
-                Submit Inquiry
+              <Button type="submit" variant="primary" size="lg" disabled={submitting}>
+                {submitting ? 'Submitting...' : 'Submit Inquiry'}
               </Button>
             </form>
           )}
@@ -412,7 +435,7 @@ export const FaqPage: React.FC = () => {
         ]}
       />
       <div className="space-y-2">
-        <p className="text-xs uppercase tracking-wider text-[#8F6438] dark:text-[#C89B67]">Support</p>
+        <p className="text-xs uppercase tracking-wider text-[var(--ks-accent)]">Support</p>
         <h1 className="font-display text-3xl sm:text-5xl font-medium">Frequently Asked Questions</h1>
       </div>
       <Accordion
@@ -457,15 +480,15 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
       />
 
       {/* Policy Header */}
-      <div className="pb-6 border-b border-[#E5E3DD] dark:border-[#2C2C28] flex flex-col lg:flex-row lg:items-end justify-between gap-5">
+      <div className="pb-6 border-b border-[var(--ks-border)] flex flex-col lg:flex-row lg:items-end justify-between gap-5">
         <div className="max-w-3xl space-y-2">
-          <p className="text-xs uppercase tracking-[0.14em] text-[#8F6438] dark:text-[#C89B67] font-medium">
+          <p className="text-xs uppercase tracking-[0.14em] text-[var(--ks-accent)] font-medium">
             {doc.category} · Version {doc.version}
           </p>
           <h1 className="font-display text-3xl sm:text-5xl font-medium text-balance">
             {doc.title}
           </h1>
-          <p className="text-sm text-[#5C5B57] dark:text-[#A3A19B] leading-relaxed">
+          <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
             {doc.subtitle}
           </p>
         </div>
@@ -504,8 +527,8 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
         {/* Sticky Desktop Index & Clause Navigation */}
         <aside className="hidden lg:block lg:col-span-4 lg:sticky lg:top-24 space-y-6 print:hidden">
-          <div className="p-5 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-4">
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#84827B]">
+          <div className="p-5 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--ks-text-muted)]">
               In This Document
             </p>
             <nav aria-label="Document sections" className="space-y-1.5">
@@ -514,7 +537,7 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
                   key={sec.id}
                   type="button"
                   onClick={() => scrollToSection(sec.id)}
-                  className="block w-full text-left text-xs leading-snug py-1 text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF] transition-colors cursor-pointer"
+                  className="block w-full text-left text-xs leading-snug py-1 text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] transition-colors cursor-pointer"
                 >
                   {sec.heading}
                 </button>
@@ -522,8 +545,8 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
             </nav>
           </div>
 
-          <div className="p-5 rounded-lg bg-[#F2F0EC] dark:bg-[#141413] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#84827B]">
+          <div className="p-5 rounded-lg bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--ks-text-muted)]">
               All Legal Documents
             </p>
             <ul className="space-y-1.5">
@@ -536,8 +559,8 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
                       onClick={() => navigate({ name: item.id })}
                       className={`w-full text-left text-xs py-1 transition-colors cursor-pointer ${
                         active
-                          ? 'font-semibold text-[#8F6438] dark:text-[#C89B67]'
-                          : 'text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF]'
+                          ? 'font-semibold text-[var(--ks-accent)]'
+                          : 'text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)]'
                       }`}
                     >
                       {item.title}
@@ -551,12 +574,12 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
 
         {/* Main Policy Clauses */}
         <article className="lg:col-span-8 space-y-8 max-w-3xl">
-          <div className="p-4 rounded-md bg-[#F2F0EC] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-1.5 text-xs">
-            <p className="font-semibold text-[#171716] dark:text-[#F4F3EF] inline-flex items-center gap-1.5">
-              <Scale className="w-3.5 h-3.5 text-[#8F6438] dark:text-[#C89B67] shrink-0" />
+          <div className="p-4 rounded-md bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] space-y-1.5 text-xs">
+            <p className="font-semibold text-[var(--ks-text-primary)] inline-flex items-center gap-1.5">
+              <Scale className="w-3.5 h-3.5 text-[var(--ks-accent)] shrink-0" />
               <span>{LEGAL_ENTITY.legalName} · {LEGAL_ENTITY.jurisdictionLabel}</span>
             </p>
-            <p className="text-[#5C5B57] dark:text-[#A3A19B] leading-relaxed">
+            <p className="text-[var(--ks-text-secondary)] leading-relaxed">
               {LEGAL_ENTITY.counselAdvisory}
             </p>
           </div>
@@ -566,31 +589,31 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
               <section
                 key={sec.id}
                 id={`legal-sec-${sec.id}`}
-                className="scroll-mt-28 space-y-3 pb-6 border-b border-[#E5E3DD] dark:border-[#2C2C28] last:border-b-0"
+                className="scroll-mt-28 space-y-3 pb-6 border-b border-[var(--ks-border)] last:border-b-0"
               >
-                <h2 className="text-lg sm:text-xl font-semibold text-[#171716] dark:text-[#F4F3EF]">
+                <h2 className="text-lg sm:text-xl font-semibold text-[var(--ks-text-primary)]">
                   {sec.heading}
                 </h2>
                 {sec.paragraphs.map((para, idx) => (
                   <p
                     key={idx}
-                    className="text-sm leading-relaxed text-[#5C5B57] dark:text-[#B4B2AC]"
+                    className="text-sm leading-relaxed text-[var(--ks-text-secondary)]"
                   >
                     {para}
                   </p>
                 ))}
                 {sec.bullets && (
-                  <ul className="list-disc pl-5 space-y-2 text-sm leading-relaxed text-[#5C5B57] dark:text-[#B4B2AC]">
+                  <ul className="list-disc pl-5 space-y-2 text-sm leading-relaxed text-[var(--ks-text-secondary)]">
                     {sec.bullets.map((bullet, idx) => (
                       <li key={idx}>{bullet}</li>
                     ))}
                   </ul>
                 )}
                 {sec.table && (
-                  <div className="overflow-x-auto border border-[#E5E3DD] dark:border-[#2C2C28] rounded-md mt-3">
+                  <div className="overflow-x-auto border border-[var(--ks-border)] rounded-md mt-3">
                     <table className="w-full text-left text-xs sm:text-sm border-collapse">
                       <thead>
-                        <tr className="bg-[#F9F8F6] dark:bg-[#141413] border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+                        <tr className="bg-[var(--ks-bg)] border-b border-[var(--ks-border)]">
                           {sec.table.headers.map((head) => (
                             <th key={head} className="px-4 py-2.5 font-semibold">
                               {head}
@@ -598,13 +621,13 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
                           ))}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28]">
+                      <tbody className="divide-y divide-[var(--ks-border)]">
                         {sec.table.rows.map((row, rIdx) => (
                           <tr key={rIdx}>
                             {row.map((cell, cIdx) => (
                               <td
                                 key={cIdx}
-                                className="px-4 py-2.5 text-[#5C5B57] dark:text-[#B4B2AC] align-top"
+                                className="px-4 py-2.5 text-[var(--ks-text-secondary)] align-top"
                               >
                                 {cell}
                               </td>
@@ -620,17 +643,17 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
           </div>
 
           {/* Entity & Related Agreements Footer */}
-          <div className="p-5 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-4">
-            <div className="space-y-1 text-xs text-[#5C5B57] dark:text-[#A3A19B]">
-              <p className="font-semibold text-[#171716] dark:text-[#F4F3EF]">
+          <div className="p-5 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-4">
+            <div className="space-y-1 text-xs text-[var(--ks-text-secondary)]">
+              <p className="font-semibold text-[var(--ks-text-primary)]">
                 Official Legal Notices &amp; Disputes
               </p>
               <p>{LEGAL_ENTITY.registeredHub}</p>
               <p className="font-mono-num">Email: {LEGAL_ENTITY.legalEmail}</p>
             </div>
             {doc.relatedIds.length > 0 && (
-              <div className="pt-3 border-t border-[#E5E3DD] dark:border-[#2C2C28] space-y-2 print:hidden">
-                <p className="text-xs font-medium text-[#84827B]">Related Agreements</p>
+              <div className="pt-3 border-t border-[var(--ks-border)] space-y-2 print:hidden">
+                <p className="text-xs font-medium text-[var(--ks-text-muted)]">Related Agreements</p>
                 <div className="flex flex-wrap gap-2">
                   {doc.relatedIds.map((relId) => {
                     const relDoc = getLegalDocumentById(relId, { dhakaThresholdUsd });
@@ -778,9 +801,9 @@ export const NotFoundPage: React.FC = () => {
   const { navigate } = useStore();
   return (
     <div className="max-w-xl mx-auto px-4 py-24 text-center space-y-5">
-      <p className="font-mono-num text-xs uppercase tracking-widest text-[#84827B]">Error 404</p>
+      <p className="font-mono-num text-xs uppercase tracking-widest text-[var(--ks-text-muted)]">Error 404</p>
       <h1 className="font-display text-4xl sm:text-5xl font-medium">Page Not Found</h1>
-      <p className="text-sm text-[#5C5B57] dark:text-[#B4B2AC]">
+      <p className="text-sm text-[var(--ks-text-secondary)]">
         The requested catalog view or studio archive page could not be found.
       </p>
       <div className="pt-2 flex justify-center gap-3">
@@ -799,14 +822,14 @@ export const MaintenancePage: React.FC = () => {
   const { navigate } = useStore();
   return (
     <div className="max-w-xl mx-auto px-4 py-24 text-center space-y-5">
-      <div className="w-12 h-12 mx-auto rounded-lg bg-[#F2F0EC] dark:bg-[#22221F] flex items-center justify-center text-[#8F6438] dark:text-[#C89B67]">
+      <div className="w-12 h-12 mx-auto rounded-lg bg-[var(--ks-surface-muted)] flex items-center justify-center text-[var(--ks-accent)]">
         <Wrench className="w-5 h-5" />
       </div>
-      <p className="font-mono-num text-xs uppercase tracking-widest text-[#84827B]">
+      <p className="font-mono-num text-xs uppercase tracking-widest text-[var(--ks-text-muted)]">
         Scheduled Atelier Maintenance
       </p>
       <h1 className="font-display text-4xl font-medium">Catalog Update in Progress</h1>
-      <p className="text-sm text-[#5C5B57] dark:text-[#B4B2AC] leading-relaxed">
+      <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
         This preview illustrates the Kinto Studio maintenance notice state. All storefront browsing remains active in this session.
       </p>
       <Button variant="primary" size="md" onClick={() => navigate({ name: 'home' })}>

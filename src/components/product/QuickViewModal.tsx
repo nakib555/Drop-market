@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, Heart, Minus, Plus, Star } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
-import { formatCurrency, getDiscountPercent, isProductOutOfStock } from '../../utils/format';
+import { isProductOutOfStock } from '../../utils/format';
 import { Button } from '../ui/Button';
 import { Modal, ResilientImage } from '../ui/Primitives';
+import { PriceDisplay, QuantityStepper, RatingSummary, WishlistButton } from './CommercePrimitives';
 
 export const QuickViewModal: React.FC = () => {
   const {
@@ -33,7 +34,8 @@ export const QuickViewModal: React.FC = () => {
     quickViewProduct.colors[0] || { name: 'Standard', hex: '#84827B' };
   const size = quickViewProduct.sizes[selectedSizeIdx] || quickViewProduct.sizes[0] || 'Standard';
   const isWishlisted = wishlistIds.includes(quickViewProduct.id);
-  const discount = getDiscountPercent(quickViewProduct.price, quickViewProduct.originalPrice);
+  const hasVerifiedRating =
+    quickViewProduct.rating > 0 && quickViewProduct.reviewCount > 0;
 
   return (
     <Modal
@@ -43,7 +45,7 @@ export const QuickViewModal: React.FC = () => {
       maxWidthClass="max-w-4xl"
     >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="aspect-[4/3] rounded-md overflow-hidden bg-[#F2F0EC] dark:bg-[#22221F]">
+        <div className="aspect-[4/3] rounded-md overflow-hidden bg-[var(--ks-surface-muted)]">
           <ResilientImage
             src={quickViewProduct.images[0]}
             alt={quickViewProduct.name}
@@ -54,43 +56,35 @@ export const QuickViewModal: React.FC = () => {
         <div className="flex flex-col justify-between gap-6">
           <div className="space-y-4">
             <div>
-              <p className="text-xs uppercase tracking-wider text-[#84827B]">
+              <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
                 {quickViewProduct.brand} · {quickViewProduct.categoryLabel}
               </p>
               <h3 className="font-display text-3xl font-medium mt-1">{quickViewProduct.name}</h3>
               {quickViewProduct.subtitle && (
-                <p className="text-xs text-[#8F6438] dark:text-[#C89B67] mt-1 font-medium">
+                <p className="text-xs text-[var(--ks-accent)] mt-1 font-medium">
                   {quickViewProduct.subtitle}
                 </p>
               )}
-              <div className="flex items-center gap-3 mt-2 text-xs text-[#5C5B57] dark:text-[#A3A19B]">
-                <span className="inline-flex items-center gap-1 font-mono-num text-[#171716] dark:text-[#F4F3EF]">
-                  <Star className="w-3.5 h-3.5 fill-[#8F6438] text-[#8F6438] dark:fill-[#C89B67] dark:text-[#C89B67]" />
-                  {quickViewProduct.rating.toFixed(1)}
-                </span>
-                <span>({quickViewProduct.reviewCount} reviews)</span>
-                <span aria-hidden="true">·</span>
-                <span>{quickViewProduct.sku}</span>
+              <div className="flex items-center gap-3 mt-2 text-xs text-[var(--ks-text-secondary)]">
+                <RatingSummary
+                  rating={quickViewProduct.rating}
+                  reviewCount={quickViewProduct.reviewCount}
+                  showCount
+                />
+                {hasVerifiedRating && <span aria-hidden="true">·</span>}
+                <span>SKU: {quickViewProduct.sku}</span>
               </div>
             </div>
 
-            <div className="flex items-baseline flex-wrap gap-x-3 gap-y-1">
-              <span className="text-2xl font-mono-num font-semibold">
-                {formatCurrency(quickViewProduct.price, currency)}
-              </span>
-              {quickViewProduct.originalPrice && (
-                <>
-                  <span className="text-sm font-mono-num line-through text-[#84827B]">
-                    {formatCurrency(quickViewProduct.originalPrice, currency)}
-                  </span>
-                  <span className="text-xs font-mono-num font-medium text-[#8F6438] dark:text-[#C89B67]">
-                    Save {discount}%
-                  </span>
-                </>
-              )}
-            </div>
+            <PriceDisplay
+              price={quickViewProduct.price}
+              originalPrice={quickViewProduct.originalPrice}
+              currency={currency}
+              size="lg"
+              showSavings
+            />
 
-            <p className="text-sm text-[#5C5B57] dark:text-[#B4B2AC] leading-relaxed">
+            <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
               {quickViewProduct.shortDescription}
             </p>
 
@@ -98,19 +92,20 @@ export const QuickViewModal: React.FC = () => {
             <div className="space-y-2">
               <p className="text-xs font-medium">
                 {quickViewProduct.variantColorLabel || 'Finish / Color'}:{' '}
-                <span className="text-[#5C5B57] dark:text-[#A3A19B]">{color.name}</span>
+                <span className="text-[var(--ks-text-secondary)]">{color.name}</span>
               </p>
               <div className="flex flex-wrap gap-2">
                 {quickViewProduct.colors.map((c, idx) => (
                   <button
                     key={c.name}
                     type="button"
+                    aria-pressed={idx === selectedColorIdx}
                     onClick={() => setSelectedColorIdx(idx)}
                     aria-label={c.name}
                     className={`flex items-center gap-2 px-3 min-h-[40px] py-2 rounded-md border text-xs cursor-pointer transition-colors ${
                       idx === selectedColorIdx
-                        ? 'border-[#171716] dark:border-[#F4F3EF] font-medium'
-                        : 'border-[#E5E3DD] dark:border-[#2C2C28] text-[#5C5B57] dark:text-[#A3A19B]'
+                        ? 'border-[var(--ks-action)] font-medium text-[var(--ks-text-primary)]'
+                        : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)]'
                     }`}
                   >
                     <span
@@ -133,11 +128,12 @@ export const QuickViewModal: React.FC = () => {
                   <button
                     key={s}
                     type="button"
+                    aria-pressed={idx === selectedSizeIdx}
                     onClick={() => setSelectedSizeIdx(idx)}
                     className={`px-3 min-h-[40px] py-2 rounded-md border text-xs cursor-pointer transition-colors ${
                       idx === selectedSizeIdx
-                        ? 'bg-[#171716] text-white border-[#171716] dark:bg-[#F4F3EF] dark:text-[#171716] dark:border-[#F4F3EF] font-medium'
-                        : 'border-[#E5E3DD] dark:border-[#2C2C28] text-[#5C5B57] dark:text-[#A3A19B]'
+                        ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)] font-medium'
+                        : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)]'
                     }`}
                   >
                     {s}
@@ -147,33 +143,17 @@ export const QuickViewModal: React.FC = () => {
             </div>
           </div>
 
-          <div className="space-y-3 pt-4 border-t border-[#E5E3DD] dark:border-[#2C2C28]">
+          <div className="space-y-3 pt-4 border-t border-[var(--ks-border)]">
             <div className="flex flex-wrap min-[380px]:flex-nowrap items-center gap-2.5 sm:gap-3">
-              <div className="inline-flex items-center border border-[#DCD9D0] dark:border-[#2E2E2A] rounded-md h-11 shrink-0">
-                <button
-                  type="button"
-                  disabled={outOfStock}
-                  onClick={() => setQty((q) => Math.max(1, q - 1))}
-                  aria-label="Decrease quantity"
-                  className="w-10 h-full flex items-center justify-center hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
-                >
-                  <Minus className="w-3.5 h-3.5" />
-                </button>
-                <span className="w-10 text-center text-sm font-mono-num">
-                  {outOfStock ? 0 : qty}
-                </span>
-                <button
-                  type="button"
-                  disabled={outOfStock}
-                  onClick={() =>
-                    setQty((q) => Math.min(Math.max(1, quickViewProduct.stockCount), q + 1))
-                  }
-                  aria-label="Increase quantity"
-                  className="w-10 h-full flex items-center justify-center hover:bg-[#F2F0EC] dark:hover:bg-[#22221F] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-              </div>
+              <QuantityStepper
+                value={qty}
+                min={1}
+                max={Math.max(1, quickViewProduct.stockCount)}
+                disabled={outOfStock}
+                onChange={setQty}
+                itemName={quickViewProduct.name}
+                size="md"
+              />
 
               <div className="flex-1 min-w-[140px]">
                 <Button
@@ -190,18 +170,13 @@ export const QuickViewModal: React.FC = () => {
                 </Button>
               </div>
 
-              <button
-                type="button"
-                onClick={() => toggleWishlist(quickViewProduct)}
-                aria-label="Toggle wishlist"
-                className="w-11 h-11 rounded-md border border-[#DCD9D0] dark:border-[#2E2E2A] flex items-center justify-center shrink-0 cursor-pointer hover:border-[#171716] dark:hover:border-[#F4F3EF]"
-              >
-                <Heart
-                  className={`w-4 h-4 ${
-                    isWishlisted ? 'fill-[#8F6438] text-[#8F6438] dark:fill-[#C89B67] dark:text-[#C89B67]' : ''
-                  }`}
-                />
-              </button>
+              <WishlistButton
+                active={isWishlisted}
+                onToggle={() => toggleWishlist(quickViewProduct)}
+                productName={quickViewProduct.name}
+                variant="icon"
+                className="w-11 h-11"
+              />
             </div>
 
             <button
@@ -211,7 +186,7 @@ export const QuickViewModal: React.FC = () => {
                 setQuickViewProduct(null);
                 navigate({ name: 'product', slug });
               }}
-              className="w-full py-2 text-xs font-medium text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF] inline-flex items-center justify-center gap-1.5 cursor-pointer"
+              className="w-full py-2 text-xs font-medium text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] inline-flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <span>View full specifications, Q&amp;A &amp; reviews</span>
               <ArrowRight className="w-3.5 h-3.5" />

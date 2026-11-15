@@ -26,7 +26,7 @@ import { STUDIO_TRANSITION } from '../utils/motion';
 import { ScrollReveal } from '../components/ui/MotionPrimitives';
 import { ProductCard } from '../components/product/ProductCard';
 import { Button } from '../components/ui/Button';
-import { ProductGridSkeleton, ResilientImage } from '../components/ui/Primitives';
+import { EmptyState, ProductGridSkeleton, ResilientImage } from '../components/ui/Primitives';
 
 const DEPT_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Cpu,
@@ -71,6 +71,8 @@ export const HomePage: React.FC = () => {
     recentlyViewedIds,
     navigate,
     storefrontLoading,
+    catalogError,
+    retryCatalogLoad,
   } = useStore();
   const [activeTab, setActiveTab] = useState<HomeCollectionTab>('all');
 
@@ -248,6 +250,8 @@ export const HomePage: React.FC = () => {
               <ResilientImage
                 src={HERO_IMAGE}
                 alt="Living space arranged with oak seating, warm lighting, and wireless audio hardware"
+                loading="eager"
+                fetchPriority="high"
                 className="w-full h-full object-cover"
               />
             </div>
@@ -385,6 +389,15 @@ export const HomePage: React.FC = () => {
             className="grid grid-cols-1 min-[390px]:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6"
             label="Loading trending products"
           />
+        ) : catalogError && products.length === 0 ? (
+          <div className="rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)]">
+            <EmptyState
+              title="Unable to load catalog"
+              description={catalogError}
+              actionLabel="Retry Loading Catalog"
+              onAction={() => retryCatalogLoad()}
+            />
+          </div>
         ) : (
           <div className="grid grid-cols-1 min-[390px]:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {trendingProducts.map((product) => (

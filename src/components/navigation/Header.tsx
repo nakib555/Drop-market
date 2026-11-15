@@ -56,7 +56,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
     setCartDrawerOpen,
     wishlistIds,
     profile,
-    logoutDemo,
+    signOut,
     notifications,
     unreadNotificationCount,
     markNotificationRead,
@@ -359,13 +359,14 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
               type="button"
               onClick={() => setMobileMenuOpen(true)}
               aria-label="Open navigation menu"
+              aria-expanded={mobileMenuOpen}
               className="md:hidden w-10 h-10 -ml-1.5 rounded-[var(--ks-radius-md)] flex items-center justify-center text-[var(--ks-text-primary)] hover:bg-[var(--ks-surface-muted)] cursor-pointer shrink-0"
             >
               <Menu className="w-5 h-5" />
             </button>
 
             <a
-              href="#/"
+              href="/"
               onClick={(e) => {
                 e.preventDefault();
                 go({ name: 'home' });
@@ -926,7 +927,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                           type="button"
                           onClick={() => {
                             setAccountMenuOpen(false);
-                            logoutDemo();
+                            signOut();
                             if (
                               route.name === 'account' ||
                               route.name === 'seller' ||
@@ -1511,7 +1512,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                           type="button"
                           onClick={() => {
                             setMobileMenuOpen(false);
-                            logoutDemo();
+                            signOut();
                             navigate({ name: 'login' });
                           }}
                           className="w-full py-1.5 flex items-center justify-between gap-2 text-left text-xs text-[var(--ks-error)] cursor-pointer"

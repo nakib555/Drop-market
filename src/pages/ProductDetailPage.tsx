@@ -3,10 +3,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Heart,
   MessageSquarePlus,
-  Minus,
-  Plus,
   RotateCcw,
   Ruler,
   ShieldCheck,
@@ -22,11 +19,16 @@ import {
   formatCurrency,
   formatShortDate,
   formatTypedAttributeValue,
-  getDiscountPercent,
   isProductOutOfStock,
 } from '../utils/format';
 import { STUDIO_TRANSITION } from '../utils/motion';
 import { ProductCard } from '../components/product/ProductCard';
+import {
+  PriceDisplay,
+  QuantityStepper,
+  RatingSummary,
+  WishlistButton,
+} from '../components/product/CommercePrimitives';
 import { Button } from '../components/ui/Button';
 import { Input, Textarea } from '../components/ui/FormFields';
 import {
@@ -52,11 +54,12 @@ export const ProductDetailPage: React.FC = () => {
     recordProductView,
     submitProductReview,
     submitProductQuestion,
+    profile,
     storefrontLoading,
   } = useStore();
 
   const product = useMemo(
-    () => products.find((p) => p.slug === route.slug) || products[0],
+    () => (route.slug ? products.find((p) => p.slug === route.slug) : products[0]),
     [products, route.slug]
   );
 
@@ -135,11 +138,6 @@ export const ProductDetailPage: React.FC = () => {
   const size = product.sizes[selectedSizeIdx] || product.sizes[0] || 'Standard';
   const outOfStock = isProductOutOfStock(product);
   const maxSelectableQty = Math.max(1, product.stockCount);
-  const discount = getDiscountPercent(product.price, product.originalPrice);
-  const hasDiscount = Boolean(
-    product.originalPrice && product.originalPrice > product.price && discount > 0
-  );
-  const hasRatings = product.rating > 0 && product.reviewCount > 0;
   const isWishlisted = wishlistIds.includes(product.id);
   const questions = product.questions || [];
 
@@ -247,14 +245,24 @@ export const ProductDetailPage: React.FC = () => {
               transition={STUDIO_TRANSITION.fast}
               className="w-full h-full"
             >
-              <ResilientImage
-                src={product.images[activeImageIdx]}
-                alt={`${product.name} — view ${activeImageIdx + 1}`}
+              <button
+                type="button"
                 onClick={() => setZoomed((z) => !z)}
-                className={`w-full h-full object-cover transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-zoom-in ${
-                  zoomed ? 'scale-150 cursor-zoom-out' : 'scale-100'
+                aria-label={zoomed ? 'Reset product image zoom' : 'Zoom product image'}
+                className={`w-full h-full block text-left ${
+                  zoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'
                 }`}
-              />
+              >
+                <ResilientImage
+                  src={product.images[activeImageIdx]}
+                  alt={`${product.name} — view ${activeImageIdx + 1}`}
+                  loading={activeImageIdx === 0 ? 'eager' : 'lazy'}
+                  fetchPriority={activeImageIdx === 0 ? 'high' : 'auto'}
+                  className={`w-full h-full object-cover transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                    zoomed ? 'scale-150' : 'scale-100'
+                  }`}
+                />
+              </button>
             </motion.div>
 
             <button
@@ -342,27 +350,13 @@ export const ProductDetailPage: React.FC = () => {
               <p className="text-xs font-medium text-[var(--ks-accent)]">{product.subtitle}</p>
             )}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1">
-              {hasRatings ? (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('reviews')}
-                  className="inline-flex items-center gap-1.5 text-xs font-mono-num cursor-pointer hover:underline"
-                >
-                  <Star className="w-3.5 h-3.5 fill-[var(--ks-accent)] text-[var(--ks-accent)]" />
-                  <span>{product.rating.toFixed(1)}</span>
-                  <span className="text-[var(--ks-text-secondary)]">
-                    ({product.reviewCount} reviews)
-                  </span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('reviews')}
-                  className="text-xs text-[var(--ks-text-secondary)] hover:underline cursor-pointer"
-                >
-                  Be the first to review
-                </button>
-              )}
+              <RatingSummary
+                rating={product.rating}
+                reviewCount={product.reviewCount}
+                showCount
+                fallbackLabel="Be the first to review"
+                onClick={() => setActiveTab('reviews')}
+              />
               <span aria-hidden="true" className="text-[var(--ks-text-muted)]">
                 ·
               </span>
@@ -387,21 +381,14 @@ export const ProductDetailPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-baseline flex-wrap gap-x-3 gap-y-1 pb-4 border-b border-[var(--ks-border)]">
-            <span className="text-2xl sm:text-3xl font-mono-num font-semibold tabular-nums">
-              {formatCurrency(product.price, currency)}
-            </span>
-            {hasDiscount && product.originalPrice && (
-              <>
-                <span className="text-base font-mono-num line-through text-[var(--ks-text-muted)] tabular-nums">
-                  {formatCurrency(product.originalPrice, currency)}
-                </span>
-                <span className="text-xs font-mono-num font-medium text-[var(--ks-accent)]">
-                  Save {discount}%
-                </span>
-              </>
-            )}
-          </div>
+          <PriceDisplay
+            price={product.price}
+            originalPrice={product.originalPrice}
+            currency={currency}
+            size="lg"
+            showSavings
+            className="pb-4 border-b border-[var(--ks-border)]"
+          />
 
           <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
             {product.description}
@@ -418,6 +405,7 @@ export const ProductDetailPage: React.FC = () => {
                 <button
                   key={c.name}
                   type="button"
+                  aria-pressed={idx === selectedColorIdx}
                   onClick={() => setSelectedColorIdx(idx)}
                   className={`flex items-center gap-2 px-3 py-2 min-h-[40px] rounded-md border text-xs cursor-pointer transition-colors ${
                     idx === selectedColorIdx
@@ -457,6 +445,7 @@ export const ProductDetailPage: React.FC = () => {
                 <button
                   key={s}
                   type="button"
+                  aria-pressed={idx === selectedSizeIdx}
                   onClick={() => setSelectedSizeIdx(idx)}
                   className={`px-3.5 py-2 min-h-[40px] rounded-md border text-xs cursor-pointer transition-colors ${
                     idx === selectedSizeIdx
@@ -473,29 +462,15 @@ export const ProductDetailPage: React.FC = () => {
           {/* Quantity + CTAs */}
           <div ref={primaryCtaRef} className="space-y-3 pt-2">
             <div className="flex flex-col min-[430px]:flex-row items-stretch gap-2.5 sm:gap-3">
-              <div className="inline-flex items-center justify-between min-[430px]:justify-center border border-[var(--ks-border-strong)] bg-[var(--ks-surface)] rounded-md h-12 shrink-0">
-                <button
-                  type="button"
-                  disabled={outOfStock || quantity <= 1}
-                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  aria-label="Decrease quantity"
-                  className="w-11 min-[430px]:w-10 h-full flex items-center justify-center hover:bg-[var(--ks-surface-muted)] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  <Minus className="w-3.5 h-3.5" />
-                </button>
-                <span className="w-9 text-center text-sm font-mono-num tabular-nums">
-                  {outOfStock ? 0 : quantity}
-                </span>
-                <button
-                  type="button"
-                  disabled={outOfStock || quantity >= maxSelectableQty}
-                  onClick={() => setQuantity((q) => Math.min(maxSelectableQty, q + 1))}
-                  aria-label="Increase quantity"
-                  className="w-11 min-[430px]:w-10 h-full flex items-center justify-center hover:bg-[var(--ks-surface-muted)] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-              </div>
+              <QuantityStepper
+                value={quantity}
+                min={1}
+                max={maxSelectableQty}
+                disabled={outOfStock}
+                onChange={setQuantity}
+                itemName={product.name}
+                size="lg"
+              />
 
               <div className="flex-1 min-w-0">
                 <Button
@@ -533,10 +508,12 @@ export const ProductDetailPage: React.FC = () => {
               >
                 {outOfStock ? 'Unavailable' : 'Buy Now'}
               </Button>
-              <Button variant="outline" size="md" onClick={() => toggleWishlist(product)}>
-                <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-current text-[var(--ks-accent)]' : ''}`} />
-                <span>{isWishlisted ? 'Saved' : 'Wishlist'}</span>
-              </Button>
+              <WishlistButton
+                active={isWishlisted}
+                onToggle={() => toggleWishlist(product)}
+                productName={product.name}
+                variant="full"
+              />
             </div>
           </div>
 
@@ -757,98 +734,116 @@ export const ProductDetailPage: React.FC = () => {
                 )}
               </div>
 
-              <form
-                onSubmit={handleReviewSubmit}
-                className="lg:col-span-5 p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-4 h-fit"
-              >
-                <h3 className="font-display text-2xl font-medium">Write a Review</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Input
-                    label="Your Name"
-                    required
-                    value={reviewAuthor}
-                    onChange={(e) => {
-                      setReviewAuthor(e.target.value);
-                      setReviewSubmitted(false);
-                    }}
-                    placeholder="Your full name"
-                  />
-                  <Input
-                    label="City / Country"
-                    value={reviewLocation}
-                    onChange={(e) => {
-                      setReviewLocation(e.target.value);
-                      setReviewSubmitted(false);
-                    }}
-                    placeholder="Dhaka, Bangladesh"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <span id="pdp-rating-label" className="text-xs font-medium block">
-                    Rating
-                  </span>
-                  <div
-                    role="radiogroup"
-                    aria-labelledby="pdp-rating-label"
-                    className="flex items-center gap-1"
-                  >
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        type="button"
-                        role="radio"
-                        aria-checked={star === reviewRating}
-                        onClick={() => {
-                          setReviewRating(star);
-                          setReviewSubmitted(false);
-                        }}
-                        aria-label={`${star} ${star === 1 ? 'star' : 'stars'}`}
-                        className="w-10 h-10 rounded-md flex items-center justify-center hover:bg-[var(--ks-surface-muted)] cursor-pointer"
-                      >
-                        <Star
-                          className={`w-5 h-5 ${
-                            star <= reviewRating
-                              ? 'fill-[var(--ks-accent)] text-[var(--ks-accent)]'
-                              : 'text-[var(--ks-border-strong)]'
-                          }`}
-                        />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <Input
-                  label="Headline"
-                  required
-                  value={reviewTitle}
-                  onChange={(e) => {
-                    setReviewTitle(e.target.value);
-                    setReviewSubmitted(false);
-                  }}
-                  placeholder="Summarize your impression"
-                />
-                <Textarea
-                  label="Your Feedback"
-                  required
-                  rows={3}
-                  value={reviewComment}
-                  onChange={(e) => {
-                    setReviewComment(e.target.value);
-                    setReviewSubmitted(false);
-                  }}
-                  placeholder="Share notes on finish, performance, sizing, or delivery..."
-                />
-                {reviewError && <p className="text-xs text-[var(--ks-error)]">{reviewError}</p>}
-                {reviewSubmitted && !reviewError && (
-                  <p className="text-xs text-[var(--ks-success)]">
-                    Your review has been added to this product page.
+              {!profile.isAuthenticated ? (
+                <div className="lg:col-span-5 p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-4 h-fit">
+                  <h3 className="font-display text-2xl font-medium">Write a Verified Review</h3>
+                  <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
+                    To keep ratings authentic, only signed-in marketplace members can publish verified product reviews.
                   </p>
-                )}
-                <Button type="submit" variant="primary" size="md" fullWidth>
-                  Publish Review
-                </Button>
-              </form>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="md"
+                    fullWidth
+                    onClick={() => navigate({ name: 'login' })}
+                  >
+                    Sign In to Review
+                  </Button>
+                </div>
+              ) : (
+                <form
+                  onSubmit={handleReviewSubmit}
+                  className="lg:col-span-5 p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-4 h-fit"
+                >
+                  <h3 className="font-display text-2xl font-medium">Write a Review</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Input
+                      label="Your Name"
+                      required
+                      value={reviewAuthor}
+                      onChange={(e) => {
+                        setReviewAuthor(e.target.value);
+                        setReviewSubmitted(false);
+                      }}
+                      placeholder="Your full name"
+                    />
+                    <Input
+                      label="City / Country"
+                      value={reviewLocation}
+                      onChange={(e) => {
+                        setReviewLocation(e.target.value);
+                        setReviewSubmitted(false);
+                      }}
+                      placeholder="Dhaka, Bangladesh"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <span id="pdp-rating-label" className="text-xs font-medium block">
+                      Rating
+                    </span>
+                    <div
+                      role="radiogroup"
+                      aria-labelledby="pdp-rating-label"
+                      className="flex items-center gap-1"
+                    >
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          role="radio"
+                          aria-checked={star === reviewRating}
+                          onClick={() => {
+                            setReviewRating(star);
+                            setReviewSubmitted(false);
+                          }}
+                          aria-label={`${star} ${star === 1 ? 'star' : 'stars'}`}
+                          className="w-10 h-10 rounded-md flex items-center justify-center hover:bg-[var(--ks-surface-muted)] cursor-pointer"
+                        >
+                          <Star
+                            className={`w-5 h-5 ${
+                              star <= reviewRating
+                                ? 'fill-[var(--ks-accent)] text-[var(--ks-accent)]'
+                                : 'text-[var(--ks-border-strong)]'
+                            }`}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Input
+                    label="Headline"
+                    required
+                    value={reviewTitle}
+                    onChange={(e) => {
+                      setReviewTitle(e.target.value);
+                      setReviewSubmitted(false);
+                    }}
+                    placeholder="Summarize your impression"
+                  />
+                  <Textarea
+                    label="Your Feedback"
+                    required
+                    rows={3}
+                    value={reviewComment}
+                    onChange={(e) => {
+                      setReviewComment(e.target.value);
+                      setReviewSubmitted(false);
+                    }}
+                    placeholder="Share notes on finish, performance, sizing, or delivery..."
+                  />
+                  {reviewError && <p className="text-xs text-[var(--ks-error)]">{reviewError}</p>}
+                  {reviewSubmitted && !reviewError && (
+                    <p className="text-xs text-[var(--ks-success)]">
+                      Your verified review has been published on this product page.
+                    </p>
+                  )}
+                  <Button type="submit" variant="primary" size="md" fullWidth>
+                    Publish Verified Review
+                  </Button>
+                </form>
+              )}
             </div>
           )}
 
@@ -1033,7 +1028,7 @@ export const ProductDetailPage: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Scroll-triggered compact Mobile Sticky Purchase Bar (<= 48px) */}
+      {/* Scroll-triggered compact Mobile Sticky Purchase Bar (<= 44px) */}
       <AnimatePresence>
         {showMobileStickyBar && (
           <motion.div
@@ -1042,7 +1037,7 @@ export const ProductDetailPage: React.FC = () => {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: '100%', opacity: 0 }}
             transition={STUDIO_TRANSITION.base}
-            className="lg:hidden fixed bottom-0 inset-x-0 z-30 h-12 px-3 sm:px-4 bg-[var(--ks-surface)]/95 backdrop-blur-md border-t border-[var(--ks-border)] flex items-center justify-between gap-3"
+            className="lg:hidden fixed bottom-0 inset-x-0 z-30 h-11 px-3 sm:px-4 bg-[var(--ks-surface)]/95 backdrop-blur-md border-t border-[var(--ks-border)] flex items-center justify-between gap-3"
           >
             <div className="min-w-0 flex-1 flex items-center gap-2">
               <span className="text-xs font-medium truncate">{product.name}</span>

@@ -66,10 +66,10 @@ export const PWAStatusBanners: React.FC = () => {
             exit={{ opacity: 0, y: 8, scale: 0.97 }}
             transition={STUDIO_TRANSITION.base}
             role="status"
-            className="pointer-events-auto flex items-start gap-2.5 p-3 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] text-[#171716] dark:text-[#F4F3EF] border border-[#E5E3DD] dark:border-[#2C2C28] shadow-lg"
+            className="pointer-events-auto flex items-start gap-2.5 p-3 rounded-lg bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)] shadow-lg"
           >
             <RefreshCw
-              className={`w-4 h-4 mt-[2px] text-[#8F6438] dark:text-[#C89B67] shrink-0 ${
+              className={`w-4 h-4 mt-[2px] text-[var(--ks-accent)] shrink-0 ${
                 updating ? 'animate-spin' : ''
               }`}
               aria-hidden="true"
@@ -78,7 +78,7 @@ export const PWAStatusBanners: React.FC = () => {
               <p className="text-xs font-semibold leading-snug">
                 {updating ? 'Updating Kinto Studio...' : 'Studio Update Ready'}
               </p>
-              <p className="text-[11px] text-[#5C5B57] dark:text-[#A3A19B] leading-snug mt-0.5">
+              <p className="text-[11px] text-[var(--ks-text-secondary)] leading-snug mt-0.5">
                 {updating
                   ? 'Applying the latest release automatically.'
                   : 'Reload to apply the latest catalog enhancements.'}
@@ -88,14 +88,14 @@ export const PWAStatusBanners: React.FC = () => {
                   <button
                     type="button"
                     onClick={applyUpdate}
-                    className="px-2.5 py-1 rounded bg-[#171716] dark:bg-[#F4F3EF] text-white dark:text-[#171716] text-[11px] font-medium hover:opacity-90 cursor-pointer"
+                    className="px-2.5 py-1 rounded bg-[var(--ks-action)] text-[var(--ks-action-text)] text-[11px] font-medium hover:bg-[var(--ks-action-hover)] cursor-pointer"
                   >
                     Reload App
                   </button>
                   <button
                     type="button"
                     onClick={dismiss}
-                    className="text-[11px] text-[#5C5B57] dark:text-[#A3A19B] hover:text-[#171716] dark:hover:text-[#F4F3EF] px-1.5 py-1 cursor-pointer"
+                    className="text-[11px] text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] px-1.5 py-1 cursor-pointer"
                   >
                     Later
                   </button>
@@ -107,7 +107,7 @@ export const PWAStatusBanners: React.FC = () => {
                 type="button"
                 onClick={dismiss}
                 aria-label="Dismiss update notification"
-                className="text-[#84827B] hover:text-[#171716] dark:hover:text-[#F4F3EF] p-1 cursor-pointer shrink-0"
+                className="text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] p-1.5 cursor-pointer shrink-0"
               >
                 <X className="w-3.5 h-3.5" />
               </button>

@@ -1,6 +1,7 @@
 import type {
   AccountDirectoryEntry,
   AdminDashboardData,
+  AdminSystemReadiness,
   ApiSellerProductRecord,
   AvailabilityStatus,
   CategoryFacetConfig,
@@ -13,8 +14,10 @@ import type {
   LanguageCode,
   LegalAcceptanceRecord,
   ManagedPromoRecord,
+  NewsletterSubscriptionRecord,
   Order,
   OrderStage,
+  PasswordResetRequestResult,
   PaymentMethodId,
   PaymentSession,
   PlatformSettingsState,
@@ -28,6 +31,7 @@ import type {
   ShippingZoneId,
   ShippingZoneRule,
   StoreNotification,
+  SupportInquiryRecord,
   UserRole,
 } from '../types/commerce';
 import type { BangladeshDivisionEntry } from '../../server/shared/marketplaceSchema';
@@ -404,18 +408,16 @@ export async function verifyPaymentApi(payload: {
   );
 }
 
-export async function fetchNotificationsApi(role: UserRole): Promise<StoreNotification[]> {
+export async function fetchNotificationsApi(_role?: UserRole): Promise<StoreNotification[]> {
   return withStaticFallback(
     async () => {
-      const res = await requestJson<{ notifications?: StoreNotification[] }>(
-        `/api/notifications?role=${encodeURIComponent(role)}`
-      );
+      const res = await requestJson<{ notifications?: StoreNotification[] }>('/api/notifications');
       if (!Array.isArray(res.notifications)) {
         throw new ApiError('Invalid notifications payload', 502, true);
       }
       return res.notifications;
     },
-    (mod) => mod.staticFetchNotifications(role)
+    (mod) => mod.staticFetchNotifications(getStoredToken())
   );
 }
 
@@ -451,18 +453,6 @@ export async function trackOrderApi(id: string, contact?: string): Promise<Order
   );
 }
 
-export async function createOrderApi(order: Order): Promise<Order> {
-  return withStaticFallback(
-    async () => {
-      const res = await requestJson<{ order: Order }>('/api/orders', {
-        method: 'POST',
-        body: JSON.stringify(order),
-      });
-      return res.order;
-    },
-    (mod) => mod.staticCreateOrder(order)
-  );
-}
 
 export async function updateOrderStatusApi(
   orderId: string,
@@ -754,3 +744,78 @@ export async function deleteCategoryNodeApi(
     (mod) => mod.staticDeleteCategoryNode(idOrSlug, getStoredToken())
   );
 }
+
+export async function requestPasswordResetApi(
+  email: string
+): Promise<PasswordResetRequestResult> {
+  return withStaticFallback(
+    () =>
+      requestJson<PasswordResetRequestResult>('/api/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      }),
+    (mod) => mod.staticRequestPasswordReset(email)
+  );
+}
+
+export async function confirmPasswordResetApi(payload: {
+  email: string;
+  code: string;
+  newPassword: string;
+}): Promise<{ ok: boolean; message: string }> {
+  return withStaticFallback(
+    () =>
+      requestJson<{ ok: boolean; message: string }>('/api/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    (mod) => mod.staticConfirmPasswordReset(payload)
+  );
+}
+
+export async function submitSupportInquiryApi(payload: {
+  name: string;
+  email: string;
+  phone?: string;
+  topic: string;
+  orderId?: string;
+  message: string;
+}): Promise<SupportInquiryRecord> {
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ inquiry: SupportInquiryRecord }>('/api/support/inquiries', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      return res.inquiry;
+    },
+    (mod) => mod.staticSubmitSupportInquiry(payload, getStoredToken())
+  );
+}
+
+export async function subscribeNewsletterApi(
+  email: string,
+  source = 'footer'
+): Promise<{
+  ok: boolean;
+  alreadySubscribed: boolean;
+  subscription: NewsletterSubscriptionRecord;
+  message: string;
+}> {
+  return withStaticFallback(
+    () =>
+      requestJson('/api/newsletter/subscribe', {
+        method: 'POST',
+        body: JSON.stringify({ email, source }),
+      }),
+    (mod) => mod.staticSubscribeNewsletter(email, source)
+  );
+}
+
+export async function fetchAdminReadinessApi(): Promise<AdminSystemReadiness> {
+  return withStaticFallback(
+    () => requestJson<AdminSystemReadiness>('/api/admin/readiness'),
+    (mod) => mod.staticFetchAdminReadiness(getStoredToken())
+  );
+}
+

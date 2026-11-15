@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { ArrowRight, Bookmark, Minus, Plus, ShoppingBag, Tag, Trash2, X } from 'lucide-react';
+import { ArrowRight, Bookmark, ShoppingBag, Tag, Trash2, X } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { formatCurrency } from '../utils/format';
+import { QuantityStepper } from '../components/product/CommercePrimitives';
 import { Button } from '../components/ui/Button';
 import { Breadcrumb, EmptyState, ResilientImage } from '../components/ui/Primitives';
 
@@ -75,12 +76,18 @@ export const CartPage: React.FC = () => {
                 const atMaxStock = item.quantity >= item.stockCount;
                 return (
                   <div key={item.key} className="p-4 sm:p-6 flex flex-col sm:flex-row gap-5">
-                    <ResilientImage
-                      src={item.image}
-                      alt={item.name}
+                    <button
+                      type="button"
                       onClick={() => navigate({ name: 'product', slug: item.slug })}
-                      className="w-full sm:w-36 aspect-[4/3] rounded-md object-cover bg-[var(--ks-surface-muted)] shrink-0 cursor-pointer"
-                    />
+                      aria-label={`View ${item.name}`}
+                      className="w-full sm:w-36 aspect-[4/3] rounded-md overflow-hidden bg-[var(--ks-surface-muted)] shrink-0 cursor-pointer block text-left"
+                    >
+                      <ResilientImage
+                        src={item.image}
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
 
                     <div className="flex-1 flex flex-col justify-between gap-4 min-w-0">
                       <div className="flex items-start justify-between gap-4">
@@ -88,12 +95,15 @@ export const CartPage: React.FC = () => {
                           <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
                             {item.brand}
                           </p>
-                          <h3
-                            onClick={() => navigate({ name: 'product', slug: item.slug })}
-                            className="text-base font-semibold mt-0.5 cursor-pointer hover:text-[var(--ks-accent)]"
-                          >
-                            {item.name}
-                          </h3>
+                          <h2 className="text-base font-semibold mt-0.5">
+                            <button
+                              type="button"
+                              onClick={() => navigate({ name: 'product', slug: item.slug })}
+                              className="text-left hover:text-[var(--ks-accent)] cursor-pointer"
+                            >
+                              {item.name}
+                            </button>
+                          </h2>
                           <p className="text-xs text-[var(--ks-text-secondary)] mt-1 flex items-center gap-2">
                             <span
                               className="inline-block w-3 h-3 rounded-full border border-black/15 shrink-0"
@@ -114,28 +124,15 @@ export const CartPage: React.FC = () => {
                       </div>
 
                       <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
-                        <div className="inline-flex items-center border border-[var(--ks-border-strong)] rounded-md h-10 bg-[var(--ks-surface)]">
-                          <button
-                            type="button"
-                            onClick={() => updateCartQty(item.key, item.quantity - 1)}
-                            aria-label={item.quantity <= 1 ? `Remove ${item.name}` : 'Decrease quantity'}
-                            className="w-10 h-full flex items-center justify-center hover:bg-[var(--ks-surface-muted)] cursor-pointer"
-                          >
-                            <Minus className="w-3.5 h-3.5" />
-                          </button>
-                          <span className="w-9 text-center text-xs font-mono-num tabular-nums">
-                            {item.quantity}
-                          </span>
-                          <button
-                            type="button"
-                            disabled={atMaxStock}
-                            onClick={() => updateCartQty(item.key, item.quantity + 1)}
-                            aria-label="Increase quantity"
-                            className="w-10 h-full flex items-center justify-center hover:bg-[var(--ks-surface-muted)] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                        <QuantityStepper
+                          value={item.quantity}
+                          min={1}
+                          max={item.stockCount}
+                          allowRemoveAtMin
+                          onChange={(next) => updateCartQty(item.key, next)}
+                          itemName={item.name}
+                          size="sm"
+                        />
 
                         <div className="flex items-center gap-3 text-xs">
                           <button

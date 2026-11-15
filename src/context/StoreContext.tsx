@@ -7,12 +7,14 @@ import {
   buildCategoryMetasFromNodes,
   getDescendantCategorySlugs,
 } from '../data/catalog';
-import { getCachedDummyJsonProductsSync } from '../../server/shared/dummyJsonCatalog';
+import {
+  computeVerifiedReviewStats,
+  getCachedDummyJsonProductsSync,
+} from '../../server/shared/dummyJsonCatalog';
 import {
   ApiError,
   changePasswordApi,
   clearStoredToken,
-  createOrderApi,
   fetchCatalogProductsApi,
   fetchCurrentUser,
   fetchNotificationsApi,
@@ -37,13 +39,11 @@ import {
   CurrencyCode,
   CurrencyRateState,
   CustomerProfile,
-  DeliveryMethodId,
   LanguageCode,
   LegalAcceptanceRecord,
   LegalDocumentId,
   NotificationPrefs,
   Order,
-  PaymentMethodId,
   PaymentMethodRecord,
   PrivacyPrefs,
   Product,
@@ -57,7 +57,6 @@ import {
 import { LEGAL_VERSION } from '../data/legalPolicies';
 import {
   DEFAULT_BDT_RATE,
-  FREE_SHIPPING_THRESHOLD_USD,
   formatCurrency,
   isProductOutOfStock,
   setGlobalBdtRate,
@@ -84,25 +83,6 @@ export interface RegisterAccountResult {
     message: string;
     status?: number;
   };
-}
-
-interface CheckoutPayload {
-  customerName: string;
-  email: string;
-  phone: string;
-  shippingAddress: {
-    country: string;
-    state: string;
-    city: string;
-    upazila?: string;
-    area: string;
-    streetAddress: string;
-    postalCode: string;
-    instructions?: string;
-  };
-  deliveryMethod: DeliveryMethodId;
-  paymentMethod: PaymentMethodId;
-  paymentReference?: string;
 }
 
 const DEFAULT_CURRENCY_STATE: CurrencyRateState = {
@@ -152,6 +132,8 @@ interface StoreContextValue {
   navigate: (next: RouteState) => void;
   goBack: () => void;
   storefrontLoading: boolean;
+  catalogError: string | null;
+  retryCatalogLoad: () => Promise<void>;
   categoryNodes: CategoryNode[];
   categories: CategoryMeta[];
   getCategoryNodeBySlug: (slug: string) => CategoryNode | undefined;
@@ -214,7 +196,6 @@ interface StoreContextValue {
   submitProductQuestion: (productId: string, author: string, question: string) => void;
   orders: Order[];
   commitVerifiedOrder: (order: Order) => void;
-  placeOrder: (payload: CheckoutPayload) => Order;
   reorderFromOrder: (order: Order) => void;
   cancelOrder: (orderId: string) => Promise<void>;
   requestOrderReturn: (orderId: string, reason?: string) => Promise<void>;
@@ -232,8 +213,8 @@ interface StoreContextValue {
     currentPassword: string,
     newPassword: string
   ) => Promise<{ ok: boolean; error?: string }>;
-  logoutDemo: () => void;
-  loginDemo: (email: string, password: string) => Promise<AccountDirectoryEntry | null>;
+  signOut: () => void;
+  signIn: (email: string, password: string) => Promise<AccountDirectoryEntry | null>;
   registerAccount: (payload: {
     fullName: string;
     email: string;
@@ -310,6 +291,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // API-driven auth, notifications, and live catalog sync
   const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [storefrontLoading, setStorefrontLoading] = useState<boolean>(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
   const [authModalTab, setAuthModalTab] = useState<'signin' | 'register'>('signin');
   const [profile, setProfile] = useState<CustomerProfile>(() => {
@@ -487,6 +469,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         if (loadedCatalog.length > 0) {
           setApiProducts(loadedCatalog);
+          setCatalogError(null);
+        } else if (catalogRes.status === 'rejected') {
+          setCatalogError(
+            'Unable to load the product catalog right now. Please check your connection and try again.'
+          );
         }
 
         if (meRes.status === 'fulfilled' && meRes.value && hasToken) {
@@ -532,6 +519,34 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applySyncPayload, hydrateOrderImages]);
+
+  const retryCatalogLoad = useCallback(async () => {
+    setStorefrontLoading(true);
+    setCatalogError(null);
+    try {
+      const [catalogRes, syncRes] = await Promise.allSettled([
+        fetchCatalogProductsApi(),
+        fetchStorefrontSync(),
+      ]);
+      const loadedCatalog =
+        catalogRes.status === 'fulfilled' && Array.isArray(catalogRes.value)
+          ? catalogRes.value
+          : getCachedDummyJsonProductsSync();
+      if (loadedCatalog.length > 0) {
+        setApiProducts(loadedCatalog);
+        setCatalogError(null);
+      } else {
+        setCatalogError(
+          'Unable to load the product catalog right now. Please check your connection and try again.'
+        );
+      }
+      if (syncRes.status === 'fulfilled' && syncRes.value) {
+        applySyncPayload(syncRes.value);
+      }
+    } finally {
+      setStorefrontLoading(false);
+    }
+  }, [applySyncPayload]);
 
   useEffect(() => {
     refreshNotifications(profile.role || 'customer');
@@ -605,7 +620,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         : { ...p, images: [resolveImagePreset(undefined, p.category)] }
     );
 
-    const combinedBase = [...mappedSellerProducts, ...hydratedApiProducts];
+    const combinedRaw = [...mappedSellerProducts, ...hydratedApiProducts];
+    const seenIds = new Set<string>();
+    const seenSlugs = new Set<string>();
+    const combinedBase: Product[] = [];
+
+    for (const item of combinedRaw) {
+      if (seenIds.has(item.id) || seenSlugs.has(item.slug)) continue;
+      seenIds.add(item.id);
+      seenSlugs.add(item.slug);
+      combinedBase.push(item);
+    }
 
     return combinedBase.map((p) => {
       const override = productOverrides[p.id];
@@ -621,23 +646,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const extraReviews = customReviews[p.id] || [];
       const extraQuestions = customQuestions[p.id] || [];
       const mergedQuestions = [...extraQuestions, ...(baseWithOverride.questions || [])];
+      const combinedReviews = [...extraReviews, ...(baseWithOverride.reviews || [])];
+      const { verifiedReviews, rating, reviewCount } = computeVerifiedReviewStats(combinedReviews);
 
-      if (extraReviews.length === 0) {
-        return extraQuestions.length > 0
-          ? { ...baseWithOverride, questions: mergedQuestions }
-          : baseWithOverride;
-      }
-
-      const mergedReviews = [...extraReviews, ...baseWithOverride.reviews];
-      const totalScore =
-        baseWithOverride.rating * baseWithOverride.reviewCount +
-        extraReviews.reduce((sum, r) => sum + r.rating, 0);
-      const totalCount = baseWithOverride.reviewCount + extraReviews.length;
       return {
         ...baseWithOverride,
-        reviews: mergedReviews,
-        reviewCount: totalCount,
-        rating: Number((totalScore / totalCount).toFixed(1)),
+        reviews: verifiedReviews,
+        reviewCount,
+        rating,
         questions: mergedQuestions,
       };
     });
@@ -1074,168 +1090,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [clearCart, hydrateOrderImages, profile.role, refreshNotifications, refreshStorefrontSync]
   );
 
-  const placeOrder = useCallback(
-    (payload: CheckoutPayload): Order => {
-      const deliveryLabels: Record<
-        DeliveryMethodId,
-        { label: string; cost: number; eta: string; courier: string }
-      > = {
-        standard: {
-          label: 'Standard Tracked Courier',
-          cost:
-            cartSubtotal >= FREE_SHIPPING_THRESHOLD_USD || appliedPromo?.discountType === 'shipping'
-              ? 0
-              : 1.5,
-          eta: '2–4 Business Days',
-          courier: 'Steadfast & Pathao Studio Ground',
-        },
-        express: {
-          label: 'Express Priority Dispatch',
-          cost: appliedPromo?.discountType === 'shipping' ? 0 : 2.9,
-          eta: 'Next Business Day',
-          courier: 'RedX Priority Air & Same-Day',
-        },
-        'white-glove': {
-          label: 'White-Glove Room Placement',
-          cost: 12,
-          eta: 'Scheduled 2–5 Days',
-          courier: 'Kinto Atelier Specialist Fleet',
-        },
-      };
-
-      const paymentLabels: Record<PaymentMethodId, string> = {
-        bkash: 'bKash Mobile Wallet',
-        nagad: 'Nagad Mobile Wallet',
-        rocket: 'Rocket (DBBL)',
-        visa: 'Visa Card',
-        mastercard: 'Mastercard',
-        cod: 'Cash on Delivery (Bangladesh)',
-        sslcommerz: 'SSLCommerz Multi-Channel',
-        'bank-transfer': 'Direct Bank Transfer',
-        card: payload.paymentReference ? `Card ending in ${payload.paymentReference}` : 'Credit / Debit Card',
-        wallet: 'Digital Wallet',
-      };
-
-      const delivery = deliveryLabels[payload.deliveryMethod];
-      const finalTotal = Math.max(
-        0,
-        Number((cartSubtotal - cartDiscount + cartTax + delivery.cost).toFixed(2))
-      );
-      const orderId = `KS-${Math.floor(10500 + Math.random() * 89000)}`;
-      const nowLabel = new Intl.DateTimeFormat('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      }).format(new Date());
-
-      const isBd = payload.shippingAddress.country.toLowerCase() === 'bangladesh';
-      const settleCurrency: CurrencyCode = isBd ? 'BDT' : currency;
-      const rate = settleCurrency === 'BDT' ? currencyConfig.rates.BDT : 1;
-      const chargedTotal =
-        settleCurrency === 'BDT' ? Math.ceil(finalTotal * rate) : finalTotal;
-
-      const newOrder: Order = {
-        id: orderId,
-        createdAt: new Date().toISOString(),
-        customerName: payload.customerName,
-        email: payload.email,
-        phone: payload.phone,
-        shippingAddress: payload.shippingAddress,
-        deliveryMethod: payload.deliveryMethod,
-        deliveryLabel: delivery.label,
-        estimatedArrival: delivery.eta,
-        courierName: delivery.courier,
-        trackingNumber: `KS-TRK-${Math.floor(1000000 + Math.random() * 8999999)}`,
-        paymentMethod: payload.paymentMethod,
-        paymentLabel: paymentLabels[payload.paymentMethod],
-        paymentStatus: payload.paymentMethod === 'cod' ? 'cod_pending' : 'paid',
-        transactionRef: `KS-LOCAL-${Math.floor(100000 + Math.random() * 899999)}`,
-        gatewayProvider: 'Kinto Checkout Ledger',
-        currencySnapshot: {
-          baseCurrency: 'USD',
-          transactionCurrency: settleCurrency,
-          exchangeRate: rate,
-          rateSource: currencyConfig.source,
-          rateTimestamp: currencyConfig.updatedAt,
-          roundingRule: currencyConfig.roundingRules[settleCurrency].mode,
-          baseSubtotalUsd: cartSubtotal,
-          baseTotalUsd: finalTotal,
-          chargedTotal,
-        },
-        promoCode: appliedPromo?.code,
-        items: [...cart],
-        subtotal: cartSubtotal,
-        shippingCost: delivery.cost,
-        taxAmount: cartTax,
-        discountAmount: cartDiscount,
-        total: finalTotal,
-        currentStage: 'Confirmed',
-        timeline: [
-          {
-            stage: 'Confirmed',
-            timestamp: nowLabel,
-            note: 'Order received and verified',
-            completed: true,
-          },
-          {
-            stage: 'Processing',
-            timestamp: 'Pending',
-            note: 'Quality check & fulfillment allocation',
-            completed: false,
-          },
-          {
-            stage: 'Packed',
-            timestamp: 'Pending',
-            note: 'Protective packaging & seal',
-            completed: false,
-          },
-          {
-            stage: 'Shipped',
-            timestamp: 'Pending',
-            note: `Handover to ${delivery.courier}`,
-            completed: false,
-          },
-          {
-            stage: 'Out for Delivery',
-            timestamp: 'Pending',
-            note: 'Local courier transit',
-            completed: false,
-          },
-          {
-            stage: 'Delivered',
-            timestamp: delivery.eta,
-            note: 'Confirmation at delivery address',
-            completed: false,
-          },
-        ],
-      };
-
-      setOrders((prev) => [newOrder, ...prev]);
-      createOrderApi(newOrder)
-        .then(() => refreshNotifications(profile.role))
-        .catch(() => {
-          showToast('Order saved locally for preview', 'Offline tracking remains active.', 'info');
-        });
-      clearCart();
-      return newOrder;
-    },
-    [
-      appliedPromo,
-      cart,
-      cartDiscount,
-      cartSubtotal,
-      cartTax,
-      clearCart,
-      currency,
-      currencyConfig,
-      profile.role,
-      refreshNotifications,
-      showToast,
-    ]
-  );
-
   const reorderFromOrder = useCallback(
     (order: Order) => {
       order.items.forEach((item) => {
@@ -1335,7 +1189,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [showToast]
   );
 
-  const logoutDemo = useCallback(() => {
+  const signOut = useCallback(() => {
     clearStoredToken();
     setOrders([]);
     setProfile({
@@ -1351,7 +1205,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     showToast('Signed out', 'Your session has been closed securely.', 'info');
   }, [showToast]);
 
-  const loginDemo = useCallback(
+  const signIn = useCallback(
     async (email: string, password: string): Promise<AccountDirectoryEntry | null> => {
       try {
         const { user } = await loginWithApi({
@@ -1603,6 +1457,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       navigate,
       goBack,
       storefrontLoading,
+      catalogError,
+      retryCatalogLoad,
       categoryNodes,
       categories,
       getCategoryNodeBySlug,
@@ -1655,7 +1511,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       submitProductQuestion,
       orders,
       commitVerifiedOrder,
-      placeOrder,
       reorderFromOrder,
       cancelOrder,
       requestOrderReturn,
@@ -1670,8 +1525,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       openAuthModal,
       updateProfile,
       changePassword,
-      logoutDemo,
-      loginDemo,
+      signOut,
+      signIn,
       registerAccount,
       notifications,
       unreadNotificationCount,
@@ -1706,6 +1561,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       navigate,
       goBack,
       storefrontLoading,
+      catalogError,
+      retryCatalogLoad,
       categoryNodes,
       categories,
       getCategoryNodeBySlug,
@@ -1756,7 +1613,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       submitProductQuestion,
       orders,
       commitVerifiedOrder,
-      placeOrder,
       reorderFromOrder,
       cancelOrder,
       requestOrderReturn,
@@ -1769,8 +1625,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       openAuthModal,
       updateProfile,
       changePassword,
-      logoutDemo,
-      loginDemo,
+      signOut,
+      signIn,
       registerAccount,
       notifications,
       unreadNotificationCount,

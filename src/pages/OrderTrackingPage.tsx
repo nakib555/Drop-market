@@ -9,7 +9,7 @@ import { Input } from '../components/ui/FormFields';
 import { Breadcrumb } from '../components/ui/Primitives';
 
 export const OrderTrackingPage: React.FC = () => {
-  const { currency, route, orders, navigate } = useStore();
+  const { currency, route, orders, navigate, profile } = useStore();
   const [orderIdInput, setOrderIdInput] = useState(route.orderId || orders[0]?.id || '');
   const [contactVerify, setContactVerify] = useState('');
   const [lookupError, setLookupError] = useState('');
@@ -32,7 +32,7 @@ export const OrderTrackingPage: React.FC = () => {
         setTrackedOrder(localMatch);
       } else {
         setLoadingLookup(true);
-        trackOrderApi(route.orderId)
+        trackOrderApi(route.orderId, contactVerify.trim() || undefined)
           .then((ord) => setTrackedOrder(ord))
           .catch((err) => {
             setTrackedOrder(null);
@@ -41,28 +41,36 @@ export const OrderTrackingPage: React.FC = () => {
           .finally(() => setLoadingLookup(false));
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route.orderId, orders]);
 
   const handleTrackSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanId = orderIdInput.trim();
+    const cleanContact = contactVerify.trim();
     if (!cleanId) {
       setLookupError('Please enter an Order Number (e.g. KS-10482).');
+      return;
+    }
+    if (!profile.isAuthenticated && !cleanContact) {
+      setLookupError(
+        'Please enter the order email address or phone number to verify ownership.'
+      );
       return;
     }
 
     setLookupError('');
     setLoadingLookup(true);
     try {
-      const remoteOrder = await trackOrderApi(cleanId, contactVerify.trim() || undefined);
+      const remoteOrder = await trackOrderApi(cleanId, cleanContact || undefined);
       setTrackedOrder(remoteOrder);
     } catch (err) {
       const localFound = orders.find((o) => o.id.toLowerCase() === cleanId.toLowerCase());
-      if (localFound) {
+      if (localFound && profile.isAuthenticated) {
         if (
-          contactVerify.trim() &&
-          localFound.email.toLowerCase() !== contactVerify.trim().toLowerCase() &&
-          !localFound.phone.includes(contactVerify.trim())
+          cleanContact &&
+          localFound.email.toLowerCase() !== cleanContact.toLowerCase() &&
+          !localFound.phone.includes(cleanContact)
         ) {
           setLookupError('Verification email or phone does not match this order record.');
           setTrackedOrder(null);
@@ -115,7 +123,12 @@ export const OrderTrackingPage: React.FC = () => {
           </div>
           <div className="md:col-span-5">
             <Input
-              label="Email or Phone Verification (Optional)"
+              label={
+                profile.isAuthenticated
+                  ? 'Email or Phone Verification (Optional)'
+                  : 'Email or Phone Verification'
+              }
+              required={!profile.isAuthenticated}
               value={contactVerify}
               onChange={(e) => setContactVerify(e.target.value)}
               placeholder="buyer@example.com or +880 17XX-XXXXXX"

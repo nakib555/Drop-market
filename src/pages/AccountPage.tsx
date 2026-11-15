@@ -23,10 +23,11 @@ import { AdminDashboard } from '../components/account/AdminDashboard';
 import { SellerDashboard } from '../components/account/SellerDashboard';
 import { AuthPanel } from '../components/auth/AuthPanel';
 import { Button } from '../components/ui/Button';
-import { Checkbox, Input, Select } from '../components/ui/FormFields';
+import { Checkbox, Input, Select, Textarea } from '../components/ui/FormFields';
 import { Breadcrumb, EmptyState, Modal, ResilientImage } from '../components/ui/Primitives';
 import { BANGLADESH_GEO_TREE } from '../../server/shared/marketplaceSchema';
 import { useStore } from '../context/StoreContext';
+import { submitSupportInquiryApi } from '../services/api';
 import { Order } from '../types/commerce';
 import {
   formatCurrency,
@@ -83,7 +84,7 @@ export const AccountPage: React.FC = () => {
     profile,
     updateProfile,
     changePassword,
-    logoutDemo,
+    signOut,
     orders,
     reorderFromOrder,
     cancelOrder,
@@ -155,6 +156,8 @@ export const AccountPage: React.FC = () => {
   // Support quick inquiry
   const [supportSubject, setSupportSubject] = useState('');
   const [supportMessage, setSupportMessage] = useState('');
+  const [supportSubmitting, setSupportSubmitting] = useState(false);
+  const [lastTicketRef, setLastTicketRef] = useState('');
 
   // Add address form (defaults to Bangladesh 5-level hierarchy)
   const bdDefaultDiv = BANGLADESH_GEO_TREE[0];
@@ -322,7 +325,7 @@ export const AccountPage: React.FC = () => {
           variant="outline"
           size="sm"
           onClick={() => {
-            logoutDemo();
+            signOut();
             navigate({ name: 'login' });
           }}
         >
@@ -1029,19 +1032,26 @@ export const AccountPage: React.FC = () => {
                           key={item.id}
                           className="p-4 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] flex gap-4 items-center"
                         >
-                          <ResilientImage
-                            src={item.images[0]}
-                            alt={item.name}
+                          <button
+                            type="button"
                             onClick={() => navigate({ name: 'product', slug: item.slug })}
-                            className="w-20 h-16 rounded-[var(--ks-radius-sm)] object-cover shrink-0 cursor-pointer"
-                          />
+                            aria-label={`View ${item.name}`}
+                            className="w-20 h-16 rounded-[var(--ks-radius-sm)] overflow-hidden shrink-0 cursor-pointer block"
+                          >
+                            <ResilientImage
+                              src={item.images[0]}
+                              alt={item.name}
+                              className="w-full h-full object-cover"
+                            />
+                          </button>
                           <div className="flex-1 min-w-0 space-y-1.5">
-                            <p
+                            <button
+                              type="button"
                               onClick={() => navigate({ name: 'product', slug: item.slug })}
-                              className="text-sm font-medium truncate cursor-pointer hover:text-[var(--ks-accent)]"
+                              className="text-sm font-medium truncate cursor-pointer hover:text-[var(--ks-accent)] text-left block w-full"
                             >
                               {item.name}
-                            </p>
+                            </button>
                             <p className="text-xs font-mono-num font-semibold">
                               {formatCurrency(item.price, currency)}
                             </p>
@@ -1294,43 +1304,72 @@ export const AccountPage: React.FC = () => {
                 </div>
 
                 <form
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
-                    if (!supportSubject.trim() || !supportMessage.trim()) {
-                      showToast('Incomplete message', 'Enter a subject and details.', 'error');
+                    if (!supportSubject.trim() || supportMessage.trim().length < 5) {
+                      showToast(
+                        'Incomplete message',
+                        'Enter an order ID or topic and details (5+ characters).',
+                        'error'
+                      );
                       return;
                     }
-                    setSupportSubject('');
-                    setSupportMessage('');
-                    showToast(
-                      'Support ticket logged',
-                      'Our Dhaka customer care team will reply to your email within 1 business day.',
-                      'success'
-                    );
+                    setSupportSubmitting(true);
+                    try {
+                      const inquiry = await submitSupportInquiryApi({
+                        name: profile.fullName || 'Account Member',
+                        email: profile.email || 'support@kintostudio.bd',
+                        phone: profile.phone || undefined,
+                        topic: supportSubject.trim(),
+                        orderId: supportSubject.trim().toUpperCase().startsWith('KS-')
+                          ? supportSubject.trim().toUpperCase()
+                          : undefined,
+                        message: supportMessage.trim(),
+                      });
+                      setLastTicketRef(inquiry.ticketRef);
+                      setSupportSubject('');
+                      setSupportMessage('');
+                      showToast(
+                        `Support ticket ${inquiry.ticketRef} logged`,
+                        'Our Dhaka customer care team will reply to your email within 1 business day.',
+                        'success'
+                      );
+                    } catch (err) {
+                      showToast(
+                        'Could not log ticket',
+                        err instanceof Error ? err.message : 'Try again shortly.',
+                        'error'
+                      );
+                    } finally {
+                      setSupportSubmitting(false);
+                    }
                   }}
                   className="p-5 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-4 max-w-xl"
                 >
                   <p className="text-sm font-semibold">
                     Send Support Request (Desk: support@kintostudio.bd)
                   </p>
+                  {lastTicketRef && (
+                    <p className="text-xs text-[var(--ks-success)] font-mono-num">
+                      Latest logged ticket reference: {lastTicketRef}
+                    </p>
+                  )}
                   <Input
                     label="Order ID or Topic"
                     value={supportSubject}
                     onChange={(e) => setSupportSubject(e.target.value)}
                     placeholder="e.g., Order #KS-10482 delivery schedule"
                   />
-                  <label className="block space-y-1.5">
-                    <span className="text-xs font-medium block">Message</span>
-                    <textarea
-                      rows={3}
-                      value={supportMessage}
-                      onChange={(e) => setSupportMessage(e.target.value)}
-                      placeholder="Describe your question or shipment issue..."
-                      className="w-full p-3 text-xs rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)]"
-                    />
-                  </label>
-                  <Button type="submit" variant="primary" size="sm">
-                    Submit Support Request
+                  <Textarea
+                    label="Message"
+                    required
+                    rows={3}
+                    value={supportMessage}
+                    onChange={(e) => setSupportMessage(e.target.value)}
+                    placeholder="Describe your question or shipment issue..."
+                  />
+                  <Button type="submit" variant="primary" size="sm" disabled={supportSubmitting}>
+                    {supportSubmitting ? 'Logging Ticket...' : 'Submit Support Request'}
                   </Button>
                 </form>
               </div>
@@ -1342,9 +1381,9 @@ export const AccountPage: React.FC = () => {
                 <form
                   onSubmit={async (e) => {
                     e.preventDefault();
-                    if (!currentPwd || newPwd.length < 6 || newPwd !== confirmPwd) {
+                    if (!currentPwd || newPwd.length < 8 || newPwd !== confirmPwd) {
                       setPwdError(
-                        'Enter your current password and ensure the new password is at least 6 characters and matches.'
+                        'Enter your current password and ensure the new password is at least 8 characters and matches.'
                       );
                       return;
                     }
@@ -1374,7 +1413,7 @@ export const AccountPage: React.FC = () => {
                     label="New Password"
                     type="password"
                     required
-                    helperText="Minimum 6 characters."
+                    helperText="Minimum 8 characters."
                     value={newPwd}
                     onChange={(e) => setNewPwd(e.target.value)}
                   />

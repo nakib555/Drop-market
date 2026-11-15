@@ -92,6 +92,7 @@ interface ShopFilterPanelProps {
   availability: 'all' | AvailabilityStatus;
   onAvailabilityChange: (val: 'all' | AvailabilityStatus) => void;
   minRating: number;
+  hasAnyRatedProducts: boolean;
   onMinRatingChange: (val: number) => void;
   onSaleOnly: boolean;
   onSaleOnlyChange: (val: boolean) => void;
@@ -123,6 +124,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
   availability,
   onAvailabilityChange,
   minRating,
+  hasAnyRatedProducts,
   onMinRatingChange,
   onSaleOnly,
   onSaleOnlyChange,
@@ -207,6 +209,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
                       <button
                         key={opt}
                         type="button"
+                        aria-pressed={active}
                         onClick={() => {
                           const next = active
                             ? chosen.filter((x) => x !== opt)
@@ -441,22 +444,34 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
         <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)] font-medium mb-2">
           Minimum Rating
         </p>
-        <div className="flex gap-1.5">
-          {[0, 4.5, 4.8].map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => onMinRatingChange(r)}
-              className={`px-3 py-2 rounded-md text-xs font-mono-num border cursor-pointer ${
-                minRating === r
-                  ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)]'
-                  : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)]'
-              }`}
-            >
-              {r === 0 ? 'Any' : `${r}+ ★`}
-            </button>
-          ))}
-        </div>
+        {hasAnyRatedProducts ? (
+          <div className="flex gap-1.5">
+            {[0, 4.5, 4.8].map((r) => (
+              <button
+                key={r}
+                type="button"
+                aria-pressed={minRating === r}
+                onClick={() => onMinRatingChange(r)}
+                className={`px-3 py-2 rounded-md text-xs font-mono-num border cursor-pointer ${
+                  minRating === r
+                    ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)]'
+                    : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)]'
+                }`}
+              >
+                {r === 0 ? 'Any' : `${r}+ ★`}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            <span className="inline-block px-3 py-1.5 rounded-md text-xs font-mono-num border border-[var(--ks-border)] bg-[var(--ks-surface-muted)] text-[var(--ks-text-primary)]">
+              Any
+            </span>
+            <p className="text-[11px] text-[var(--ks-text-muted)] leading-snug">
+              Verified ratings appear once customers review items.
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="pt-2">
@@ -485,6 +500,8 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
     navigate,
     addRecentSearch,
     storefrontLoading,
+    catalogError,
+    retryCatalogLoad,
   } = useStore();
 
   const catalogMaxPrice = useMemo(() => {
@@ -592,6 +609,11 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
     categoryScopedProducts.forEach((p) => p.sizes.forEach((s) => set.add(s)));
     return Array.from(set);
   }, [categoryScopedProducts]);
+
+  const hasAnyRatedProducts = useMemo(
+    () => categoryScopedProducts.some((p) => p.reviewCount > 0 && p.rating > 0),
+    [categoryScopedProducts]
+  );
 
   // Dynamic category-aware typed attribute facets (zero irrelevant attributes across departments)
   const dynamicFacetOptions = useMemo<DynamicFacetDescriptor[]>(() => {
@@ -1068,6 +1090,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
       setPage(1);
     },
     minRating,
+    hasAnyRatedProducts,
     onMinRatingChange: (val: number) => {
       setMinRating(val);
       setPage(1);
@@ -1425,6 +1448,15 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
               layout={viewLayout}
               label="Loading products"
             />
+          ) : catalogError && products.length === 0 ? (
+            <div className="rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)]">
+              <EmptyState
+                title="Unable to load catalog"
+                description={catalogError}
+                actionLabel="Retry Loading Catalog"
+                onAction={() => retryCatalogLoad()}
+              />
+            </div>
           ) : paginatedProducts.length === 0 ? (
             <div className="rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)]">
               <EmptyState

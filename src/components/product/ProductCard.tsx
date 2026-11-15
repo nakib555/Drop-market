@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Check, Heart, ShoppingBag, Star } from 'lucide-react';
+import { Check, ShoppingBag } from 'lucide-react';
 import { Product } from '../../types/commerce';
 import { useStore } from '../../context/StoreContext';
-import { formatCurrency, getDiscountPercent, isProductOutOfStock } from '../../utils/format';
+import { getDiscountPercent, isProductOutOfStock } from '../../utils/format';
 import { ResilientImage } from '../ui/Primitives';
+import { PriceDisplay, RatingSummary, WishlistButton } from './CommercePrimitives';
 
 interface ProductCardProps {
   product: Product;
@@ -67,12 +68,14 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
   if (layout === 'list') {
     return (
       <article className="group flex flex-col sm:flex-row gap-5 sm:gap-6 p-4 sm:p-5 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] transition-[transform,box-shadow,border-color] duration-200 ease-[var(--ks-ease-standard)] hover:-translate-y-0.5 hover:shadow-[var(--ks-shadow-card-hover)]">
-        <div
+        <button
+          type="button"
           onClick={() => navigate({ name: 'product', slug: product.slug })}
           onMouseEnter={() => {
             if (secondaryImage && !hoverMounted) setHoverMounted(true);
           }}
-          className="relative w-full sm:w-60 md:w-64 aspect-[4/3] rounded-[var(--ks-radius-md)] overflow-hidden bg-[var(--ks-surface-muted)] shrink-0 cursor-pointer"
+          aria-label={`View ${product.name}`}
+          className="relative w-full sm:w-60 md:w-64 aspect-[4/3] rounded-[var(--ks-radius-md)] overflow-hidden bg-[var(--ks-surface-muted)] shrink-0 cursor-pointer block text-left"
         >
           <ResilientImage
             src={product.images[0]}
@@ -88,7 +91,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
               className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 transition-opacity duration-300"
             />
           )}
-        </div>
+        </button>
 
         <div className="flex-1 min-w-0 flex flex-col justify-between gap-4">
           <div className="space-y-2">
@@ -102,22 +105,20 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
                 </span>
               )}
             </div>
-            <h3
-              onClick={() => navigate({ name: 'product', slug: product.slug })}
-              className="text-lg font-semibold text-[var(--ks-text-primary)] cursor-pointer hover:text-[var(--ks-accent)] transition-colors"
-            >
-              {product.name}
+            <h3 className="text-lg font-semibold text-[var(--ks-text-primary)]">
+              <button
+                type="button"
+                onClick={() => navigate({ name: 'product', slug: product.slug })}
+                className="text-left hover:text-[var(--ks-accent)] transition-colors cursor-pointer"
+              >
+                {product.name}
+              </button>
             </h3>
             <p className="text-sm text-[var(--ks-text-secondary)] line-clamp-2 max-w-2xl">
               {product.shortDescription}
             </p>
             <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 text-xs text-[var(--ks-text-secondary)] pt-1">
-              {hasRating && (
-                <span className="inline-flex items-center gap-1 font-mono-num">
-                  <Star className="w-3.5 h-3.5 fill-[var(--ks-accent)] text-[var(--ks-accent)] translate-y-[-0.5px]" />
-                  {product.rating.toFixed(1)} ({product.reviewCount})
-                </span>
-              )}
+              <RatingSummary rating={product.rating} reviewCount={product.reviewCount} compact />
               {highlights.map((h, i) => (
                 <React.Fragment key={h}>
                   {(hasRating || i > 0) && <span aria-hidden="true">·</span>}
@@ -138,30 +139,20 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-[var(--ks-border)]">
-            <div className="flex items-baseline gap-2.5">
-              <span className="text-base font-mono-num font-semibold text-[var(--ks-text-primary)]">
-                {formatCurrency(product.price, currency)}
-              </span>
-              {hasVerifiedDiscount && product.originalPrice && (
-                <span className="text-xs font-mono-num line-through text-[var(--ks-text-muted)]">
-                  {formatCurrency(product.originalPrice, currency)}
-                </span>
-              )}
-            </div>
+            <PriceDisplay
+              price={product.price}
+              originalPrice={product.originalPrice}
+              currency={currency}
+              size="md"
+            />
 
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => toggleWishlist(product)}
-                aria-label={isWishlisted ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`}
-                className={`w-10 h-10 rounded-[var(--ks-radius-md)] border flex items-center justify-center transition-colors cursor-pointer ${
-                  isWishlisted
-                    ? 'border-[var(--ks-accent)] text-[var(--ks-accent)]'
-                    : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] hover:border-[var(--ks-border-strong)]'
-                }`}
-              >
-                <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-current' : ''}`} />
-              </button>
+              <WishlistButton
+                active={isWishlisted}
+                onToggle={() => toggleWishlist(product)}
+                productName={product.name}
+                variant="icon"
+              />
               <button
                 type="button"
                 disabled={outOfStock}
@@ -198,26 +189,32 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
   return (
     <article className="group flex flex-col rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] overflow-hidden transition-[transform,box-shadow,border-color] duration-200 ease-[var(--ks-ease-standard)] hover:-translate-y-0.5 hover:shadow-[var(--ks-shadow-card-hover)]">
       <div
-        onClick={() => navigate({ name: 'product', slug: product.slug })}
         onMouseEnter={() => {
           if (secondaryImage && !hoverMounted) setHoverMounted(true);
         }}
-        className="relative aspect-[4/3] overflow-hidden bg-[var(--ks-surface-muted)] cursor-pointer"
+        className="relative aspect-[4/3] overflow-hidden bg-[var(--ks-surface-muted)]"
       >
-        <ResilientImage
-          src={product.images[0]}
-          alt={product.name}
-          loading="lazy"
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-        />
-        {secondaryImage && hoverMounted && (
+        <button
+          type="button"
+          onClick={() => navigate({ name: 'product', slug: product.slug })}
+          aria-label={`View ${product.name}`}
+          className="block w-full h-full cursor-pointer text-left"
+        >
           <ResilientImage
-            src={secondaryImage}
-            alt={`${product.name} alternate view`}
+            src={product.images[0]}
+            alt={product.name}
             loading="lazy"
-            className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           />
-        )}
+          {secondaryImage && hoverMounted && (
+            <ResilientImage
+              src={secondaryImage}
+              alt={`${product.name} alternate view`}
+              loading="lazy"
+              className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+            />
+          )}
+        </button>
 
         {/* Top status/discount label & wishlist control */}
         <div className="absolute top-2.5 left-2.5 right-2.5 flex items-start justify-between pointer-events-none">
@@ -233,46 +230,42 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
             <span />
           )}
 
-          <button
-            type="button"
-            onClick={(e) => {
+          <WishlistButton
+            active={isWishlisted}
+            onToggle={(e) => {
               e.stopPropagation();
               toggleWishlist(product);
             }}
-            aria-label={
-              isWishlisted ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`
-            }
-            className={`pointer-events-auto w-9 h-9 rounded-[var(--ks-radius-md)] flex items-center justify-center border transition-[color,background-color,transform] duration-[var(--ks-duration-fast)] active:scale-[0.88] cursor-pointer ${
-              isWishlisted
-                ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)]'
-                : 'bg-[var(--ks-surface)]/95 text-[var(--ks-text-primary)] border-[var(--ks-border)] hover:bg-[var(--ks-surface)]'
-            }`}
-          >
-            <Heart className={`w-3.5 h-3.5 ${isWishlisted ? 'fill-current' : ''}`} />
-          </button>
+            productName={product.name}
+            variant="overlay"
+          />
         </div>
       </div>
 
       {/* Product info & Add to Bag bar */}
-      <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between gap-3">
+      <div className="p-3 min-[380px]:p-3.5 sm:p-4 flex-1 flex flex-col justify-between gap-3">
         <div className="space-y-1.5">
           <div className="flex items-baseline justify-between gap-2 min-h-[16px]">
             <span className="text-[11px] tracking-wide text-[var(--ks-text-muted)] min-w-0 truncate">
               {product.brand || product.categoryLabel}
             </span>
-            {hasRating && (
-              <span className="inline-flex items-center gap-1 text-xs font-mono-num text-[var(--ks-text-secondary)] shrink-0">
-                <Star className="w-3 h-3 fill-[var(--ks-accent)] text-[var(--ks-accent)] translate-y-[-0.5px]" />
-                {product.rating.toFixed(1)}
-              </span>
-            )}
+            <RatingSummary
+              rating={product.rating}
+              reviewCount={product.reviewCount}
+              compact
+              showCount={false}
+              className="shrink-0"
+            />
           </div>
 
-          <h3
-            onClick={() => navigate({ name: 'product', slug: product.slug })}
-            className="text-[15px] sm:text-base font-semibold text-[var(--ks-text-primary)] leading-snug line-clamp-1 cursor-pointer hover:text-[var(--ks-accent)] transition-colors"
-          >
-            {product.name}
+          <h3 className="text-[15px] sm:text-base font-semibold text-[var(--ks-text-primary)] leading-snug">
+            <button
+              type="button"
+              onClick={() => navigate({ name: 'product', slug: product.slug })}
+              className="w-full text-left line-clamp-1 hover:text-[var(--ks-accent)] transition-colors cursor-pointer"
+            >
+              {product.name}
+            </button>
           </h3>
 
           <div className="flex items-center justify-between gap-2 pt-0.5 min-h-[24px]">
@@ -286,6 +279,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
                     key={c.name}
                     type="button"
                     title={c.name}
+                    aria-pressed={idx === selectedColorIdx}
                     aria-label={`Select ${c.name}`}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -309,16 +303,12 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-[var(--ks-border)]">
-          <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 min-w-0">
-            <span className="text-[15px] font-mono-num font-semibold text-[var(--ks-text-primary)]">
-              {formatCurrency(product.price, currency)}
-            </span>
-            {hasVerifiedDiscount && product.originalPrice && (
-              <span className="text-[11px] font-mono-num line-through text-[var(--ks-text-muted)]">
-                {formatCurrency(product.originalPrice, currency)}
-              </span>
-            )}
-          </div>
+          <PriceDisplay
+            price={product.price}
+            originalPrice={product.originalPrice}
+            currency={currency}
+            size="sm"
+          />
 
           <button
             type="button"

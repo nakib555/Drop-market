@@ -328,16 +328,44 @@ function buildShortDescription(desc: string): string {
   return `${firstSentence.slice(0, 127).trimEnd()}...`;
 }
 
+export function computeVerifiedReviewStats(reviews: ProductReview[]): {
+  verifiedReviews: ProductReview[];
+  rating: number;
+  reviewCount: number;
+} {
+  const verifiedReviews = reviews.filter((r) => r.verified === true);
+  if (verifiedReviews.length === 0) {
+    return { verifiedReviews: [], rating: 0, reviewCount: 0 };
+  }
+  const sum = verifiedReviews.reduce(
+    (acc, rev) => acc + Math.max(1, Math.min(5, Number(rev.rating) || 0)),
+    0
+  );
+  return {
+    verifiedReviews,
+    rating: Number((sum / verifiedReviews.length).toFixed(1)),
+    reviewCount: verifiedReviews.length,
+  };
+}
+
 export function mapDummyJsonProduct(item: DummyJsonProductDto, index: number): Product {
   const dept = resolveDepartmentRoute(item);
-  const price = Math.max(1, Number((item.price || 19.99).toFixed(2)));
+  const cleanTitle = (item.title || '').replace(/\s+/g, ' ').trim() || `Studio Item #${item.id}`;
+  const cleanDescription =
+    (item.description || '').replace(/\s+/g, ' ').trim() ||
+    'Curated marketplace release with verified specifications and insured delivery.';
+  const rawPrice = Number(item.price);
+  const price = Number.isFinite(rawPrice) && rawPrice > 0 ? Number(Math.max(1, rawPrice).toFixed(2)) : 19.99;
   const discountPct = Number(item.discountPercentage || 0);
-  const originalPrice =
-    discountPct >= 5 && discountPct < 90
+  const candidateOriginal =
+    Number.isFinite(discountPct) && discountPct >= 5 && discountPct < 90
       ? Number((price / (1 - discountPct / 100)).toFixed(2))
       : undefined;
+  const originalPrice =
+    candidateOriginal !== undefined && candidateOriginal > price ? candidateOriginal : undefined;
 
-  const stockCount = Math.max(0, Math.round(Number(item.stock ?? 15)));
+  const rawStock = Number(item.stock ?? 15);
+  const stockCount = Number.isFinite(rawStock) ? Math.max(0, Math.round(rawStock)) : 0;
   const availability: AvailabilityStatus =
     stockCount <= 0
       ? 'out-of-stock'
@@ -346,8 +374,8 @@ export function mapDummyJsonProduct(item: DummyJsonProductDto, index: number): P
       : 'in-stock';
 
   const weightKg =
-    typeof item.weight === 'number' && item.weight > 0
-      ? Number((item.weight * 0.45).toFixed(2)) // DummyJSON weights are unitless/lbs-like small integers
+    typeof item.weight === 'number' && Number.isFinite(item.weight) && item.weight > 0
+      ? Number((item.weight * 0.45).toFixed(2))
       : dept.sizeTier === 'freight'
       ? 24.0
       : dept.sizeTier === 'bulky'
@@ -364,27 +392,11 @@ export function mapDummyJsonProduct(item: DummyJsonProductDto, index: number): P
     )
   );
 
-  const mappedReviews: ProductReview[] = (Array.isArray(item.reviews) ? item.reviews : []).map(
-    (rev, rIdx) => ({
-      id: `dj-rev-${item.id}-${rIdx + 1}`,
-      author: rev.reviewerName?.trim() || 'Verified Buyer',
-      location: 'Verified Marketplace Order',
-      rating: Math.max(1, Math.min(5, Math.round(rev.rating ?? 5))),
-      title:
-        (rev.rating ?? 5) >= 5
-          ? 'Exceeds Expectations'
-          : (rev.rating ?? 5) >= 4
-          ? 'Solid Build & Value'
-          : 'Helpful Purchase Note',
-      comment: rev.comment?.trim() || 'Verified delivery and authentic packaging.',
-      date: rev.date ? rev.date.slice(0, 10) : '2026-10-15',
-      verified: true,
-    })
-  );
-
-  const rating = Number(Math.max(1, Math.min(5, item.rating || 4.6)).toFixed(1));
-  const reviewCount = Math.max(mappedReviews.length, Math.round((item.stock || 8) * 1.4 + 6));
-  const slugBase = item.title
+  // External DummyJSON review strings are unverified upstream samples; only verified Kinto Studio
+  // customer reviews are surfaced and aggregated in product ratings.
+  const verifiedReviews: ProductReview[] = [];
+  const { rating, reviewCount } = computeVerifiedReviewStats(verifiedReviews);
+  const slugBase = cleanTitle
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
@@ -407,8 +419,8 @@ export function mapDummyJsonProduct(item: DummyJsonProductDto, index: number): P
     specs.push({ label: 'Warranty', value: item.warrantyInformation });
   }
 
-  const isTrending = rating >= 4.4 || index % 7 === 0;
-  const isBestSeller = reviewCount >= 35 || index % 5 === 0;
+  const isTrending = index % 6 === 0 || (stockCount > 0 && stockCount <= 8);
+  const isBestSeller = index % 5 === 0;
   const isNewArrival = index < 30 || item.id % 6 === 0;
   const isFeaturedOffer = Boolean(originalPrice && discountPct >= 10);
 
@@ -421,8 +433,8 @@ export function mapDummyJsonProduct(item: DummyJsonProductDto, index: number): P
   return {
     id: `dj-${item.id}`,
     slug: `${slugBase || 'item'}-${item.id}`,
-    sku: item.sku || `DJ-${String(item.id).padStart(4, '0')}`,
-    name: item.title,
+    sku: (item.sku || '').trim() || `DJ-${String(item.id).padStart(4, '0')}`,
+    name: cleanTitle,
     subtitle: `${dept.subcategoryLabel} · ${item.availabilityStatus || 'Curated Selection'}`,
     brand,
     category: dept.category,
@@ -439,13 +451,9 @@ export function mapDummyJsonProduct(item: DummyJsonProductDto, index: number): P
     reviewCount,
     stockCount,
     availability,
-    badgeText: originalPrice
-      ? `${Math.round(discountPct)}% Off`
-      : isTrending && rating >= 4.7
-      ? 'Top Rated'
-      : undefined,
-    shortDescription: buildShortDescription(item.description),
-    description: item.description || 'Verified marketplace selection.',
+    badgeText: originalPrice ? `${Math.round(discountPct)}% Off` : undefined,
+    shortDescription: buildShortDescription(cleanDescription),
+    description: cleanDescription,
     images: rawImages,
     colors: dept.colors,
     sizes: dept.sizes,
@@ -469,13 +477,13 @@ export function mapDummyJsonProduct(item: DummyJsonProductDto, index: number): P
         item.category,
         brand.toLowerCase(),
         dept.categoryLabel.toLowerCase(),
-      ])
+      ].filter(Boolean))
     ),
     isTrending,
     isBestSeller,
     isNewArrival,
     isFeaturedOffer,
-    reviews: mappedReviews,
+    reviews: verifiedReviews,
     questions: [],
   };
 }
@@ -518,11 +526,37 @@ function writeBrowserRawCache(items: DummyJsonProductDto[]): void {
   }
 }
 
-function mapRawToCatalog(rawItems: DummyJsonProductDto[]): {
+export function mapRawToCatalog(rawItems: DummyJsonProductDto[]): {
   products: Product[];
   skus: AuthoritativeCatalogSku[];
 } {
-  const products = rawItems.map((item, idx) => mapDummyJsonProduct(item, idx));
+  const seenIds = new Set<string>();
+  const seenSlugs = new Set<string>();
+  const products: Product[] = [];
+
+  rawItems.forEach((item, idx) => {
+    if (!item || typeof item.id !== 'number' || !Number.isFinite(item.id) || !item.title?.trim()) {
+      return;
+    }
+    if (typeof item.price !== 'number' || !Number.isFinite(item.price) || item.price <= 0) {
+      return;
+    }
+    const mapped = mapDummyJsonProduct(item, idx);
+    if (seenIds.has(mapped.id)) {
+      return;
+    }
+    seenIds.add(mapped.id);
+
+    let uniqueSlug = mapped.slug;
+    let suffix = 2;
+    while (seenSlugs.has(uniqueSlug)) {
+      uniqueSlug = `${mapped.slug}-${suffix}`;
+      suffix += 1;
+    }
+    seenSlugs.add(uniqueSlug);
+    products.push(uniqueSlug === mapped.slug ? mapped : { ...mapped, slug: uniqueSlug });
+  });
+
   const skus: AuthoritativeCatalogSku[] = products.map((p) => ({
     id: p.id,
     sku: p.sku,

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
+import { subscribeNewsletterApi } from '../../services/api';
 import { t } from '../../utils/i18n';
 import { PWAInstallButton } from '../pwa/PWAInstallButton';
 import { Button } from '../ui/Button';
@@ -18,16 +19,29 @@ export const Footer: React.FC = () => {
   } = useStore();
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
+  const [subscribing, setSubscribing] = useState(false);
 
-  const handleSubscribe = (e: React.FormEvent) => {
+  const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setEmailError('Please enter a valid email address.');
       return;
     }
     setEmailError('');
-    setEmail('');
-    showToast('Subscribed', 'You are added to Kinto Studio product updates.', 'success');
+    setSubscribing(true);
+    try {
+      const res = await subscribeNewsletterApi(email.trim(), 'footer');
+      setEmail('');
+      showToast(
+        res.alreadySubscribed ? 'Already subscribed' : 'Subscribed',
+        res.message,
+        res.alreadySubscribed ? 'info' : 'success'
+      );
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : 'Unable to subscribe right now.');
+    } finally {
+      setSubscribing(false);
+    }
   };
 
   return (
@@ -62,8 +76,8 @@ export const Footer: React.FC = () => {
                   aria-invalid={Boolean(emailError)}
                   className="flex-1 min-h-[var(--ks-height-md)] px-3.5 py-2 text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border-strong)] text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)] focus:outline-none focus:border-[var(--ks-action)]"
                 />
-                <Button type="submit" variant="primary" size="md">
-                  <span>Subscribe</span>
+                <Button type="submit" variant="primary" size="md" disabled={subscribing}>
+                  <span>{subscribing ? 'Saving...' : 'Subscribe'}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Button>
               </div>

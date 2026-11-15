@@ -12,6 +12,7 @@ import {
 import { motion } from 'motion/react';
 import { useStore } from '../../context/StoreContext';
 import { buildPolicyAcceptance } from '../../data/legalPolicies';
+import { confirmPasswordResetApi, requestPasswordResetApi } from '../../services/api';
 import { AccountDirectoryEntry } from '../../types/commerce';
 import { STUDIO_TRANSITION } from '../../utils/motion';
 import { isValidContactPhone } from '../../utils/validation';
@@ -46,12 +47,21 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
   onSuccess,
   onOpenFullPage,
 }) => {
-  const { loginDemo, registerAccount, navigate, openPolicyPreview } = useStore();
+  const { signIn, registerAccount, navigate, openPolicyPreview, showToast } = useStore();
 
-  const [authMode, setAuthMode] = useState<'signin' | 'register'>(initialTab);
+  const [authMode, setAuthMode] = useState<'signin' | 'register' | 'recover'>(initialTab);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
+
+  // Password recovery state
+  const [recoverEmail, setRecoverEmail] = useState('');
+  const [recoverStep, setRecoverStep] = useState<'request' | 'confirm'>('request');
+  const [recoverCode, setRecoverCode] = useState('');
+  const [recoverNewPassword, setRecoverNewPassword] = useState('');
+  const [showRecoverPassword, setShowRecoverPassword] = useState(false);
+  const [recoverPreviewCode, setRecoverPreviewCode] = useState('');
+  const [recoverStatusMsg, setRecoverStatusMsg] = useState('');
 
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
@@ -107,12 +117,71 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
     }
 
     setSubmitting(true);
-    const user = await loginDemo(trimmedEmail, loginPassword);
+    const user = await signIn(trimmedEmail, loginPassword);
     setSubmitting(false);
     if (user) {
       routeForUser(user);
     } else {
       setFormError('Invalid email or password. Check your credentials and try again.');
+    }
+  };
+
+  const handleRequestRecoveryCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+    setRecoverStatusMsg('');
+    setRecoverPreviewCode('');
+    const clean = recoverEmail.trim();
+    if (!clean || !EMAIL_PATTERN.test(clean)) {
+      setFormError('Enter your registered email address.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await requestPasswordResetApi(clean);
+      setRecoverStatusMsg(res.message);
+      if (res.previewCode) {
+        setRecoverPreviewCode(res.previewCode);
+      }
+      setRecoverStep('confirm');
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Unable to start password recovery.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleConfirmPasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+    if (!recoverCode.trim()) {
+      setFormError('Enter the 6-digit verification code.');
+      return;
+    }
+    if (recoverNewPassword.trim().length < 6) {
+      setFormError('New password must be at least 6 characters long.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await confirmPasswordResetApi({
+        email: recoverEmail.trim(),
+        code: recoverCode.trim(),
+        newPassword: recoverNewPassword.trim(),
+      });
+      showToast('Password updated', res.message, 'success');
+      setAuthMode('signin');
+      setLoginEmail(recoverEmail.trim());
+      setLoginPassword('');
+      setRecoverStep('request');
+      setRecoverCode('');
+      setRecoverNewPassword('');
+      setRecoverPreviewCode('');
+      setRecoverStatusMsg('');
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Unable to reset password.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -335,11 +404,159 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                 </p>
               )}
 
+              <div className="flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('recover');
+                    setRecoverEmail(loginEmail);
+                    setRecoverStep('request');
+                    setRecoverPreviewCode('');
+                    setRecoverStatusMsg('');
+                    setFormError('');
+                  }}
+                  className="text-xs text-[var(--ks-accent)] hover:underline cursor-pointer"
+                >
+                  Forgot password?
+                </button>
+              </div>
+
               <Button type="submit" variant="primary" size="lg" fullWidth disabled={submitting}>
                 <span>{submitting ? 'Signing In...' : 'Sign In'}</span>
                 <ArrowRight className="w-4 h-4" />
               </Button>
             </form>
+          ) : authMode === 'recover' ? (
+            recoverStep === 'request' ? (
+              <form onSubmit={handleRequestRecoveryCode} noValidate className="space-y-4">
+                <div className="space-y-1">
+                  <h2 className="font-display text-2xl sm:text-3xl font-medium">
+                    Recover Account Password
+                  </h2>
+                  <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
+                    Enter the email address associated with your Kinto Studio account to receive a 15-minute verification code.
+                  </p>
+                </div>
+
+                <Input
+                  label="Registered Email Address"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={recoverEmail}
+                  onChange={(e) => {
+                    setRecoverEmail(e.target.value);
+                    if (formError) setFormError('');
+                  }}
+                  placeholder="name@example.com"
+                />
+
+                {formError && (
+                  <p className="text-xs text-[var(--ks-error)]" role="alert">
+                    {formError}
+                  </p>
+                )}
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button type="submit" variant="primary" size="lg" disabled={submitting}>
+                    <span>{submitting ? 'Requesting Code...' : 'Send Recovery Code'}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode('signin');
+                      setFormError('');
+                    }}
+                    className="text-xs text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] underline cursor-pointer"
+                  >
+                    Back to Sign In
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleConfirmPasswordReset} noValidate className="space-y-4">
+                <div className="space-y-1">
+                  <h2 className="font-display text-2xl sm:text-3xl font-medium">
+                    Enter Verification Code
+                  </h2>
+                  {recoverStatusMsg && (
+                    <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
+                      {recoverStatusMsg}
+                    </p>
+                  )}
+                </div>
+
+                {recoverPreviewCode && (
+                  <div className="p-3 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border-strong)] text-xs space-y-1">
+                    <p className="font-medium text-[var(--ks-text-primary)]">
+                      In-App Verification Code (SMTP Unconfigured)
+                    </p>
+                    <p className="font-mono-num text-base tracking-widest text-[var(--ks-accent)]">
+                      {recoverPreviewCode}
+                    </p>
+                  </div>
+                )}
+
+                <Input
+                  label="6-Digit Verification Code"
+                  required
+                  value={recoverCode}
+                  onChange={(e) => {
+                    setRecoverCode(e.target.value);
+                    if (formError) setFormError('');
+                  }}
+                  placeholder="123456"
+                />
+
+                <div className="relative">
+                  <Input
+                    label="New Password"
+                    type={showRecoverPassword ? 'text' : 'password'}
+                    required
+                    autoComplete="new-password"
+                    value={recoverNewPassword}
+                    onChange={(e) => {
+                      setRecoverNewPassword(e.target.value);
+                      if (formError) setFormError('');
+                    }}
+                    placeholder="At least 6 characters"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowRecoverPassword((p) => !p)}
+                    aria-label={showRecoverPassword ? 'Hide password' : 'Show password'}
+                    className="absolute right-2.5 top-[29px] w-7 h-7 rounded flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                  >
+                    {showRecoverPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+
+                {formError && (
+                  <p className="text-xs text-[var(--ks-error)]" role="alert">
+                    {formError}
+                  </p>
+                )}
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button type="submit" variant="primary" size="lg" disabled={submitting}>
+                    <span>{submitting ? 'Updating Password...' : 'Reset Password'}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRecoverStep('request');
+                      setFormError('');
+                    }}
+                    className="text-xs text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] underline cursor-pointer"
+                  >
+                    Request New Code
+                  </button>
+                </div>
+              </form>
+            )
           ) : (
             <form onSubmit={handleRegisterSubmit} noValidate className="space-y-4">
               <div className="space-y-1">

@@ -82,10 +82,79 @@ function formatOrderNotificationAmount(order: Order): string {
   return `$${usd.toFixed(2)} USD`;
 }
 
-async function startServer() {
+function createRateLimiter(windowMs: number, maxRequests: number, label: string) {
+  const hits = new Map<string, number[]>();
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const forwarded = req.headers['x-forwarded-for'];
+    const rawIp =
+      (Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(',')[0]) ||
+      req.ip ||
+      req.socket.remoteAddress ||
+      'unknown';
+    const key = `${label}:${rawIp.trim()}`;
+    const now = Date.now();
+    const recent = (hits.get(key) || []).filter((ts) => now - ts < windowMs);
+    if (recent.length >= maxRequests) {
+      const oldest = recent[0] ?? now;
+      const retryAfterSec = Math.max(1, Math.ceil((windowMs - (now - oldest)) / 1000));
+      res.setHeader('Retry-After', String(retryAfterSec));
+      res.status(429).json({
+        error: `Too many ${label} requests. Please wait ${retryAfterSec}s and try again.`,
+      });
+      return;
+    }
+    recent.push(now);
+    hits.set(key, recent);
+    if (hits.size > 2000) {
+      for (const [k, timestamps] of hits.entries()) {
+        if (timestamps.every((ts) => now - ts >= windowMs)) {
+          hits.delete(k);
+        }
+      }
+    }
+    next();
+  };
+}
+
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function resolveRequestOrigin(req: express.Request): string {
+  const protoHeader = req.headers['x-forwarded-proto'];
+  const proto = (Array.isArray(protoHeader) ? protoHeader[0] : protoHeader)?.split(',')[0]?.trim() || req.protocol || 'http';
+  const host = req.get('host') || `localhost:${PORT}`;
+  return `${proto}://${host}`.replace(/\/+$/, '');
+}
+
+export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
+  const enableVite = options?.enableVite ?? process.env.NODE_ENV !== 'production';
   const app = express();
   const httpServer = http.createServer(app);
+  app.disable('x-powered-by');
   app.use(express.json({ limit: '1mb' }));
+
+  app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    if (req.path.startsWith('/api/')) {
+      res.setHeader('Cache-Control', 'no-store');
+    }
+    next();
+  });
+
+  const loginRateLimiter = createRateLimiter(60_000, 20, 'sign-in');
+  const registerRateLimiter = createRateLimiter(60_000, 15, 'registration');
+  const passwordRateLimiter = createRateLimiter(60_000, 15, 'password-update');
+  const paymentRateLimiter = createRateLimiter(60_000, 30, 'payment');
+  const trackingRateLimiter = createRateLimiter(60_000, 30, 'order-tracking');
+  const inquiryRateLimiter = createRateLimiter(60_000, 15, 'support-inquiry');
 
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true, service: 'kinto-studio-marketplace-api', timestamp: new Date().toISOString() });
@@ -101,7 +170,7 @@ async function startServer() {
   });
 
   // Email + password authentication (no blank or passwordless bypass)
-  app.post('/api/auth/login', (req, res) => {
+  app.post('/api/auth/login', loginRateLimiter, (req, res) => {
     const { email, password } = (req.body || {}) as {
       email?: string;
       password?: string;
@@ -134,7 +203,7 @@ async function startServer() {
   });
 
   // Register a new Customer or Seller account
-  app.post('/api/auth/register', (req, res) => {
+  app.post('/api/auth/register', registerRateLimiter, (req, res) => {
     const { fullName, email, phone, password, role, studioName, acceptedPolicies } =
       (req.body || {}) as {
         fullName?: string;
@@ -229,7 +298,7 @@ async function startServer() {
     res.json({ user: db.toPublicAccount(user) });
   });
 
-  app.post('/api/auth/change-password', (req, res) => {
+  app.post('/api/auth/change-password', passwordRateLimiter, (req, res) => {
     const user = requireAuth(req, res);
     if (!user) return;
     const { currentPassword, newPassword } = (req.body || {}) as {
@@ -247,6 +316,178 @@ async function startServer() {
     }
     user.password = cleanNew;
     res.json({ ok: true, message: 'Password updated successfully.' });
+  });
+
+  app.post('/api/auth/forgot-password', passwordRateLimiter, (req, res) => {
+    const { email } = (req.body || {}) as { email?: string };
+    const cleanEmail = (email || '').trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      res.status(400).json({ error: 'Enter a valid registered email address.' });
+      return;
+    }
+
+    const user = db.users.find((u) => u.email.toLowerCase() === cleanEmail);
+    const expiresInMinutes = 15;
+    const hasSmtp = Boolean(process.env.SMTP_HOST && process.env.SMTP_FROM);
+
+    if (!user) {
+      res.json({
+        ok: true,
+        deliveryMode: hasSmtp ? 'smtp' : 'in-app-preview',
+        expiresInMinutes,
+        message: hasSmtp
+          ? 'If an account matches this email, recovery instructions have been dispatched.'
+          : 'No matching account found or SMTP is unconfigured. Verify your email address and try again.',
+      });
+      return;
+    }
+
+    const code = String(Math.floor(100000 + Math.random() * 899999));
+    db.passwordResetTokens.set(cleanEmail, {
+      email: cleanEmail,
+      userId: user.id,
+      code,
+      expiresAt: Date.now() + expiresInMinutes * 60_000,
+      used: false,
+    });
+
+    res.json({
+      ok: true,
+      deliveryMode: hasSmtp ? 'smtp' : 'in-app-preview',
+      ...(hasSmtp ? {} : { previewCode: code }),
+      expiresInMinutes,
+      message: hasSmtp
+        ? 'A 6-digit password reset verification code has been sent to your email.'
+        : 'SMTP email transport is unconfigured in this preview. Use the verification code shown below within 15 minutes.',
+    });
+  });
+
+  app.post('/api/auth/reset-password', passwordRateLimiter, (req, res) => {
+    const { email, code, newPassword } = (req.body || {}) as {
+      email?: string;
+      code?: string;
+      newPassword?: string;
+    };
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanCode = (code || '').trim();
+    const cleanNew = (newPassword || '').trim();
+
+    if (!cleanEmail || !cleanCode) {
+      res.status(400).json({ error: 'Email address and 6-digit verification code are required.' });
+      return;
+    }
+    if (cleanNew.length < 6) {
+      res.status(400).json({ error: 'New password must be at least 6 characters long.' });
+      return;
+    }
+
+    const record = db.passwordResetTokens.get(cleanEmail);
+    if (!record || record.used || record.code !== cleanCode || Date.now() > record.expiresAt) {
+      res.status(400).json({ error: 'Verification code is invalid or expired. Request a new code.' });
+      return;
+    }
+
+    const user = db.users.find((u) => u.id === record.userId);
+    if (!user) {
+      res.status(404).json({ error: 'Account record could not be located.' });
+      return;
+    }
+
+    user.password = cleanNew;
+    record.used = true;
+    db.invalidateUserSessions(user.id);
+
+    res.json({
+      ok: true,
+      message: 'Password has been reset and existing sessions cleared. Sign in with your new password.',
+    });
+  });
+
+  app.post('/api/support/inquiries', inquiryRateLimiter, (req, res) => {
+    const { name, email, phone, topic, orderId, message } = (req.body || {}) as {
+      name?: string;
+      email?: string;
+      phone?: string;
+      topic?: string;
+      orderId?: string;
+      message?: string;
+    };
+
+    const cleanName = (name || '').trim();
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanMessage = (message || '').trim();
+
+    if (!cleanName || !cleanEmail || !cleanEmail.includes('@') || cleanMessage.length < 5) {
+      res.status(400).json({
+        error: 'Name, valid email address, and a brief inquiry message (5+ chars) are required.',
+      });
+      return;
+    }
+
+    const actor = db.getUserByToken(req.headers.authorization);
+    const ticketRef = `KS-TKT-${Math.floor(10000 + Math.random() * 89999)}`;
+    const inquiry = {
+      id: `inq-${Date.now().toString(36)}`,
+      ticketRef,
+      name: cleanName,
+      email: cleanEmail,
+      phone: phone?.trim() || undefined,
+      topic: topic?.trim() || 'client-care',
+      orderId: orderId?.trim() || undefined,
+      message: cleanMessage,
+      userId: actor?.id,
+      status: 'open' as const,
+      createdAt: new Date().toISOString(),
+    };
+
+    db.supportInquiries.unshift(inquiry);
+    db.notifications.unshift({
+      id: `notif-inq-${Date.now().toString(36)}`,
+      title: `Support Ticket ${ticketRef}`,
+      message: `${cleanName} (${cleanEmail}) submitted a ${inquiry.topic} inquiry.`,
+      category: 'system',
+      createdAt: 'Just now',
+      read: false,
+      roleScope: 'admin',
+      targetTab: 'reports',
+    });
+
+    res.status(201).json({ inquiry });
+  });
+
+  app.post('/api/newsletter/subscribe', inquiryRateLimiter, (req, res) => {
+    const { email, source } = (req.body || {}) as { email?: string; source?: string };
+    const cleanEmail = (email || '').trim().toLowerCase();
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      res.status(400).json({ error: 'Please enter a valid email address.' });
+      return;
+    }
+
+    const existing = db.newsletterSubscribers.find((s) => s.email === cleanEmail);
+    if (existing) {
+      res.json({
+        ok: true,
+        alreadySubscribed: true,
+        subscription: existing,
+        message: 'This email address is already subscribed to Kinto Studio updates.',
+      });
+      return;
+    }
+
+    const subscription = {
+      id: `sub-${Date.now().toString(36)}`,
+      email: cleanEmail,
+      source: source?.trim() || 'footer',
+      subscribedAt: new Date().toISOString(),
+    };
+    db.newsletterSubscribers.unshift(subscription);
+
+    res.status(201).json({
+      ok: true,
+      alreadySubscribed: false,
+      subscription,
+      message: 'Subscribed to Kinto Studio product & release updates.',
+    });
   });
 
   // Live Catalog Proxy from External DummyJSON API
@@ -468,7 +709,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/payments/initiate', async (req, res) => {
+  app.post('/api/payments/initiate', paymentRateLimiter, async (req, res) => {
     try {
       const body = (req.body || {}) as {
         idempotencyKey?: string;
@@ -551,7 +792,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/payments/verify', (req, res) => {
+  app.post('/api/payments/verify', paymentRateLimiter, (req, res) => {
     const { sessionId, outcome, walletNumber, failureReason } = (req.body || {}) as {
       sessionId?: string;
       outcome?: 'paid' | 'failed' | 'cancelled' | 'cod_confirmed';
@@ -649,9 +890,10 @@ async function startServer() {
     res.json({ provider: req.params.provider, ...result });
   });
 
-  // Notifications
+  // Notifications (role strictly derived from authenticated bearer session)
   app.get('/api/notifications', (req, res) => {
-    const role = (req.query.role as UserRole | undefined) || 'customer';
+    const authUser = db.getUserByToken(req.headers.authorization);
+    const role: UserRole = authUser?.role || 'customer';
     const filtered = db.notifications.filter(
       (n) => n.roleScope === 'all' || n.roleScope === role || (role === 'admin' && n.roleScope !== 'customer')
     );
@@ -681,8 +923,8 @@ async function startServer() {
     res.json({ orders: customerOrders });
   });
 
-  // Public/guest order tracking lookup by Order ID + optional email/phone verification
-  app.get('/api/orders/track', (req, res) => {
+  // Public/guest order tracking lookup by Order ID + mandatory email/phone verification when unauthenticated
+  app.get('/api/orders/track', trackingRateLimiter, (req, res) => {
     const idQuery = String(req.query.id || '').trim().toLowerCase();
     const contactQuery = String(req.query.contact || '').trim().toLowerCase();
     if (!idQuery) {
@@ -696,12 +938,19 @@ async function startServer() {
     }
     const authUser = db.getUserByToken(req.headers.authorization);
     const isStaff = authUser?.role === 'admin' || authUser?.role === 'seller';
-    const isOwner = authUser && authUser.email.toLowerCase() === found.email.toLowerCase();
-    if (!isStaff && !isOwner && contactQuery) {
+    const isOwner = Boolean(authUser && authUser.email.toLowerCase() === found.email.toLowerCase());
+    if (!isStaff && !isOwner) {
+      if (!contactQuery) {
+        res.status(401).json({
+          error: 'Sign in or enter the matching email address or phone number used at checkout to track this order.',
+        });
+        return;
+      }
       const emailMatch = found.email.toLowerCase() === contactQuery;
+      const contactDigits = contactQuery.replace(/\D/g, '');
       const phoneMatch =
-        found.phone.replace(/\D/g, '').endsWith(contactQuery.replace(/\D/g, '')) &&
-        contactQuery.replace(/\D/g, '').length >= 6;
+        contactDigits.length >= 6 &&
+        found.phone.replace(/\D/g, '').endsWith(contactDigits);
       if (!emailMatch && !phoneMatch) {
         res.status(403).json({ error: 'Verification email or phone number does not match this order.' });
         return;
@@ -710,28 +959,11 @@ async function startServer() {
     res.json({ order: found });
   });
 
-  app.post('/api/orders', (req, res) => {
-    const order = req.body as Order;
-    if (!order || !order.id || !Array.isArray(order.items)) {
-      res.status(400).json({ error: 'Invalid order payload' });
-      return;
-    }
-    const safeOrder: Order = {
-      ...order,
-      paymentStatus: order.paymentStatus || (order.paymentMethod === 'cod' ? 'cod_pending' : 'paid'),
-    };
-    db.orders = [safeOrder, ...db.orders.filter((o) => o.id !== safeOrder.id)];
-    db.notifications.unshift({
-      id: `notif-${Date.now()}`,
-      title: `Order Confirmed · #${safeOrder.id}`,
-      message: `${safeOrder.customerName} placed an order totaling ${formatOrderNotificationAmount(safeOrder)}.`,
-      category: 'order',
-      createdAt: 'Just now',
-      read: false,
-      roleScope: 'all',
-      orderId: safeOrder.id,
+  // Reject unverified direct client order creation (orders must settle via /api/payments/initiate + /api/payments/verify)
+  app.post('/api/orders', (_req, res) => {
+    res.status(403).json({
+      error: 'Direct order creation is disabled. Complete checkout through verified payment initiation and verification.',
     });
-    res.status(201).json({ order: safeOrder });
   });
 
   app.patch('/api/orders/:id/status', (req, res) => {
@@ -832,7 +1064,7 @@ async function startServer() {
         pendingFulfillment: pendingOrders.length,
         lowStockSkus: combinedInventory.filter((i) => i.stockCount <= 8).length,
         activeListings: combinedInventory.length,
-        avgRating: 4.88,
+        avgRating: 0,
         returnRequestsCount: returnsQueue.length,
       },
       revenueSeries: db.buildDynamicRevenueSeries(monthlyGmv, pendingOrders.length),
@@ -968,8 +1200,8 @@ async function startServer() {
       sizeTier: body.sizeTier || 'small',
       codEligible: typeof body.codEligible === 'boolean' ? body.codEligible : true,
       price: Number(body.price.toFixed(2)),
-      rating: 4.9,
-      reviewCount: 1,
+      rating: 0,
+      reviewCount: 0,
       stockCount: stock,
       availability,
       badgeText: 'New Seller Listing',
@@ -1073,7 +1305,15 @@ async function startServer() {
       currencyConfig: db.currencyConfig,
       shippingConfig: db.shippingConfig,
       platformSettings: db.platformSettings,
+      supportInquiries: db.supportInquiries,
+      newsletterSubscribersCount: db.newsletterSubscribers.length,
     });
+  });
+
+  app.get('/api/admin/readiness', (req, res) => {
+    const admin = requireRole(req, res, ['admin']);
+    if (!admin) return;
+    res.json(db.buildSystemReadiness(getGatewayConfigStatus));
   });
 
   app.patch('/api/admin/users/:id', (req, res) => {
@@ -1365,8 +1605,98 @@ async function startServer() {
     res.json({ ok: true, removedCount: toRemoveIds.size, categoryTree: db.categoryTree });
   });
 
+  app.get('/robots.txt', (req, res) => {
+    const origin = resolveRequestOrigin(req);
+    const body = [
+      'User-agent: *',
+      'Allow: /',
+      'Disallow: /account',
+      'Disallow: /cart',
+      'Disallow: /checkout',
+      'Disallow: /login',
+      'Disallow: /seller',
+      'Disallow: /admin',
+      'Disallow: /track-order',
+      'Disallow: /search',
+      'Disallow: /api/',
+      '',
+      `Sitemap: ${origin}/sitemap.xml`,
+      '',
+    ].join('\n');
+    res.type('text/plain; charset=utf-8').send(body);
+  });
+
+  app.get('/sitemap.xml', async (req, res) => {
+    const origin = resolveRequestOrigin(req);
+    const today = new Date().toISOString().slice(0, 10);
+
+    const staticPaths: Array<{ path: string; changefreq: string; priority: string }> = [
+      { path: '/', changefreq: 'daily', priority: '1.0' },
+      { path: '/shop', changefreq: 'daily', priority: '0.9' },
+      { path: '/offers', changefreq: 'daily', priority: '0.8' },
+      { path: '/brands', changefreq: 'weekly', priority: '0.7' },
+      { path: '/journal', changefreq: 'weekly', priority: '0.7' },
+      { path: '/about', changefreq: 'monthly', priority: '0.6' },
+      { path: '/contact', changefreq: 'monthly', priority: '0.6' },
+      { path: '/faq', changefreq: 'monthly', priority: '0.6' },
+      { path: '/legal', changefreq: 'monthly', priority: '0.5' },
+      { path: '/shipping-policy', changefreq: 'monthly', priority: '0.4' },
+      { path: '/return-policy', changefreq: 'monthly', priority: '0.4' },
+      { path: '/payment-policy', changefreq: 'monthly', priority: '0.4' },
+      { path: '/warranty-policy', changefreq: 'monthly', priority: '0.4' },
+      { path: '/privacy-policy', changefreq: 'monthly', priority: '0.4' },
+      { path: '/terms', changefreq: 'monthly', priority: '0.4' },
+    ];
+
+    const categoryUrls = db.categoryTree
+      .filter((c) => c.isActive)
+      .map((c) => ({
+        path: `/category/${encodeURIComponent(c.slug)}`,
+        changefreq: 'daily',
+        priority: c.depth === 0 ? '0.8' : '0.7',
+      }));
+
+    const productSlugs = new Set<string>();
+    for (const sp of db.sellerCreatedProducts) {
+      if (sp.slug) productSlugs.add(sp.slug);
+    }
+
+    try {
+      const liveCatalog = await Promise.race([
+        fetchLiveDummyJsonCatalog(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500)),
+      ]);
+      if (liveCatalog?.products) {
+        for (const p of liveCatalog.products) {
+          if (p.slug) productSlugs.add(p.slug);
+        }
+      }
+    } catch {
+      // Gracefully emit sitemap with static, category, and seller URLs when external API is unreachable
+    }
+
+    const productUrls = Array.from(productSlugs).map((slug) => ({
+      path: `/product/${encodeURIComponent(slug)}`,
+      changefreq: 'daily',
+      priority: '0.7',
+    }));
+
+    const entries = [...staticPaths, ...categoryUrls, ...productUrls];
+    const xml = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+      ...entries.map(
+        (entry) =>
+          `  <url><loc>${escapeXml(`${origin}${entry.path}`)}</loc><lastmod>${today}</lastmod><changefreq>${entry.changefreq}</changefreq><priority>${entry.priority}</priority></url>`
+      ),
+      '</urlset>',
+    ].join('\n');
+
+    res.type('application/xml; charset=utf-8').send(xml);
+  });
+
   // Vite dev middleware OR static production dist
-  if (process.env.NODE_ENV !== 'production') {
+  if (enableVite) {
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
@@ -1383,12 +1713,21 @@ async function startServer() {
     });
   }
 
+  return { app, httpServer };
+}
+
+async function startServer() {
+  const { httpServer } = await createMarketplaceApp({
+    enableVite: process.env.NODE_ENV !== 'production',
+  });
   httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`Kinto Studio marketplace server running on http://0.0.0.0:${PORT}`);
   });
 }
 
-startServer().catch((err) => {
-  console.error('Failed to start server:', err);
-  process.exit(1);
-});
+if (process.env.KINTO_NO_LISTEN !== '1') {
+  startServer().catch((err) => {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  });
+}

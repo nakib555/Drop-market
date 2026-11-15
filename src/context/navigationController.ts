@@ -200,16 +200,48 @@ export function getRouteKey(route: RouteState): string {
   ].join(':');
 }
 
-export function parseHashToRoute(): RouteState {
-  if (typeof window === 'undefined') return { name: 'home' };
-  const raw = window.location.hash.replace(/^#\/?/, '');
-  if (!raw) return { name: 'home' };
+export function parseLocationToRoute(
+  pathnameArg?: string,
+  searchArg?: string,
+  hashArg?: string
+): RouteState {
+  const rawHash =
+    typeof hashArg === 'string'
+      ? hashArg
+      : typeof window !== 'undefined'
+      ? window.location.hash
+      : '';
+  const rawPathname =
+    typeof pathnameArg === 'string'
+      ? pathnameArg
+      : typeof window !== 'undefined'
+      ? window.location.pathname
+      : '/';
+  const rawSearch =
+    typeof searchArg === 'string'
+      ? searchArg
+      : typeof window !== 'undefined'
+      ? window.location.search
+      : '';
 
-  const [pathPart, queryPart] = raw.split('?');
-  const segments = pathPart.split('/').filter(Boolean);
-  const searchParams = new URLSearchParams(queryPart || '');
+  let pathPart = rawPathname || '/';
+  let queryPart = rawSearch.replace(/^\?/, '');
 
+  // Support legacy #/... hash URLs gracefully
+  if (rawHash && rawHash.startsWith('#/')) {
+    const hashBody = rawHash.replace(/^#\/?/, '');
+    const [hPath, hQuery] = hashBody.split('?');
+    pathPart = hPath || '/';
+    if (hQuery) queryPart = hQuery;
+  }
+
+  const cleanPath = pathPart.replace(/^\/+|\/+$/g, '');
+  if (!cleanPath) return { name: 'home' };
+
+  const segments = cleanPath.split('/').filter(Boolean).map((s) => decodeURIComponent(s));
+  const searchParams = new URLSearchParams(queryPart);
   const first = segments[0] as RouteName;
+
   if (first === 'product' && segments[1]) {
     return { name: 'product', slug: segments[1] };
   }
@@ -259,18 +291,18 @@ export function parseHashToRoute(): RouteState {
   return { name: 'not-found' };
 }
 
-export function serializeRouteToHash(route: RouteState): string {
+export function serializeRouteToPath(route: RouteState): string {
   switch (route.name) {
     case 'home':
-      return '#/';
+      return '/';
     case 'product':
-      return `#/product/${route.slug || ''}`;
+      return `/product/${encodeURIComponent(route.slug || '')}`;
     case 'category': {
       const p = new URLSearchParams();
       if (route.subcategory) p.set('sub', route.subcategory);
       if (route.brand) p.set('brand', route.brand);
       const qs = p.toString();
-      const base = `#/category/${route.category || 'home-furniture-kitchen'}`;
+      const base = `/category/${route.category || 'home-furniture-kitchen'}`;
       return qs ? `${base}?${qs}` : base;
     }
     case 'shop': {
@@ -281,23 +313,33 @@ export function serializeRouteToHash(route: RouteState): string {
       if (route.brand) p.set('brand', route.brand);
       if (route.query) p.set('q', route.query);
       const qs = p.toString();
-      return qs ? `#/shop?${qs}` : '#/shop';
+      return qs ? `/shop?${qs}` : '/shop';
     }
     case 'search':
-      return route.query ? `#/search?q=${encodeURIComponent(route.query)}` : '#/search';
+      return route.query ? `/search?q=${encodeURIComponent(route.query)}` : '/search';
     case 'account':
-      return route.accountTab ? `#/account/${route.accountTab}` : '#/account';
+      return route.accountTab && route.accountTab !== 'overview'
+        ? `/account/${encodeURIComponent(route.accountTab)}`
+        : '/account';
     case 'login':
-      return route.accountTab === 'register' ? '#/login?tab=register' : '#/login';
+      return route.accountTab === 'register' ? '/login?tab=register' : '/login';
     case 'seller':
-      return '#/seller';
+      return '/seller';
     case 'admin':
-      return '#/admin';
+      return '/admin';
     case 'track-order':
-      return route.orderId ? `#/track-order?id=${encodeURIComponent(route.orderId)}` : '#/track-order';
+      return route.orderId ? `/track-order?id=${encodeURIComponent(route.orderId)}` : '/track-order';
     default:
-      return `#/${route.name}`;
+      return `/${route.name}`;
   }
+}
+
+export function parseHashToRoute(): RouteState {
+  return parseLocationToRoute();
+}
+
+export function serializeRouteToHash(route: RouteState): string {
+  return `#${serializeRouteToPath(route)}`;
 }
 
 export function computeRouteDirection(prev: RouteState, next: RouteState): NavigationDirection {
@@ -324,7 +366,7 @@ export function resolveDocumentTitle(
 ): string {
   if (route.name === 'product' && route.slug) {
     const found = products.find((p) => p.slug === route.slug);
-    return found ? `${found.name} — KINTO STUDIO` : PAGE_TITLES.product;
+    return found ? `${found.name} — KINTO STUDIO` : 'Product Not Found — KINTO STUDIO';
   }
   if (route.name === 'category' && route.category) {
     const foundCat = categories.find((c) => c.slug === route.category);
@@ -341,11 +383,16 @@ export interface NavigationController {
   goBack: () => void;
 }
 
+function getCurrentBrowserPath(): string {
+  if (typeof window === 'undefined') return '/';
+  return `${window.location.pathname || '/'}${window.location.search || ''}`;
+}
+
 export function useNavigationController(
-  products: Product[],
-  categories: CategoryMeta[]
+  _products: Product[],
+  _categories: CategoryMeta[]
 ): NavigationController {
-  const [route, setRoute] = useState<RouteState>(parseHashToRoute);
+  const [route, setRoute] = useState<RouteState>(() => parseLocationToRoute());
   const [navigationDirection, setNavigationDirection] = useState<NavigationDirection>(1);
 
   const initialRoute = route;
@@ -354,8 +401,17 @@ export function useNavigationController(
     stack: [initialRoute],
     index: 0,
   });
-  const skipNextHashRef = useRef<string | null>(null);
   const [canGoBack, setCanGoBack] = useState(false);
+
+  // Normalize any legacy #/... hash URL into a clean History API path on initial load
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hash.startsWith('#/')) {
+      const normalized = serializeRouteToPath(parseLocationToRoute());
+      if (getCurrentBrowserPath() !== normalized || window.location.hash) {
+        window.history.replaceState({ kintoRoute: getRouteKey(routeRef.current) }, '', normalized);
+      }
+    }
+  }, []);
 
   const commitRouteTransition = useCallback(
     (next: RouteState, explicitDirection?: NavigationDirection, pushToStack = true) => {
@@ -389,14 +445,12 @@ export function useNavigationController(
   );
 
   useEffect(() => {
-    const onHashChange = () => {
-      const currentHash = window.location.hash || '#/';
-      if (skipNextHashRef.current === currentHash) {
-        skipNextHashRef.current = null;
-        return;
+    const syncFromLocation = () => {
+      const next = parseLocationToRoute();
+      if (window.location.hash.startsWith('#/')) {
+        const normalized = serializeRouteToPath(next);
+        window.history.replaceState({ kintoRoute: getRouteKey(next) }, '', normalized);
       }
-
-      const next = parseHashToRoute();
       const nextKey = getRouteKey(next);
       const history = historyRef.current;
       let backIdx = -1;
@@ -423,23 +477,22 @@ export function useNavigationController(
       window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
     };
 
-    window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
+    window.addEventListener('popstate', syncFromLocation);
+    window.addEventListener('hashchange', syncFromLocation);
+    return () => {
+      window.removeEventListener('popstate', syncFromLocation);
+      window.removeEventListener('hashchange', syncFromLocation);
+    };
   }, [commitRouteTransition]);
-
-  useEffect(() => {
-    document.title = resolveDocumentTitle(route, products, categories);
-  }, [route, products, categories]);
 
   const navigate = useCallback(
     (next: RouteState) => {
-      const targetHash = serializeRouteToHash(next);
+      const targetPath = serializeRouteToPath(next);
       const direction = computeRouteDirection(routeRef.current, next);
-      const currentHash = window.location.hash || '#/';
+      const currentPath = getCurrentBrowserPath();
 
-      if (currentHash !== targetHash) {
-        skipNextHashRef.current = targetHash;
-        window.location.hash = targetHash;
+      if (currentPath !== targetPath || window.location.hash.startsWith('#/')) {
+        window.history.pushState({ kintoRoute: getRouteKey(next) }, '', targetPath);
         commitRouteTransition(next, direction, true);
       } else {
         commitRouteTransition(next, direction, false);
@@ -453,12 +506,10 @@ export function useNavigationController(
     const history = historyRef.current;
     if (history.index > 0) {
       const previous = history.stack[history.index - 1];
-      const targetHash = serializeRouteToHash(previous);
-      const currentHash = window.location.hash || '#/';
+      const targetPath = serializeRouteToPath(previous);
       history.index -= 1;
-      if (currentHash !== targetHash) {
-        skipNextHashRef.current = targetHash;
-        window.location.hash = targetHash;
+      if (getCurrentBrowserPath() !== targetPath) {
+        window.history.pushState({ kintoRoute: getRouteKey(previous) }, '', targetPath);
       }
       commitRouteTransition(previous, -1, false);
       window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
