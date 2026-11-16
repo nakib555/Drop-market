@@ -32,6 +32,7 @@ import {
   SellerStoreSettings,
 } from '../../types/commerce';
 import { formatCurrency, formatDirectCurrency } from '../../utils/format';
+import { t } from '../../utils/i18n';
 import { IMAGE_PRESET_OPTIONS, resolveImagePreset } from '../../utils/imagePresets';
 import { STUDIO_TRANSITION } from '../../utils/motion';
 import { Button } from '../ui/Button';
@@ -52,6 +53,7 @@ type SellerTab =
 
 export const SellerDashboard: React.FC = () => {
   const {
+    language,
     currency,
     categories,
     showToast,
@@ -336,8 +338,16 @@ export const SellerDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* 10-Section Seller Navigation Strip */}
-      <div className="flex items-center gap-5 border-b border-[var(--ks-border)] overflow-x-auto no-scrollbar">
+      {/* 10-Section Seller Navigation Strip (Mobile Select + Desktop Tabs) */}
+      <div className="md:hidden">
+        <Select
+          label={t(language, 'workspaceSectionLabel')}
+          value={activeTab}
+          onChange={(e) => setActiveTab(e.target.value as SellerTab)}
+          options={tabs.map((tab) => ({ value: tab.id, label: tab.label }))}
+        />
+      </div>
+      <div className="hidden md:flex items-center gap-5 border-b border-[var(--ks-border)] overflow-x-auto no-scrollbar">
         {tabs.map((tab) => {
           const active = activeTab === tab.id;
           return (
@@ -440,13 +450,13 @@ export const SellerDashboard: React.FC = () => {
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="relative max-w-sm flex-1 min-w-[220px]">
-              <Search className="w-4 h-4 text-[var(--ks-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-[var(--ks-text-muted)] absolute start-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="search"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search SKU, product name, or department..."
-                className="w-full h-10 pl-9 pr-3 text-xs rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)]"
+                className="w-full min-h-[44px] sm:h-10 ps-9 pe-3 text-base sm:text-xs rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)]"
               />
             </div>
             <Button variant="primary" size="sm" onClick={() => setAddModalOpen(true)}>
@@ -455,16 +465,139 @@ export const SellerDashboard: React.FC = () => {
             </Button>
           </div>
 
-          <div className="overflow-x-auto rounded-[var(--ks-radius-md)] border border-[var(--ks-border)]">
-            <table className="w-full text-left text-xs">
+          {/* Mobile Stacked Inventory Cards */}
+          <div className="md:hidden space-y-3">
+            {filteredInventory.length === 0 ? (
+              <div className="p-6 text-center rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] text-xs text-[var(--ks-text-muted)]">
+                No inventory listings match your search filter.
+              </div>
+            ) : (
+              filteredInventory.map((item) => {
+                const isEditing = editingId === item.id;
+                return (
+                  <div
+                    key={item.id}
+                    className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <ResilientImage
+                          src={resolveImagePreset(item.imagePresetKey, item.category)}
+                          alt={item.name}
+                          className="w-11 h-9 rounded-sm object-cover shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-[var(--ks-text-primary)] truncate">
+                            {item.name}
+                          </p>
+                          <p className="text-[11px] text-[var(--ks-text-muted)] truncate">
+                            {item.categoryLabel} · <span className="font-mono-num">{item.sku}</span>
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        className={`text-[11px] font-medium shrink-0 ${
+                          item.stockCount <= 0
+                            ? 'text-[var(--ks-error)]'
+                            : item.stockCount <= 8
+                            ? 'text-[var(--ks-warning)]'
+                            : 'text-[var(--ks-success)]'
+                        }`}
+                      >
+                        {item.stockCount <= 0
+                          ? 'Out of Stock'
+                          : item.stockCount <= 8
+                          ? 'Low Stock'
+                          : 'In Stock'}
+                      </span>
+                    </div>
+
+                    {isEditing ? (
+                      <div className="space-y-3 pt-2 border-t border-[var(--ks-border)]">
+                        <div className="grid grid-cols-2 gap-3">
+                          <label className="space-y-1">
+                            <span className="text-[11px] text-[var(--ks-text-muted)] block">
+                              Price (USD)
+                            </span>
+                            <input
+                              type="number"
+                              aria-label={`Price for ${item.name}`}
+                              value={editPrice}
+                              onChange={(e) => setEditPrice(e.target.value)}
+                              className="w-full min-h-[44px] px-3 text-base text-end font-mono-num tabular-nums rounded-[var(--ks-radius-md)] border border-[var(--ks-action)] bg-[var(--ks-bg)]"
+                            />
+                          </label>
+                          <label className="space-y-1">
+                            <span className="text-[11px] text-[var(--ks-text-muted)] block">
+                              Stock Units
+                            </span>
+                            <input
+                              type="number"
+                              aria-label={`Stock for ${item.name}`}
+                              value={editStock}
+                              onChange={(e) => setEditStock(e.target.value)}
+                              className="w-full min-h-[44px] px-3 text-base text-end font-mono-num tabular-nums rounded-[var(--ks-radius-md)] border border-[var(--ks-action)] bg-[var(--ks-bg)]"
+                            />
+                          </label>
+                        </div>
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEditingId(null)}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            disabled={savingId === item.id}
+                            onClick={() => handleSaveInline(item.id)}
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Save</span>
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="pt-2 border-t border-[var(--ks-border)] flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-4 text-xs">
+                          <span className="font-mono-num font-semibold">
+                            {formatCurrency(item.price, currency)}
+                          </span>
+                          <span className="text-[var(--ks-text-secondary)] font-mono-num">
+                            Qty: {item.stockCount}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingId(item.id);
+                            setEditPrice(String(item.price));
+                            setEditStock(String(item.stockCount));
+                          }}
+                          className="min-h-[40px] px-3 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] text-xs font-medium text-[var(--ks-accent)] hover:bg-[var(--ks-bg)] cursor-pointer"
+                        >
+                          Edit Stock / Price
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto rounded-[var(--ks-radius-md)] border border-[var(--ks-border)]">
+            <table className="w-full text-start text-xs">
               <thead className="bg-[var(--ks-bg)] border-b border-[var(--ks-border)] text-[var(--ks-text-muted)] uppercase tracking-wider">
                 <tr>
                   <th className="py-2.5 px-3 font-medium">Product</th>
                   <th className="py-2.5 px-3 font-medium">SKU</th>
-                  <th className="py-2.5 px-3 font-medium text-right">Price</th>
-                  <th className="py-2.5 px-3 font-medium text-right">Stock</th>
+                  <th className="py-2.5 px-3 font-medium text-end">Price</th>
+                  <th className="py-2.5 px-3 font-medium text-end">Stock</th>
                   <th className="py-2.5 px-3 font-medium">State</th>
-                  <th className="py-2.5 px-3 font-medium text-right">Action</th>
+                  <th className="py-2.5 px-3 font-medium text-end">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--ks-divider)] [&_td]:align-middle">
@@ -499,27 +632,27 @@ export const SellerDashboard: React.FC = () => {
                         <td className="py-2.5 px-3 font-mono-num text-[var(--ks-text-secondary)] whitespace-nowrap">
                           {item.sku}
                         </td>
-                        <td className="py-2.5 px-3 font-mono-num tabular-nums text-right whitespace-nowrap">
+                        <td className="py-2.5 px-3 font-mono-num tabular-nums text-end whitespace-nowrap">
                           {isEditing ? (
                             <input
                               type="number"
                               aria-label={`Price for ${item.name}`}
                               value={editPrice}
                               onChange={(e) => setEditPrice(e.target.value)}
-                              className="w-20 h-8 px-2 text-xs text-right tabular-nums rounded border border-[var(--ks-action)] bg-[var(--ks-surface)]"
+                              className="w-24 min-h-[38px] px-2 text-sm sm:text-xs text-end tabular-nums rounded border border-[var(--ks-action)] bg-[var(--ks-surface)]"
                             />
                           ) : (
                             formatCurrency(item.price, currency)
                           )}
                         </td>
-                        <td className="py-2.5 px-3 font-mono-num tabular-nums text-right whitespace-nowrap">
+                        <td className="py-2.5 px-3 font-mono-num tabular-nums text-end whitespace-nowrap">
                           {isEditing ? (
                             <input
                               type="number"
                               aria-label={`Stock for ${item.name}`}
                               value={editStock}
                               onChange={(e) => setEditStock(e.target.value)}
-                              className="w-16 h-8 px-2 text-xs text-right tabular-nums rounded border border-[var(--ks-action)] bg-[var(--ks-surface)]"
+                              className="w-20 min-h-[38px] px-2 text-sm sm:text-xs text-end tabular-nums rounded border border-[var(--ks-action)] bg-[var(--ks-surface)]"
                             />
                           ) : (
                             item.stockCount
@@ -542,7 +675,7 @@ export const SellerDashboard: React.FC = () => {
                               : 'In Stock'}
                           </span>
                         </td>
-                        <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                        <td className="py-2.5 px-3 text-end whitespace-nowrap">
                           {isEditing ? (
                             <div className="inline-flex items-center justify-end gap-1.5">
                               <Button
@@ -557,7 +690,7 @@ export const SellerDashboard: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => setEditingId(null)}
-                                className="text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] px-1.5 cursor-pointer"
+                                className="min-h-[32px] text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] px-2 cursor-pointer"
                               >
                                 Cancel
                               </button>
@@ -570,7 +703,7 @@ export const SellerDashboard: React.FC = () => {
                                 setEditPrice(String(item.price));
                                 setEditStock(String(item.stockCount));
                               }}
-                              className="text-xs font-medium text-[var(--ks-accent)] hover:underline cursor-pointer"
+                              className="min-h-[32px] text-xs font-medium text-[var(--ks-accent)] hover:underline cursor-pointer"
                             >
                               Edit Stock / Price
                             </button>
@@ -588,87 +721,167 @@ export const SellerDashboard: React.FC = () => {
 
       {/* 4. Orders */}
       {activeTab === 'orders' && (
-        <div className="overflow-x-auto rounded-[var(--ks-radius-md)] border border-[var(--ks-border)]">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[var(--ks-bg)] border-b border-[var(--ks-border)] text-[var(--ks-text-muted)] uppercase tracking-wider">
-              <tr>
-                <th className="py-2.5 px-3 font-medium">Order</th>
-                <th className="py-2.5 px-3 font-medium">Customer</th>
-                <th className="py-2.5 px-3 font-medium">Destination</th>
-                <th className="py-2.5 px-3 font-medium text-right">Total</th>
-                <th className="py-2.5 px-3 font-medium whitespace-nowrap">Current Stage</th>
-                <th className="py-2.5 px-3 font-medium text-right whitespace-nowrap">Dispatch Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--ks-divider)] [&_td]:align-middle">
-              {data.fulfillmentQueue.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-8 px-3 text-center text-xs text-[var(--ks-text-muted)]">
-                    No active fulfillment orders right now.
-                  </td>
-                </tr>
-              ) : (
-                data.fulfillmentQueue.map((ord) => {
-                  const nextAction: { stage: OrderStage; label: string } | null =
-                    ord.currentStage === 'Confirmed'
-                      ? { stage: 'Processing', label: 'Start Processing' }
-                      : ord.currentStage === 'Processing'
-                      ? { stage: 'Packed', label: 'Mark Packed' }
-                      : ord.currentStage === 'Packed'
-                      ? { stage: 'Shipped', label: 'Dispatch Parcel' }
-                      : null;
+        <>
+          {/* Mobile Stacked Order Fulfillment Cards */}
+          <div className="md:hidden space-y-3">
+            {data.fulfillmentQueue.length === 0 ? (
+              <div className="p-6 text-center rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] text-xs text-[var(--ks-text-muted)]">
+                No active fulfillment orders right now.
+              </div>
+            ) : (
+              data.fulfillmentQueue.map((ord) => {
+                const nextAction: { stage: OrderStage; label: string } | null =
+                  ord.currentStage === 'Confirmed'
+                    ? { stage: 'Processing', label: 'Start Processing' }
+                    : ord.currentStage === 'Processing'
+                    ? { stage: 'Packed', label: 'Mark Packed' }
+                    : ord.currentStage === 'Packed'
+                    ? { stage: 'Shipped', label: 'Dispatch Parcel' }
+                    : null;
 
-                  return (
-                    <tr key={ord.id} className="hover:bg-[var(--ks-bg)]/70">
-                      <td className="py-2.5 px-3 font-mono-num font-semibold whitespace-nowrap">
+                return (
+                  <div
+                    key={ord.id}
+                    className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
                         <button
                           type="button"
                           onClick={() => navigate({ name: 'track-order', orderId: ord.id })}
-                          className="hover:underline cursor-pointer"
+                          className="text-sm font-mono-num font-semibold hover:underline cursor-pointer"
                         >
                           #{ord.id}
                         </button>
-                      </td>
-                      <td className="py-2.5 px-3 whitespace-nowrap">{ord.customerName}</td>
-                      <td className="py-2.5 px-3 text-[var(--ks-text-secondary)] whitespace-nowrap">
-                        {ord.shippingAddress.city}, {ord.shippingAddress.country}
-                      </td>
-                      <td className="py-2.5 px-3 font-mono-num text-right whitespace-nowrap">
-                        {ord.currencySnapshot
-                          ? formatDirectCurrency(
-                              ord.currencySnapshot.chargedTotal,
-                              ord.currencySnapshot.transactionCurrency
-                            )
-                          : formatCurrency(ord.total, currency)}
-                      </td>
-                      <td className="py-2.5 px-3 whitespace-nowrap font-medium">
-                        {ord.currentStage}
-                      </td>
-                      <td className="py-2.5 px-3 text-right whitespace-nowrap">
-                        {nextAction ? (
-                          <Button
-                            variant="outline"
-                            size="xs"
-                            disabled={savingId === ord.id}
-                            onClick={() => handleAdvanceOrder(ord.id, nextAction.stage)}
+                        <p className="text-xs font-medium text-[var(--ks-text-primary)] mt-0.5">
+                          {ord.customerName}
+                        </p>
+                        <p className="text-[11px] text-[var(--ks-text-secondary)]">
+                          {ord.shippingAddress.city}, {ord.shippingAddress.country}
+                        </p>
+                      </div>
+                      <div className="text-end shrink-0">
+                        <p className="text-sm font-mono-num font-semibold">
+                          {ord.currencySnapshot
+                            ? formatDirectCurrency(
+                                ord.currencySnapshot.chargedTotal,
+                                ord.currencySnapshot.transactionCurrency
+                              )
+                            : formatCurrency(ord.total, currency)}
+                        </p>
+                        <p className="text-[11px] font-medium text-[var(--ks-accent)] mt-0.5">
+                          {ord.currentStage}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-[var(--ks-border)] flex justify-end">
+                      {nextAction ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          fullWidth
+                          disabled={savingId === ord.id}
+                          onClick={() => handleAdvanceOrder(ord.id, nextAction.stage)}
+                        >
+                          <Truck className="w-3.5 h-3.5" />
+                          <span>{nextAction.label}</span>
+                        </Button>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-[var(--ks-text-muted)] py-1">
+                          <Package className="w-3.5 h-3.5" />
+                          <span>{ord.currentStage}</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto rounded-[var(--ks-radius-md)] border border-[var(--ks-border)]">
+            <table className="w-full text-start text-xs">
+              <thead className="bg-[var(--ks-bg)] border-b border-[var(--ks-border)] text-[var(--ks-text-muted)] uppercase tracking-wider">
+                <tr>
+                  <th className="py-2.5 px-3 font-medium">Order</th>
+                  <th className="py-2.5 px-3 font-medium">Customer</th>
+                  <th className="py-2.5 px-3 font-medium">Destination</th>
+                  <th className="py-2.5 px-3 font-medium text-end">Total</th>
+                  <th className="py-2.5 px-3 font-medium whitespace-nowrap">Current Stage</th>
+                  <th className="py-2.5 px-3 font-medium text-end whitespace-nowrap">Dispatch Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--ks-divider)] [&_td]:align-middle">
+                {data.fulfillmentQueue.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 px-3 text-center text-xs text-[var(--ks-text-muted)]">
+                      No active fulfillment orders right now.
+                    </td>
+                  </tr>
+                ) : (
+                  data.fulfillmentQueue.map((ord) => {
+                    const nextAction: { stage: OrderStage; label: string } | null =
+                      ord.currentStage === 'Confirmed'
+                        ? { stage: 'Processing', label: 'Start Processing' }
+                        : ord.currentStage === 'Processing'
+                        ? { stage: 'Packed', label: 'Mark Packed' }
+                        : ord.currentStage === 'Packed'
+                        ? { stage: 'Shipped', label: 'Dispatch Parcel' }
+                        : null;
+
+                    return (
+                      <tr key={ord.id} className="hover:bg-[var(--ks-bg)]/70">
+                        <td className="py-2.5 px-3 font-mono-num font-semibold whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => navigate({ name: 'track-order', orderId: ord.id })}
+                            className="hover:underline cursor-pointer"
                           >
-                            <Truck className="w-3 h-3" />
-                            <span>{nextAction.label}</span>
-                          </Button>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[var(--ks-text-muted)]">
-                            <Package className="w-3 h-3" />
-                            <span>{ord.currentStage}</span>
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                            #{ord.id}
+                          </button>
+                        </td>
+                        <td className="py-2.5 px-3 whitespace-nowrap">{ord.customerName}</td>
+                        <td className="py-2.5 px-3 text-[var(--ks-text-secondary)] whitespace-nowrap">
+                          {ord.shippingAddress.city}, {ord.shippingAddress.country}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono-num text-end whitespace-nowrap">
+                          {ord.currencySnapshot
+                            ? formatDirectCurrency(
+                                ord.currencySnapshot.chargedTotal,
+                                ord.currencySnapshot.transactionCurrency
+                              )
+                            : formatCurrency(ord.total, currency)}
+                        </td>
+                        <td className="py-2.5 px-3 whitespace-nowrap font-medium">
+                          {ord.currentStage}
+                        </td>
+                        <td className="py-2.5 px-3 text-end whitespace-nowrap">
+                          {nextAction ? (
+                            <Button
+                              variant="outline"
+                              size="xs"
+                              disabled={savingId === ord.id}
+                              onClick={() => handleAdvanceOrder(ord.id, nextAction.stage)}
+                            >
+                              <Truck className="w-3 h-3" />
+                              <span>{nextAction.label}</span>
+                            </Button>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[var(--ks-text-muted)]">
+                              <Package className="w-3 h-3" />
+                              <span>{ord.currentStage}</span>
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {/* 5. Returns */}
@@ -733,14 +946,14 @@ export const SellerDashboard: React.FC = () => {
             </span>
           </div>
           <div className="overflow-x-auto rounded-[var(--ks-radius-md)] border border-[var(--ks-border)]">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-start text-xs">
               <thead className="bg-[var(--ks-bg)] border-b border-[var(--ks-border)] text-[var(--ks-text-muted)] uppercase tracking-wider">
                 <tr>
                   <th className="py-2.5 px-3 font-medium">Buyer Reference</th>
                   <th className="py-2.5 px-3 font-medium">Delivery Area</th>
-                  <th className="py-2.5 px-3 font-medium text-right">Orders</th>
-                  <th className="py-2.5 px-3 font-medium text-right">Volume</th>
-                  <th className="py-2.5 px-3 font-medium text-right">Last Order</th>
+                  <th className="py-2.5 px-3 font-medium text-end">Orders</th>
+                  <th className="py-2.5 px-3 font-medium text-end">Volume</th>
+                  <th className="py-2.5 px-3 font-medium text-end">Last Order</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--ks-divider)]">
@@ -755,13 +968,13 @@ export const SellerDashboard: React.FC = () => {
                     <tr key={c.customerKey} className="hover:bg-[var(--ks-bg)]/70">
                       <td className="py-2.5 px-3 font-medium">{c.displayName}</td>
                       <td className="py-2.5 px-3 text-[var(--ks-text-secondary)]">{c.cityArea}</td>
-                      <td className="py-2.5 px-3 font-mono-num tabular-nums text-right">
+                      <td className="py-2.5 px-3 font-mono-num tabular-nums text-end">
                         {c.orderCount}
                       </td>
-                      <td className="py-2.5 px-3 font-mono-num tabular-nums text-right">
+                      <td className="py-2.5 px-3 font-mono-num tabular-nums text-end">
                         {formatCurrency(c.totalSpentUsd, currency)}
                       </td>
-                      <td className="py-2.5 px-3 font-mono-num tabular-nums text-right text-[var(--ks-text-muted)]">
+                      <td className="py-2.5 px-3 font-mono-num tabular-nums text-end text-[var(--ks-text-muted)]">
                         {c.lastOrderDate.slice(0, 10)}
                       </td>
                     </tr>
@@ -787,22 +1000,22 @@ export const SellerDashboard: React.FC = () => {
             </Button>
           </div>
           <div className="overflow-x-auto rounded-[var(--ks-radius-md)] border border-[var(--ks-border)]">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-start text-xs">
               <thead className="bg-[var(--ks-bg)] border-b border-[var(--ks-border)] text-[var(--ks-text-muted)] uppercase tracking-wider">
                 <tr>
                   <th className="py-2.5 px-3 font-medium">Period</th>
-                  <th className="py-2.5 px-3 font-medium text-right">Orders</th>
-                  <th className="py-2.5 px-3 font-medium text-right">Studio GMV ({currency})</th>
+                  <th className="py-2.5 px-3 font-medium text-end">Orders</th>
+                  <th className="py-2.5 px-3 font-medium text-end">Studio GMV ({currency})</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--ks-divider)]">
                 {data.revenueSeries.map((pt) => (
                   <tr key={pt.month}>
                     <td className="py-2.5 px-3 font-mono-num font-medium">{pt.month}</td>
-                    <td className="py-2.5 px-3 font-mono-num tabular-nums text-right">
+                    <td className="py-2.5 px-3 font-mono-num tabular-nums text-end">
                       {pt.orders}
                     </td>
-                    <td className="py-2.5 px-3 font-mono-num tabular-nums text-right font-semibold">
+                    <td className="py-2.5 px-3 font-mono-num tabular-nums text-end font-semibold">
                       {formatCurrency(pt.gmv, currency)}
                     </td>
                   </tr>
@@ -975,7 +1188,7 @@ export const SellerDashboard: React.FC = () => {
               <select
                 value={newCategory}
                 onChange={(e) => setNewCategory(e.target.value)}
-                className="w-full h-10 px-3 text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border-strong)]"
+                className="w-full min-h-[44px] px-3 text-base sm:text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border-strong)]"
               >
                 {categories.map((c) => (
                   <option key={c.slug} value={c.slug}>
@@ -990,7 +1203,7 @@ export const SellerDashboard: React.FC = () => {
               <select
                 value={newPreset}
                 onChange={(e) => setNewPreset(e.target.value)}
-                className="w-full h-10 px-3 text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border-strong)]"
+                className="w-full min-h-[44px] px-3 text-base sm:text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border-strong)]"
               >
                 {IMAGE_PRESET_OPTIONS.map((opt) => (
                   <option key={opt.key} value={opt.key}>

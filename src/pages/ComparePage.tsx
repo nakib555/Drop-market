@@ -2,12 +2,13 @@ import React from 'react';
 import { ArrowLeftRight, Plus, Trash2 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { formatCurrency, isProductOutOfStock } from '../utils/format';
+import { t } from '../utils/i18n';
 import { PriceDisplay, RatingSummary } from '../components/product/CommercePrimitives';
 import { Button } from '../components/ui/Button';
 import { Breadcrumb, EmptyState, ResilientImage } from '../components/ui/Primitives';
 
 export const ComparePage: React.FC = () => {
-  const { currency, products, compareIds, toggleCompare, clearCompare, addToCart, navigate } = useStore();
+  const { language, currency, products, compareIds, toggleCompare, clearCompare, addToCart, navigate } = useStore();
   const compared = products.filter((p) => compareIds.includes(p.id));
   const addable = products.filter((p) => !compareIds.includes(p.id));
 
@@ -15,21 +16,23 @@ export const ComparePage: React.FC = () => {
     <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-10">
       <Breadcrumb
         items={[
-          { label: 'Home', onClick: () => navigate({ name: 'home' }) },
-          { label: 'Compare Specifications' },
+          { label: t(language, 'home'), onClick: () => navigate({ name: 'home' }) },
+          { label: t(language, 'compareSpecs') },
         ]}
       />
 
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-[var(--ks-border)]">
         <div>
-          <h1 className="font-display text-3xl sm:text-5xl font-medium">Product Comparison</h1>
+          <h1 className="font-display text-3xl sm:text-5xl font-medium">
+            {t(language, 'productComparison')}
+          </h1>
           <p className="text-sm text-[var(--ks-text-muted)] mt-1">
-            Evaluate dimensions, materials, warranties, and pricing side by side (up to 4 objects).
+            {t(language, 'compareDesc')}
           </p>
         </div>
         {compared.length > 0 && (
           <Button variant="outline" size="sm" onClick={clearCompare}>
-            Clear All ({compared.length})
+            {t(language, 'clearAll')} ({compared.length})
           </Button>
         )}
       </div>
@@ -38,14 +41,14 @@ export const ComparePage: React.FC = () => {
         <div className="rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)]">
           <EmptyState
             icon={<ArrowLeftRight className="w-6 h-6" />}
-            title="No objects selected for comparison"
-            description="Select the compare icon on any product card or pick from the catalog below."
-            actionLabel="Browse Catalog"
+            title={t(language, 'noObjectsCompare')}
+            description={t(language, 'noObjectsCompareDesc')}
+            actionLabel={t(language, 'browseProducts')}
             onAction={() => navigate({ name: 'shop', category: 'all' })}
           />
           <div className="px-6 pb-10 max-w-2xl mx-auto">
             <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)] text-center mb-3">
-              Quick Add to Compare
+              {t(language, 'quickAddToCompare')}
             </p>
             <div className="flex flex-wrap justify-center gap-2">
               {products.slice(0, 4).map((p) => (
@@ -53,7 +56,7 @@ export const ComparePage: React.FC = () => {
                   key={p.id}
                   type="button"
                   onClick={() => toggleCompare(p)}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] text-xs font-medium hover:border-[var(--ks-text)] cursor-pointer"
+                  className="inline-flex items-center gap-1.5 min-h-[40px] px-3 py-2 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] text-xs font-medium hover:border-[var(--ks-text)] cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>{p.name}</span>
@@ -77,7 +80,7 @@ export const ComparePage: React.FC = () => {
                   const p = products.find((item) => item.id === e.target.value);
                   if (p) toggleCompare(p);
                 }}
-                className="h-9 px-3 text-xs rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)]"
+                className="min-h-[44px] px-3 text-base sm:text-xs rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)] max-w-full"
               >
                 <option value="">Select piece...</option>
                 {addable.map((p) => (
@@ -121,7 +124,7 @@ export const ComparePage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => navigate({ name: 'product', slug: item.slug })}
-                          className="truncate max-w-full text-left cursor-pointer hover:text-[var(--ks-accent)]"
+                          className="truncate max-w-full text-start cursor-pointer hover:text-[var(--ks-accent)]"
                         >
                           {item.name}
                         </button>
@@ -138,7 +141,7 @@ export const ComparePage: React.FC = () => {
                       type="button"
                       onClick={() => toggleCompare(item)}
                       aria-label={`Remove ${item.name} from comparison`}
-                      className="w-10 h-10 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-error)] cursor-pointer shrink-0"
+                      className="w-11 h-11 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-error)] cursor-pointer shrink-0"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -146,49 +149,63 @@ export const ComparePage: React.FC = () => {
 
                   <dl className="divide-y divide-[var(--ks-border)] border-y border-[var(--ks-border)] text-xs">
                     <div className="py-2 flex items-baseline justify-between gap-3">
-                      <dt className="text-[var(--ks-text-muted)] shrink-0">Highlights</dt>
-                      <dd className="text-right leading-snug">{item.cardHighlights?.join(' · ') || '—'}</dd>
+                      <dt className="text-[var(--ks-text-muted)] shrink-0">
+                        {t(language, 'highlights')}
+                      </dt>
+                      <dd className="text-end leading-snug">{item.cardHighlights?.join(' · ') || '—'}</dd>
                     </div>
                     <div className="py-2 flex items-baseline justify-between gap-3">
-                      <dt className="text-[var(--ks-text-muted)] shrink-0">Rating</dt>
-                      <dd className="text-right">
+                      <dt className="text-[var(--ks-text-muted)] shrink-0">
+                        {t(language, 'ratingLabel')}
+                      </dt>
+                      <dd className="text-end">
                         <RatingSummary
                           rating={item.rating}
                           reviewCount={item.reviewCount}
                           compact
                           showCount
-                          fallbackLabel="Unreviewed"
+                          fallbackLabel={t(language, 'beFirstReview')}
                         />
                       </dd>
                     </div>
                     <div className="py-2 flex items-baseline justify-between gap-3">
-                      <dt className="text-[var(--ks-text-muted)] shrink-0">Availability</dt>
+                      <dt className="text-[var(--ks-text-muted)] shrink-0">
+                        {t(language, 'availability')}
+                      </dt>
                       <dd
-                        className={`text-right ${
+                        className={`text-end ${
                           outOfStock ? 'text-[var(--ks-error)] font-medium' : 'capitalize'
                         }`}
                       >
-                        {outOfStock ? 'Out of Stock' : item.availability.replace('-', ' ')}
+                        {outOfStock ? t(language, 'outOfStock') : item.availability.replace('-', ' ')}
                       </dd>
                     </div>
                     <div className="py-2 flex items-baseline justify-between gap-3">
-                      <dt className="text-[var(--ks-text-muted)] shrink-0">Shipping &amp; COD</dt>
-                      <dd className="font-mono-num text-right leading-snug">
+                      <dt className="text-[var(--ks-text-muted)] shrink-0">
+                        {t(language, 'parcelAndCod')}
+                      </dt>
+                      <dd className="font-mono-num text-end leading-snug">
                         {item.weightKg ? `${item.weightKg} kg · ` : ''}
-                        {item.codEligible === false ? 'Prepaid Only' : 'COD Eligible'}
+                        {item.codEligible === false
+                          ? t(language, 'prepaidOnly')
+                          : t(language, 'codEligibleBD')}
                       </dd>
                     </div>
                     <div className="py-2 flex items-baseline justify-between gap-3">
-                      <dt className="text-[var(--ks-text-muted)] shrink-0">Key Spec</dt>
-                      <dd className="font-mono-num text-right leading-snug">
+                      <dt className="text-[var(--ks-text-muted)] shrink-0">
+                        {t(language, 'keySpecifications')}
+                      </dt>
+                      <dd className="font-mono-num text-end leading-snug">
                         {item.specifications[0]
                           ? `${item.specifications[0].label}: ${item.specifications[0].value}`
                           : '—'}
                       </dd>
                     </div>
                     <div className="py-2 flex items-baseline justify-between gap-3">
-                      <dt className="text-[var(--ks-text-muted)] shrink-0">Warranty</dt>
-                      <dd className="text-right leading-snug">{item.warranty}</dd>
+                      <dt className="text-[var(--ks-text-muted)] shrink-0">
+                        {t(language, 'warrantyLabel')}
+                      </dt>
+                      <dd className="text-end leading-snug">{item.warranty}</dd>
                     </div>
                   </dl>
 
@@ -201,7 +218,7 @@ export const ComparePage: React.FC = () => {
                       addToCart(item, primaryColor.name, primaryColor.hex, primarySize, 1, true)
                     }
                   >
-                    {outOfStock ? 'Out of Stock' : 'Add to Bag'}
+                    {outOfStock ? t(language, 'outOfStock') : t(language, 'addToBag')}
                   </Button>
                 </article>
               );
@@ -210,11 +227,11 @@ export const ComparePage: React.FC = () => {
 
           {/* Tablet & Desktop Matrix Table (>= 640px) */}
           <div className="hidden sm:block overflow-x-auto rounded-[var(--ks-radius-lg)] border border-[var(--ks-border)] bg-[var(--ks-surface)]">
-            <table className="w-full min-w-[680px] text-left text-sm border-collapse">
+            <table className="w-full min-w-[680px] text-start text-sm border-collapse">
               <thead>
                 <tr className="border-b border-[var(--ks-border)]">
                   <th className="w-44 p-5 text-xs uppercase tracking-wider text-[var(--ks-text-muted)] align-top">
-                    Object
+                    {t(language, 'objectLabel')}
                   </th>
                   {compared.map((item) => (
                     <th key={item.id} className="p-5 align-top min-w-[210px] font-normal">
@@ -236,7 +253,7 @@ export const ComparePage: React.FC = () => {
                             type="button"
                             onClick={() => toggleCompare(item)}
                             aria-label={`Remove ${item.name} from comparison`}
-                            className="absolute top-2 right-2 w-10 h-10 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)]/95 flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-error)] cursor-pointer"
+                            className="absolute top-2 end-2 w-11 h-11 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)]/95 flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-error)] cursor-pointer"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -247,7 +264,7 @@ export const ComparePage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => navigate({ name: 'product', slug: item.slug })}
-                          className="font-semibold text-base text-left cursor-pointer hover:text-[var(--ks-accent)]"
+                          className="font-semibold text-base text-start cursor-pointer hover:text-[var(--ks-accent)]"
                         >
                           {item.name}
                         </button>
@@ -259,7 +276,7 @@ export const ComparePage: React.FC = () => {
               <tbody className="divide-y divide-[var(--ks-border)] [&_td]:align-top">
                 <tr>
                   <td className="p-4 px-5 text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
-                    Price
+                    {t(language, 'priceLabel')}
                   </td>
                   {compared.map((item) => (
                     <td key={item.id} className="p-4 px-5">
@@ -274,7 +291,7 @@ export const ComparePage: React.FC = () => {
                 </tr>
                 <tr>
                   <td className="p-4 px-5 text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
-                    Rating
+                    {t(language, 'ratingLabel')}
                   </td>
                   {compared.map((item) => (
                     <td key={item.id} className="p-4 px-5">
@@ -283,14 +300,14 @@ export const ComparePage: React.FC = () => {
                         reviewCount={item.reviewCount}
                         compact
                         showCount
-                        fallbackLabel="Unreviewed"
+                        fallbackLabel={t(language, 'beFirstReview')}
                       />
                     </td>
                   ))}
                 </tr>
                 <tr>
                   <td className="p-4 px-5 text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
-                    Availability
+                    {t(language, 'availability')}
                   </td>
                   {compared.map((item) => {
                     const outOfStock = isProductOutOfStock(item);
@@ -301,7 +318,7 @@ export const ComparePage: React.FC = () => {
                             outOfStock ? 'text-[var(--ks-error)] font-medium' : 'capitalize'
                           }
                         >
-                          {outOfStock ? 'Out of Stock' : item.availability.replace('-', ' ')}
+                          {outOfStock ? t(language, 'outOfStock') : item.availability.replace('-', ' ')}
                         </span>
                       </td>
                     );
@@ -309,19 +326,21 @@ export const ComparePage: React.FC = () => {
                 </tr>
                 <tr>
                   <td className="p-4 px-5 text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
-                    Parcel &amp; COD
+                    {t(language, 'parcelAndCod')}
                   </td>
                   {compared.map((item) => (
                     <td key={item.id} className="p-4 px-5 text-xs font-mono-num leading-snug">
                       {item.weightKg ? `${item.weightKg} kg` : 'Standard'} ·{' '}
                       {item.sizeTier || 'medium'} ·{' '}
-                      {item.codEligible === false ? 'Prepaid Only' : 'COD Eligible'}
+                      {item.codEligible === false
+                        ? t(language, 'prepaidOnly')
+                        : t(language, 'codEligibleBD')}
                     </td>
                   ))}
                 </tr>
                 <tr>
                   <td className="p-4 px-5 text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
-                    Key Specifications
+                    {t(language, 'keySpecifications')}
                   </td>
                   {compared.map((item) => (
                     <td key={item.id} className="p-4 px-5 text-xs font-mono-num leading-snug">
@@ -336,7 +355,7 @@ export const ComparePage: React.FC = () => {
                 </tr>
                 <tr>
                   <td className="p-4 px-5 text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
-                    Finishes
+                    {t(language, 'finishesLabel')}
                   </td>
                   {compared.map((item) => (
                     <td key={item.id} className="p-4 px-5 text-xs leading-snug">
@@ -346,7 +365,7 @@ export const ComparePage: React.FC = () => {
                 </tr>
                 <tr>
                   <td className="p-4 px-5 text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
-                    Warranty
+                    {t(language, 'warrantyLabel')}
                   </td>
                   {compared.map((item) => (
                     <td key={item.id} className="p-4 px-5 text-xs leading-snug">
@@ -356,7 +375,7 @@ export const ComparePage: React.FC = () => {
                 </tr>
                 <tr>
                   <td className="p-4 px-5 text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
-                    Action
+                    {t(language, 'actionLabel')}
                   </td>
                   {compared.map((item) => {
                     const outOfStock = isProductOutOfStock(item);
@@ -379,7 +398,7 @@ export const ComparePage: React.FC = () => {
                             )
                           }
                         >
-                          {outOfStock ? 'Out of Stock' : 'Add to Bag'}
+                          {outOfStock ? t(language, 'outOfStock') : t(language, 'addToBag')}
                         </Button>
                       </td>
                     );

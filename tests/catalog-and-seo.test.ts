@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   computeVerifiedReviewStats,
   expandCatalogFromApiBase,
@@ -11,6 +13,17 @@ import {
   serializeRouteToPath,
 } from '../src/context/navigationController.ts';
 import { resolveSeoMetadata } from '../src/utils/seo.ts';
+import {
+  getLanguageOption,
+  isSupportedLanguage,
+  LANGUAGE_OPTIONS,
+  t,
+  translateDepartmentName,
+  translateDepartmentShortName,
+  translateOrderStage,
+  UI_STRINGS,
+  type UiStringKey,
+} from '../src/utils/i18n.ts';
 import type { CategoryMeta, Product, ProductReview } from '../src/types/commerce.ts';
 
 test('computeVerifiedReviewStats aggregates only verified reviews and returns zero when unreviewed', () => {
@@ -294,3 +307,77 @@ test('expandCatalogFromApiBase expands live API items into 1,000+ unique product
   assert.equal(slugs.size, expanded.products.length);
   assert.equal(skus.size, expanded.products.length);
 });
+
+test('i18n dictionaries maintain complete 6-language key parity, interpolation, RTL metadata, and domain labels', () => {
+  assert.equal(LANGUAGE_OPTIONS.length, 6);
+  assert.equal(getLanguageOption('ar').dir, 'rtl');
+  for (const opt of LANGUAGE_OPTIONS.filter((o) => o.code !== 'ar')) {
+    assert.equal(opt.dir, 'ltr');
+  }
+  assert.equal(isSupportedLanguage('bn'), true);
+  assert.equal(isSupportedLanguage('xx'), false);
+
+  const enKeys = Object.keys(UI_STRINGS.en) as UiStringKey[];
+  for (const opt of LANGUAGE_OPTIONS) {
+    const dict = UI_STRINGS[opt.code];
+    assert.ok(dict, `Missing dictionary for ${opt.code}`);
+    assert.equal(Object.keys(dict).length, enKeys.length, `Key count mismatch for ${opt.code}`);
+    for (const k of enKeys) {
+      assert.equal(typeof dict[k], 'string', `Missing string ${k} in ${opt.code}`);
+      assert.ok(dict[k].trim().length > 0, `Empty translation for ${k} in ${opt.code}`);
+    }
+    const headline = t(opt.code, 'promoBannerHeadline', { amount: '৳22,000' });
+    assert.ok(headline.includes('৳22,000'), `Interpolation failed for ${opt.code}: ${headline}`);
+  }
+
+  const deptSlugs = [
+    'electronics-tech',
+    'fashion-accessories',
+    'home-furniture-kitchen',
+    'beauty-care',
+    'grocery-food-household',
+    'sports-outdoors-travel',
+    'books-stationery-office',
+    'automotive-tools-industrial',
+    'baby-kids-toys-hobbies',
+    'health-wellness-pets',
+  ];
+  for (const slug of deptSlugs) {
+    for (const opt of LANGUAGE_OPTIONS) {
+      const full = translateDepartmentName(opt.code, slug, 'Fallback');
+      const short = translateDepartmentShortName(opt.code, slug, 'Fallback');
+      if (opt.code === 'en') {
+        assert.equal(full, 'Fallback');
+        assert.equal(short, 'Fallback');
+      } else {
+        assert.notEqual(full, 'Fallback', `Missing dept translation ${slug} in ${opt.code}`);
+        assert.notEqual(short, 'Fallback', `Missing short dept translation ${slug} in ${opt.code}`);
+      }
+    }
+  }
+
+  assert.equal(translateOrderStage('bn', 'Delivered'), 'ডেলিভারি সম্পন্ন');
+  assert.equal(translateOrderStage('ar', 'Shipped'), 'تم الشحن');
+  assert.equal(translateOrderStage('fr', 'Order Placed'), 'Commande passée');
+
+  // Verify Phase 3 shell, auth, account, and legal i18n keys interpolate cleanly
+  for (const opt of LANGUAGE_OPTIONS) {
+    assert.ok(t(opt.code, 'skipToContent').length > 0);
+    assert.ok(t(opt.code, 'printDocument').length > 0);
+    assert.ok(t(opt.code, 'workspaceSectionLabel').length > 0);
+    const signedIn = t(opt.code, 'signedInAs', { name: 'Nadia', role: 'customer' });
+    assert.ok(signedIn.includes('Nadia') && signedIn.includes('customer'));
+    const dupMsg = t(opt.code, 'errDuplicateMsg', { email: 'user@example.com' });
+    assert.ok(dupMsg.includes('user@example.com'));
+  }
+});
+
+test('global stylesheet isolates legal documents cleanly in @media print', () => {
+  const css = fs.readFileSync(path.resolve(process.cwd(), 'src/index.css'), 'utf8');
+  assert.ok(css.includes('@media print'), 'Expected @media print rule in src/index.css');
+  assert.ok(css.includes('.ks-announcement-bar'), 'Expected announcement bar suppression in print CSS');
+  assert.ok(css.includes('.ks-reading-measure'), 'Expected full-width policy reading measure in print CSS');
+  assert.ok(css.includes('display: none !important'), 'Expected shell suppression in print CSS');
+});
+
+

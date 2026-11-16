@@ -18,7 +18,7 @@ export type UserRole = 'customer' | 'seller' | 'admin';
 
 export type CurrencyCode = 'BDT' | 'USD';
 
-export type LanguageCode = 'en' | 'bn';
+export type LanguageCode = 'en' | 'bn' | 'hi' | 'ar' | 'es' | 'fr';
 
 export type AttributeType =
   | 'text'

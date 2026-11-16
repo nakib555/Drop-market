@@ -1,5 +1,7 @@
 import React, { Suspense } from 'react';
+import { useStore } from '../../context/StoreContext';
 import { RouteState } from '../../context/navigationController';
+import { t } from '../../utils/i18n';
 import { RouteSuspenseFallback } from '../ui/SkeletonLoaders';
 import { Button } from '../ui/Button';
 
@@ -52,6 +54,30 @@ interface RouteChunkErrorBoundaryState {
   hasError: boolean;
 }
 
+const RouteErrorFallback: React.FC<{ onRetry: () => void }> = ({ onRetry }) => {
+  const { language } = useStore();
+  return (
+    <div className="min-h-[60vh] max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-16 flex items-center justify-center">
+      <div className="max-w-md w-full p-6 sm:p-8 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] text-center space-y-4">
+        <h2 className="font-display text-2xl font-medium text-[var(--ks-text-primary)]">
+          {t(language, 'unableToLoadView')}
+        </h2>
+        <p className="text-sm text-[var(--ks-text-secondary)]">
+          {t(language, 'routeErrorDesc')}
+        </p>
+        <div className="flex items-center justify-center gap-3 pt-1">
+          <Button variant="primary" size="md" onClick={onRetry}>
+            {t(language, 'retryView')}
+          </Button>
+          <Button variant="outline" size="md" onClick={() => window.location.reload()}>
+            {t(language, 'reloadPage')}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 class RouteChunkErrorBoundary extends React.Component<
   RouteChunkErrorBoundaryProps,
   RouteChunkErrorBoundaryState
@@ -70,32 +96,7 @@ class RouteChunkErrorBoundary extends React.Component<
 
   render() {
     if (this.state.hasError) {
-      return (
-        <div className="min-h-[60vh] max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-16 flex items-center justify-center">
-          <div className="max-w-md w-full p-6 sm:p-8 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] text-center space-y-4">
-            <h2 className="font-display text-2xl font-medium text-[var(--ks-text-primary)]">Unable to load view</h2>
-            <p className="text-sm text-[var(--ks-text-secondary)]">
-              A temporary network interruption prevented loading this section.
-            </p>
-            <div className="flex items-center justify-center gap-3 pt-1">
-              <Button
-                variant="primary"
-                size="md"
-                onClick={() => this.setState({ hasError: false })}
-              >
-                Retry View
-              </Button>
-              <Button
-                variant="outline"
-                size="md"
-                onClick={() => window.location.reload()}
-              >
-                Reload Page
-              </Button>
-            </div>
-          </div>
-        </div>
-      );
+      return <RouteErrorFallback onRetry={() => this.setState({ hasError: false })} />;
     }
     return this.props.children;
   }

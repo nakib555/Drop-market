@@ -16,10 +16,12 @@ import { PWAStatusBanners } from './components/pwa/PWAStatusBanners';
 import { CookieConsentBanner } from './components/legal/CookieConsentBanner';
 import { LegalModalPreview } from './components/legal/LegalModalPreview';
 import { FAQ_ITEMS } from './data/catalog';
+import { LanguageCode } from './types/commerce';
 import { applyDocumentSeo, resolveSeoMetadata } from './utils/seo';
+import { t } from './utils/i18n';
 
 const AppShell: React.FC = () => {
-  const { route, navigationDirection, products, categories } = useStore();
+  const { language, route, navigationDirection, products, categories } = useStore();
   const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
@@ -54,9 +56,9 @@ const AppShell: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-[var(--ks-bg)] text-[var(--ks-text-primary)]">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[70] focus:px-4 focus:py-2.5 focus:rounded-[var(--ks-radius-md)] focus:bg-[var(--ks-action)] focus:text-[var(--ks-action-text)] focus:text-xs focus:font-semibold focus:shadow-lg"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:start-3 focus:z-[70] focus:px-4 focus:py-2.5 focus:rounded-[var(--ks-radius-md)] focus:bg-[var(--ks-action)] focus:text-[var(--ks-action-text)] focus:text-xs focus:font-semibold focus:shadow-lg"
       >
-        Skip to main content
+        {t(language, 'skipToContent')}
       </a>
       <Header onOpenSearch={() => setSearchOpen(true)} />
       <main id="main-content" tabIndex={-1} className="flex-1 overflow-x-clip focus:outline-none">
@@ -110,34 +112,50 @@ class RootErrorBoundary extends React.Component<
     window.location.reload();
   };
 
+  readFallbackLanguage = (): LanguageCode => {
+    try {
+      const raw = window.localStorage.getItem('kinto-language');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed === 'en' || parsed === 'bn' || parsed === 'hi' || parsed === 'ar' || parsed === 'es' || parsed === 'fr') {
+          return parsed;
+        }
+      }
+    } catch {
+      // ignore storage errors
+    }
+    return 'en';
+  };
+
   render() {
     if (this.state.hasError) {
+      const lang = this.readFallbackLanguage();
       return (
-        <div className="min-h-screen flex items-center justify-center bg-[#F9F8F6] dark:bg-[#111110] text-[#171716] dark:text-[#F4F3EF] px-4 py-12">
-          <div className="max-w-md w-full rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] p-6 sm:p-8 text-center space-y-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7A532E] dark:text-[#C89B67]">
+        <div className="min-h-screen flex items-center justify-center bg-[var(--ks-bg)] text-[var(--ks-text-primary)] px-4 py-12">
+          <div className="max-w-md w-full rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] p-6 sm:p-8 text-center space-y-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--ks-accent)]">
               KINTO STUDIO
             </p>
             <h1 className="font-display text-2xl sm:text-3xl font-medium">
-              Storefront Recovery
+              {t(lang, 'recoveryTitle')}
             </h1>
-            <p className="text-sm text-[#5C5B57] dark:text-[#B4B2AC]">
-              A temporary rendering issue interrupted this view. Reload the page or reset local session cache to continue.
+            <p className="text-sm text-[var(--ks-text-secondary)]">
+              {t(lang, 'recoveryDesc')}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => window.location.reload()}
-                className="px-4 py-2.5 rounded bg-[#171716] dark:bg-[#F4F3EF] text-[#FFFFFF] dark:text-[#171716] text-xs font-semibold cursor-pointer"
+                className="min-h-[44px] px-4 py-2.5 rounded-[var(--ks-radius-md)] bg-[var(--ks-action)] text-[var(--ks-action-text)] text-xs font-semibold cursor-pointer"
               >
-                Reload Storefront
+                {t(lang, 'reloadStorefront')}
               </button>
               <button
                 type="button"
                 onClick={this.handleResetSession}
-                className="px-4 py-2.5 rounded border border-[#D4D1C9] dark:border-[#3A3934] text-xs font-semibold cursor-pointer"
+                className="min-h-[44px] px-4 py-2.5 rounded-[var(--ks-radius-md)] border border-[var(--ks-border-strong)] text-xs font-semibold cursor-pointer"
               >
-                Reset Local Cache
+                {t(lang, 'resetLocalCache')}
               </button>
             </div>
           </div>

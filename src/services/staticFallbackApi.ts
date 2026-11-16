@@ -286,7 +286,7 @@ export function staticRegister(payload: {
     email: cleanEmail,
     phone: payload.phone?.trim() || '',
     role: chosenRole,
-    roleLabel: chosenRole === 'seller' ? 'Seller Studio Partner' : 'Marketplace Member',
+    roleLabel: chosenRole === 'seller' ? 'Seller Studio Partner' : 'Member Account',
     studioName:
       chosenRole === 'seller'
         ? payload.studioName?.trim() || `${payload.fullName.trim()} Studio`
@@ -1258,7 +1258,8 @@ export function staticUpdateAdminPlatformSettings(
     ...(typeof updates.supportEmail === 'string' && updates.supportEmail.includes('@')
       ? { supportEmail: updates.supportEmail.trim() }
       : {}),
-    ...(updates.defaultLanguage === 'en' || updates.defaultLanguage === 'bn'
+    ...(updates.defaultLanguage &&
+    ['en', 'bn', 'hi', 'ar', 'es', 'fr'].includes(updates.defaultLanguage)
       ? { defaultLanguage: updates.defaultLanguage }
       : {}),
     ...(typeof updates.maintenanceNoticeEnabled === 'boolean'

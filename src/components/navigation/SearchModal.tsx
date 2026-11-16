@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { BRAND_STUDIOS } from '../../data/catalog';
 import { useStore } from '../../context/StoreContext';
 import { formatCurrency, fuzzyScoreText } from '../../utils/format';
+import { t, translateDepartmentName } from '../../utils/i18n';
 import { STUDIO_TRANSITION } from '../../utils/motion';
 import { ResilientImage, useFocusTrap } from '../ui/Primitives';
 
@@ -23,6 +24,7 @@ const POPULAR_SEARCHES = [
 
 export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
   const {
+    language,
     categories,
     products,
     currency,
@@ -145,7 +147,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
           className="fixed inset-0 z-50 bg-black/50 backdrop-blur-[2px] flex items-start justify-center pt-10 sm:pt-16 px-4"
           role="dialog"
           aria-modal="true"
-          aria-label="Search Kinto Studio"
+          aria-label={t(language, 'searchModalLabel')}
           onClick={onClose}
         >
           <motion.div
@@ -173,25 +175,25 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
                 value={term}
                 onChange={(e) => setTerm(e.target.value)}
                 onKeyDown={handleInputKeyDown}
-                placeholder="Search products, brands, or departments..."
-                aria-label="Search catalog"
+                placeholder={t(language, 'searchPlaceholder')}
+                aria-label={t(language, 'search')}
                 className="flex-1 bg-transparent text-sm text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)] focus:outline-none"
               />
               {term && (
                 <button
                   type="button"
                   onClick={() => setTerm('')}
-                  aria-label="Clear search query"
-                  className="text-xs text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] px-2 py-1 cursor-pointer"
+                  aria-label={t(language, 'clear')}
+                  className="min-h-[36px] min-w-[44px] text-xs text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] px-2 py-1 cursor-pointer"
                 >
-                  Clear
+                  {t(language, 'clear')}
                 </button>
               )}
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="Close search"
-                className="w-10 h-10 -mr-1 rounded-md flex items-center justify-center text-[var(--ks-text-secondary)] hover:bg-[var(--ks-surface-muted)] cursor-pointer"
+                aria-label={t(language, 'closeSearch')}
+                className="w-10 h-10 -me-1 rounded-md flex items-center justify-center text-[var(--ks-text-secondary)] hover:bg-[var(--ks-surface-muted)] cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -214,7 +216,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[var(--ks-surface-muted)] text-xs font-medium border border-[var(--ks-border)] hover:border-[var(--ks-action)] cursor-pointer transition-colors"
                         >
                           <Layers className="w-3.5 h-3.5 text-[var(--ks-accent)]" />
-                          <span>Department: {cat.name}</span>
+                          <span>
+                            {t(language, 'departmentBadgePrefix')}:{' '}
+                            {translateDepartmentName(language, cat.slug, cat.name)}
+                          </span>
                         </button>
                       ))}
                       {matchingBrands.map((b) => (
@@ -232,7 +237,9 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[var(--ks-border)] text-xs font-medium hover:border-[var(--ks-action)] cursor-pointer transition-colors"
                         >
                           <Store className="w-3.5 h-3.5 text-[var(--ks-accent)]" />
-                          <span>Brand: {b.name}</span>
+                          <span>
+                            {t(language, 'brandBadgePrefix')}: {b.name}
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -242,21 +249,21 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
                   <div>
                     <div className="flex items-baseline justify-between gap-3 mb-3">
                       <p className="text-xs font-medium text-[var(--ks-text-muted)] min-w-0">
-                        Matching Products ({suggestions.length})
+                        {t(language, 'matchingProducts')} ({suggestions.length})
                       </p>
                       <button
                         type="button"
                         onClick={() => submitSearch(term)}
                         className="text-xs font-medium text-[var(--ks-accent)] inline-flex items-center gap-1 hover:underline cursor-pointer shrink-0 whitespace-nowrap"
                       >
-                        <span>View all results</span>
-                        <ArrowRight className="w-3 h-3" />
+                        <span>{t(language, 'viewAllResults')}</span>
+                        <ArrowRight className="w-3 h-3 rtl:rotate-180" />
                       </button>
                     </div>
                     {suggestions.length === 0 ? (
                       <div className="py-4 space-y-3">
                         <p className="text-sm text-[var(--ks-text-secondary)]">
-                          No direct matches for &ldquo;{term}&rdquo;. Try one of these popular terms or browse all departments.
+                          {t(language, 'noDirectMatches', { term })}
                         </p>
                         <div className="flex flex-wrap gap-2">
                           {POPULAR_SEARCHES.map((q) => (
@@ -282,7 +289,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
                                 onClose();
                                 navigate({ name: 'product', slug: item.slug });
                               }}
-                              className={`w-full py-3 flex items-center gap-4 text-left px-2.5 -mx-2.5 rounded-md transition-colors cursor-pointer ${
+                              className={`w-full py-3 flex items-center gap-4 text-start px-2.5 -mx-2.5 rounded-md transition-colors cursor-pointer ${
                                 idx === activeIndex
                                   ? 'bg-[var(--ks-surface-muted)]'
                                   : 'hover:bg-[var(--ks-surface-muted)]'
@@ -314,14 +321,16 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
                   {recentSearches.length > 0 && (
                     <div>
                       <div className="flex items-center justify-between mb-2.5">
-                        <p className="text-xs font-medium text-[var(--ks-text-muted)]">Recent Searches</p>
+                        <p className="text-xs font-medium text-[var(--ks-text-muted)]">
+                          {t(language, 'recentSearches')}
+                        </p>
                         <button
                           type="button"
                           onClick={clearRecentSearches}
                           className="text-xs text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] inline-flex items-center gap-1 cursor-pointer"
                         >
                           <Trash2 className="w-3 h-3" />
-                          <span>Clear</span>
+                          <span>{t(language, 'clear')}</span>
                         </button>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -341,7 +350,9 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
                   )}
 
                   <div>
-                    <p className="text-xs font-medium text-[var(--ks-text-muted)] mb-2.5">Popular Searches</p>
+                    <p className="text-xs font-medium text-[var(--ks-text-muted)] mb-2.5">
+                      {t(language, 'popularSearches')}
+                    </p>
                     <div className="flex flex-wrap gap-2">
                       {POPULAR_SEARCHES.map((q) => (
                         <button
@@ -358,7 +369,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
 
                   <div>
                     <p className="text-xs font-medium text-[var(--ks-text-muted)] mb-2.5">
-                      Browse All Departments ({categories.length})
+                      {t(language, 'browseAllDepartments', { count: categories.length })}
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {categories.map((cat) => (
@@ -369,10 +380,12 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
                             onClose();
                             navigate({ name: 'category', category: cat.slug });
                           }}
-                          className="flex items-center justify-between gap-2 p-2.5 rounded-md border border-[var(--ks-border)] hover:border-[var(--ks-action)] text-left cursor-pointer transition-colors"
+                          className="flex items-center justify-between gap-2 p-2.5 rounded-md border border-[var(--ks-border)] hover:border-[var(--ks-action)] text-start cursor-pointer transition-colors"
                         >
-                          <span className="text-sm font-medium min-w-0 truncate">{cat.name}</span>
-                          <ArrowRight className="w-3.5 h-3.5 text-[var(--ks-text-muted)] shrink-0" />
+                          <span className="text-sm font-medium min-w-0 truncate">
+                            {translateDepartmentName(language, cat.slug, cat.name)}
+                          </span>
+                          <ArrowRight className="w-3.5 h-3.5 text-[var(--ks-text-muted)] shrink-0 rtl:rotate-180" />
                         </button>
                       ))}
                     </div>

@@ -4,10 +4,11 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useStore } from '../../context/StoreContext';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { usePWAUpdate } from '../../hooks/usePWAUpdate';
+import { t } from '../../utils/i18n';
 import { STUDIO_TRANSITION } from '../../utils/motion';
 
 export const PWAStatusBanners: React.FC = () => {
-  const { route } = useStore();
+  const { language, route } = useStore();
   const { isOnline, justReconnected } = useOnlineStatus();
   const { needRefresh, updating, applyUpdate, dismiss } = usePWAUpdate();
 
@@ -20,7 +21,7 @@ export const PWAStatusBanners: React.FC = () => {
   return (
     <div
       aria-live="polite"
-      className={`fixed ${bottomOffsetClass} left-3 sm:left-5 z-50 flex flex-col gap-2 max-w-[calc(100vw-5.5rem)] sm:max-w-sm pointer-events-none pb-[env(safe-area-inset-bottom,0px)]`}
+      className={`print:hidden fixed ${bottomOffsetClass} start-3 sm:start-5 z-50 flex flex-col gap-2 max-w-[calc(100vw-5.5rem)] sm:max-w-sm pointer-events-none pb-[env(safe-area-inset-bottom,0px)]`}
     >
       <AnimatePresence mode="popLayout">
         {!isOnline && (
@@ -31,13 +32,13 @@ export const PWAStatusBanners: React.FC = () => {
             exit={{ opacity: 0, y: 8, scale: 0.97 }}
             transition={STUDIO_TRANSITION.base}
             role="status"
-            className="pointer-events-auto flex items-start gap-2.5 p-3 rounded-lg bg-[#171716] dark:bg-[#191917] text-[#F9F8F6] border border-[#8F6438]/50 dark:border-[#C89B67]/40 shadow-lg"
+            className="pointer-events-auto flex items-start gap-2.5 p-3 rounded-lg bg-[var(--ks-action)] text-[var(--ks-action-text)] border border-[var(--ks-accent)]/50 shadow-lg"
           >
-            <WifiOff className="w-4 h-4 mt-[2px] text-[#E2B887] shrink-0" aria-hidden="true" />
+            <WifiOff className="w-4 h-4 mt-[2px] text-[var(--ks-accent)] shrink-0" aria-hidden="true" />
             <div className="min-w-0">
-              <p className="text-xs font-semibold leading-snug">Offline Mode</p>
-              <p className="text-[11px] text-[#D5D3CD] leading-snug mt-0.5">
-                Cached catalog active. Connect to place orders.
+              <p className="text-xs font-semibold leading-snug">{t(language, 'offlineModeTitle')}</p>
+              <p className="text-[11px] opacity-80 leading-snug mt-0.5">
+                {t(language, 'offlineModeDesc')}
               </p>
             </div>
           </motion.div>
@@ -51,10 +52,10 @@ export const PWAStatusBanners: React.FC = () => {
             exit={{ opacity: 0, y: 8, scale: 0.97 }}
             transition={STUDIO_TRANSITION.base}
             role="status"
-            className="pointer-events-auto flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] text-[#171716] dark:text-[#F4F3EF] border border-[#1F6E43]/40 dark:border-[#4ADE80]/40 shadow-lg"
+            className="pointer-events-auto flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-success)]/40 shadow-lg"
           >
-            <Wifi className="w-4 h-4 text-[#1F6E43] dark:text-[#4ADE80] shrink-0" aria-hidden="true" />
-            <p className="text-xs font-medium leading-snug">Connection restored</p>
+            <Wifi className="w-4 h-4 text-[var(--ks-success)] shrink-0" aria-hidden="true" />
+            <p className="text-xs font-medium leading-snug">{t(language, 'reconnectedMsg')}</p>
           </motion.div>
         )}
 
@@ -76,12 +77,10 @@ export const PWAStatusBanners: React.FC = () => {
             />
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold leading-snug">
-                {updating ? 'Updating Kinto Studio...' : 'Studio Update Ready'}
+                {updating ? t(language, 'updatingAppTitle') : t(language, 'updateReadyTitle')}
               </p>
               <p className="text-[11px] text-[var(--ks-text-secondary)] leading-snug mt-0.5">
-                {updating
-                  ? 'Applying the latest release automatically.'
-                  : 'Reload to apply the latest catalog enhancements.'}
+                {updating ? t(language, 'updatingAppDesc') : t(language, 'updateReadyDesc')}
               </p>
               {!updating && needRefresh && (
                 <div className="mt-2 flex items-center gap-2">
@@ -90,14 +89,14 @@ export const PWAStatusBanners: React.FC = () => {
                     onClick={applyUpdate}
                     className="px-2.5 py-1 rounded bg-[var(--ks-action)] text-[var(--ks-action-text)] text-[11px] font-medium hover:bg-[var(--ks-action-hover)] cursor-pointer"
                   >
-                    Reload App
+                    {t(language, 'reloadApp')}
                   </button>
                   <button
                     type="button"
                     onClick={dismiss}
                     className="text-[11px] text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] px-1.5 py-1 cursor-pointer"
                   >
-                    Later
+                    {t(language, 'laterLabel')}
                   </button>
                 </div>
               )}
@@ -106,7 +105,7 @@ export const PWAStatusBanners: React.FC = () => {
               <button
                 type="button"
                 onClick={dismiss}
-                aria-label="Dismiss update notification"
+                aria-label={t(language, 'dismissUpdate')}
                 className="text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] p-1.5 cursor-pointer shrink-0"
               >
                 <X className="w-3.5 h-3.5" />

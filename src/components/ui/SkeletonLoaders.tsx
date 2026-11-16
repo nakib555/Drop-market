@@ -1,4 +1,6 @@
 import React from 'react';
+import { useStore } from '../../context/StoreContext';
+import { t } from '../../utils/i18n';
 import { SkeletonLoader } from './Primitives';
 
 interface ProductCardSkeletonProps {
@@ -10,7 +12,7 @@ export const ProductCardSkeleton: React.FC<ProductCardSkeletonProps> = ({ layout
     return (
       <div
         aria-hidden="true"
-        className="flex flex-col sm:flex-row gap-5 sm:gap-6 p-4 sm:p-5 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]"
+        className="flex flex-col sm:flex-row gap-5 sm:gap-6 p-4 sm:p-5 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)]"
       >
         <SkeletonLoader className="w-full sm:w-60 md:w-64 aspect-[4/3] rounded-md shrink-0" />
 
@@ -30,7 +32,7 @@ export const ProductCardSkeleton: React.FC<ProductCardSkeletonProps> = ({ layout
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-[#E5E3DD] dark:border-[#2C2C28]">
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-[var(--ks-border)]">
             <SkeletonLoader className="h-5 w-24" />
             <div className="flex items-center gap-2">
               <SkeletonLoader className="w-10 h-10 rounded-md" />
@@ -47,7 +49,7 @@ export const ProductCardSkeleton: React.FC<ProductCardSkeletonProps> = ({ layout
   return (
     <div
       aria-hidden="true"
-      className="flex flex-col rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] overflow-hidden"
+      className="flex flex-col rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] overflow-hidden"
     >
       <SkeletonLoader className="w-full aspect-[4/3] rounded-none" />
 
@@ -68,7 +70,7 @@ export const ProductCardSkeleton: React.FC<ProductCardSkeletonProps> = ({ layout
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-[#E5E3DD] dark:border-[#2C2C28]">
+        <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-[var(--ks-border)]">
           <SkeletonLoader className="h-5 w-20" />
           <SkeletonLoader className="h-9 w-16 rounded-md" />
         </div>
@@ -88,16 +90,18 @@ export const ProductGridSkeleton: React.FC<ProductGridSkeletonProps> = ({
   count = 6,
   layout = 'grid',
   className,
-  label = 'Loading catalog products',
+  label,
 }) => {
+  const { language } = useStore();
+  const resolvedLabel = label || t(language, 'loadingCatalog');
   const defaultClass =
     layout === 'list'
       ? 'space-y-4'
       : 'grid grid-cols-1 min-[390px]:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6';
 
   return (
-    <div role="status" aria-busy="true" aria-label={label} className={className || defaultClass}>
-      <span className="sr-only">{label}...</span>
+    <div role="status" aria-busy="true" aria-label={resolvedLabel} className={className || defaultClass}>
+      <span className="sr-only">{resolvedLabel}...</span>
       {Array.from({ length: count }).map((_, index) => (
         <ProductCardSkeleton key={index} layout={layout} />
       ))}
@@ -105,14 +109,17 @@ export const ProductGridSkeleton: React.FC<ProductGridSkeletonProps> = ({
   );
 };
 
-export const ProductDetailSkeleton: React.FC = () => (
+export const ProductDetailSkeleton: React.FC = () => {
+  const { language } = useStore();
+  const loadingText = t(language, 'loadingProductDetails');
+  return (
   <div
     role="status"
     aria-busy="true"
-    aria-label="Loading product details"
+    aria-label={loadingText}
     className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-12 pb-20 lg:pb-16 space-y-14"
   >
-    <span className="sr-only">Loading product details...</span>
+    <span className="sr-only">{loadingText}...</span>
 
     {/* Breadcrumb Skeleton */}
     <div aria-hidden="true" className="flex items-center gap-2">
@@ -133,7 +140,7 @@ export const ProductDetailSkeleton: React.FC = () => (
         </div>
       </div>
 
-      <div className="lg:col-span-5 lg:sticky lg:top-28 space-y-6 p-5 sm:p-7 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]">
+      <div className="lg:col-span-5 lg:sticky lg:top-28 space-y-6 p-5 sm:p-7 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)]">
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
             <SkeletonLoader className="h-3.5 w-28" />
@@ -147,7 +154,7 @@ export const ProductDetailSkeleton: React.FC = () => (
           </div>
         </div>
 
-        <div className="flex items-baseline gap-3 pb-4 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+        <div className="flex items-baseline gap-3 pb-4 border-b border-[var(--ks-border)]">
           <SkeletonLoader className="h-8 w-28" />
           <SkeletonLoader className="h-5 w-16" />
         </div>
@@ -188,7 +195,7 @@ export const ProductDetailSkeleton: React.FC = () => (
           </div>
         </div>
 
-        <div className="pt-4 border-t border-[#E5E3DD] dark:border-[#2C2C28] space-y-2.5">
+        <div className="pt-4 border-t border-[var(--ks-border)] space-y-2.5">
           <SkeletonLoader className="h-4 w-4/5" />
           <SkeletonLoader className="h-4 w-3/5" />
           <SkeletonLoader className="h-4 w-2/3" />
@@ -199,9 +206,9 @@ export const ProductDetailSkeleton: React.FC = () => (
     {/* Tabs & Specifications Skeleton */}
     <section
       aria-hidden="true"
-      className="pt-8 border-t border-[#E5E3DD] dark:border-[#2C2C28] space-y-8"
+      className="pt-8 border-t border-[var(--ks-border)] space-y-8"
     >
-      <div className="flex items-center gap-6 pb-3.5 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+      <div className="flex items-center gap-6 pb-3.5 border-b border-[var(--ks-border)]">
         <SkeletonLoader className="h-5 w-36" />
         <SkeletonLoader className="h-5 w-24" />
         <SkeletonLoader className="h-5 w-20" />
@@ -220,7 +227,8 @@ export const ProductDetailSkeleton: React.FC = () => (
       </div>
     </section>
   </div>
-);
+  );
+};
 
 interface RouteSkeletonShellProps {
   label: string;
@@ -278,7 +286,7 @@ const HomeRouteSkeleton: React.FC = () => (
             <SkeletonLoader className="h-11 w-36 rounded-md" />
           </div>
         </div>
-        <div className="pt-4 border-t border-[#E5E3DD] dark:border-[#2C2C28] flex items-center justify-between gap-3">
+        <div className="pt-4 border-t border-[var(--ks-border)] flex items-center justify-between gap-3">
           <SkeletonLoader className="h-3.5 w-60" />
           <SkeletonLoader className="h-3.5 w-24" />
         </div>
@@ -290,7 +298,7 @@ const HomeRouteSkeleton: React.FC = () => (
     </div>
 
     {/* Guarantees Strip Skeleton */}
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 py-4 px-5 sm:px-6 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 py-4 px-5 sm:px-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)]">
       {Array.from({ length: 4 }).map((_, idx) => (
         <div key={idx} className="space-y-2 py-0.5">
           <SkeletonLoader className="h-4 w-40" />
@@ -304,7 +312,7 @@ const HomeRouteSkeleton: React.FC = () => (
       {Array.from({ length: 5 }).map((_, idx) => (
         <div
           key={idx}
-          className="rounded-lg overflow-hidden bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]"
+          className="rounded-lg overflow-hidden bg-[var(--ks-surface)] border border-[var(--ks-border)]"
         >
           <SkeletonLoader className="w-full aspect-[4/3] rounded-none" />
           <div className="p-3.5 sm:p-4 space-y-2">
@@ -326,7 +334,7 @@ const ShopRouteSkeleton: React.FC = () => (
     </div>
 
     {/* Collection Banner Split */}
-    <div className="grid grid-cols-1 lg:grid-cols-12 rounded-lg overflow-hidden bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28]">
+    <div className="grid grid-cols-1 lg:grid-cols-12 rounded-lg overflow-hidden bg-[var(--ks-surface)] border border-[var(--ks-border)]">
       <div className="lg:col-span-7 p-6 sm:p-8 space-y-4">
         <SkeletonLoader className="h-3 w-28" />
         <SkeletonLoader className="h-9 sm:h-11 w-2/3" />
@@ -364,7 +372,7 @@ const WorkspaceRouteSkeleton: React.FC = () => (
       <SkeletonLoader className="h-3.5 w-28" />
     </div>
 
-    <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+    <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-[var(--ks-border)]">
       <div className="space-y-2.5">
         <SkeletonLoader className="h-3 w-32" />
         <SkeletonLoader className="h-9 sm:h-11 w-64" />
@@ -373,14 +381,14 @@ const WorkspaceRouteSkeleton: React.FC = () => (
     </div>
 
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
-      <div className="lg:col-span-4 p-5 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-3">
+      <div className="lg:col-span-4 p-5 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-3">
         <SkeletonLoader className="h-5 w-36" />
         <SkeletonLoader className="h-10 w-full rounded-md" />
         <SkeletonLoader className="h-10 w-full rounded-md" />
         <SkeletonLoader className="h-10 w-full rounded-md" />
       </div>
 
-      <div className="lg:col-span-8 p-5 sm:p-8 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-5">
+      <div className="lg:col-span-8 p-5 sm:p-8 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-5">
         <SkeletonLoader className="h-6 w-48" />
         <div className="space-y-3">
           <SkeletonLoader className="h-20 w-full rounded-md" />
@@ -399,7 +407,7 @@ const EditorialRouteSkeleton: React.FC = () => (
       <SkeletonLoader className="h-3.5 w-28" />
     </div>
 
-    <div className="max-w-2xl space-y-3 pb-6 border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+    <div className="max-w-2xl space-y-3 pb-6 border-b border-[var(--ks-border)]">
       <SkeletonLoader className="h-3 w-28" />
       <SkeletonLoader className="h-9 sm:h-11 w-3/4" />
       <SkeletonLoader className="h-4 w-full" />
@@ -410,7 +418,7 @@ const EditorialRouteSkeleton: React.FC = () => (
       {Array.from({ length: 3 }).map((_, idx) => (
         <div
           key={idx}
-          className="p-6 rounded-lg bg-[#FFFFFF] dark:bg-[#191917] border border-[#E5E3DD] dark:border-[#2C2C28] space-y-4"
+          className="p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-4"
         >
           <SkeletonLoader className="h-3 w-24" />
           <SkeletonLoader className="h-6 w-3/4" />
@@ -423,10 +431,11 @@ const EditorialRouteSkeleton: React.FC = () => (
 );
 
 export const RouteSuspenseFallback: React.FC<{ routeName: string }> = ({ routeName }) => {
+  const { language } = useStore();
   switch (routeName) {
     case 'home':
       return (
-        <RouteSkeletonShell label="Loading storefront">
+        <RouteSkeletonShell label={t(language, 'loadingStorefront')}>
           <HomeRouteSkeleton />
         </RouteSkeletonShell>
       );
@@ -435,13 +444,13 @@ export const RouteSuspenseFallback: React.FC<{ routeName: string }> = ({ routeNa
     case 'search':
     case 'offers':
       return (
-        <RouteSkeletonShell label="Loading catalog">
+        <RouteSkeletonShell label={t(language, 'loadingCatalog')}>
           <ShopRouteSkeleton />
         </RouteSkeletonShell>
       );
     case 'product':
       return (
-        <RouteSkeletonShell label="Loading product details">
+        <RouteSkeletonShell label={t(language, 'loadingProductDetails')}>
           <ProductDetailSkeleton />
         </RouteSkeletonShell>
       );
@@ -453,13 +462,13 @@ export const RouteSuspenseFallback: React.FC<{ routeName: string }> = ({ routeNa
     case 'admin':
     case 'track-order':
       return (
-        <RouteSkeletonShell label="Loading workspace">
+        <RouteSkeletonShell label={t(language, 'loadingWorkspace')}>
           <WorkspaceRouteSkeleton />
         </RouteSkeletonShell>
       );
     default:
       return (
-        <RouteSkeletonShell label="Loading page">
+        <RouteSkeletonShell label={t(language, 'loadingPage')}>
           <EditorialRouteSkeleton />
         </RouteSkeletonShell>
       );

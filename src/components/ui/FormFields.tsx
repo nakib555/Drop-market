@@ -42,7 +42,7 @@ export const Input: React.FC<InputProps> = ({
         required={required}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? errorId : helperText ? helperId : undefined}
-        className={`w-full min-h-[42px] px-3.5 py-2.5 text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)] border transition-colors ${
+        className={`w-full min-h-[44px] px-3.5 py-2.5 text-base sm:text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)] border scroll-mt-24 scroll-mb-36 transition-colors ${
           error
             ? 'border-[var(--ks-error)]'
             : 'border-[var(--ks-border-strong)] focus:border-[var(--ks-action)]'
@@ -56,7 +56,7 @@ export const Input: React.FC<InputProps> = ({
         </p>
       )}
       {!error && helperText && (
-        <p id={helperId} className="text-xs text-[var(--ks-text-secondary)]">
+        <p id={helperId} className="text-xs leading-relaxed text-[var(--ks-text-secondary)]">
           {helperText}
         </p>
       )}
@@ -101,7 +101,7 @@ export const Select: React.FC<SelectProps> = ({
         required={required}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? errorId : helperText ? helperId : undefined}
-        className={`w-full min-h-[42px] px-3.5 py-2 text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border transition-colors ${
+        className={`w-full min-h-[44px] px-3.5 py-2 text-base sm:text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border scroll-mt-24 scroll-mb-36 transition-colors ${
           error
             ? 'border-[var(--ks-error)]'
             : 'border-[var(--ks-border-strong)] focus:border-[var(--ks-action)]'
@@ -121,7 +121,7 @@ export const Select: React.FC<SelectProps> = ({
         </p>
       )}
       {!error && helperText && (
-        <p id={helperId} className="text-xs text-[var(--ks-text-secondary)]">
+        <p id={helperId} className="text-xs leading-relaxed text-[var(--ks-text-secondary)]">
           {helperText}
         </p>
       )}
@@ -163,7 +163,7 @@ export const Textarea: React.FC<TextareaProps> = ({
         required={required}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? errorId : helperText ? helperId : undefined}
-        className={`w-full px-3.5 py-2.5 text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)] border transition-colors ${
+        className={`w-full px-3.5 py-2.5 text-base sm:text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)] border scroll-mt-24 scroll-mb-36 transition-colors ${
           error
             ? 'border-[var(--ks-error)]'
             : 'border-[var(--ks-border-strong)] focus:border-[var(--ks-action)]'
@@ -177,7 +177,7 @@ export const Textarea: React.FC<TextareaProps> = ({
         </p>
       )}
       {!error && helperText && (
-        <p id={helperId} className="text-xs text-[var(--ks-text-secondary)]">
+        <p id={helperId} className="text-xs leading-relaxed text-[var(--ks-text-secondary)]">
           {helperText}
         </p>
       )}
@@ -200,8 +200,8 @@ export const Checkbox: React.FC<CheckboxProps> = ({
 }) => {
   const id = useId();
   return (
-    <label htmlFor={id} className="flex items-start gap-3 cursor-pointer select-none group min-h-[36px] py-1">
-      <span className="relative flex items-center justify-center w-4 h-4 mt-[3px] shrink-0">
+    <label htmlFor={id} className="flex items-start gap-3 cursor-pointer select-none group min-h-[44px] py-2">
+      <span className="relative flex items-center justify-center w-5 h-5 mt-0.5 shrink-0">
         <input
           id={id}
           type="checkbox"
@@ -210,7 +210,7 @@ export const Checkbox: React.FC<CheckboxProps> = ({
           className="peer sr-only"
         />
         <span
-          className={`w-4 h-4 rounded-[4px] border flex items-center justify-center transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--ks-accent)] peer-focus-visible:ring-offset-2 ${
+          className={`w-4.5 h-4.5 rounded-[4px] border flex items-center justify-center transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--ks-accent)] peer-focus-visible:ring-offset-2 ${
             checked
               ? 'bg-[var(--ks-action)] border-[var(--ks-action)] text-[var(--ks-action-text)]'
               : 'bg-[var(--ks-surface)] border-[var(--ks-border-strong)] group-hover:border-[var(--ks-action)]'
@@ -222,7 +222,7 @@ export const Checkbox: React.FC<CheckboxProps> = ({
       <span className="flex flex-col">
         <span className="text-sm text-[var(--ks-text-primary)] leading-snug">{label}</span>
         {description && (
-          <span className="text-xs text-[var(--ks-text-secondary)] mt-0.5">{description}</span>
+          <span className="text-xs text-[var(--ks-text-secondary)] mt-0.5 leading-relaxed">{description}</span>
         )}
       </span>
     </label>

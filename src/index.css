@@ -26,8 +26,8 @@
   --ks-info: #1D4ED8;
 
   /* Typography & Layout Tokens */
-  --ks-font-display: 'Cormorant Garamond', 'Noto Sans Bengali', Georgia, serif;
-  --ks-font-sans: 'Plus Jakarta Sans', 'Noto Sans Bengali', -apple-system, BlinkMacSystemFont, sans-serif;
+  --ks-font-display: 'Cormorant Garamond', 'Noto Sans Bengali', 'Noto Sans Arabic', 'Noto Sans Devanagari', Georgia, serif;
+  --ks-font-sans: 'Plus Jakarta Sans', 'Noto Sans Bengali', 'Noto Sans Arabic', 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, sans-serif;
   --ks-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
   --ks-container-max: 1440px;
 
@@ -102,9 +102,17 @@
     background-color: var(--ks-bg);
     color: var(--ks-text-primary);
     scroll-behavior: smooth;
+    scroll-padding-top: 5.25rem;
     overflow-x: clip;
     -webkit-tap-highlight-color: transparent;
     --sab: env(safe-area-inset-bottom, 0px);
+  }
+
+  input,
+  select,
+  textarea {
+    scroll-margin-top: 5.5rem;
+    scroll-margin-bottom: 10rem;
   }
 
   @media all and (display-mode: standalone) {
@@ -224,6 +232,10 @@
     border: 1px solid var(--ks-border);
     border-radius: var(--ks-radius-lg);
   }
+
+  .ks-reading-measure {
+    max-width: 68ch;
+  }
 }
 
 @keyframes kinto-gradient-shimmer {
@@ -292,5 +304,43 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+@media print {
+  @page {
+    margin: 1.5cm;
+  }
+
+  html,
+  body,
+  main {
+    background: #ffffff !important;
+    color: #171716 !important;
+  }
+
+  header,
+  footer,
+  .ks-announcement-bar,
+  .ks-print-hide,
+  [role="region"],
+  [aria-live="polite"],
+  [aria-label="Scroll back to top"] {
+    display: none !important;
+  }
+
+  .ks-reading-measure {
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+
+  table,
+  tr {
+    break-inside: avoid;
   }
 }

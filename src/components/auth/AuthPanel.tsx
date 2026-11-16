@@ -14,6 +14,7 @@ import { useStore } from '../../context/StoreContext';
 import { buildPolicyAcceptance } from '../../data/legalPolicies';
 import { confirmPasswordResetApi, requestPasswordResetApi } from '../../services/api';
 import { AccountDirectoryEntry } from '../../types/commerce';
+import { t } from '../../utils/i18n';
 import { STUDIO_TRANSITION } from '../../utils/motion';
 import { isValidContactPhone } from '../../utils/validation';
 import { Button } from '../ui/Button';
@@ -47,7 +48,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
   onSuccess,
   onOpenFullPage,
 }) => {
-  const { signIn, registerAccount, navigate, openPolicyPreview, showToast } = useStore();
+  const { signIn, registerAccount, navigate, openPolicyPreview, showToast, language } = useStore();
 
   const [authMode, setAuthMode] = useState<'signin' | 'register' | 'recover'>(initialTab);
   const [loginEmail, setLoginEmail] = useState('');
@@ -108,11 +109,11 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
 
     const trimmedEmail = loginEmail.trim();
     if (!trimmedEmail || !EMAIL_PATTERN.test(trimmedEmail)) {
-      setFormError('Enter your registered email address.');
+      setFormError(t(language, 'errEnterValidEmail'));
       return;
     }
     if (!loginPassword) {
-      setFormError('Enter your account password.');
+      setFormError(t(language, 'errEnterPassword'));
       return;
     }
 
@@ -122,7 +123,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
     if (user) {
       routeForUser(user);
     } else {
-      setFormError('Invalid email or password. Check your credentials and try again.');
+      setFormError(t(language, 'errInvalidCreds'));
     }
   };
 
@@ -133,7 +134,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
     setRecoverPreviewCode('');
     const clean = recoverEmail.trim();
     if (!clean || !EMAIL_PATTERN.test(clean)) {
-      setFormError('Enter your registered email address.');
+      setFormError(t(language, 'errEnterValidEmail'));
       return;
     }
     setSubmitting(true);
@@ -145,7 +146,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
       }
       setRecoverStep('confirm');
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Unable to start password recovery.');
+      setFormError(err instanceof Error ? err.message : t(language, 'errRecoveryStart'));
     } finally {
       setSubmitting(false);
     }
@@ -155,11 +156,11 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
     e.preventDefault();
     setFormError('');
     if (!recoverCode.trim()) {
-      setFormError('Enter the 6-digit verification code.');
+      setFormError(t(language, 'errEnterCode'));
       return;
     }
     if (recoverNewPassword.trim().length < 6) {
-      setFormError('New password must be at least 6 characters long.');
+      setFormError(t(language, 'errPasswordMin6'));
       return;
     }
     setSubmitting(true);
@@ -169,7 +170,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
         code: recoverCode.trim(),
         newPassword: recoverNewPassword.trim(),
       });
-      showToast('Password updated', res.message, 'success');
+      showToast(t(language, 'updatePasswordBtn'), res.message, 'success');
       setAuthMode('signin');
       setLoginEmail(recoverEmail.trim());
       setLoginPassword('');
@@ -179,7 +180,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
       setRecoverPreviewCode('');
       setRecoverStatusMsg('');
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Unable to reset password.');
+      setFormError(err instanceof Error ? err.message : t(language, 'errResetFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -196,40 +197,49 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
     const trimmedPhone = regPhone.trim();
 
     if (!trimmedName) {
-      errors.fullName = 'Enter your full name.';
+      errors.fullName = t(language, 'errFullNameRequired');
     }
     if (regRole === 'seller' && !trimmedStudio) {
-      errors.studioName = 'Enter a studio or store name for your Seller account.';
+      errors.studioName = t(language, 'errStudioNameRequired');
     }
     if (!trimmedEmail || !EMAIL_PATTERN.test(trimmedEmail)) {
-      errors.email = 'Enter a valid email address (for example, name@domain.com).';
+      errors.email = t(language, 'errEmailExample');
     }
     if (trimmedPhone && !isValidContactPhone(trimmedPhone, 'Bangladesh')) {
-      errors.phone = 'Enter a valid Bangladesh mobile number (e.g. +880 1711-000100 or 01711000100).';
+      errors.phone = t(language, 'errBdPhoneFormat');
     }
     if (regPassword.length < 6) {
-      errors.password = 'Password must be at least 6 characters long.';
+      errors.password = t(language, 'errPasswordMin6');
     }
     if (!regAccepted) {
       errors.policy =
         regRole === 'seller'
-          ? 'Accept the Terms & Conditions, Privacy Policy, Seller Marketplace Agreement, and Prohibited Items Policy.'
-          : 'Accept the Terms & Conditions, Privacy Policy, and Acceptable Use Policy.';
+          ? t(language, 'errPolicySeller')
+          : t(language, 'errPolicyCustomer');
     }
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       const detailList = Object.values(errors).filter((v): v is string => Boolean(v));
       const onlyPolicyMissing = Boolean(errors.policy) && detailList.length === 1;
-      setRegError({
-        category: onlyPolicyMissing ? 'policy' : 'validation',
-        title: onlyPolicyMissing
-          ? 'Policy consent required'
-          : 'Please review the highlighted fields',
-        message: onlyPolicyMissing
-          ? 'You must confirm the marketplace legal agreements before creating an account.'
-          : 'Some required registration details are missing or need correction:',
-        details: detailList,
+      if (onlyPolicyMissing) {
+        setRegError({
+          category: 'policy',
+          title: t(language, 'errPolicyMissingTitle'),
+          message: t(language, 'errPolicyMissingMsg'),
+          details: detailList,
+        });
+      } else {
+        setRegError(null);
+      }
+      window.requestAnimationFrame(() => {
+        const firstInvalid = document.querySelector<HTMLElement>(
+          'form [aria-invalid="true"]'
+        );
+        if (firstInvalid) {
+          firstInvalid.focus({ preventScroll: true });
+          firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
       });
       return;
     }
@@ -258,33 +268,33 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
       return;
     }
 
-    const errMsg = result.error?.message || 'Unable to register your account right now.';
+    const errMsg = result.error?.message || t(language, 'errResetFailed');
     const status = result.error?.status;
 
     if (status === 409 || /already exists/i.test(errMsg)) {
-      setFieldErrors({ email: 'An account with this email already exists.' });
+      setFieldErrors({ email: t(language, 'errDuplicateTitle') });
       setRegError({
         category: 'duplicate_email',
-        title: 'Email address already registered',
-        message: `There is already a Kinto Studio account using ${trimmedEmail}. Sign in to that account instead, or use a different email address.`,
+        title: t(language, 'errDuplicateTitle'),
+        message: t(language, 'errDuplicateMsg', { email: trimmedEmail }),
         email: trimmedEmail,
       });
     } else if (status === 400) {
       setRegError({
         category: 'validation',
-        title: 'Registration details could not be verified',
+        title: t(language, 'errEmailExample'),
         message: errMsg,
       });
     } else if (status === 0 || /network|fetch|reach/i.test(errMsg)) {
       setRegError({
         category: 'network',
-        title: 'Connection interrupted',
-        message: 'We could not reach the registration service. Check your connection and try again.',
+        title: t(language, 'errNetworkTitle'),
+        message: t(language, 'errNetworkMsg'),
       });
     } else {
       setRegError({
         category: 'server',
-        title: 'Registration could not be completed',
+        title: t(language, 'errResetFailed'),
         message: errMsg,
       });
     }
@@ -305,8 +315,8 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
             <div className="flex items-center gap-6">
               {(
                 [
-                  { id: 'signin', label: 'Sign In' },
-                  { id: 'register', label: 'Create Account' },
+                  { id: 'signin', label: t(language, 'signIn') },
+                  { id: 'register', label: t(language, 'createAccount') },
                 ] as const
               ).map((tab) => {
                 const active = authMode === tab.id;
@@ -320,7 +330,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                       setRegError(null);
                       setFieldErrors({});
                     }}
-                    className={`relative pb-3 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                    className={`relative min-h-[44px] pb-3 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
                       active
                         ? 'text-[var(--ks-text-primary)]'
                         : 'text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)]'
@@ -331,7 +341,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                       <motion.span
                         layoutId={compact ? 'auth-modal-tab-bar' : 'auth-page-tab-bar'}
                         transition={STUDIO_TRANSITION.springTab}
-                        className="absolute left-0 right-0 -bottom-px h-0.5 bg-[var(--ks-text-primary)]"
+                        className="absolute inset-x-0 -bottom-px h-0.5 bg-[var(--ks-text-primary)]"
                       />
                     )}
                   </button>
@@ -343,9 +353,10 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
               <button
                 type="button"
                 onClick={onOpenFullPage}
-                className="pb-3 text-xs text-[var(--ks-accent)] hover:underline cursor-pointer whitespace-nowrap"
+                className="min-h-[44px] inline-flex items-center gap-1 pb-2 text-xs text-[var(--ks-accent)] hover:underline cursor-pointer whitespace-nowrap"
               >
-                Full page view →
+                <span>{t(language, 'fullPageView')}</span>
+                <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
               </button>
             )}
           </div>
@@ -354,18 +365,20 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
             <form onSubmit={handleSignInSubmit} noValidate className="space-y-4">
               <div className="space-y-1">
                 <h2 className="font-display text-2xl sm:text-3xl font-medium">
-                  Sign In to Kinto Studio
+                  {t(language, 'signInTitle')}
                 </h2>
                 <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
-                  Enter your registered email address and password to access your orders, saved addresses, or partner portal.
+                  {t(language, 'signInSubtitle')}
                 </p>
               </div>
 
               <Input
-                label="Email Address"
+                label={t(language, 'emailLabel')}
                 type="email"
                 required
                 autoComplete="email"
+                inputMode="email"
+                enterKeyHint="next"
                 value={loginEmail}
                 onChange={(e) => {
                   setLoginEmail(e.target.value);
@@ -376,23 +389,24 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
 
               <div className="relative">
                 <Input
-                  label="Password"
+                  label={t(language, 'passwordLabel')}
                   type={showLoginPassword ? 'text' : 'password'}
                   required
                   autoComplete="current-password"
+                  enterKeyHint="go"
                   value={loginPassword}
                   onChange={(e) => {
                     setLoginPassword(e.target.value);
                     if (formError) setFormError('');
                   }}
-                  placeholder="Enter your password"
-                  className="pr-10"
+                  placeholder={t(language, 'enterPasswordPlaceholder')}
+                  className="pe-11"
                 />
                 <button
                   type="button"
                   onClick={() => setShowLoginPassword((p) => !p)}
-                  aria-label={showLoginPassword ? 'Hide password' : 'Show password'}
-                  className="absolute right-2.5 top-[29px] w-7 h-7 rounded flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                  aria-label={showLoginPassword ? t(language, 'hidePassword') : t(language, 'showPassword')}
+                  className="absolute end-1.5 top-[25px] w-10 h-10 rounded flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer"
                 >
                   {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -415,15 +429,15 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                     setRecoverStatusMsg('');
                     setFormError('');
                   }}
-                  className="text-xs text-[var(--ks-accent)] hover:underline cursor-pointer"
+                  className="min-h-[44px] inline-flex items-center px-1 text-xs text-[var(--ks-accent)] hover:underline cursor-pointer"
                 >
-                  Forgot password?
+                  {t(language, 'forgotPassword')}
                 </button>
               </div>
 
               <Button type="submit" variant="primary" size="lg" fullWidth disabled={submitting}>
-                <span>{submitting ? 'Signing In...' : 'Sign In'}</span>
-                <ArrowRight className="w-4 h-4" />
+                <span>{submitting ? t(language, 'signingIn') : t(language, 'signIn')}</span>
+                <ArrowRight className="w-4 h-4 rtl:rotate-180" />
               </Button>
             </form>
           ) : authMode === 'recover' ? (
@@ -431,15 +445,15 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
               <form onSubmit={handleRequestRecoveryCode} noValidate className="space-y-4">
                 <div className="space-y-1">
                   <h2 className="font-display text-2xl sm:text-3xl font-medium">
-                    Recover Account Password
+                    {t(language, 'recoverTitle')}
                   </h2>
                   <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
-                    Enter the email address associated with your Kinto Studio account to receive a 15-minute verification code.
+                    {t(language, 'recoverDesc')}
                   </p>
                 </div>
 
                 <Input
-                  label="Registered Email Address"
+                  label={t(language, 'registeredEmailLabel')}
                   type="email"
                   required
                   autoComplete="email"
@@ -459,8 +473,8 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
 
                 <div className="flex flex-wrap items-center gap-3">
                   <Button type="submit" variant="primary" size="lg" disabled={submitting}>
-                    <span>{submitting ? 'Requesting Code...' : 'Send Recovery Code'}</span>
-                    <ArrowRight className="w-4 h-4" />
+                    <span>{submitting ? t(language, 'requestingCode') : t(language, 'sendRecoveryCode')}</span>
+                    <ArrowRight className="w-4 h-4 rtl:rotate-180" />
                   </Button>
                   <button
                     type="button"
@@ -468,9 +482,9 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                       setAuthMode('signin');
                       setFormError('');
                     }}
-                    className="text-xs text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] underline cursor-pointer"
+                    className="min-h-[44px] inline-flex items-center px-2 text-xs text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] underline cursor-pointer"
                   >
-                    Back to Sign In
+                    {t(language, 'backToSignIn')}
                   </button>
                 </div>
               </form>
@@ -478,7 +492,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
               <form onSubmit={handleConfirmPasswordReset} noValidate className="space-y-4">
                 <div className="space-y-1">
                   <h2 className="font-display text-2xl sm:text-3xl font-medium">
-                    Enter Verification Code
+                    {t(language, 'enterCodeTitle')}
                   </h2>
                   {recoverStatusMsg && (
                     <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
@@ -490,7 +504,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                 {recoverPreviewCode && (
                   <div className="p-3 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border-strong)] text-xs space-y-1">
                     <p className="font-medium text-[var(--ks-text-primary)]">
-                      In-App Verification Code (SMTP Unconfigured)
+                      {t(language, 'inAppCodeLabel')}
                     </p>
                     <p className="font-mono-num text-base tracking-widest text-[var(--ks-accent)]">
                       {recoverPreviewCode}
@@ -499,7 +513,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                 )}
 
                 <Input
-                  label="6-Digit Verification Code"
+                  label={t(language, 'verificationCodeLabel')}
                   required
                   value={recoverCode}
                   onChange={(e) => {
@@ -511,7 +525,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
 
                 <div className="relative">
                   <Input
-                    label="New Password"
+                    label={t(language, 'newPasswordLabel')}
                     type={showRecoverPassword ? 'text' : 'password'}
                     required
                     autoComplete="new-password"
@@ -520,14 +534,14 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                       setRecoverNewPassword(e.target.value);
                       if (formError) setFormError('');
                     }}
-                    placeholder="At least 6 characters"
-                    className="pr-10"
+                    placeholder={t(language, 'atLeast6CharsPlaceholder')}
+                    className="pe-11"
                   />
                   <button
                     type="button"
                     onClick={() => setShowRecoverPassword((p) => !p)}
-                    aria-label={showRecoverPassword ? 'Hide password' : 'Show password'}
-                    className="absolute right-2.5 top-[29px] w-7 h-7 rounded flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                    aria-label={showRecoverPassword ? t(language, 'hidePassword') : t(language, 'showPassword')}
+                    className="absolute end-1.5 top-[25px] w-10 h-10 rounded flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
                     {showRecoverPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -541,8 +555,8 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
 
                 <div className="flex flex-wrap items-center gap-3">
                   <Button type="submit" variant="primary" size="lg" disabled={submitting}>
-                    <span>{submitting ? 'Updating Password...' : 'Reset Password'}</span>
-                    <ArrowRight className="w-4 h-4" />
+                    <span>{submitting ? t(language, 'updatingPassword') : t(language, 'resetPasswordBtn')}</span>
+                    <ArrowRight className="w-4 h-4 rtl:rotate-180" />
                   </Button>
                   <button
                     type="button"
@@ -550,9 +564,9 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                       setRecoverStep('request');
                       setFormError('');
                     }}
-                    className="text-xs text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] underline cursor-pointer"
+                    className="min-h-[44px] inline-flex items-center px-2 text-xs text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] underline cursor-pointer"
                   >
-                    Request New Code
+                    {t(language, 'requestNewCode')}
                   </button>
                 </div>
               </form>
@@ -561,44 +575,54 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
             <form onSubmit={handleRegisterSubmit} noValidate className="space-y-4">
               <div className="space-y-1">
                 <h2 className="font-display text-2xl sm:text-3xl font-medium">
-                  Create Marketplace Account
+                  {t(language, 'createAccountTitle')}
                 </h2>
                 <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
-                  Register as a Customer or apply as a partner Seller Studio on Kinto Studio Bangladesh.
+                  {t(language, 'createAccountSubtitle')}
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                {(
-                  [
-                    { id: 'customer', label: 'Customer Account' },
-                    { id: 'seller', label: 'Seller Studio' },
-                  ] as const
-                ).map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => {
-                      setRegRole(opt.id);
-                      if (opt.id === 'customer') {
-                        clearFieldError('studioName');
-                      }
-                      if (regError) setRegError(null);
-                    }}
-                    className={`py-2 px-3 rounded-[var(--ks-radius-md)] border text-xs font-medium cursor-pointer transition-colors whitespace-nowrap ${
-                      regRole === opt.id
-                        ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)]'
-                        : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:border-[var(--ks-border-strong)] hover:text-[var(--ks-text-primary)]'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      { id: 'customer', label: t(language, 'customerAccountOption') },
+                      { id: 'seller', label: t(language, 'sellerStudioOption') },
+                    ] as const
+                  ).map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      aria-pressed={regRole === opt.id}
+                      onClick={() => {
+                        setRegRole(opt.id);
+                        if (opt.id === 'customer') {
+                          clearFieldError('studioName');
+                        }
+                        if (regError) setRegError(null);
+                      }}
+                      className={`min-h-[44px] py-2 px-3 rounded-[var(--ks-radius-md)] border text-xs font-medium cursor-pointer transition-colors whitespace-nowrap ${
+                        regRole === opt.id
+                          ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)]'
+                          : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:border-[var(--ks-border-strong)] hover:text-[var(--ks-text-primary)]'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed px-0.5">
+                  {regRole === 'seller'
+                    ? t(language, 'sellerRoleDesc')
+                    : t(language, 'customerRoleDesc')}
+                </p>
               </div>
 
               <Input
-                label="Full Name"
+                label={t(language, 'fullNameLabel')}
                 required
+                autoComplete="name"
+                enterKeyHint="next"
                 value={regName}
                 onChange={(e) => {
                   setRegName(e.target.value);
@@ -610,8 +634,10 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
 
               {regRole === 'seller' && (
                 <Input
-                  label="Studio / Brand Name"
+                  label={t(language, 'studioBrandLabel')}
                   required
+                  autoComplete="organization"
+                  enterKeyHint="next"
                   value={regStudioName}
                   onChange={(e) => {
                     setRegStudioName(e.target.value);
@@ -623,9 +649,12 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
               )}
 
               <Input
-                label="Email Address"
+                label={t(language, 'emailLabel')}
                 type="email"
                 required
+                autoComplete="email"
+                inputMode="email"
+                enterKeyHint="next"
                 value={regEmail}
                 onChange={(e) => {
                   setRegEmail(e.target.value);
@@ -635,9 +664,13 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                 placeholder="name@example.com"
               />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <Input
-                  label="Bangladesh Mobile"
+                  label={t(language, 'bdMobileLabel')}
+                  type="tel"
+                  autoComplete="tel"
+                  inputMode="tel"
+                  enterKeyHint="next"
                   value={regPhone}
                   onChange={(e) => {
                     setRegPhone(e.target.value);
@@ -648,23 +681,25 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                 />
                 <div className="relative">
                   <Input
-                    label="Password"
+                    label={t(language, 'passwordLabel')}
                     type={showRegPassword ? 'text' : 'password'}
                     required
+                    autoComplete="new-password"
+                    enterKeyHint="done"
                     value={regPassword}
                     onChange={(e) => {
                       setRegPassword(e.target.value);
                       clearFieldError('password');
                     }}
                     error={fieldErrors.password}
-                    placeholder="6+ characters"
-                    className="pr-10"
+                    placeholder={t(language, 'atLeast6CharsPlaceholder')}
+                    className="pe-11"
                   />
                   <button
                     type="button"
                     onClick={() => setShowRegPassword((p) => !p)}
-                    aria-label={showRegPassword ? 'Hide password' : 'Show password'}
-                    className="absolute right-2.5 top-[29px] w-7 h-7 rounded flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                    aria-label={showRegPassword ? t(language, 'hidePassword') : t(language, 'showPassword')}
+                    className="absolute end-1.5 top-[25px] w-10 h-10 rounded flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
                     {showRegPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -690,13 +725,13 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                     className="mt-0.5 w-4 h-4 shrink-0 accent-[var(--ks-action)] cursor-pointer"
                   />
                   <span>
-                    I confirm I am 18+ and agree to Kinto Studio&apos;s{' '}
+                    {t(language, 'agePolicyConfirmPrefix')}{' '}
                     <button
                       type="button"
                       onClick={() => openPolicyPreview('terms')}
                       className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                     >
-                      Terms &amp; Conditions
+                      {t(language, 'termsConditions')}
                     </button>
                     ,{' '}
                     <button
@@ -704,42 +739,42 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                       onClick={() => openPolicyPreview('privacy-policy')}
                       className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                     >
-                      Privacy Policy
+                      {t(language, 'privacyPolicy')}
                     </button>
-                    , and{' '}
+                    ,{' '}
                     <button
                       type="button"
                       onClick={() => openPolicyPreview('acceptable-use')}
                       className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                     >
-                      Acceptable Use Policy
+                      {t(language, 'acceptableUseTitle')}
                     </button>
                     {regRole === 'seller' && (
                       <>
                         {' '}
-                        plus the{' '}
+                        {t(language, 'sellerAgreementPlus')}{' '}
                         <button
                           type="button"
                           onClick={() => openPolicyPreview('seller-agreement')}
                           className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                         >
-                          Seller Marketplace Agreement
+                          {t(language, 'sellerAgreementTitle')}
                         </button>{' '}
-                        and{' '}
+                        &amp;{' '}
                         <button
                           type="button"
                           onClick={() => openPolicyPreview('prohibited-items')}
                           className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                         >
-                          Prohibited Items Policy
+                          {t(language, 'prohibitedItemsTitle')}
                         </button>
                       </>
                     )}
-                    {' '}(governed by Bangladesh law &amp; Dhaka courts).
+                    {' '}{t(language, 'governedByBdLaw')}
                   </span>
                 </label>
                 {fieldErrors.policy && (
-                  <p className="text-xs leading-snug text-[var(--ks-error)] flex items-start gap-1.5 pl-6">
+                  <p className="text-xs leading-snug text-[var(--ks-error)] flex items-start gap-1.5 ps-6">
                     <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-[2px]" aria-hidden="true" />
                     <span>{fieldErrors.policy}</span>
                   </p>
@@ -762,8 +797,8 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
               />
 
               <Button type="submit" variant="primary" size="lg" fullWidth disabled={submitting}>
-                <span>{submitting ? 'Creating Account...' : 'Create Account'}</span>
-                <ArrowRight className="w-4 h-4" />
+                <span>{submitting ? t(language, 'creatingAccount') : t(language, 'createAccount')}</span>
+                <ArrowRight className="w-4 h-4 rtl:rotate-180" />
               </Button>
             </form>
           )}
@@ -774,12 +809,12 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
       <div className="lg:col-span-5 p-6 sm:p-8 rounded-[var(--ks-radius-lg)] bg-[var(--ks-bg-secondary)] border border-[var(--ks-border)] flex flex-col justify-between space-y-6">
         <div className="space-y-5">
           <div className="space-y-1.5">
-            <p className="ks-eyebrow text-[var(--ks-accent)]">Bangladesh Marketplace Access</p>
+            <p className="ks-eyebrow text-[var(--ks-accent)]">{t(language, 'accessEyebrow')}</p>
             <h3 className="font-display text-2xl font-medium">
-              Unified Account Security
+              {t(language, 'accessTitle')}
             </h3>
             <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
-              Manage orders, courier tracking, saved Bangladesh delivery addresses, tokenized payments, and verified seller tools from one authenticated account.
+              {t(language, 'accessDesc')}
             </p>
           </div>
 
@@ -787,9 +822,9 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
             <div className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)] flex items-start gap-3">
               <Lock className="w-4 h-4 text-[var(--ks-accent)] shrink-0 mt-0.5" />
               <div className="space-y-0.5">
-                <p className="text-xs font-semibold">Protected Session Controls</p>
+                <p className="text-xs font-semibold">{t(language, 'protectedSessionTitle')}</p>
                 <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
-                  Role-isolated sessions enforce strict Customer, Seller Studio, and Platform Admin authorization across every order and storefront record.
+                  {t(language, 'protectedSessionDesc')}
                 </p>
               </div>
             </div>
@@ -797,15 +832,15 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
             <div className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)] flex items-start gap-3">
               <Truck className="w-4 h-4 text-[var(--ks-accent)] shrink-0 mt-0.5" />
               <div className="space-y-0.5">
-                <p className="text-xs font-semibold">Guest Order Tracking</p>
+                <p className="text-xs font-semibold">{t(language, 'guestTrackingTitle')}</p>
                 <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
-                  Checking an existing shipment without signing in?{' '}
+                  {t(language, 'guestTrackingPrefix')}{' '}
                   <button
                     type="button"
                     onClick={() => navigate({ name: 'track-order' })}
                     className="underline text-[var(--ks-accent)] font-medium cursor-pointer"
                   >
-                    Track your order by Order ID
+                    {t(language, 'trackOrderById')}
                   </button>
                   .
                 </p>
@@ -815,9 +850,9 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
             <div className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)] flex items-start gap-3">
               <Store className="w-4 h-4 text-[var(--ks-accent)] shrink-0 mt-0.5" />
               <div className="space-y-0.5">
-                <p className="text-xs font-semibold">Partner Maker Onboarding</p>
+                <p className="text-xs font-semibold">{t(language, 'partnerOnboardingTitle')}</p>
                 <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
-                  Apply as a verified Seller Studio under the Bangladesh marketplace framework with BDT settlement and courier integration.
+                  {t(language, 'partnerOnboardingDesc')}
                 </p>
               </div>
             </div>
@@ -827,14 +862,15 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
         <div className="pt-4 border-t border-[var(--ks-border-strong)] flex items-center justify-between gap-3 text-[11px] text-[var(--ks-text-muted)]">
           <span className="inline-flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-[var(--ks-accent)] shrink-0" />
-            Protected under Kinto Studio Privacy Policy
+            {t(language, 'privacyProtectedNote')}
           </span>
           <button
             type="button"
             onClick={() => navigate({ name: 'legal' })}
-            className="hover:underline text-[var(--ks-text-secondary)] whitespace-nowrap cursor-pointer"
+            className="min-h-[44px] inline-flex items-center gap-1 hover:underline text-[var(--ks-text-secondary)] whitespace-nowrap cursor-pointer"
           >
-            Legal Center →
+            <span>{t(language, 'legalCenter')}</span>
+            <ArrowRight className="w-3 h-3 rtl:rotate-180" />
           </button>
         </div>
       </div>

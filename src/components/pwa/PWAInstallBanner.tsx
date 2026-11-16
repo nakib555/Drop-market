@@ -3,12 +3,13 @@ import { Download, Smartphone, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useStore } from '../../context/StoreContext';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
+import { t } from '../../utils/i18n';
 import { STUDIO_TRANSITION } from '../../utils/motion';
 import { Button } from '../ui/Button';
 import { PWAInstallGuideModal } from './PWAInstallButton';
 
 export const PWAInstallBanner: React.FC = () => {
-  const { cookieConsent, cookieModalOpen, route, showToast } = useStore();
+  const { language, cookieConsent, cookieModalOpen, route, showToast } = useStore();
   const { isInstalled, isInstallable, isIOS, bannerDismissed, install, dismissBanner } =
     usePWAInstall();
   const [guideOpen, setGuideOpen] = useState(false);
@@ -27,8 +28,8 @@ export const PWAInstallBanner: React.FC = () => {
       const accepted = await install();
       if (accepted) {
         showToast(
-          'Kinto Studio installed',
-          'Launch anytime directly from your home screen or app dock.',
+          t(language, 'installedToastTitle'),
+          t(language, 'installedToastDesc'),
           'success'
         );
       }
@@ -47,14 +48,14 @@ export const PWAInstallBanner: React.FC = () => {
           exit={{ opacity: 0, y: 12 }}
           transition={STUDIO_TRANSITION.fast}
           role="region"
-          aria-label="Install Kinto Studio app"
-          className={`${
+          aria-label={t(language, 'installAppAria')}
+          className={`print:hidden ${
             hideOnMobilePdp
               ? 'hidden lg:flex'
               : deferMobileToCookie
               ? 'hidden sm:flex'
               : 'flex'
-          } fixed bottom-2 left-2 right-2 sm:right-auto sm:left-5 sm:bottom-5 sm:max-w-[380px] z-40 rounded-lg bg-[var(--ks-surface)]/95 backdrop-blur-md border border-[var(--ks-border)] shadow-xl p-2.5 sm:p-3.5 items-center justify-between gap-3`}
+          } fixed bottom-2 inset-x-2 sm:inset-x-auto sm:start-5 sm:bottom-5 sm:max-w-[380px] z-40 rounded-lg bg-[var(--ks-surface)]/95 backdrop-blur-md border border-[var(--ks-border)] shadow-xl p-2.5 sm:p-3.5 items-center justify-between gap-3`}
           style={{ paddingBottom: 'calc(0.625rem + var(--sab, 0px))' }}
         >
           <div className="flex items-center gap-2.5 min-w-0">
@@ -66,12 +67,12 @@ export const PWAInstallBanner: React.FC = () => {
             </div>
             <div className="min-w-0">
               <p className="text-xs font-semibold text-[var(--ks-text-primary)] leading-snug truncate">
-                Install Kinto Studio App
+                {t(language, 'installAppTitle')}
               </p>
               <p className="text-[11px] text-[var(--ks-text-secondary)] leading-snug truncate">
                 {isIOS
-                  ? 'Add to Home Screen for standalone access'
-                  : 'Fast app launch & offline catalog browsing'}
+                  ? t(language, 'installBannerIosSub')
+                  : t(language, 'installBannerSub')}
               </p>
             </div>
           </div>
@@ -84,12 +85,12 @@ export const PWAInstallBanner: React.FC = () => {
               className="!px-3 text-xs whitespace-nowrap"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Install</span>
+              <span>{t(language, 'installAppBtn')}</span>
             </Button>
             <button
               type="button"
               onClick={dismissBanner}
-              aria-label="Dismiss install prompt"
+              aria-label={t(language, 'dismissInstallPrompt')}
               className="w-9 h-9 rounded-md flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] hover:bg-[var(--ks-surface-muted)] transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />

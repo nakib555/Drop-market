@@ -4,12 +4,13 @@ import { useStore } from '../context/StoreContext';
 import { trackOrderApi } from '../services/api';
 import { Order } from '../types/commerce';
 import { formatCurrency, formatDirectCurrency } from '../utils/format';
+import { t, translateOrderStage } from '../utils/i18n';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/FormFields';
 import { Breadcrumb } from '../components/ui/Primitives';
 
 export const OrderTrackingPage: React.FC = () => {
-  const { currency, route, orders, navigate, profile } = useStore();
+  const { language, currency, route, orders, navigate, profile } = useStore();
   const [orderIdInput, setOrderIdInput] = useState(route.orderId || orders[0]?.id || '');
   const [contactVerify, setContactVerify] = useState('');
   const [lookupError, setLookupError] = useState('');
@@ -94,28 +95,31 @@ export const OrderTrackingPage: React.FC = () => {
     <div className="ks-container py-8 lg:py-12 space-y-10">
       <Breadcrumb
         items={[
-          { label: 'Home', onClick: () => navigate({ name: 'home' }) },
-          { label: 'Order Tracking' },
+          { label: t(language, 'home'), onClick: () => navigate({ name: 'home' }) },
+          { label: t(language, 'trackOrder') },
         ]}
       />
 
       <div className="max-w-2xl space-y-2">
         <p className="ks-eyebrow text-[var(--ks-accent)]">
-          Logistics &amp; Courier Status
+          {t(language, 'logisticsStatus')}
         </p>
-        <h1 className="font-display text-3xl sm:text-5xl font-medium">Track Your Order</h1>
+        <h1 className="font-display text-3xl sm:text-5xl font-medium">
+          {t(language, 'trackYourOrder')}
+        </h1>
         <p className="text-sm text-[var(--ks-text-secondary)]">
-          Enter your Kinto Studio order number to view live fulfillment milestones, Bangladesh courier details, and delivery estimates.
+          {t(language, 'trackOrderDesc')}
         </p>
       </div>
 
       {/* Lookup Form */}
-      <div className="p-6 sm:p-8 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-5">
+      <div className="p-5 sm:p-8 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-5">
         <form onSubmit={handleTrackSubmit} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
           <div className="md:col-span-5">
             <Input
-              label="Order Number"
+              label={t(language, 'orderNumber')}
               required
+              autoComplete="off"
               value={orderIdInput}
               onChange={(e) => setOrderIdInput(e.target.value)}
               placeholder="KS-10482"
@@ -125,8 +129,8 @@ export const OrderTrackingPage: React.FC = () => {
             <Input
               label={
                 profile.isAuthenticated
-                  ? 'Email or Phone Verification (Optional)'
-                  : 'Email or Phone Verification'
+                  ? t(language, 'verificationOptional')
+                  : t(language, 'verificationLabel')
               }
               required={!profile.isAuthenticated}
               value={contactVerify}
@@ -136,7 +140,7 @@ export const OrderTrackingPage: React.FC = () => {
           </div>
           <div className="md:col-span-2">
             <Button type="submit" variant="primary" size="md" fullWidth disabled={loadingLookup}>
-              {loadingLookup ? 'Checking...' : 'Track'}
+              {loadingLookup ? t(language, 'checking') : t(language, 'trackBtn')}
             </Button>
           </div>
         </form>
@@ -149,7 +153,7 @@ export const OrderTrackingPage: React.FC = () => {
 
         {orders.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-[var(--ks-border)] text-xs">
-            <span className="text-[var(--ks-text-muted)]">Your recent orders:</span>
+            <span className="text-[var(--ks-text-muted)]">{t(language, 'yourRecentOrders')}</span>
             {orders.slice(0, 4).map((ord) => (
               <button
                 key={ord.id}
@@ -159,13 +163,13 @@ export const OrderTrackingPage: React.FC = () => {
                   setTrackedOrder(ord);
                   setLookupError('');
                 }}
-                className={`px-2.5 py-1 rounded-[var(--ks-radius-md)] font-mono-num border cursor-pointer transition-colors ${
+                className={`min-h-[36px] px-3 py-1.5 rounded-[var(--ks-radius-md)] font-mono-num border cursor-pointer transition-colors ${
                   trackedOrder?.id === ord.id
                     ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)]'
                     : 'border-[var(--ks-border)] hover:border-[var(--ks-border-strong)]'
                 }`}
               >
-                #{ord.id} ({ord.currentStage})
+                #{ord.id} ({translateOrderStage(language, ord.currentStage)})
               </button>
             ))}
           </div>
@@ -175,14 +179,14 @@ export const OrderTrackingPage: React.FC = () => {
       {/* Visual Progress Timeline */}
       {trackedOrder ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          <div className="lg:col-span-8 p-6 sm:p-8 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-8">
+          <div className="lg:col-span-8 p-5 sm:p-8 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-8">
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b border-[var(--ks-border)]">
               <div>
                 <p className="text-xs text-[var(--ks-text-muted)] font-mono-num">
-                  ORDER #{trackedOrder.id}
+                  #{trackedOrder.id}
                 </p>
                 <h2 className="font-display text-2xl sm:text-3xl font-medium mt-0.5">
-                  Current Status:{' '}
+                  {t(language, 'currentStatus')}:{' '}
                   <span
                     className={
                       trackedOrder.currentStage === 'Cancelled'
@@ -192,17 +196,17 @@ export const OrderTrackingPage: React.FC = () => {
                         : ''
                     }
                   >
-                    {trackedOrder.currentStage}
+                    {translateOrderStage(language, trackedOrder.currentStage)}
                   </span>
                 </h2>
               </div>
-              <div className="text-left sm:text-right">
+              <div className="text-start sm:text-end">
                 <p className="text-xs text-[var(--ks-text-muted)]">
                   {trackedOrder.currentStage === 'Cancelled'
-                    ? 'Order Status'
+                    ? t(language, 'orderStatus')
                     : trackedOrder.currentStage === 'Return Requested'
-                    ? 'Return RMA'
-                    : 'Estimated Delivery'}
+                    ? t(language, 'returnRma')
+                    : t(language, 'estimatedDelivery')}
                 </p>
                 <p
                   className={`text-sm font-semibold ${
@@ -269,7 +273,7 @@ export const OrderTrackingPage: React.FC = () => {
                               : 'text-[var(--ks-text-muted)]'
                           }`}
                         >
-                          {event.stage}
+                          {translateOrderStage(language, event.stage)}
                         </p>
                         <span className="text-xs font-mono-num text-[var(--ks-text-muted)] shrink-0">
                           {event.timestamp}
@@ -288,21 +292,21 @@ export const OrderTrackingPage: React.FC = () => {
           <aside className="lg:col-span-4 p-6 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-5 text-sm">
             <div className="flex items-center gap-2.5 pb-3 border-b border-[var(--ks-border)]">
               <Truck className="w-4 h-4 text-[var(--ks-accent)]" />
-              <h3 className="font-semibold">Courier Information</h3>
+              <h3 className="font-semibold">{t(language, 'courierInfo')}</h3>
             </div>
             <div className="space-y-3 text-xs">
               <div>
-                <p className="text-[var(--ks-text-muted)]">Carrier</p>
+                <p className="text-[var(--ks-text-muted)]">{t(language, 'carrier')}</p>
                 <p className="font-medium text-sm mt-0.5">{trackedOrder.courierName}</p>
               </div>
               <div>
-                <p className="text-[var(--ks-text-muted)]">Tracking Reference</p>
+                <p className="text-[var(--ks-text-muted)]">{t(language, 'trackingRef')}</p>
                 <p className="font-mono-num font-medium text-sm mt-0.5">
                   {trackedOrder.trackingNumber}
                 </p>
               </div>
               <div>
-                <p className="text-[var(--ks-text-muted)]">Payment &amp; Gateway Status</p>
+                <p className="text-[var(--ks-text-muted)]">{t(language, 'paymentStatusLabel')}</p>
                 <p className="font-medium mt-0.5">
                   {trackedOrder.paymentLabel} ·{' '}
                   <span className="uppercase font-mono-num text-[var(--ks-accent)]">
@@ -316,7 +320,7 @@ export const OrderTrackingPage: React.FC = () => {
                 )}
               </div>
               <div>
-                <p className="text-[var(--ks-text-muted)]">Destination</p>
+                <p className="text-[var(--ks-text-muted)]">{t(language, 'destination')}</p>
                 <p className="font-medium mt-0.5">{trackedOrder.shippingAddress.streetAddress}</p>
                 <p className="text-[var(--ks-text-secondary)]">
                   {[
@@ -335,21 +339,21 @@ export const OrderTrackingPage: React.FC = () => {
 
             <div className="pt-4 border-t border-[var(--ks-border)] space-y-2.5">
               <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
-                Items in Shipment
+                {t(language, 'itemsInShipment')}
               </p>
               {trackedOrder.items.map((item) => (
                 <div key={item.key} className="flex items-baseline justify-between text-xs gap-3">
                   <span className="min-w-0 truncate">
                     {item.name} × {item.quantity}
                   </span>
-                  <span className="font-mono-num shrink-0 text-right">
+                  <span className="font-mono-num shrink-0 text-end tabular-nums">
                     {formatCurrency(item.price * item.quantity, currency)}
                   </span>
                 </div>
               ))}
               <div className="flex items-baseline justify-between gap-3 pt-2 border-t border-[var(--ks-border)] font-semibold">
-                <span className="min-w-0">Order Total</span>
-                <span className="font-mono-num shrink-0 text-right">
+                <span className="min-w-0">{t(language, 'orderTotal')}</span>
+                <span className="font-mono-num shrink-0 text-end tabular-nums">
                   {trackedOrder.currencySnapshot
                     ? formatDirectCurrency(
                         trackedOrder.currencySnapshot.chargedTotal,
@@ -371,7 +375,7 @@ export const OrderTrackingPage: React.FC = () => {
         <div className="p-10 text-center rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)]">
           <PackageSearch className="w-7 h-7 mx-auto text-[var(--ks-text-muted)] mb-3" />
           <p className="text-sm text-[var(--ks-text-secondary)]">
-            Enter a valid order number above to inspect its live fulfillment timeline.
+            {t(language, 'trackEmptyPrompt')}
           </p>
         </div>
       )}

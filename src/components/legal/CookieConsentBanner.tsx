@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useStore } from '../../context/StoreContext';
 import { LEGAL_ENTITY, LEGAL_VERSION } from '../../data/legalPolicies';
 import { PrivacyPrefs } from '../../types/commerce';
+import { t } from '../../utils/i18n';
 import { STUDIO_TRANSITION } from '../../utils/motion';
 import { Button } from '../ui/Button';
 import { Checkbox } from '../ui/FormFields';
@@ -11,6 +12,7 @@ import { Modal } from '../ui/Primitives';
 
 export const CookieConsentBanner: React.FC = () => {
   const {
+    language,
     cookieConsent,
     cookieModalOpen,
     openCookiePreferences,
@@ -44,8 +46,8 @@ export const CookieConsentBanner: React.FC = () => {
             exit={{ opacity: 0, y: 12 }}
             transition={STUDIO_TRANSITION.fast}
             role="region"
-            aria-label="Cookie and storage consent"
-            className="fixed bottom-2 left-2 right-2 sm:left-auto sm:right-5 sm:bottom-5 sm:max-w-md z-40 rounded-lg bg-[var(--ks-surface)]/95 backdrop-blur-md border border-[var(--ks-border)] shadow-xl p-2.5 sm:p-4"
+            aria-label={t(language, 'cookiesTitle')}
+            className="fixed bottom-2 inset-x-2 sm:inset-x-auto sm:end-5 sm:bottom-5 sm:max-w-md z-40 rounded-lg bg-[var(--ks-surface)]/95 backdrop-blur-md border border-[var(--ks-border)] shadow-xl p-2.5 sm:p-4 print:hidden"
             style={{ paddingBottom: 'calc(0.625rem + var(--sab, 0px))' }}
           >
             <div className="space-y-1.5 sm:space-y-2.5">
@@ -56,19 +58,19 @@ export const CookieConsentBanner: React.FC = () => {
                 />
                 <div className="space-y-0.5 sm:space-y-1 min-w-0">
                   <p className="hidden sm:block text-xs font-semibold text-[var(--ks-text-primary)]">
-                    Cookies &amp; Privacy Preferences
+                    {t(language, 'cookiesTitle')}
                   </p>
                   <p className="text-[11px] leading-snug text-[var(--ks-text-secondary)]">
                     <span className="sm:hidden font-semibold text-[var(--ks-text-primary)]">
-                      Cookies &amp; Privacy:{' '}
+                      {t(language, 'cookiesTitle')}:{' '}
                     </span>
-                    Essential storage runs bag &amp; currency; optional preferences stay under your control.{' '}
+                    {t(language, 'cookiesShortDesc')}{' '}
                     <button
                       type="button"
                       onClick={() => openPolicyPreview('cookie-policy')}
                       className="underline text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                     >
-                      Cookie Policy
+                      {t(language, 'cookiePolicy')}
                     </button>
                   </p>
                 </div>
@@ -81,7 +83,7 @@ export const CookieConsentBanner: React.FC = () => {
                   onClick={rejectNonEssentialCookies}
                   className="!px-2.5 sm:!px-3.5 text-[11px] sm:text-xs"
                 >
-                  Essential Only
+                  {t(language, 'essentialOnly')}
                 </Button>
                 <Button
                   variant="outline"
@@ -89,7 +91,7 @@ export const CookieConsentBanner: React.FC = () => {
                   onClick={openCookiePreferences}
                   className="!px-2.5 sm:!px-3.5 text-[11px] sm:text-xs"
                 >
-                  Customize
+                  {t(language, 'customize')}
                 </Button>
                 <Button
                   variant="primary"
@@ -97,7 +99,7 @@ export const CookieConsentBanner: React.FC = () => {
                   onClick={acceptAllCookies}
                   className="!px-3 sm:!px-4 text-[11px] sm:text-xs"
                 >
-                  Accept All
+                  {t(language, 'acceptAll')}
                 </Button>
               </div>
             </div>
@@ -108,7 +110,7 @@ export const CookieConsentBanner: React.FC = () => {
       <Modal
         open={cookieModalOpen}
         onClose={closeCookiePreferences}
-        title="Cookie & Privacy Preferences"
+        title={t(language, 'cookiesTitle')}
         maxWidthClass="max-w-lg"
       >
         <div className="space-y-5 text-sm">
@@ -120,37 +122,37 @@ export const CookieConsentBanner: React.FC = () => {
             <div className="space-y-0.5 min-w-0">
               <p className="text-xs font-semibold inline-flex items-center gap-1.5">
                 <Lock className="w-3.5 h-3.5 text-[var(--ks-accent)] shrink-0" />
-                <span>Strictly Necessary Cookies &amp; Session Storage</span>
+                <span>{t(language, 'strictlyNecessaryTitle')}</span>
               </p>
               <p className="text-[11px] text-[var(--ks-text-secondary)] leading-snug">
-                Required for shopping bag state, account login tokens, CSRF protection, currency selection, and offline PWA navigation.
+                {t(language, 'strictlyNecessaryDesc')}
               </p>
             </div>
             <span className="text-[11px] font-mono-num font-medium text-[var(--ks-success)] shrink-0 whitespace-nowrap">
-              Always Active
+              {t(language, 'alwaysActive')}
             </span>
           </div>
 
           <div className="space-y-4">
             <Checkbox
-              label="Save Local Search History"
-              description="Keep recent catalog lookups in local storage for faster repeat queries."
+              label={t(language, 'prefSaveSearchLabel')}
+              description={t(language, 'prefSaveSearchDesc')}
               checked={draftPrefs.saveSearchHistory}
               onChange={(checked) =>
                 setDraftPrefs((prev) => ({ ...prev, saveSearchHistory: checked }))
               }
             />
             <Checkbox
-              label="Personalized Catalog & Recently Viewed"
-              description="Remember viewed objects to tailor related studio recommendations."
+              label={t(language, 'prefPersonalizedLabel')}
+              description={t(language, 'prefPersonalizedDesc')}
               checked={draftPrefs.personalizedCatalog}
               onChange={(checked) =>
                 setDraftPrefs((prev) => ({ ...prev, personalizedCatalog: checked }))
               }
             />
             <Checkbox
-              label="Anonymous Performance Diagnostics"
-              description="Allow aggregated responsiveness and storefront reliability measurements."
+              label={t(language, 'prefAnalyticsLabel')}
+              description={t(language, 'prefAnalyticsDesc')}
               checked={draftPrefs.analyticsOptIn}
               onChange={(checked) =>
                 setDraftPrefs((prev) => ({ ...prev, analyticsOptIn: checked }))
@@ -165,24 +167,24 @@ export const CookieConsentBanner: React.FC = () => {
                 closeCookiePreferences();
                 navigate({ name: 'cookie-policy' });
               }}
-              className="text-xs underline text-left text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+              className="text-xs underline text-start text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer"
             >
-              Read full Cookie &amp; Storage Policy
+              {t(language, 'readCookiePolicy')}
             </button>
 
             <div className="flex flex-wrap items-center justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={rejectNonEssentialCookies}>
-                Essential Only
+                {t(language, 'essentialOnly')}
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => saveCookiePreferences(draftPrefs)}
               >
-                Save Preferences
+                {t(language, 'savePreferences')}
               </Button>
               <Button variant="primary" size="sm" onClick={acceptAllCookies}>
-                Accept All
+                {t(language, 'acceptAll')}
               </Button>
             </div>
           </div>

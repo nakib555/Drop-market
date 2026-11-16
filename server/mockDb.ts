@@ -38,7 +38,7 @@ export const INITIAL_SERVER_USERS: ServerUserRecord[] = [
     email: 'rafiq.islam@kintostudio.bd',
     phone: '+880 1711-240914',
     role: 'customer',
-    roleLabel: 'Marketplace Member',
+    roleLabel: 'Member Account',
     status: 'active',
     joinedAt: '2025-04-12',
     location: 'Gulshan, Dhaka, Bangladesh',
@@ -101,7 +101,7 @@ export const INITIAL_SERVER_USERS: ServerUserRecord[] = [
     email: 'clara@nordic-arch.example',
     phone: '+45 33 14 28 90',
     role: 'customer',
-    roleLabel: 'Marketplace Member',
+    roleLabel: 'Member Account',
     status: 'active',
     joinedAt: '2026-01-19',
     location: 'Copenhagen, Denmark',
@@ -991,7 +991,7 @@ export class MockMarketplaceDb {
           ? 'Platform Administrator'
           : updates.role === 'seller'
           ? 'Verified Seller Studio'
-          : 'Marketplace Member';
+          : 'Member Account';
     }
     if (updates.status) {
       user.status = updates.status;

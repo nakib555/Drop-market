@@ -2,11 +2,13 @@ import React from 'react';
 import { ExternalLink, Scale } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { getLegalDocumentById, LEGAL_ENTITY } from '../../data/legalPolicies';
+import { t } from '../../utils/i18n';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Primitives';
 
 export const LegalModalPreview: React.FC = () => {
   const {
+    language,
     previewPolicyId,
     closePolicyPreview,
     navigate,
@@ -24,7 +26,7 @@ export const LegalModalPreview: React.FC = () => {
     <Modal
       open={Boolean(doc)}
       onClose={closePolicyPreview}
-      title={doc ? doc.title : 'Legal Document'}
+      title={doc ? doc.title : t(language, 'legalDocumentFallback')}
       maxWidthClass="max-w-2xl"
     >
       {doc && (
@@ -35,7 +37,7 @@ export const LegalModalPreview: React.FC = () => {
               <span>{LEGAL_ENTITY.legalName}</span>
             </span>
             <span className="font-mono-num">
-              v{doc.version} · Updated {doc.lastUpdated}
+              v{doc.version} · {t(language, 'updatedLabel')} {doc.lastUpdated}
             </span>
           </div>
 
@@ -58,17 +60,17 @@ export const LegalModalPreview: React.FC = () => {
                   </p>
                 ))}
                 {section.bullets && (
-                  <ul className="list-disc pl-5 space-y-1.5 text-xs sm:text-sm leading-relaxed text-[#5C5B57] dark:text-[#B4B2AC]">
+                  <ul className="list-disc ps-5 space-y-1.5 text-xs sm:text-sm leading-relaxed text-[var(--ks-text-secondary)]">
                     {section.bullets.map((bullet, idx) => (
                       <li key={idx}>{bullet}</li>
                     ))}
                   </ul>
                 )}
                 {section.table && (
-                  <div className="overflow-x-auto border border-[#E5E3DD] dark:border-[#2C2C28] rounded-md">
-                    <table className="w-full text-left text-xs border-collapse">
+                  <div className="overflow-x-auto border border-[var(--ks-border)] rounded-md">
+                    <table className="w-full text-start text-xs border-collapse">
                       <thead>
-                        <tr className="bg-[#F9F8F6] dark:bg-[#141413] border-b border-[#E5E3DD] dark:border-[#2C2C28]">
+                        <tr className="bg-[var(--ks-bg)] border-b border-[var(--ks-border)]">
                           {section.table.headers.map((head) => (
                             <th key={head} className="px-3 py-2 font-semibold">
                               {head}
@@ -76,13 +78,13 @@ export const LegalModalPreview: React.FC = () => {
                           ))}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#E5E3DD] dark:divide-[#2C2C28]">
+                      <tbody className="divide-y divide-[var(--ks-border)]">
                         {section.table.rows.map((row, rIdx) => (
                           <tr key={rIdx}>
                             {row.map((cell, cIdx) => (
                               <td
                                 key={cIdx}
-                                className="px-3 py-2 text-[#5C5B57] dark:text-[#B4B2AC] align-top"
+                                className="px-3 py-2 text-[var(--ks-text-secondary)] align-top"
                               >
                                 {cell}
                               </td>
@@ -99,7 +101,7 @@ export const LegalModalPreview: React.FC = () => {
 
           <div className="pt-4 border-t border-[var(--ks-border)] flex flex-wrap items-center justify-between gap-3">
             <span className="text-xs text-[var(--ks-text-muted)] font-mono-num">
-              Legal Inquiries: {LEGAL_ENTITY.legalEmail}
+              {t(language, 'legalInquiriesLabel')}: {LEGAL_ENTITY.legalEmail}
             </span>
             <div className="flex items-center gap-2">
               <Button
@@ -111,11 +113,11 @@ export const LegalModalPreview: React.FC = () => {
                   navigate({ name: target });
                 }}
               >
-                <span>Open Full Page</span>
+                <span>{t(language, 'openFullPage')}</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </Button>
               <Button variant="primary" size="sm" onClick={closePolicyPreview}>
-                Close
+                {t(language, 'closeLabel')}
               </Button>
             </div>
           </div>

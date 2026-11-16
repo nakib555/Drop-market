@@ -16,6 +16,8 @@ export const STUDIO_TRANSITION = {
   fast: { duration: MOTION_DURATION.fast, ease: STUDIO_EASE },
   base: { duration: MOTION_DURATION.standard, ease: STUDIO_EASE },
   drawer: { duration: MOTION_DURATION.moderate, ease: ENTER_EASE },
+  sheet: { duration: MOTION_DURATION.moderate, ease: ENTER_EASE },
+  accordion: { duration: MOTION_DURATION.standard, ease: STUDIO_EASE },
   reveal: { duration: MOTION_DURATION.reveal, ease: ENTER_EASE },
   springTab: { duration: MOTION_DURATION.fast, ease: STUDIO_EASE } as const,
   springPop: { duration: MOTION_DURATION.fast, ease: STUDIO_EASE } as const,

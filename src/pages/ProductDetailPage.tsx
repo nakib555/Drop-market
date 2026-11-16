@@ -21,6 +21,7 @@ import {
   formatTypedAttributeValue,
   isProductOutOfStock,
 } from '../utils/format';
+import { t, translateDepartmentName } from '../utils/i18n';
 import { STUDIO_TRANSITION } from '../utils/motion';
 import { ProductCard } from '../components/product/ProductCard';
 import {
@@ -41,6 +42,7 @@ import {
 
 export const ProductDetailPage: React.FC = () => {
   const {
+    language,
     route,
     currency,
     products,
@@ -104,17 +106,39 @@ export const ProductDetailPage: React.FC = () => {
   }, [product?.id, recordProductView]);
 
   useEffect(() => {
+    if (storefrontLoading || !product) {
+      setShowMobileStickyBar(false);
+      return;
+    }
     const el = primaryCtaRef.current;
-    if (!el || typeof IntersectionObserver === 'undefined') return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setShowMobileStickyBar(!entry.isIntersecting && entry.boundingClientRect.top < 0);
-      },
-      { threshold: 0 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [product?.id]);
+    if (!el) return;
+
+    const updateVisibility = () => {
+      const rect = el.getBoundingClientRect();
+      setShowMobileStickyBar(rect.bottom < 64);
+    };
+
+    updateVisibility();
+
+    let observer: IntersectionObserver | undefined;
+    if (typeof IntersectionObserver !== 'undefined') {
+      observer = new IntersectionObserver(
+        ([entry]) => {
+          setShowMobileStickyBar(!entry.isIntersecting && entry.boundingClientRect.top < 64);
+        },
+        { threshold: 0 }
+      );
+      observer.observe(el);
+    }
+
+    window.addEventListener('scroll', updateVisibility, { passive: true });
+    window.addEventListener('resize', updateVisibility, { passive: true });
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('scroll', updateVisibility);
+      window.removeEventListener('resize', updateVisibility);
+    };
+  }, [product?.id, storefrontLoading]);
 
   if (storefrontLoading) {
     return <ProductDetailSkeleton />;
@@ -124,9 +148,9 @@ export const ProductDetailPage: React.FC = () => {
     return (
       <div className="max-w-[1440px] mx-auto px-4 py-16">
         <EmptyState
-          title="Product not found"
-          description="The requested piece could not be located in our current catalog."
-          actionLabel="Return to Shop"
+          title={t(language, 'productNotFound')}
+          description={t(language, 'productNotFoundDesc')}
+          actionLabel={t(language, 'returnToShop')}
           onAction={() => navigate({ name: 'shop', category: 'all' })}
         />
       </div>
@@ -211,9 +235,9 @@ export const ProductDetailPage: React.FC = () => {
     <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-12 pb-20 lg:pb-16 space-y-14">
       <Breadcrumb
         items={[
-          { label: 'Home', onClick: () => navigate({ name: 'home' }) },
+          { label: t(language, 'home'), onClick: () => navigate({ name: 'home' }) },
           {
-            label: product.categoryLabel,
+            label: translateDepartmentName(language, product.category, product.categoryLabel),
             onClick: () => navigate({ name: 'category', category: product.category }),
           },
           {
@@ -249,7 +273,7 @@ export const ProductDetailPage: React.FC = () => {
                 type="button"
                 onClick={() => setZoomed((z) => !z)}
                 aria-label={zoomed ? 'Reset product image zoom' : 'Zoom product image'}
-                className={`w-full h-full block text-left ${
+                className={`w-full h-full block text-start ${
                   zoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'
                 }`}
               >
@@ -269,7 +293,7 @@ export const ProductDetailPage: React.FC = () => {
               type="button"
               onClick={() => setZoomed((z) => !z)}
               aria-label={zoomed ? 'Reset zoom' : 'Zoom product image'}
-              className="absolute top-3 right-3 w-10 h-10 rounded-md bg-[var(--ks-surface)]/92 text-[var(--ks-text-primary)] border border-[var(--ks-border)] flex items-center justify-center shadow-sm cursor-pointer"
+              className="absolute top-3 end-3 w-11 h-11 rounded-md bg-[var(--ks-surface)]/92 text-[var(--ks-text-primary)] border border-[var(--ks-border)] flex items-center justify-center shadow-sm cursor-pointer"
             >
               {zoomed ? <ZoomOut className="w-4 h-4" /> : <ZoomIn className="w-4 h-4" />}
             </button>
@@ -284,17 +308,17 @@ export const ProductDetailPage: React.FC = () => {
                     )
                   }
                   aria-label="Previous image"
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[var(--ks-surface)]/92 text-[var(--ks-text-primary)] border border-[var(--ks-border)] flex items-center justify-center shadow-sm cursor-pointer"
+                  className="absolute start-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-[var(--ks-surface)]/92 text-[var(--ks-text-primary)] border border-[var(--ks-border)] flex items-center justify-center shadow-sm cursor-pointer"
                 >
-                  <ChevronLeft className="w-4 h-4" />
+                  <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveImageIdx((i) => (i + 1) % product.images.length)}
                   aria-label="Next image"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[var(--ks-surface)]/92 text-[var(--ks-text-primary)] border border-[var(--ks-border)] flex items-center justify-center shadow-sm cursor-pointer"
+                  className="absolute end-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-[var(--ks-surface)]/92 text-[var(--ks-text-primary)] border border-[var(--ks-border)] flex items-center justify-center shadow-sm cursor-pointer"
                 >
-                  <ChevronRight className="w-4 h-4" />
+                  <ChevronRight className="w-4 h-4 rtl:rotate-180" />
                 </button>
               </>
             )}
@@ -354,7 +378,7 @@ export const ProductDetailPage: React.FC = () => {
                 rating={product.rating}
                 reviewCount={product.reviewCount}
                 showCount
-                fallbackLabel="Be the first to review"
+                fallbackLabel={t(language, 'beFirstReview')}
                 onClick={() => setActiveTab('reviews')}
               />
               <span aria-hidden="true" className="text-[var(--ks-text-muted)]">
@@ -371,12 +395,12 @@ export const ProductDetailPage: React.FC = () => {
               >
                 {!outOfStock && <Check className="w-3.5 h-3.5" />}
                 {outOfStock
-                  ? 'Out of Stock'
+                  ? t(language, 'outOfStock')
                   : product.availability === 'in-stock'
-                  ? `In Stock (${product.stockCount} ready)`
+                  ? t(language, 'inStockReady', { count: product.stockCount })
                   : product.availability === 'low-stock'
-                  ? `Low Stock (${product.stockCount} remaining)`
-                  : 'Made to Order'}
+                  ? t(language, 'lowStock', { count: product.stockCount })
+                  : t(language, 'madeToOrder')}
               </span>
             </div>
           </div>
@@ -397,7 +421,7 @@ export const ProductDetailPage: React.FC = () => {
           {/* Finish / Color */}
           <div className="space-y-2.5">
             <p className="text-xs font-medium">
-              {product.variantColorLabel || 'Finish / Color'}:{' '}
+              {product.variantColorLabel || t(language, 'finishColor')}:{' '}
               <span className="text-[var(--ks-text-secondary)]">{color.name}</span>
             </p>
             <div className="flex flex-wrap gap-2">
@@ -407,7 +431,7 @@ export const ProductDetailPage: React.FC = () => {
                   type="button"
                   aria-pressed={idx === selectedColorIdx}
                   onClick={() => setSelectedColorIdx(idx)}
-                  className={`flex items-center gap-2 px-3 py-2 min-h-[40px] rounded-md border text-xs cursor-pointer transition-colors ${
+                  className={`flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-md border text-xs cursor-pointer transition-colors ${
                     idx === selectedColorIdx
                       ? 'border-[var(--ks-action)] font-medium bg-[var(--ks-surface-muted)] text-[var(--ks-text-primary)]'
                       : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:border-[var(--ks-border-strong)]'
@@ -427,16 +451,16 @@ export const ProductDetailPage: React.FC = () => {
           <div className="space-y-2.5">
             <div className="flex items-center justify-between">
               <p className="text-xs font-medium">
-                {product.variantSizeLabel || 'Edition / Size'}
+                {product.variantSizeLabel || t(language, 'editionSize')}
               </p>
               {product.category === 'fashion-accessories' && (
                 <button
                   type="button"
                   onClick={() => setSizeGuideOpen(true)}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-[var(--ks-accent)] hover:underline cursor-pointer"
+                  className="inline-flex items-center gap-1 min-h-[36px] text-xs font-medium text-[var(--ks-accent)] hover:underline cursor-pointer"
                 >
                   <Ruler className="w-3.5 h-3.5" />
-                  <span>Size Guide</span>
+                  <span>{t(language, 'sizeGuide')}</span>
                 </button>
               )}
             </div>
@@ -447,7 +471,7 @@ export const ProductDetailPage: React.FC = () => {
                   type="button"
                   aria-pressed={idx === selectedSizeIdx}
                   onClick={() => setSelectedSizeIdx(idx)}
-                  className={`px-3.5 py-2 min-h-[40px] rounded-md border text-xs cursor-pointer transition-colors ${
+                  className={`px-3.5 py-2 min-h-[44px] rounded-md border text-xs cursor-pointer transition-colors ${
                     idx === selectedSizeIdx
                       ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)] font-medium'
                       : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:border-[var(--ks-border-strong)]'
@@ -482,10 +506,10 @@ export const ProductDetailPage: React.FC = () => {
                   onClick={() => addToCart(product, color.name, color.hex, size, quantity, true)}
                 >
                   {outOfStock ? (
-                    <span>Out of Stock</span>
+                    <span>{t(language, 'outOfStock')}</span>
                   ) : (
                     <span className="inline-flex items-center justify-center gap-1.5 min-w-0 whitespace-nowrap">
-                      <span>Add to Bag</span>
+                      <span>{t(language, 'addToBag')}</span>
                       <span aria-hidden="true">·</span>
                       <span className="font-mono-num tabular-nums">
                         {formatCurrency(product.price * quantity, currency)}
@@ -506,7 +530,7 @@ export const ProductDetailPage: React.FC = () => {
                   navigate({ name: 'checkout' });
                 }}
               >
-                {outOfStock ? 'Unavailable' : 'Buy Now'}
+                {outOfStock ? t(language, 'unavailable') : t(language, 'buyNow')}
               </Button>
               <WishlistButton
                 active={isWishlisted}
@@ -548,14 +572,14 @@ export const ProductDetailPage: React.FC = () => {
                       onClick={() => navigate({ name: 'product-safety' })}
                       className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                     >
-                      Safety Disclaimers
+                      {t(language, 'safetyDisclaimers')}
                     </button>
                     <button
                       type="button"
                       onClick={() => navigate({ name: 'return-policy' })}
                       className="underline text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer"
                     >
-                      Return Eligibility
+                      {t(language, 'returnEligibility')}
                     </button>
                   </div>
                 </div>
@@ -569,15 +593,15 @@ export const ProductDetailPage: React.FC = () => {
       <section className="pt-8 border-t border-[var(--ks-border)] space-y-8">
         <div
           role="tablist"
-          aria-label="Product documentation"
+          aria-label={t(language, 'specsAndCare')}
           className="flex items-center gap-6 border-b border-[var(--ks-border)] overflow-x-auto no-scrollbar"
         >
           {(
             [
-              { id: 'specs', label: 'Specifications & Care' },
-              { id: 'reviews', label: `Reviews (${product.reviews.length})` },
-              { id: 'qa', label: `Q&A (${questions.length})` },
-              { id: 'shipping', label: 'Delivery & Warranty' },
+              { id: 'specs', label: t(language, 'specsAndCare') },
+              { id: 'reviews', label: t(language, 'reviewsTab', { count: product.reviews.length }) },
+              { id: 'qa', label: t(language, 'qaTab', { count: questions.length }) },
+              { id: 'shipping', label: t(language, 'deliveryAndWarranty') },
             ] as const
           ).map((tab) => {
             const isSelected = activeTab === tab.id;
@@ -623,7 +647,7 @@ export const ProductDetailPage: React.FC = () => {
                       className="py-3.5 flex items-baseline justify-between gap-4 text-sm"
                     >
                       <dt className="text-[var(--ks-text-secondary)] min-w-0">{spec.label}</dt>
-                      <dd className="font-medium text-right font-mono-num max-w-[60%] leading-snug">
+                      <dd className="font-medium text-end font-mono-num max-w-[60%] leading-snug">
                         {spec.value}
                       </dd>
                     </div>
@@ -641,7 +665,7 @@ export const ProductDetailPage: React.FC = () => {
                           className="py-3.5 flex items-baseline justify-between gap-4 text-sm"
                         >
                           <dt className="text-[var(--ks-text-secondary)] min-w-0">{label}</dt>
-                          <dd className="font-medium text-right font-mono-num max-w-[60%] leading-snug">
+                          <dd className="font-medium text-end font-mono-num max-w-[60%] leading-snug">
                             {formatTypedAttributeValue(attrVal, facetMeta?.unit)}
                           </dd>
                         </div>
@@ -651,17 +675,19 @@ export const ProductDetailPage: React.FC = () => {
                     <dt className="text-[var(--ks-text-secondary)] min-w-0">
                       Shipping Weight &amp; Tier
                     </dt>
-                    <dd className="font-medium text-right font-mono-num capitalize max-w-[60%] leading-snug">
+                    <dd className="font-medium text-end font-mono-num capitalize max-w-[60%] leading-snug">
                       {product.weightKg ? `${product.weightKg} kg · ` : ''}
                       {product.sizeTier || 'medium'} parcel
                     </dd>
                   </div>
                   <div className="py-3.5 flex items-baseline justify-between gap-4 text-sm">
                     <dt className="text-[var(--ks-text-secondary)] min-w-0">
-                      Cash on Delivery
+                      {t(language, 'cashOnDelivery')}
                     </dt>
-                    <dd className="font-medium text-right font-mono-num max-w-[60%] leading-snug">
-                      {product.codEligible === false ? 'Prepaid Only' : 'Eligible (Bangladesh)'}
+                    <dd className="font-medium text-end font-mono-num max-w-[60%] leading-snug">
+                      {product.codEligible === false
+                        ? t(language, 'prepaidOnly')
+                        : t(language, 'codEligibleBD')}
                     </dd>
                   </div>
                 </dl>
@@ -760,6 +786,7 @@ export const ProductDetailPage: React.FC = () => {
                     <Input
                       label="Your Name"
                       required
+                      autoComplete="name"
                       value={reviewAuthor}
                       onChange={(e) => {
                         setReviewAuthor(e.target.value);
@@ -769,6 +796,7 @@ export const ProductDetailPage: React.FC = () => {
                     />
                     <Input
                       label="City / Country"
+                      autoComplete="address-level2"
                       value={reviewLocation}
                       onChange={(e) => {
                         setReviewLocation(e.target.value);
@@ -798,7 +826,7 @@ export const ProductDetailPage: React.FC = () => {
                             setReviewSubmitted(false);
                           }}
                           aria-label={`${star} ${star === 1 ? 'star' : 'stars'}`}
-                          className="w-10 h-10 rounded-md flex items-center justify-center hover:bg-[var(--ks-surface-muted)] cursor-pointer"
+                          className="w-11 h-11 rounded-md flex items-center justify-center hover:bg-[var(--ks-surface-muted)] cursor-pointer"
                         >
                           <Star
                             className={`w-5 h-5 ${
@@ -893,6 +921,7 @@ export const ProductDetailPage: React.FC = () => {
                 </p>
                 <Input
                   label="Your Name"
+                  autoComplete="name"
                   value={qaAuthor}
                   onChange={(e) => {
                     setQaAuthor(e.target.value);
@@ -927,7 +956,7 @@ export const ProductDetailPage: React.FC = () => {
           {activeTab === 'shipping' && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
               <div className="p-5 rounded-lg border border-[var(--ks-border)] bg-[var(--ks-surface)] space-y-2">
-                <p className="font-medium">Dispatch &amp; Bangladesh Coverage</p>
+                <p className="font-medium">{t(language, 'dispatchCoverage')}</p>
                 <p className="text-[var(--ks-text-secondary)] leading-relaxed">
                   {product.deliveryEstimate}. Dhaka Metro orders over{' '}
                   {formatCurrency(
@@ -938,13 +967,13 @@ export const ProductDetailPage: React.FC = () => {
                 </p>
               </div>
               <div className="p-5 rounded-lg border border-[var(--ks-border)] bg-[var(--ks-surface)] space-y-2">
-                <p className="font-medium">Returns &amp; Exchanges</p>
+                <p className="font-medium">{t(language, 'returnsExchanges')}</p>
                 <p className="text-[var(--ks-text-secondary)] leading-relaxed">
                   {product.returnPolicy}. Initiate returns or exchanges directly through your Customer Account.
                 </p>
               </div>
               <div className="p-5 rounded-lg border border-[var(--ks-border)] bg-[var(--ks-surface)] space-y-2">
-                <p className="font-medium">Warranty Coverage</p>
+                <p className="font-medium">{t(language, 'warrantyCoverage')}</p>
                 <p className="text-[var(--ks-text-secondary)] leading-relaxed">
                   {product.warranty}. Covers manufacturing defects and verified transit damage.
                 </p>
@@ -957,7 +986,9 @@ export const ProductDetailPage: React.FC = () => {
       {/* Related & Recently Viewed */}
       {relatedProducts.length > 0 && (
         <section className="space-y-6 pt-8 border-t border-[var(--ks-border)]">
-          <h2 className="font-display text-3xl font-medium">Related Products</h2>
+          <h2 className="font-display text-3xl font-medium">
+            {t(language, 'relatedProducts')}
+          </h2>
           <div className="grid grid-cols-1 min-[390px]:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {relatedProducts.map((p) => (
               <ProductCard key={p.id} product={p} />
@@ -968,7 +999,9 @@ export const ProductDetailPage: React.FC = () => {
 
       {recentlyViewed.length > 0 && (
         <section className="space-y-6 pt-8 border-t border-[var(--ks-border)]">
-          <h2 className="font-display text-3xl font-medium">Recently Viewed</h2>
+          <h2 className="font-display text-3xl font-medium">
+            {t(language, 'recentlyViewed')}
+          </h2>
           <div className="grid grid-cols-1 min-[390px]:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {recentlyViewed.map((p) => (
               <ProductCard key={p.id} product={p} />
@@ -988,39 +1021,39 @@ export const ProductDetailPage: React.FC = () => {
             Measurements reflect relaxed garment dimensions laid flat. Select your normal size for intended layering room.
           </p>
           <div className="overflow-x-auto rounded-md border border-[var(--ks-border)]">
-            <table className="w-full text-left text-xs font-mono-num tabular-nums">
+            <table className="w-full text-start text-xs font-mono-num tabular-nums">
               <thead className="bg-[var(--ks-surface-muted)] border-b border-[var(--ks-border)]">
                 <tr>
-                  <th className="p-3 font-medium text-left">Size</th>
-                  <th className="p-3 font-medium text-right">Chest (in)</th>
-                  <th className="p-3 font-medium text-right">Shoulder (in)</th>
-                  <th className="p-3 font-medium text-right">Length (in)</th>
+                  <th className="p-3 font-medium text-start">Size</th>
+                  <th className="p-3 font-medium text-end">Chest (in)</th>
+                  <th className="p-3 font-medium text-end">Shoulder (in)</th>
+                  <th className="p-3 font-medium text-end">Length (in)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--ks-border)]">
                 <tr>
-                  <td className="p-3 font-semibold text-left">S</td>
-                  <td className="p-3 text-right">41.5</td>
-                  <td className="p-3 text-right">18.2</td>
-                  <td className="p-3 text-right">27.5</td>
+                  <td className="p-3 font-semibold text-start">S</td>
+                  <td className="p-3 text-end">41.5</td>
+                  <td className="p-3 text-end">18.2</td>
+                  <td className="p-3 text-end">27.5</td>
                 </tr>
                 <tr>
-                  <td className="p-3 font-semibold text-left">M</td>
-                  <td className="p-3 text-right">43.5</td>
-                  <td className="p-3 text-right">19.0</td>
-                  <td className="p-3 text-right">28.5</td>
+                  <td className="p-3 font-semibold text-start">M</td>
+                  <td className="p-3 text-end">43.5</td>
+                  <td className="p-3 text-end">19.0</td>
+                  <td className="p-3 text-end">28.5</td>
                 </tr>
                 <tr>
-                  <td className="p-3 font-semibold text-left">L</td>
-                  <td className="p-3 text-right">46.0</td>
-                  <td className="p-3 text-right">19.8</td>
-                  <td className="p-3 text-right">29.5</td>
+                  <td className="p-3 font-semibold text-start">L</td>
+                  <td className="p-3 text-end">46.0</td>
+                  <td className="p-3 text-end">19.8</td>
+                  <td className="p-3 text-end">29.5</td>
                 </tr>
                 <tr>
-                  <td className="p-3 font-semibold text-left">XL</td>
-                  <td className="p-3 text-right">48.5</td>
-                  <td className="p-3 text-right">20.6</td>
-                  <td className="p-3 text-right">30.5</td>
+                  <td className="p-3 font-semibold text-start">XL</td>
+                  <td className="p-3 text-end">48.5</td>
+                  <td className="p-3 text-end">20.6</td>
+                  <td className="p-3 text-end">30.5</td>
                 </tr>
               </tbody>
             </table>
@@ -1028,7 +1061,7 @@ export const ProductDetailPage: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Scroll-triggered compact Mobile Sticky Purchase Bar (<= 44px) */}
+      {/* Scroll-triggered compact Mobile Sticky Purchase Bar */}
       <AnimatePresence>
         {showMobileStickyBar && (
           <motion.div
@@ -1037,22 +1070,29 @@ export const ProductDetailPage: React.FC = () => {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: '100%', opacity: 0 }}
             transition={STUDIO_TRANSITION.base}
-            className="lg:hidden fixed bottom-0 inset-x-0 z-30 h-11 px-3 sm:px-4 bg-[var(--ks-surface)]/95 backdrop-blur-md border-t border-[var(--ks-border)] flex items-center justify-between gap-3"
+            className="lg:hidden fixed bottom-0 inset-x-0 z-30 min-h-[54px] px-3 sm:px-4 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] bg-[var(--ks-surface)]/95 backdrop-blur-md border-t border-[var(--ks-border)] shadow-[0_-4px_16px_rgba(26,26,24,0.06)] flex items-center justify-between gap-3"
           >
-            <div className="min-w-0 flex-1 flex items-center gap-2">
-              <span className="text-xs font-medium truncate">{product.name}</span>
-              <span className="text-xs font-mono-num font-semibold shrink-0 tabular-nums">
-                {formatCurrency(product.price, currency)}
-              </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline gap-2">
+                <span className="text-xs font-medium text-[var(--ks-text-primary)] truncate">
+                  {product.name}
+                </span>
+                <span className="text-xs font-mono-num font-semibold shrink-0 tabular-nums text-[var(--ks-text-primary)]">
+                  {formatCurrency(product.price * quantity, currency)}
+                </span>
+              </div>
+              <p className="text-[11px] text-[var(--ks-text-muted)] truncate">
+                {color.name} · {size}
+              </p>
             </div>
             <Button
               variant="primary"
-              size="xs"
+              size="sm"
               disabled={outOfStock}
-              className="whitespace-nowrap shrink-0"
+              className="whitespace-nowrap shrink-0 min-h-[40px]"
               onClick={() => addToCart(product, color.name, color.hex, size, quantity, true)}
             >
-              {outOfStock ? 'Out of Stock' : 'Add to Bag'}
+              {outOfStock ? t(language, 'outOfStock') : t(language, 'addToBag')}
             </Button>
           </motion.div>
         )}

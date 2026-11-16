@@ -104,7 +104,7 @@ export const TypingGradientText: React.FC<TypingGradientTextProps> = ({
       {!reducedMotion && safePhrases.length > 1 && (
         <span
           aria-hidden="true"
-          className={`inline-block shrink-0 w-[1.5px] h-[0.8em] ml-1.5 translate-y-[0.04em] rounded-full bg-gradient-to-b from-[#8F6438] to-[#3B2512] dark:from-[#FFF4E2] dark:to-[#B88854] ${
+          className={`inline-block shrink-0 w-[1.5px] h-[0.8em] ms-1.5 translate-y-[0.04em] rounded-full bg-gradient-to-b from-[#8F6438] to-[#3B2512] dark:from-[#FFF4E2] dark:to-[#B88854] ${
             isPausedAtEnd ? 'ks-typing-caret' : 'opacity-90'
           }`}
         />

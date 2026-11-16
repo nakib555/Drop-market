@@ -1,19 +1,33 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowUp } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
+import { useStore } from '../../context/StoreContext';
 import { STUDIO_TRANSITION } from '../../utils/motion';
 
 export const BackToTopButton: React.FC = () => {
+  const { route } = useStore();
   const [visible, setVisible] = useState(false);
+  const [nearFooterEnd, setNearFooterEnd] = useState(false);
 
   useEffect(() => {
     const onScroll = () => {
-      setVisible(window.scrollY > 480);
+      const y = window.scrollY;
+      setVisible(y > 520);
+      const docHeight = document.documentElement.scrollHeight;
+      const winHeight = window.innerHeight;
+      setNearFooterEnd(y + winHeight >= docHeight - 140);
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
     return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+  }, [route.name]);
+
+  const bottomClass =
+    route.name === 'product'
+      ? 'bottom-20 lg:bottom-6'
+      : nearFooterEnd
+      ? 'bottom-[max(4.75rem,calc(env(safe-area-inset-bottom,0px)+4rem))] sm:bottom-16'
+      : 'bottom-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+1rem))] sm:bottom-6';
 
   return (
     <AnimatePresence>
@@ -29,7 +43,7 @@ export const BackToTopButton: React.FC = () => {
           whileTap={{ scale: 0.95 }}
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           aria-label="Scroll back to top"
-          className="fixed bottom-20 lg:bottom-6 right-4 sm:right-6 z-30 w-10 h-10 rounded-md bg-[#171716]/90 dark:bg-[#F4F3EF]/90 text-white dark:text-[#171716] border border-[#2C2C28]/20 dark:border-[#E5E3DD]/20 shadow-lg backdrop-blur-sm flex items-center justify-center cursor-pointer"
+          className={`print:hidden fixed ${bottomClass} end-4 sm:end-6 z-30 w-11 h-11 rounded-[var(--ks-radius-md)] bg-[var(--ks-action)]/92 text-[var(--ks-action-text)] border border-[var(--ks-border-strong)] shadow-lg backdrop-blur-sm flex items-center justify-center cursor-pointer transition-[bottom] duration-200`}
         >
           <ArrowUp className="w-4 h-4" />
         </motion.button>

@@ -246,7 +246,7 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
       email: cleanEmail,
       phone: phone?.trim() || '',
       role: chosenRole,
-      roleLabel: chosenRole === 'seller' ? 'Seller Studio Partner' : 'Marketplace Member',
+      roleLabel: chosenRole === 'seller' ? 'Seller Studio Partner' : 'Member Account',
       studioName: chosenRole === 'seller' ? studioName?.trim() || `${fullName.trim()} Studio` : undefined,
       status: 'active' as const,
       joinedAt: new Date().toISOString().slice(0, 10),
@@ -1414,7 +1414,8 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
       ...(typeof updates.supportEmail === 'string' && updates.supportEmail.includes('@')
         ? { supportEmail: updates.supportEmail.trim() }
         : {}),
-      ...(updates.defaultLanguage === 'en' || updates.defaultLanguage === 'bn'
+      ...(updates.defaultLanguage &&
+      ['en', 'bn', 'hi', 'ar', 'es', 'fr'].includes(updates.defaultLanguage)
         ? { defaultLanguage: updates.defaultLanguage }
         : {}),
       ...(typeof updates.maintenanceNoticeEnabled === 'boolean'

@@ -22,6 +22,7 @@ import { motion } from 'motion/react';
 import { BRAND_STUDIOS, HERO_IMAGE } from '../data/catalog';
 import { useStore } from '../context/StoreContext';
 import { STUDIO15_MIN_USD, formatCurrency } from '../utils/format';
+import { t, translateDepartmentName, type UiStringKey } from '../utils/i18n';
 import { STUDIO_TRANSITION } from '../utils/motion';
 import { ScrollReveal } from '../components/ui/MotionPrimitives';
 import { ProductCard } from '../components/product/ProductCard';
@@ -52,19 +53,20 @@ type HomeCollectionTab =
   | 'beauty-grocery'
   | 'auto-kids-health';
 
-const COLLECTION_TABS: ReadonlyArray<{ id: HomeCollectionTab; label: string }> = [
-  { id: 'all', label: 'Featured' },
-  { id: 'new-arrivals', label: 'New Arrivals' },
-  { id: 'best-sellers', label: 'Best Sellers' },
-  { id: 'electronics', label: 'Tech & Audio' },
-  { id: 'fashion', label: 'Fashion & Carry' },
-  { id: 'home-office', label: 'Home & Office' },
-  { id: 'beauty-grocery', label: 'Beauty & Grocery' },
-  { id: 'auto-kids-health', label: 'Tools, Baby & Health' },
+const COLLECTION_TABS: ReadonlyArray<{ id: HomeCollectionTab; labelKey: UiStringKey }> = [
+  { id: 'all', labelKey: 'tabFeatured' },
+  { id: 'new-arrivals', labelKey: 'tabNewArrivals' },
+  { id: 'best-sellers', labelKey: 'tabBestSellers' },
+  { id: 'electronics', labelKey: 'tabElectronics' },
+  { id: 'fashion', labelKey: 'tabFashion' },
+  { id: 'home-office', labelKey: 'tabHomeOffice' },
+  { id: 'beauty-grocery', labelKey: 'tabBeautyGrocery' },
+  { id: 'auto-kids-health', labelKey: 'tabAutoKidsHealth' },
 ];
 
 export const HomePage: React.FC = () => {
   const {
+    language,
     categories,
     products,
     currency,
@@ -196,30 +198,31 @@ export const HomePage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-16 sm:space-y-20 lg:space-y-24">
+    <div className="space-y-14 sm:space-y-20 lg:space-y-24">
       {/* 1. Editorial Split Hero */}
       <section className="ks-container pt-4 sm:pt-6 lg:pt-8">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-10 items-stretch">
           <div className="md:col-span-6 lg:col-span-5 @container flex flex-col justify-between py-1 lg:py-4 space-y-6">
             <div className="space-y-4">
               <p className="text-xs uppercase tracking-[0.12em] text-[var(--ks-accent)] font-medium">
-                Kinto Studio
+                {t(language, 'heroEyebrow')}
               </p>
-              <h1 className="ks-heading-hero !text-[clamp(1.75rem,8cqi,3.35rem)] !leading-[1.08] space-y-1">
-                <span className="block whitespace-nowrap">Refined essentials.</span>
+              <h1 className="ks-heading-hero !text-[clamp(1.65rem,7.5cqi,3.3rem)] !leading-[1.1] space-y-1">
+                <span className="block whitespace-nowrap">{t(language, 'heroTitleLine1')}</span>
                 <span className="block">
                   <TypingGradientText
+                    key={language}
                     singleLine
-                    className="text-[clamp(1.65rem,7.6cqi,3.2rem)] leading-[1.1]"
+                    className="text-[clamp(1.5rem,7cqi,3.1rem)] leading-[1.12]"
                     phrases={[
-                      'Crafted to endure.',
-                      'Styled for today.',
+                      t(language, 'heroTypingPhrase1'),
+                      t(language, 'heroTypingPhrase2'),
                     ]}
                   />
                 </span>
               </h1>
               <p className="text-sm sm:text-base lg:text-lg text-[var(--ks-text-secondary)] leading-relaxed max-w-lg">
-                Shop technology, fashion, home essentials, beauty, groceries, tools, and more across ten departments.
+                {t(language, 'heroSubtitle')}
               </p>
               <div className="flex flex-wrap items-center gap-3 pt-1">
                 <Button
@@ -227,11 +230,11 @@ export const HomePage: React.FC = () => {
                   size="lg"
                   onClick={() => navigate({ name: 'shop', category: 'all' })}
                 >
-                  <span>Shop All Products</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span>{t(language, 'shopAllProducts')}</span>
+                  <ArrowRight className="w-4 h-4 rtl:rotate-180" />
                 </Button>
                 <Button variant="outline" size="lg" onClick={scrollToDepartments}>
-                  Explore Departments
+                  {t(language, 'exploreDepartments')}
                 </Button>
               </div>
             </div>
@@ -239,8 +242,8 @@ export const HomePage: React.FC = () => {
             <div className="pt-4 border-t border-[var(--ks-border)] flex items-center justify-between gap-3 text-xs text-[var(--ks-text-secondary)]">
               <span className="min-w-0 flex-1 truncate">
                 {spotlightProduct
-                  ? `Featured item: ${spotlightProduct.name}`
-                  : 'Ten departments · BDT and USD pricing'}
+                  ? t(language, 'featuredItemPrefix', { name: spotlightProduct.name })
+                  : t(language, 'heroSubFallback')}
               </span>
               {spotlightProduct && (
                 <button
@@ -250,7 +253,7 @@ export const HomePage: React.FC = () => {
                   }
                   className="font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] hover:underline whitespace-nowrap shrink-0 cursor-pointer"
                 >
-                  View Product
+                  {t(language, 'viewProduct')}
                 </button>
               )}
             </div>
@@ -269,16 +272,18 @@ export const HomePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Shopping Benefits Bar (Config-driven, no unsupported promises) */}
+        {/* Shopping Benefits Bar */}
         <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 py-4 px-5 sm:px-6 ks-surface-card">
           <div className="flex items-start gap-3">
             <Truck className="w-4 h-4 mt-[3px] text-[var(--ks-accent)] shrink-0" />
             <div>
               <p className="text-sm font-medium leading-snug text-[var(--ks-text-primary)]">
-                Bangladesh Delivery Zones
+                {t(language, 'benefitZonesTitle')}
               </p>
               <p className="text-xs text-[var(--ks-text-secondary)] mt-0.5 leading-snug">
-                Free Dhaka Metro delivery from {formatCurrency(freeThresholdUsd, currency)}; zone rates nationwide.
+                {t(language, 'benefitZonesDesc', {
+                  amount: formatCurrency(freeThresholdUsd, currency),
+                })}
               </p>
             </div>
           </div>
@@ -286,10 +291,10 @@ export const HomePage: React.FC = () => {
             <ShieldCheck className="w-4 h-4 mt-[3px] text-[var(--ks-accent)] shrink-0" />
             <div>
               <p className="text-sm font-medium leading-snug text-[var(--ks-text-primary)]">
-                Local &amp; Card Payments
+                {t(language, 'benefitPayTitle')}
               </p>
               <p className="text-xs text-[var(--ks-text-secondary)] mt-0.5 leading-snug">
-                Supports bKash, Nagad, Rocket, cards, and Cash on Delivery where eligible.
+                {t(language, 'benefitPayDesc')}
               </p>
             </div>
           </div>
@@ -297,10 +302,10 @@ export const HomePage: React.FC = () => {
             <Check className="w-4 h-4 mt-[3px] text-[var(--ks-accent)] shrink-0" />
             <div>
               <p className="text-sm font-medium leading-snug text-[var(--ks-text-primary)]">
-                Clear Returns &amp; Support
+                {t(language, 'benefitReturnsTitle')}
               </p>
               <p className="text-xs text-[var(--ks-text-secondary)] mt-0.5 leading-snug">
-                Shipping, refund, and warranty policies clearly stated before checkout.
+                {t(language, 'benefitReturnsDesc')}
               </p>
             </div>
           </div>
@@ -308,10 +313,10 @@ export const HomePage: React.FC = () => {
             <Globe className="w-4 h-4 mt-[3px] text-[var(--ks-accent)] shrink-0" />
             <div>
               <p className="text-sm font-medium leading-snug text-[var(--ks-text-primary)]">
-                BDT (৳) &amp; USD ($) Display
+                {t(language, 'benefitCurrencyTitle')}
               </p>
               <p className="text-xs text-[var(--ks-text-secondary)] mt-0.5 leading-snug">
-                Switch display currency anytime; Bangladesh orders settle in BDT.
+                {t(language, 'benefitCurrencyDesc')}
               </p>
             </div>
           </div>
@@ -322,37 +327,38 @@ export const HomePage: React.FC = () => {
       <ScrollReveal className="ks-container" id="departments-grid">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-7">
           <div>
-            <p className="ks-eyebrow">Departments</p>
-            <h2 className="ks-heading-section mt-1">Browse by Department</h2>
+            <p className="ks-eyebrow">{t(language, 'departmentsEyebrow')}</p>
+            <h2 className="ks-heading-section mt-1">{t(language, 'browseByDepartment')}</h2>
           </div>
           <button
             type="button"
             onClick={() => navigate({ name: 'shop', category: 'all' })}
-            className="self-start sm:self-auto text-left whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+            className="self-start sm:self-auto text-start whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 min-h-[40px] text-sm font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
           >
-            <span>Shop All Products ({products.length})</span>
-            <ArrowRight className="w-4 h-4" />
+            <span>{t(language, 'shopAllProductsCount', { count: products.length })}</span>
+            <ArrowRight className="w-4 h-4 rtl:rotate-180" />
           </button>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-5">
           {categories.map((cat) => {
             const IconComp = DEPT_ICON_MAP[cat.iconName] || Sparkles;
+            const localizedName = translateDepartmentName(language, cat.slug, cat.name);
             return (
               <button
                 key={cat.slug}
                 type="button"
                 onClick={() => navigate({ name: 'category', category: cat.slug })}
-                className="group text-left rounded-[var(--ks-radius-lg)] overflow-hidden bg-[var(--ks-surface)] border border-[var(--ks-border)] transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:shadow-[var(--ks-shadow-card-hover)] cursor-pointer flex flex-col"
+                className="group text-start rounded-[var(--ks-radius-lg)] overflow-hidden bg-[var(--ks-surface)] border border-[var(--ks-border)] transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:shadow-[var(--ks-shadow-card-hover)] cursor-pointer flex flex-col"
               >
                 <div className="relative aspect-[4/3] overflow-hidden bg-[var(--ks-surface-muted)]">
                   <ResilientImage
                     src={cat.image}
-                    alt={cat.name}
+                    alt={localizedName}
                     loading="lazy"
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
                   />
-                  <span className="absolute top-2.5 left-2.5 w-8 h-8 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)]/92 border border-[var(--ks-border)] flex items-center justify-center text-[var(--ks-text-primary)]">
+                  <span className="absolute top-2.5 start-2.5 w-8 h-8 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)]/92 border border-[var(--ks-border)] flex items-center justify-center text-[var(--ks-text-primary)]">
                     <IconComp className="w-4 h-4" />
                   </span>
                 </div>
@@ -362,13 +368,13 @@ export const HomePage: React.FC = () => {
                       {cat.countLabel}
                     </p>
                     <p className="text-sm sm:text-[15px] font-medium mt-0.5 text-[var(--ks-text-primary)] group-hover:text-[var(--ks-accent)] transition-colors line-clamp-1">
-                      {cat.name}
+                      {localizedName}
                     </p>
                   </div>
                   <p className="text-[11px] text-[var(--ks-text-muted)] font-mono-num">
                     {cat.subcategories.length > 0
-                      ? `${cat.subcategories.length} categories`
-                      : 'View department'}
+                      ? t(language, 'categoriesCount', { count: cat.subcategories.length })
+                      : t(language, 'viewDepartment')}
                   </p>
                 </div>
               </button>
@@ -381,16 +387,16 @@ export const HomePage: React.FC = () => {
       <ScrollReveal className="ks-container">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-7">
           <div>
-            <p className="ks-eyebrow">Popular Selection</p>
-            <h2 className="ks-heading-section mt-1">Trending Products</h2>
+            <p className="ks-eyebrow">{t(language, 'popularSelection')}</p>
+            <h2 className="ks-heading-section mt-1">{t(language, 'trendingProducts')}</h2>
           </div>
           <button
             type="button"
             onClick={() => navigate({ name: 'shop', collection: 'trending', category: 'all' })}
-            className="self-start sm:self-auto text-left whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+            className="self-start sm:self-auto text-start whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 min-h-[40px] text-sm font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
           >
-            <span>View All Trending</span>
-            <ArrowRight className="w-4 h-4" />
+            <span>{t(language, 'viewAllTrending')}</span>
+            <ArrowRight className="w-4 h-4 rtl:rotate-180" />
           </button>
         </div>
 
@@ -403,9 +409,9 @@ export const HomePage: React.FC = () => {
         ) : catalogError && products.length === 0 ? (
           <div className="rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)]">
             <EmptyState
-              title="Unable to load catalog"
+              title={t(language, 'unableToLoadCatalog')}
               description={catalogError}
-              actionLabel="Retry Loading Catalog"
+              actionLabel={t(language, 'retryLoadingCatalog')}
               onAction={() => retryCatalogLoad()}
             />
           </div>
@@ -422,8 +428,8 @@ export const HomePage: React.FC = () => {
       <section className="ks-container">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 mb-7">
           <div>
-            <p className="ks-eyebrow">By Category</p>
-            <h2 className="ks-heading-section mt-1">Everyday Essentials Across Departments</h2>
+            <p className="ks-eyebrow">{t(language, 'byCategory')}</p>
+            <h2 className="ks-heading-section mt-1">{t(language, 'everydayEssentials')}</h2>
           </div>
 
           <div
@@ -453,7 +459,7 @@ export const HomePage: React.FC = () => {
                       className="absolute inset-0 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] shadow-xs"
                     />
                   )}
-                  <span className="relative z-10">{tab.label}</span>
+                  <span className="relative z-10">{t(language, tab.labelKey)}</span>
                 </button>
               );
             })}
@@ -482,8 +488,8 @@ export const HomePage: React.FC = () => {
 
         <div className="mt-10 text-center">
           <Button variant="outline" size="lg" onClick={handleViewAllCollection}>
-            <span>Browse Collection</span>
-            <ArrowRight className="w-4 h-4" />
+            <span>{t(language, 'browseCollection')}</span>
+            <ArrowRight className="w-4 h-4 rtl:rotate-180" />
           </Button>
         </div>
       </section>
@@ -493,14 +499,15 @@ export const HomePage: React.FC = () => {
         <div className="rounded-[var(--ks-radius-lg)] bg-[#222220] dark:bg-[#191917] text-[#FAF9F6] border border-[#2C2C27] p-6 sm:p-10 lg:p-12 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-3 max-w-2xl">
             <span className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.12em] text-[#E2B887] font-medium">
-              <Tag className="w-3.5 h-3.5" /> Seasonal Offer
+              <Tag className="w-3.5 h-3.5" /> {t(language, 'seasonalOffer')}
             </span>
             <h2 className="font-display text-3xl sm:text-4xl font-medium leading-tight">
-              Save 15% on orders over {formatCurrency(STUDIO15_MIN_USD, currency)} with code{' '}
-              <span className="font-mono-num text-[#E2B887]">STUDIO15</span>
+              {t(language, 'promoBannerHeadline', {
+                amount: formatCurrency(STUDIO15_MIN_USD, currency),
+              })}
             </h2>
             <p className="text-sm text-[#B4B2AC]">
-              Combine items from any department in a single bag with automatic BDT or USD totals at checkout.
+              {t(language, 'promoBannerDesc')}
             </p>
           </div>
           <div className="flex flex-wrap gap-3 shrink-0">
@@ -509,7 +516,7 @@ export const HomePage: React.FC = () => {
               size="lg"
               onClick={() => navigate({ name: 'offers' })}
             >
-              Shop Offers
+              {t(language, 'shopOffers')}
             </Button>
             <Button
               variant="outline"
@@ -517,7 +524,7 @@ export const HomePage: React.FC = () => {
               className="border-white/25 text-white hover:bg-white/10"
               onClick={() => navigate({ name: 'shop', collection: 'best-sellers', category: 'all' })}
             >
-              Best Sellers
+              {t(language, 'bestSellers')}
             </Button>
           </div>
         </div>
@@ -527,16 +534,16 @@ export const HomePage: React.FC = () => {
       <ScrollReveal className="ks-container">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-7">
           <div>
-            <p className="ks-eyebrow">Brands</p>
-            <h2 className="ks-heading-section mt-1">Featured Brands</h2>
+            <p className="ks-eyebrow">{t(language, 'brands')}</p>
+            <h2 className="ks-heading-section mt-1">{t(language, 'featuredBrands')}</h2>
           </div>
           <button
             type="button"
             onClick={() => navigate({ name: 'brands' })}
-            className="self-start sm:self-auto text-left whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+            className="self-start sm:self-auto text-start whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 min-h-[40px] text-sm font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
           >
-            <span>View All Brands</span>
-            <ArrowRight className="w-4 h-4" />
+            <span>{t(language, 'viewAllBrands')}</span>
+            <ArrowRight className="w-4 h-4 rtl:rotate-180" />
           </button>
         </div>
 
@@ -552,11 +559,17 @@ export const HomePage: React.FC = () => {
                   brand: brand.name,
                 })
               }
-              className="text-left p-5 ks-surface-card hover:border-[var(--ks-accent)] transition-colors cursor-pointer space-y-1.5"
+              className="text-start p-5 ks-surface-card hover:border-[var(--ks-accent)] transition-colors cursor-pointer space-y-1.5"
             >
               <div className="flex items-baseline justify-between gap-2 text-[11px] uppercase tracking-wider text-[var(--ks-text-muted)]">
-                <span className="truncate">{brand.categories.length} departments</span>
-                {brand.founded && <span className="font-mono-num shrink-0">Est. {brand.founded}</span>}
+                <span className="truncate">
+                  {t(language, 'deptCountLabel', { count: brand.categories.length })}
+                </span>
+                {brand.founded && (
+                  <span className="font-mono-num shrink-0">
+                    {t(language, 'estYear', { year: brand.founded })}
+                  </span>
+                )}
               </div>
               <p className="font-display text-2xl font-medium text-[var(--ks-text-primary)]">
                 {brand.name}
@@ -569,21 +582,21 @@ export const HomePage: React.FC = () => {
         </div>
       </ScrollReveal>
 
-      {/* 7. Recently Viewed (renders only when shopper has browsing history) */}
+      {/* 7. Recently Viewed */}
       {recentlyViewedProducts.length > 0 && (
         <ScrollReveal className="ks-container">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-7">
             <div>
-              <p className="ks-eyebrow">Your History</p>
-              <h2 className="ks-heading-section mt-1">Recently Viewed</h2>
+              <p className="ks-eyebrow">{t(language, 'yourHistory')}</p>
+              <h2 className="ks-heading-section mt-1">{t(language, 'recentlyViewed')}</h2>
             </div>
             <button
               type="button"
               onClick={() => navigate({ name: 'shop', category: 'all' })}
-              className="self-start sm:self-auto text-left whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+              className="self-start sm:self-auto text-start whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 min-h-[40px] text-sm font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
             >
-              <span>Shop All Products</span>
-              <ArrowRight className="w-4 h-4" />
+              <span>{t(language, 'shopAllProducts')}</span>
+              <ArrowRight className="w-4 h-4 rtl:rotate-180" />
             </button>
           </div>
 

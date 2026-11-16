@@ -3,6 +3,7 @@ import { Check, ShoppingBag } from 'lucide-react';
 import { Product } from '../../types/commerce';
 import { useStore } from '../../context/StoreContext';
 import { getDiscountPercent, isProductOutOfStock } from '../../utils/format';
+import { t, translateDepartmentName } from '../../utils/i18n';
 import { ResilientImage } from '../ui/Primitives';
 import { PriceDisplay, RatingSummary, WishlistButton } from './CommercePrimitives';
 
@@ -13,6 +14,7 @@ interface ProductCardProps {
 
 const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid' }) => {
   const {
+    language,
     currency,
     navigate,
     addToCart,
@@ -75,7 +77,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
             if (secondaryImage && !hoverMounted) setHoverMounted(true);
           }}
           aria-label={`View ${product.name}`}
-          className="relative w-full sm:w-60 md:w-64 aspect-[4/3] rounded-[var(--ks-radius-md)] overflow-hidden bg-[var(--ks-surface-muted)] shrink-0 cursor-pointer block text-left"
+          className="relative w-full sm:w-60 md:w-64 aspect-[4/3] rounded-[var(--ks-radius-md)] overflow-hidden bg-[var(--ks-surface-muted)] shrink-0 cursor-pointer block text-start"
         >
           <ResilientImage
             src={product.images[0]}
@@ -97,11 +99,13 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
           <div className="space-y-2">
             <div className="flex items-baseline justify-between gap-2">
               <span className="text-xs tracking-wide text-[var(--ks-text-muted)] truncate">
-                {product.brand ? `${product.brand} · ${product.categoryLabel}` : product.categoryLabel}
+                {product.brand
+                  ? `${product.brand} · ${translateDepartmentName(language, product.category, product.categoryLabel)}`
+                  : translateDepartmentName(language, product.category, product.categoryLabel)}
               </span>
               {hasVerifiedDiscount && (
                 <span className="text-xs font-mono-num font-medium text-[var(--ks-accent)] shrink-0">
-                  Save {discount}%
+                  {t(language, 'savePercent', { percent: discount })}
                 </span>
               )}
             </div>
@@ -109,7 +113,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
               <button
                 type="button"
                 onClick={() => navigate({ name: 'product', slug: product.slug })}
-                className="text-left hover:text-[var(--ks-accent)] transition-colors cursor-pointer"
+                className="text-start hover:text-[var(--ks-accent)] transition-colors cursor-pointer"
               >
                 {product.name}
               </button>
@@ -128,12 +132,12 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
               {(hasRating || highlights.length > 0) && <span aria-hidden="true">·</span>}
               <span>
                 {outOfStock
-                  ? 'Out of stock'
+                  ? t(language, 'outOfStock')
                   : product.availability === 'in-stock'
-                  ? 'In stock'
+                  ? t(language, 'inStock')
                   : product.availability === 'low-stock'
-                  ? `Only ${product.stockCount} left`
-                  : 'Made to order'}
+                  ? t(language, 'onlyLeft', { count: product.stockCount })
+                  : t(language, 'madeToOrder')}
               </span>
             </div>
           </div>
@@ -166,16 +170,16 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
                 }`}
               >
                 {outOfStock ? (
-                  <span>Out of Stock</span>
+                  <span>{t(language, 'outOfStock')}</span>
                 ) : justAdded ? (
                   <>
                     <Check className="w-3.5 h-3.5" />
-                    <span>Added</span>
+                    <span>{t(language, 'added')}</span>
                   </>
                 ) : (
                   <>
                     <ShoppingBag className="w-3.5 h-3.5" />
-                    <span>Add to Bag</span>
+                    <span>{t(language, 'addToBag')}</span>
                   </>
                 )}
               </button>
@@ -198,7 +202,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
           type="button"
           onClick={() => navigate({ name: 'product', slug: product.slug })}
           aria-label={`View ${product.name}`}
-          className="block w-full h-full cursor-pointer text-left"
+          className="block w-full h-full cursor-pointer text-start"
         >
           <ResilientImage
             src={product.images[0]}
@@ -217,10 +221,10 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
         </button>
 
         {/* Top status/discount label & wishlist control */}
-        <div className="absolute top-2.5 left-2.5 right-2.5 flex items-start justify-between pointer-events-none">
+        <div className="absolute top-2.5 inset-x-2.5 flex items-start justify-between pointer-events-none">
           {outOfStock ? (
             <span className="px-2 py-0.5 rounded-[var(--ks-radius-sm)] bg-[#222220]/90 text-[#FAF9F6] text-[11px] font-medium">
-              Out of Stock
+              {t(language, 'outOfStock')}
             </span>
           ) : hasVerifiedDiscount ? (
             <span className="px-2 py-0.5 rounded-[var(--ks-radius-sm)] bg-[#222220]/90 text-[#FAF9F6] text-[11px] font-mono-num">
@@ -247,7 +251,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
         <div className="space-y-1.5">
           <div className="flex items-baseline justify-between gap-2 min-h-[16px]">
             <span className="text-[11px] tracking-wide text-[var(--ks-text-muted)] min-w-0 truncate">
-              {product.brand || product.categoryLabel}
+              {product.brand || translateDepartmentName(language, product.category, product.categoryLabel)}
             </span>
             <RatingSummary
               rating={product.rating}
@@ -262,7 +266,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
             <button
               type="button"
               onClick={() => navigate({ name: 'product', slug: product.slug })}
-              className="w-full text-left line-clamp-1 hover:text-[var(--ks-accent)] transition-colors cursor-pointer"
+              className="w-full text-start line-clamp-1 hover:text-[var(--ks-accent)] transition-colors cursor-pointer"
             >
               {product.name}
             </button>
@@ -273,7 +277,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
               {highlights.length > 0 ? highlights.join(' · ') : product.categoryLabel}
             </p>
             {product.colors.length > 1 && (
-              <div className="flex items-center gap-0.5 shrink-0 -mr-1" aria-label="Color options">
+              <div className="flex items-center gap-0.5 shrink-0 -me-1" aria-label="Color options">
                 {product.colors.slice(0, 4).map((c, idx) => (
                   <button
                     key={c.name}
@@ -315,7 +319,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
             disabled={outOfStock}
             onClick={handlePrimaryAdd}
             aria-label={outOfStock ? `${product.name} out of stock` : `Add ${product.name} to bag`}
-            className={`ml-auto px-2.5 sm:px-3.5 h-9 sm:h-10 rounded-[var(--ks-radius-md)] text-xs font-medium inline-flex items-center gap-1 transition-[color,background-color,transform] duration-[var(--ks-duration-fast)] whitespace-nowrap shrink-0 ${
+            className={`ms-auto px-3 sm:px-3.5 min-h-[40px] rounded-[var(--ks-radius-md)] text-xs font-medium inline-flex items-center gap-1 transition-[color,background-color,transform] duration-[var(--ks-duration-fast)] whitespace-nowrap shrink-0 ${
               outOfStock
                 ? 'bg-[var(--ks-surface-muted)] text-[var(--ks-text-muted)] cursor-not-allowed'
                 : justAdded
@@ -324,14 +328,14 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
             }`}
           >
             {outOfStock ? (
-              <span>Sold Out</span>
+              <span>{t(language, 'outOfStock')}</span>
             ) : justAdded ? (
               <>
                 <Check className="w-3.5 h-3.5" />
-                <span>Added</span>
+                <span>{t(language, 'added')}</span>
               </>
             ) : (
-              <span>Add</span>
+              <span>{t(language, 'addToBag')}</span>
             )}
           </button>
         </div>

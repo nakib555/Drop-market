@@ -1,11 +1,12 @@
 import React from 'react';
 import { useStore } from '../../context/StoreContext';
 import { AccountDirectoryEntry } from '../../types/commerce';
+import { t } from '../../utils/i18n';
 import { Modal } from '../ui/Primitives';
 import { AuthPanel } from './AuthPanel';
 
 export const AuthModal: React.FC = () => {
-  const { authModalOpen, setAuthModalOpen, authModalTab, navigate } = useStore();
+  const { language, authModalOpen, setAuthModalOpen, authModalTab, navigate } = useStore();
 
   const handleSuccess = (user: AccountDirectoryEntry) => {
     setAuthModalOpen(false);
@@ -22,7 +23,7 @@ export const AuthModal: React.FC = () => {
     <Modal
       open={authModalOpen}
       onClose={() => setAuthModalOpen(false)}
-      title="Marketplace Account & Role Access"
+      title={t(language, 'authModalTitle')}
       maxWidthClass="max-w-4xl"
     >
       <AuthPanel

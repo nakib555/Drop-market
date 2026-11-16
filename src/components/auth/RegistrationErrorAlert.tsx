@@ -1,5 +1,7 @@
 import React from 'react';
 import { AlertCircle, ArrowRight, RefreshCw, X } from 'lucide-react';
+import { useStore } from '../../context/StoreContext';
+import { t } from '../../utils/i18n';
 
 export type RegistrationErrorCategory =
   | 'duplicate_email'
@@ -29,6 +31,7 @@ export const RegistrationErrorAlert: React.FC<RegistrationErrorAlertProps> = ({
   onSwitchToSignIn,
   onRetry,
 }) => {
+  const { language } = useStore();
   if (!error) return null;
 
   return (
@@ -51,7 +54,7 @@ export const RegistrationErrorAlert: React.FC<RegistrationErrorAlertProps> = ({
               {error.message}
             </p>
             {error.details && error.details.length > 0 && (
-              <ul className="list-disc pl-4 space-y-0.5 text-[11px] leading-snug text-[#991B1B] dark:text-[#FCA5A5]">
+              <ul className="list-disc ps-4 space-y-0.5 text-[11px] leading-snug text-[#991B1B] dark:text-[#FCA5A5]">
                 {error.details.map((detail, idx) => (
                   <li key={idx}>{detail}</li>
                 ))}
@@ -63,8 +66,8 @@ export const RegistrationErrorAlert: React.FC<RegistrationErrorAlertProps> = ({
         <button
           type="button"
           onClick={onDismiss}
-          aria-label="Dismiss registration error"
-          className="p-1 rounded text-[#991B1B] dark:text-[#FCA5A5] hover:bg-[#FEE2E2] dark:hover:bg-[#3F1A1D] transition-colors shrink-0 cursor-pointer"
+          aria-label={t(language, 'dismissError')}
+          className="p-1.5 rounded text-[#991B1B] dark:text-[#FCA5A5] hover:bg-[#FEE2E2] dark:hover:bg-[#3F1A1D] transition-colors shrink-0 cursor-pointer"
         >
           <X className="w-3.5 h-3.5" aria-hidden="true" />
         </button>
@@ -72,25 +75,25 @@ export const RegistrationErrorAlert: React.FC<RegistrationErrorAlertProps> = ({
 
       {(error.category === 'duplicate_email' && error.email && onSwitchToSignIn) ||
       ((error.category === 'network' || error.category === 'server') && onRetry) ? (
-        <div className="flex flex-wrap items-center gap-2 pl-6 pt-0.5">
+        <div className="flex flex-wrap items-center gap-2 ps-6 pt-0.5">
           {error.category === 'duplicate_email' && error.email && onSwitchToSignIn && (
             <button
               type="button"
               onClick={() => onSwitchToSignIn(error.email!)}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[11px] font-medium bg-[#171716] text-white hover:bg-[#2C2C2A] dark:bg-[#F4F3EF] dark:text-[#171716] dark:hover:bg-[#E5E3DD] transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 min-h-[36px] px-2.5 py-1.5 rounded text-[11px] font-medium bg-[#171716] text-white hover:bg-[#2C2C2A] dark:bg-[#F4F3EF] dark:text-[#171716] dark:hover:bg-[#E5E3DD] transition-colors cursor-pointer"
             >
-              <span>Sign in with {error.email}</span>
-              <ArrowRight className="w-3 h-3" aria-hidden="true" />
+              <span>{t(language, 'signInWithEmail', { email: error.email })}</span>
+              <ArrowRight className="w-3 h-3 rtl:rotate-180" aria-hidden="true" />
             </button>
           )}
           {(error.category === 'network' || error.category === 'server') && onRetry && (
             <button
               type="button"
               onClick={onRetry}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[11px] font-medium border border-[#DC2626]/40 dark:border-[#F87171]/40 text-[#991B1B] dark:text-[#FCA5A5] hover:bg-[#FEE2E2] dark:hover:bg-[#3F1A1D] transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 min-h-[36px] px-2.5 py-1.5 rounded text-[11px] font-medium border border-[#DC2626]/40 dark:border-[#F87171]/40 text-[#991B1B] dark:text-[#FCA5A5] hover:bg-[#FEE2E2] dark:hover:bg-[#3F1A1D] transition-colors cursor-pointer"
             >
               <RefreshCw className="w-3 h-3" aria-hidden="true" />
-              <span>Try again</span>
+              <span>{t(language, 'tryAgain')}</span>
             </button>
           )}
         </div>

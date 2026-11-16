@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, Package, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { STUDIO_TRANSITION } from '../../utils/motion';
+import { useStore } from '../../context/StoreContext';
+import { t } from '../../utils/i18n';
 import { Button } from './Button';
 
 export function useFocusTrap(
@@ -80,7 +82,7 @@ export const Breadcrumb: React.FC<{ items: BreadcrumbItem[] }> = ({ items }) => 
             <button
               type="button"
               onClick={item.onClick}
-              className="text-left hover:text-[var(--ks-text-primary)] transition-colors cursor-pointer"
+              className="text-start hover:text-[var(--ks-text-primary)] transition-colors cursor-pointer"
             >
               {item.label}
             </button>
@@ -131,19 +133,20 @@ export const Pagination: React.FC<PaginationProps> = ({
   totalPages,
   onPageChange,
 }) => {
+  const { language } = useStore();
   if (totalPages <= 1) return null;
   const items = getVisiblePageItems(currentPage, totalPages);
 
   return (
-    <nav aria-label="Pagination" className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 pt-8">
+    <nav aria-label={t(language, 'paginationLabel')} className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 pt-8">
       <button
         type="button"
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
-        aria-label="Previous page"
+        aria-label={t(language, 'previousPage')}
         className="w-10 h-10 rounded-md border border-[var(--ks-border)] flex items-center justify-center text-[var(--ks-text-primary)] disabled:opacity-40 cursor-pointer hover:bg-[var(--ks-surface-muted)] transition-colors"
       >
-        <ChevronLeft className="w-4 h-4" />
+        <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
       </button>
       {items.map((item, idx) =>
         item === 'ellipsis' ? (
@@ -174,10 +177,10 @@ export const Pagination: React.FC<PaginationProps> = ({
         type="button"
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
-        aria-label="Next page"
+        aria-label={t(language, 'nextPage')}
         className="w-10 h-10 rounded-md border border-[var(--ks-border)] flex items-center justify-center text-[var(--ks-text-primary)] disabled:opacity-40 cursor-pointer hover:bg-[var(--ks-surface-muted)] transition-colors"
       >
-        <ChevronRight className="w-4 h-4" />
+        <ChevronRight className="w-4 h-4 rtl:rotate-180" />
       </button>
     </nav>
   );
@@ -203,7 +206,7 @@ export const Accordion: React.FC<{ items: AccordionItemData[] }> = ({ items }) =
               type="button"
               aria-expanded={isOpen}
               onClick={() => setOpenId(isOpen ? null : item.id)}
-              className="w-full py-5 flex items-start justify-between gap-4 text-left cursor-pointer group"
+              className="w-full py-5 flex items-start justify-between gap-4 text-start cursor-pointer group"
             >
               <div className="flex flex-col gap-1 min-w-0 flex-1">
                 {item.meta && (
@@ -214,7 +217,7 @@ export const Accordion: React.FC<{ items: AccordionItemData[] }> = ({ items }) =
                 </span>
               </div>
               <ChevronDown
-                className={`w-4 h-4 shrink-0 mt-1 text-[#5C5B57] dark:text-[#A3A19B] transition-transform duration-200 ${
+                className={`w-4 h-4 shrink-0 mt-1 text-[var(--ks-text-secondary)] transition-transform duration-200 ${
                   isOpen ? 'rotate-180' : ''
                 }`}
               />
@@ -228,7 +231,7 @@ export const Accordion: React.FC<{ items: AccordionItemData[] }> = ({ items }) =
                   transition={STUDIO_TRANSITION.base}
                   className="overflow-hidden"
                 >
-                  <div className="pb-5 text-sm leading-relaxed text-[#5C5B57] dark:text-[#B4B2AC] max-w-3xl">
+                  <div className="pb-5 text-sm leading-relaxed text-[var(--ks-text-secondary)] max-w-3xl">
                     {item.content}
                   </div>
                 </motion.div>
@@ -256,6 +259,7 @@ export const Modal: React.FC<ModalProps> = ({
   maxWidthClass = 'max-w-3xl',
   children,
 }) => {
+  const { language } = useStore();
   const panelRef = useRef<HTMLDivElement>(null);
   useFocusTrap(open, panelRef);
 
@@ -284,7 +288,7 @@ export const Modal: React.FC<ModalProps> = ({
           className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/55 backdrop-blur-[2px]"
           role="dialog"
           aria-modal="true"
-          aria-label={title || 'Dialog'}
+          aria-label={title || t(language, 'closeLabel')}
           onClick={onClose}
         >
           <motion.div
@@ -298,18 +302,18 @@ export const Modal: React.FC<ModalProps> = ({
             className={`relative w-full ${maxWidthClass} max-h-[90vh] overflow-y-auto rounded-lg bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)] shadow-2xl focus:outline-none`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-6 py-4 bg-[var(--ks-surface)]/95 backdrop-blur-sm border-b border-[var(--ks-border)]">
-              {title ? <h2 className="text-lg font-medium leading-snug min-w-0 truncate">{title}</h2> : <span />}
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 sm:px-6 py-3.5 sm:py-4 bg-[var(--ks-surface)]/95 backdrop-blur-sm border-b border-[var(--ks-border)]">
+              {title ? <h2 className="text-base sm:text-lg font-medium leading-snug min-w-0 truncate">{title}</h2> : <span />}
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="Close modal"
-                className="w-10 h-10 -mr-1 shrink-0 rounded-md flex items-center justify-center text-[var(--ks-text-secondary)] hover:bg-[var(--ks-surface-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer transition-colors"
+                aria-label={t(language, 'closeLabel')}
+                className="w-11 h-11 -me-2 shrink-0 rounded-md flex items-center justify-center text-[var(--ks-text-secondary)] hover:bg-[var(--ks-surface-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="p-6">{children}</div>
+            <div className="p-4 sm:p-6">{children}</div>
           </motion.div>
         </motion.div>
       )}
@@ -332,6 +336,7 @@ export const Drawer: React.FC<DrawerProps> = ({
   side = 'right',
   children,
 }) => {
+  const { language } = useStore();
   const panelRef = useRef<HTMLDivElement>(null);
   useFocusTrap(open, panelRef);
 
@@ -348,16 +353,21 @@ export const Drawer: React.FC<DrawerProps> = ({
     };
   }, [open, onClose]);
 
+  const panelDir = language === 'ar' ? 'rtl' : 'ltr';
+
   return (
     <AnimatePresence>
       {open && (
         <motion.div
           key="drawer-backdrop"
+          dir="ltr"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={STUDIO_TRANSITION.fast}
-          className="fixed inset-0 z-50 flex bg-black/50 backdrop-blur-[1px]"
+          className={`fixed inset-0 z-50 flex bg-black/50 backdrop-blur-[1px] ${
+            side === 'right' ? 'justify-end' : 'justify-start'
+          }`}
           role="dialog"
           aria-modal="true"
           aria-label={title}
@@ -366,13 +376,14 @@ export const Drawer: React.FC<DrawerProps> = ({
           <motion.div
             ref={panelRef}
             tabIndex={-1}
+            dir={panelDir}
             key="drawer-panel"
             initial={{ x: side === 'right' ? '100%' : '-100%' }}
             animate={{ x: 0 }}
             exit={{ x: side === 'right' ? '100%' : '-100%' }}
             transition={STUDIO_TRANSITION.drawer}
             className={`relative w-full max-w-md h-full bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border-[var(--ks-border)] shadow-2xl flex flex-col focus:outline-none ${
-              side === 'right' ? 'ml-auto border-l' : 'mr-auto border-r'
+              side === 'right' ? 'border-l' : 'border-r'
             }`}
             onClick={(e) => e.stopPropagation()}
           >
@@ -381,8 +392,8 @@ export const Drawer: React.FC<DrawerProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                aria-label={`Close ${title}`}
-                className="w-10 h-10 -mr-1 shrink-0 rounded-md flex items-center justify-center text-[var(--ks-text-secondary)] hover:bg-[var(--ks-surface-muted)] cursor-pointer transition-colors"
+                aria-label={t(language, 'closeItemAria', { title })}
+                className="w-10 h-10 -me-1 shrink-0 rounded-md flex items-center justify-center text-[var(--ks-text-secondary)] hover:bg-[var(--ks-surface-muted)] cursor-pointer transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -401,6 +412,7 @@ interface EmptyStateProps {
   description: string;
   actionLabel?: string;
   onAction?: () => void;
+  compact?: boolean;
 }
 
 export const EmptyState: React.FC<EmptyStateProps> = ({
@@ -409,15 +421,26 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   description,
   actionLabel,
   onAction,
+  compact = false,
 }) => (
-  <div className="py-16 px-6 text-center max-w-md mx-auto flex flex-col items-center gap-4">
-    <div className="w-12 h-12 rounded-lg bg-[var(--ks-surface-muted)] flex items-center justify-center text-[var(--ks-text-secondary)]">
+  <div
+    className={`${
+      compact ? 'py-7 px-4 gap-3 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)]/70 border border-[var(--ks-border)]' : 'py-12 sm:py-16 px-6 gap-4'
+    } text-center max-w-md mx-auto flex flex-col items-center`}
+  >
+    <div
+      className={`${
+        compact ? 'w-10 h-10' : 'w-12 h-12'
+      } rounded-lg bg-[var(--ks-surface-muted)] flex items-center justify-center text-[var(--ks-text-secondary)]`}
+    >
       {icon || <Package className="w-5 h-5" />}
     </div>
-    <h2 className="font-display text-2xl font-medium text-[var(--ks-text-primary)]">{title}</h2>
+    <h2 className={`font-display ${compact ? 'text-xl' : 'text-2xl'} font-medium text-[var(--ks-text-primary)]`}>
+      {title}
+    </h2>
     <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">{description}</p>
     {actionLabel && onAction && (
-      <Button variant="primary" size="md" onClick={onAction} className="mt-2">
+      <Button variant="primary" size={compact ? 'sm' : 'md'} onClick={onAction} className="mt-1">
         {actionLabel}
       </Button>
     )}

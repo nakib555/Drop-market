@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
+  ArrowRight,
   CheckCircle2,
   Coins,
   Database,
@@ -46,6 +47,7 @@ import {
   UserRole,
 } from '../../types/commerce';
 import { formatCurrency, formatDirectCurrency } from '../../utils/format';
+import { t } from '../../utils/i18n';
 import { IMAGE_PRESET_OPTIONS, resolveImagePreset } from '../../utils/imagePresets';
 import { STUDIO_TRANSITION } from '../../utils/motion';
 import { Button } from '../ui/Button';
@@ -92,7 +94,7 @@ type AdminTab =
   | 'settings';
 
 export const AdminDashboard: React.FC = () => {
-  const { currency, showToast, refreshOrders, refreshStorefrontSync, navigate } = useStore();
+  const { language, currency, showToast, refreshOrders, refreshStorefrontSync, navigate } = useStore();
 
   const [data, setData] = useState<AdminDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -510,8 +512,16 @@ export const AdminDashboard: React.FC = () => {
         </Button>
       </div>
 
-      {/* 13-Section Console Tab Strip */}
-      <div className="flex items-center gap-5 border-b border-[var(--ks-border)] overflow-x-auto no-scrollbar">
+      {/* 13-Section Console Tab Strip (Mobile Select + Desktop Tabs) */}
+      <div className="md:hidden">
+        <Select
+          label={t(language, 'workspaceSectionLabel')}
+          value={activeTab}
+          onChange={(e) => setActiveTab(e.target.value as AdminTab)}
+          options={tabs.map((tab) => ({ value: tab.id, label: tab.label }))}
+        />
+      </div>
+      <div className="hidden md:flex items-center gap-5 border-b border-[var(--ks-border)] overflow-x-auto no-scrollbar">
         {tabs.map((tab) => {
           const active = activeTab === tab.id;
           return (
@@ -590,7 +600,7 @@ export const AdminDashboard: React.FC = () => {
                 return data.departmentShare.map((dept) => (
                   <div key={dept.category} className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium truncate pr-2">{dept.label}</span>
+                      <span className="font-medium truncate pe-2">{dept.label}</span>
                       <span className="font-mono-num text-[var(--ks-text-secondary)] shrink-0">
                         {formatCurrency(dept.gmv, currency)} ({dept.sharePercent}%)
                       </span>
@@ -615,24 +625,86 @@ export const AdminDashboard: React.FC = () => {
       {(activeTab === 'products' || activeTab === 'inventory') && (
         <div className="space-y-4">
           <div className="relative max-w-sm">
-            <Search className="w-4 h-4 text-[var(--ks-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-[var(--ks-text-muted)] absolute start-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Filter products by title, SKU, or maker..."
-              className="w-full h-10 pl-9 pr-3 text-xs rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)]"
+              className="w-full min-h-[44px] sm:h-10 ps-9 pe-3 text-base sm:text-xs rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)]"
             />
           </div>
-          <div className="overflow-x-auto rounded-[var(--ks-radius-md)] border border-[var(--ks-border)]">
-            <table className="w-full text-left text-xs">
+
+          {/* Mobile Stacked Inventory Cards */}
+          <div className="md:hidden space-y-3">
+            {filteredInventory.slice(0, 25).map((item) => (
+              <div
+                key={item.id}
+                className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-3"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <ResilientImage
+                      src={resolveImagePreset(item.imagePresetKey, item.category)}
+                      alt={item.name}
+                      className="w-11 h-9 rounded-sm object-cover shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{item.name}</p>
+                      <p className="text-[11px] text-[var(--ks-text-muted)] truncate">
+                        {item.brand} · {item.categoryLabel}
+                      </p>
+                      <p className="text-[11px] font-mono-num text-[var(--ks-text-secondary)]">
+                        {item.sku}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-end shrink-0 font-mono-num">
+                    <p className="text-sm font-semibold">{formatCurrency(item.price, currency)}</p>
+                    <p
+                      className={`text-[11px] mt-0.5 ${
+                        item.stockCount <= 0
+                          ? 'text-[var(--ks-error)] font-semibold'
+                          : item.stockCount <= 8
+                          ? 'text-[var(--ks-warning)] font-semibold'
+                          : 'text-[var(--ks-text-secondary)]'
+                      }`}
+                    >
+                      Qty: {item.stockCount}
+                    </p>
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-[var(--ks-border)] flex items-center justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busyKey === item.id}
+                    onClick={() => handleInventoryAdjust(item.id, item.stockCount + 10)}
+                  >
+                    +10 Stock
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busyKey === item.id || item.stockCount === 0}
+                    onClick={() => handleInventoryAdjust(item.id, 0)}
+                  >
+                    Pause
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto rounded-[var(--ks-radius-md)] border border-[var(--ks-border)]">
+            <table className="w-full text-start text-xs">
               <thead className="bg-[var(--ks-bg)] border-b border-[var(--ks-border)] text-[var(--ks-text-muted)] uppercase tracking-wider">
                 <tr>
                   <th className="py-2.5 px-3 font-medium">Product</th>
                   <th className="py-2.5 px-3 font-medium">SKU</th>
-                  <th className="py-2.5 px-3 font-medium text-right">Price</th>
-                  <th className="py-2.5 px-3 font-medium text-right">Stock</th>
-                  <th className="py-2.5 px-3 font-medium text-right">Quick Stock</th>
+                  <th className="py-2.5 px-3 font-medium text-end">Price</th>
+                  <th className="py-2.5 px-3 font-medium text-end">Stock</th>
+                  <th className="py-2.5 px-3 font-medium text-end">Quick Stock</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--ks-divider)] [&_td]:align-middle">
@@ -654,10 +726,10 @@ export const AdminDashboard: React.FC = () => {
                       </div>
                     </td>
                     <td className="py-2.5 px-3 font-mono-num whitespace-nowrap">{item.sku}</td>
-                    <td className="py-2.5 px-3 font-mono-num tabular-nums text-right whitespace-nowrap">
+                    <td className="py-2.5 px-3 font-mono-num tabular-nums text-end whitespace-nowrap">
                       {formatCurrency(item.price, currency)}
                     </td>
-                    <td className="py-2.5 px-3 font-mono-num tabular-nums text-right whitespace-nowrap">
+                    <td className="py-2.5 px-3 font-mono-num tabular-nums text-end whitespace-nowrap">
                       <span
                         className={
                           item.stockCount <= 0
@@ -670,23 +742,25 @@ export const AdminDashboard: React.FC = () => {
                         {item.stockCount}
                       </span>
                     </td>
-                    <td className="py-2.5 px-3 text-right whitespace-nowrap space-x-1.5">
-                      <Button
-                        variant="outline"
-                        size="xs"
-                        disabled={busyKey === item.id}
-                        onClick={() => handleInventoryAdjust(item.id, item.stockCount + 10)}
-                      >
-                        +10 Stock
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="xs"
-                        disabled={busyKey === item.id || item.stockCount === 0}
-                        onClick={() => handleInventoryAdjust(item.id, 0)}
-                      >
-                        Pause
-                      </Button>
+                    <td className="py-2.5 px-3 text-end whitespace-nowrap">
+                      <div className="inline-flex items-center justify-end gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          disabled={busyKey === item.id}
+                          onClick={() => handleInventoryAdjust(item.id, item.stockCount + 10)}
+                        >
+                          +10 Stock
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          disabled={busyKey === item.id || item.stockCount === 0}
+                          onClick={() => handleInventoryAdjust(item.id, 0)}
+                        >
+                          Pause
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -704,7 +778,7 @@ export const AdminDashboard: React.FC = () => {
               <div
                 key={node.id}
                 className="p-3.5 flex items-start sm:items-center justify-between gap-3 hover:bg-[var(--ks-bg)]/70"
-                style={{ paddingLeft: `${14 + node.depth * 18}px` }}
+                style={{ paddingInlineStart: `${14 + node.depth * 18}px` }}
               >
                 <div className="min-w-0">
                   <div className="flex items-baseline gap-2 min-w-0">
@@ -848,24 +922,98 @@ export const AdminDashboard: React.FC = () => {
       {activeTab === 'orders' && (
         <div className="space-y-4">
           <div className="relative max-w-sm">
-            <Search className="w-4 h-4 text-[var(--ks-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-[var(--ks-text-muted)] absolute start-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Filter orders by ID, customer, email, or ref..."
-              className="w-full h-10 pl-9 pr-3 text-xs rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)]"
+              className="w-full min-h-[44px] sm:h-10 ps-9 pe-3 text-base sm:text-xs rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)]"
             />
           </div>
 
-          <div className="overflow-x-auto rounded-[var(--ks-radius-md)] border border-[var(--ks-border)]">
-            <table className="w-full text-left text-xs">
+          {/* Mobile Stacked Order Cards */}
+          <div className="md:hidden space-y-3">
+            {filteredOrders.length === 0 ? (
+              <div className="p-6 text-center rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] text-xs text-[var(--ks-text-muted)]">
+                No orders match your filter.
+              </div>
+            ) : (
+              filteredOrders.map((ord) => (
+                <div
+                  key={ord.id}
+                  className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => navigate({ name: 'track-order', orderId: ord.id })}
+                        className="text-sm font-mono-num font-semibold hover:underline cursor-pointer"
+                      >
+                        #{ord.id}
+                      </button>
+                      <p className="text-xs font-medium mt-0.5">{ord.customerName}</p>
+                      <p className="text-[11px] text-[var(--ks-text-muted)] truncate">
+                        {ord.email}
+                      </p>
+                    </div>
+                    <div className="text-end shrink-0">
+                      <p className="text-sm font-mono-num font-semibold">
+                        {ord.currencySnapshot
+                          ? formatDirectCurrency(
+                              ord.currencySnapshot.chargedTotal,
+                              ord.currencySnapshot.transactionCurrency
+                            )
+                          : formatCurrency(ord.total, currency)}
+                      </p>
+                      <p className="text-[10px] font-mono-num uppercase text-[var(--ks-accent)] mt-0.5">
+                        {ord.paymentStatus}
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-[var(--ks-text-secondary)]">
+                    {ord.paymentLabel}
+                    {ord.transactionRef ? ` · ${ord.transactionRef}` : ''}
+                  </p>
+
+                  <label className="block space-y-1">
+                    <span className="text-[11px] text-[var(--ks-text-muted)] block">
+                      Fulfillment Stage
+                    </span>
+                    <select
+                      aria-label={`Order ${ord.id} stage`}
+                      disabled={busyKey === ord.id}
+                      value={ord.currentStage}
+                      onChange={(e) =>
+                        handleOrderStageChange(ord.id, e.target.value as OrderStage)
+                      }
+                      className="w-full min-h-[44px] px-3 text-base rounded-[var(--ks-radius-md)] border border-[var(--ks-border-strong)] bg-[var(--ks-bg)]"
+                    >
+                      {ORDER_STAGES.map((st) => (
+                        <option key={st} value={st}>
+                          {st}
+                        </option>
+                      ))}
+                      {ord.currentStage === 'Return Requested' && (
+                        <option value="Return Requested">Return Requested</option>
+                      )}
+                    </select>
+                  </label>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto rounded-[var(--ks-radius-md)] border border-[var(--ks-border)]">
+            <table className="w-full text-start text-xs">
               <thead className="bg-[var(--ks-bg)] border-b border-[var(--ks-border)] text-[var(--ks-text-muted)] uppercase tracking-wider">
                 <tr>
                   <th className="py-2.5 px-3 font-medium">Order</th>
                   <th className="py-2.5 px-3 font-medium">Customer</th>
                   <th className="py-2.5 px-3 font-medium">Payment &amp; Status</th>
-                  <th className="py-2.5 px-3 font-medium text-right">Settled Amount</th>
+                  <th className="py-2.5 px-3 font-medium text-end">Settled Amount</th>
                   <th className="py-2.5 px-3 font-medium">Fulfillment Stage</th>
                 </tr>
               </thead>
@@ -899,7 +1047,7 @@ export const AdminDashboard: React.FC = () => {
                           {ord.transactionRef ? ` · ${ord.transactionRef}` : ''}
                         </p>
                       </td>
-                      <td className="py-2.5 px-3 font-mono-num tabular-nums text-right whitespace-nowrap">
+                      <td className="py-2.5 px-3 font-mono-num tabular-nums text-end whitespace-nowrap">
                         {ord.currencySnapshot
                           ? formatDirectCurrency(
                               ord.currencySnapshot.chargedTotal,
@@ -915,7 +1063,7 @@ export const AdminDashboard: React.FC = () => {
                           onChange={(e) =>
                             handleOrderStageChange(ord.id, e.target.value as OrderStage)
                           }
-                          className="h-8 px-2 text-xs rounded border border-[var(--ks-border)] bg-[var(--ks-surface)]"
+                          className="min-h-[38px] px-2 text-sm sm:text-xs rounded border border-[var(--ks-border)] bg-[var(--ks-surface)]"
                         >
                           {ORDER_STAGES.map((st) => (
                             <option key={st} value={st}>
@@ -940,18 +1088,70 @@ export const AdminDashboard: React.FC = () => {
       {activeTab === 'customers' && (
         <div className="space-y-4">
           <div className="relative max-w-sm">
-            <Users className="w-4 h-4 text-[var(--ks-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+            <Users className="w-4 h-4 text-[var(--ks-text-muted)] absolute start-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search accounts by name, email, or role..."
-              className="w-full h-10 pl-9 pr-3 text-xs rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)]"
+              className="w-full min-h-[44px] sm:h-10 ps-9 pe-3 text-base sm:text-xs rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)]"
             />
           </div>
 
-          <div className="overflow-x-auto rounded-[var(--ks-radius-md)] border border-[var(--ks-border)]">
-            <table className="w-full text-left text-xs">
+          {/* Mobile Stacked Customer Cards */}
+          <div className="md:hidden space-y-3">
+            {filteredUsers.map((usr) => (
+              <div
+                key={usr.id}
+                className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-3"
+              >
+                <div>
+                  <p className="text-sm font-medium text-[var(--ks-text-primary)]">{usr.fullName}</p>
+                  <p className="text-xs text-[var(--ks-text-muted)] truncate">{usr.email}</p>
+                  <p className="text-[11px] text-[var(--ks-text-secondary)] mt-0.5">{usr.location}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[var(--ks-border)]">
+                  <label className="space-y-1">
+                    <span className="text-[11px] text-[var(--ks-text-muted)] block">Role</span>
+                    <select
+                      aria-label={`Role for ${usr.fullName}`}
+                      disabled={busyKey === usr.id}
+                      value={usr.role}
+                      onChange={(e) =>
+                        handleUserUpdate(usr.id, { role: e.target.value as UserRole })
+                      }
+                      className="w-full min-h-[44px] px-2.5 text-base rounded-[var(--ks-radius-md)] border border-[var(--ks-border-strong)] bg-[var(--ks-bg)]"
+                    >
+                      <option value="customer">Customer</option>
+                      <option value="seller">Seller</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-[11px] text-[var(--ks-text-muted)] block">Status</span>
+                    <select
+                      aria-label={`Status for ${usr.fullName}`}
+                      disabled={busyKey === usr.id}
+                      value={usr.status}
+                      onChange={(e) =>
+                        handleUserUpdate(usr.id, {
+                          status: e.target.value as 'active' | 'pending' | 'suspended',
+                        })
+                      }
+                      className="w-full min-h-[44px] px-2.5 text-base rounded-[var(--ks-radius-md)] border border-[var(--ks-border-strong)] bg-[var(--ks-bg)]"
+                    >
+                      <option value="active">Active</option>
+                      <option value="pending">Pending</option>
+                      <option value="suspended">Suspended</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto rounded-[var(--ks-radius-md)] border border-[var(--ks-border)]">
+            <table className="w-full text-start text-xs">
               <thead className="bg-[var(--ks-bg)] border-b border-[var(--ks-border)] text-[var(--ks-text-muted)] uppercase tracking-wider">
                 <tr>
                   <th className="py-2.5 px-3 font-medium">Account</th>
@@ -976,7 +1176,7 @@ export const AdminDashboard: React.FC = () => {
                         onChange={(e) =>
                           handleUserUpdate(usr.id, { role: e.target.value as UserRole })
                         }
-                        className="h-8 px-2 text-xs rounded border border-[var(--ks-border)] bg-[var(--ks-surface)]"
+                        className="min-h-[38px] px-2 text-sm sm:text-xs rounded border border-[var(--ks-border)] bg-[var(--ks-surface)]"
                       >
                         <option value="customer">Customer</option>
                         <option value="seller">Seller</option>
@@ -993,7 +1193,7 @@ export const AdminDashboard: React.FC = () => {
                             status: e.target.value as 'active' | 'pending' | 'suspended',
                           })
                         }
-                        className="h-8 px-2 text-xs rounded border border-[var(--ks-border)] bg-[var(--ks-surface)]"
+                        className="min-h-[38px] px-2 text-sm sm:text-xs rounded border border-[var(--ks-border)] bg-[var(--ks-surface)]"
                       >
                         <option value="active">Active</option>
                         <option value="pending">Pending</option>
@@ -1010,33 +1210,32 @@ export const AdminDashboard: React.FC = () => {
 
       {/* 6. Sellers */}
       {activeTab === 'sellers' && (
-        <div className="overflow-x-auto rounded-[var(--ks-radius-md)] border border-[var(--ks-border)]">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[var(--ks-bg)] border-b border-[var(--ks-border)] text-[var(--ks-text-muted)] uppercase tracking-wider">
-              <tr>
-                <th className="py-2.5 px-3 font-medium">Studio</th>
-                <th className="py-2.5 px-3 font-medium">Department</th>
-                <th className="py-2.5 px-3 font-medium text-right">Monthly Rev</th>
-                <th className="py-2.5 px-3 font-medium">Status</th>
-                <th className="py-2.5 px-3 font-medium text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--ks-divider)] [&_td]:align-middle">
-              {data.sellerApplications.map((app) => (
-                <tr key={app.id} className="hover:bg-[var(--ks-bg)]/70">
-                  <td className="py-3 px-3">
-                    <p className="font-medium text-[var(--ks-text-primary)]">{app.studioName}</p>
+        <>
+          {/* Mobile Stacked Seller Cards */}
+          <div className="md:hidden space-y-3">
+            {data.sellerApplications.map((app) => (
+              <div
+                key={app.id}
+                className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-[var(--ks-text-primary)]">
+                      {app.studioName}
+                    </p>
                     <p className="text-[11px] text-[var(--ks-text-muted)]">
                       {app.ownerName} · {app.origin}
                     </p>
-                  </td>
-                  <td className="py-3 px-3">{app.department}</td>
-                  <td className="py-3 px-3 font-mono-num tabular-nums text-right whitespace-nowrap">
-                    {formatCurrency(app.monthlyRevenue, currency)}
-                  </td>
-                  <td className="py-3 px-3">
-                    <span
-                      className={`font-medium capitalize ${
+                    <p className="text-[11px] text-[var(--ks-text-secondary)] mt-0.5">
+                      {app.department}
+                    </p>
+                  </div>
+                  <div className="text-end shrink-0">
+                    <p className="text-sm font-mono-num font-semibold">
+                      {formatCurrency(app.monthlyRevenue, currency)}
+                    </p>
+                    <p
+                      className={`text-[11px] font-medium capitalize mt-0.5 ${
                         app.status === 'approved'
                           ? 'text-[var(--ks-success)]'
                           : app.status === 'pending'
@@ -1045,36 +1244,104 @@ export const AdminDashboard: React.FC = () => {
                       }`}
                     >
                       {app.status}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3 text-right whitespace-nowrap space-x-2">
-                    {app.status !== 'approved' && (
-                      <Button
-                        variant="primary"
-                        size="xs"
-                        disabled={busyKey === app.id}
-                        onClick={() => handleSellerStatus(app.id, 'approved')}
-                      >
-                        <CheckCircle2 className="w-3 h-3" />
-                        <span>Approve</span>
-                      </Button>
-                    )}
-                    {app.status !== 'suspended' && (
-                      <button
-                        type="button"
-                        disabled={busyKey === app.id}
-                        onClick={() => handleSellerStatus(app.id, 'suspended')}
-                        className="text-xs text-[var(--ks-error)] hover:underline cursor-pointer"
-                      >
-                        Suspend
-                      </button>
-                    )}
-                  </td>
+                    </p>
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-[var(--ks-border)] flex items-center justify-end gap-2">
+                  {app.status !== 'approved' && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      disabled={busyKey === app.id}
+                      onClick={() => handleSellerStatus(app.id, 'approved')}
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Approve</span>
+                    </Button>
+                  )}
+                  {app.status !== 'suspended' && (
+                    <button
+                      type="button"
+                      disabled={busyKey === app.id}
+                      onClick={() => handleSellerStatus(app.id, 'suspended')}
+                      className="min-h-[40px] px-3 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] text-xs font-medium text-[var(--ks-error)] hover:bg-[var(--ks-bg)] cursor-pointer"
+                    >
+                      Suspend
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto rounded-[var(--ks-radius-md)] border border-[var(--ks-border)]">
+            <table className="w-full text-start text-xs">
+              <thead className="bg-[var(--ks-bg)] border-b border-[var(--ks-border)] text-[var(--ks-text-muted)] uppercase tracking-wider">
+                <tr>
+                  <th className="py-2.5 px-3 font-medium">Studio</th>
+                  <th className="py-2.5 px-3 font-medium">Department</th>
+                  <th className="py-2.5 px-3 font-medium text-end">Monthly Rev</th>
+                  <th className="py-2.5 px-3 font-medium">Status</th>
+                  <th className="py-2.5 px-3 font-medium text-end">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-[var(--ks-divider)] [&_td]:align-middle">
+                {data.sellerApplications.map((app) => (
+                  <tr key={app.id} className="hover:bg-[var(--ks-bg)]/70">
+                    <td className="py-3 px-3">
+                      <p className="font-medium text-[var(--ks-text-primary)]">{app.studioName}</p>
+                      <p className="text-[11px] text-[var(--ks-text-muted)]">
+                        {app.ownerName} · {app.origin}
+                      </p>
+                    </td>
+                    <td className="py-3 px-3">{app.department}</td>
+                    <td className="py-3 px-3 font-mono-num tabular-nums text-end whitespace-nowrap">
+                      {formatCurrency(app.monthlyRevenue, currency)}
+                    </td>
+                    <td className="py-3 px-3">
+                      <span
+                        className={`font-medium capitalize ${
+                          app.status === 'approved'
+                            ? 'text-[var(--ks-success)]'
+                            : app.status === 'pending'
+                            ? 'text-[var(--ks-warning)]'
+                            : 'text-[var(--ks-error)]'
+                        }`}
+                      >
+                        {app.status}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-end whitespace-nowrap">
+                      <div className="inline-flex items-center justify-end gap-2">
+                        {app.status !== 'approved' && (
+                          <Button
+                            variant="primary"
+                            size="xs"
+                            disabled={busyKey === app.id}
+                            onClick={() => handleSellerStatus(app.id, 'approved')}
+                          >
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Approve</span>
+                          </Button>
+                        )}
+                        {app.status !== 'suspended' && (
+                          <button
+                            type="button"
+                            disabled={busyKey === app.id}
+                            onClick={() => handleSellerStatus(app.id, 'suspended')}
+                            className="min-h-[32px] text-xs text-[var(--ks-error)] hover:underline cursor-pointer"
+                          >
+                            Suspend
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {/* 8. Payments & FX Configuration */}
@@ -1212,7 +1479,7 @@ export const AdminDashboard: React.FC = () => {
                   <p className="text-sm font-mono-num font-semibold">
                     {promo.code}{' '}
                     <span
-                      className={`text-[11px] font-sans ml-2 ${
+                      className={`text-[11px] font-sans ms-2 ${
                         promo.active ? 'text-[var(--ks-success)]' : 'text-[var(--ks-text-muted)]'
                       }`}
                     >
@@ -1245,22 +1512,22 @@ export const AdminDashboard: React.FC = () => {
             Department share and operational volume across {data.kpis.activeCategories} active departments.
           </p>
           <div className="overflow-x-auto rounded-[var(--ks-radius-md)] border border-[var(--ks-border)]">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-start text-xs">
               <thead className="bg-[var(--ks-bg)] border-b border-[var(--ks-border)] text-[var(--ks-text-muted)] uppercase tracking-wider">
                 <tr>
                   <th className="py-2.5 px-3 font-medium">Department</th>
-                  <th className="py-2.5 px-3 font-medium text-right">Estimated GMV</th>
-                  <th className="py-2.5 px-3 font-medium text-right">Share %</th>
+                  <th className="py-2.5 px-3 font-medium text-end">Estimated GMV</th>
+                  <th className="py-2.5 px-3 font-medium text-end">Share %</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--ks-divider)]">
                 {data.departmentShare.map((d) => (
                   <tr key={d.category}>
                     <td className="py-2.5 px-3 font-medium">{d.label}</td>
-                    <td className="py-2.5 px-3 font-mono-num tabular-nums text-right">
+                    <td className="py-2.5 px-3 font-mono-num tabular-nums text-end">
                       {formatCurrency(d.gmv, currency)}
                     </td>
-                    <td className="py-2.5 px-3 font-mono-num tabular-nums text-right">
+                    <td className="py-2.5 px-3 font-mono-num tabular-nums text-end">
                       {d.sharePercent}%
                     </td>
                   </tr>
@@ -1333,7 +1600,8 @@ export const AdminDashboard: React.FC = () => {
                 <p className="text-[var(--ks-text-secondary)] leading-relaxed">{card.desc}</p>
               </div>
               <Button variant="outline" size="xs" onClick={card.action}>
-                Open Section →
+                <span>Open Section</span>
+                <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
               </Button>
             </div>
           ))}
@@ -1500,6 +1768,10 @@ export const AdminDashboard: React.FC = () => {
                   options={[
                     { value: 'en', label: 'English (EN)' },
                     { value: 'bn', label: 'বাংলা (BN)' },
+                    { value: 'hi', label: 'हिन्दी (HI)' },
+                    { value: 'ar', label: 'العربية (AR)' },
+                    { value: 'es', label: 'Español (ES)' },
+                    { value: 'fr', label: 'Français (FR)' },
                   ]}
                 />
               </div>
@@ -1551,7 +1823,7 @@ export const AdminDashboard: React.FC = () => {
                     const found = data.shippingConfig.zones.find((z) => z.zoneId === nextId);
                     if (found) setZoneDraft(found);
                   }}
-                  className="h-10 px-3 text-xs rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border-strong)]"
+                  className="min-h-[44px] sm:h-10 px-3 text-base sm:text-xs rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border-strong)]"
                 >
                   {data.shippingConfig.zones.map((z) => (
                     <option key={z.zoneId} value={z.zoneId}>

@@ -1,18 +1,26 @@
 import React, { useState } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, ChevronDown } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useStore } from '../../context/StoreContext';
 import { subscribeNewsletterApi } from '../../services/api';
-import { t } from '../../utils/i18n';
+import {
+  LANGUAGE_OPTIONS,
+  t,
+  translateDepartmentShortName,
+} from '../../utils/i18n';
+import { STUDIO_TRANSITION } from '../../utils/motion';
 import { PWAInstallButton } from '../pwa/PWAInstallButton';
 import { Button } from '../ui/Button';
+
+type FooterGroupId = 'departments' | 'shop' | 'care' | 'legal';
 
 export const Footer: React.FC = () => {
   const {
     categories,
     currency,
     language,
+    setLanguage,
     toggleCurrency,
-    toggleLanguage,
     navigate,
     showToast,
     openCookiePreferences,
@@ -20,11 +28,12 @@ export const Footer: React.FC = () => {
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
   const [subscribing, setSubscribing] = useState(false);
+  const [openMobileGroup, setOpenMobileGroup] = useState<FooterGroupId | null>('care');
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setEmailError('Please enter a valid email address.');
+      setEmailError(t(language, 'newsletterError'));
       return;
     }
     setEmailError('');
@@ -44,10 +53,84 @@ export const Footer: React.FC = () => {
     }
   };
 
+  const toggleMobileGroup = (id: FooterGroupId) => {
+    setOpenMobileGroup((prev) => (prev === id ? null : id));
+  };
+
+  const footerColumns: {
+    id: FooterGroupId;
+    title: string;
+    links: { label: string; onClick: () => void; emphasize?: boolean }[];
+  }[] = [
+    {
+      id: 'departments',
+      title: t(language, 'departmentsWithCount', { count: categories.length }),
+      links: [
+        {
+          label: t(language, 'shopAll'),
+          onClick: () => navigate({ name: 'shop', category: 'all' }),
+          emphasize: true,
+        },
+        ...categories.map((cat) => ({
+          label: translateDepartmentShortName(language, cat.slug, cat.shortName),
+          onClick: () => navigate({ name: 'category', category: cat.slug }),
+        })),
+      ],
+    },
+    {
+      id: 'shop',
+      title: t(language, 'footerShopHeading'),
+      links: [
+        { label: t(language, 'aboutKinto'), onClick: () => navigate({ name: 'about' }) },
+        { label: t(language, 'featuredBrands'), onClick: () => navigate({ name: 'brands' }) },
+        {
+          label: t(language, 'newArrivals'),
+          onClick: () => navigate({ name: 'shop', collection: 'new-arrivals', category: 'all' }),
+        },
+        { label: t(language, 'specialOffers'), onClick: () => navigate({ name: 'offers' }) },
+        { label: t(language, 'journal'), onClick: () => navigate({ name: 'journal' }) },
+      ],
+    },
+    {
+      id: 'care',
+      title: t(language, 'footerCareHeading'),
+      links: [
+        { label: t(language, 'trackOrder'), onClick: () => navigate({ name: 'track-order' }) },
+        {
+          label: t(language, 'myAccount'),
+          onClick: () => navigate({ name: 'account', accountTab: 'overview' }),
+        },
+        { label: t(language, 'shippingDelivery'), onClick: () => navigate({ name: 'shipping-policy' }) },
+        { label: t(language, 'returnsRefunds'), onClick: () => navigate({ name: 'return-policy' }) },
+        { label: t(language, 'warrantyPolicy'), onClick: () => navigate({ name: 'warranty-policy' }) },
+        { label: t(language, 'contactSupport'), onClick: () => navigate({ name: 'contact' }) },
+        { label: t(language, 'helpFaq'), onClick: () => navigate({ name: 'faq' }) },
+      ],
+    },
+    {
+      id: 'legal',
+      title: t(language, 'footerLegalHeading'),
+      links: [
+        {
+          label: `${t(language, 'legalCenter')} (17)`,
+          onClick: () => navigate({ name: 'legal' }),
+          emphasize: true,
+        },
+        { label: t(language, 'termsConditions'), onClick: () => navigate({ name: 'terms' }) },
+        { label: t(language, 'privacyPolicy'), onClick: () => navigate({ name: 'privacy-policy' }) },
+        { label: t(language, 'cancellationPolicy'), onClick: () => navigate({ name: 'cancellation-policy' }) },
+        { label: t(language, 'paymentPolicy'), onClick: () => navigate({ name: 'payment-policy' }) },
+        { label: t(language, 'cookiePolicy'), onClick: () => navigate({ name: 'cookie-policy' }) },
+        { label: t(language, 'marketplaceTerms'), onClick: () => navigate({ name: 'marketplace-terms' }) },
+        { label: t(language, 'sellerTerms'), onClick: () => navigate({ name: 'seller-agreement' }) },
+      ],
+    },
+  ];
+
   return (
-    <footer className="bg-[var(--ks-bg-secondary)] border-t border-[var(--ks-border)] text-[var(--ks-text-primary)] mt-20">
-      <div className="ks-container py-14 lg:py-16">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 pb-12 border-b border-[var(--ks-border-strong)]">
+    <footer className="print:hidden bg-[var(--ks-bg-secondary)] border-t border-[var(--ks-border)] text-[var(--ks-text-primary)] mt-16 sm:mt-20">
+      <div className="ks-container pt-12 pb-20 sm:py-14 lg:py-16">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 pb-10 lg:pb-12 border-b border-[var(--ks-border-strong)]">
           {/* Newsletter & Brand Overview */}
           <div className="lg:col-span-5 space-y-5">
             <div>
@@ -55,30 +138,32 @@ export const Footer: React.FC = () => {
                 KINTO STUDIO
               </p>
               <p className="text-sm text-[var(--ks-text-secondary)] mt-2 max-w-sm leading-relaxed">
-                Everyday essentials across ten departments—technology, fashion, home, beauty, grocery, outdoors, books, tools, baby care, and wellness—with BDT and USD pricing across Bangladesh.
+                {t(language, 'footerOverview')}
               </p>
             </div>
 
             <form onSubmit={handleSubscribe} className="max-w-md space-y-2" noValidate>
               <label htmlFor="footer-newsletter" className="block text-xs font-medium text-[var(--ks-text-primary)]">
-                Newsletter Updates
+                {t(language, 'newsletterUpdates')}
               </label>
               <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   id="footer-newsletter"
                   type="email"
+                  autoComplete="email"
+                  inputMode="email"
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
                     if (emailError) setEmailError('');
                   }}
-                  placeholder="Enter your email address"
+                  placeholder={t(language, 'newsletterPlaceholder')}
                   aria-invalid={Boolean(emailError)}
-                  className="flex-1 min-h-[var(--ks-height-md)] px-3.5 py-2 text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border-strong)] text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)] focus:outline-none focus:border-[var(--ks-action)]"
+                  className="flex-1 min-h-[44px] px-3.5 py-2 text-base sm:text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border-strong)] text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)] focus:outline-none focus:border-[var(--ks-action)]"
                 />
                 <Button type="submit" variant="primary" size="md" disabled={subscribing}>
-                  <span>{subscribing ? 'Saving...' : 'Subscribe'}</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <span>{subscribing ? t(language, 'subscribing') : t(language, 'subscribe')}</span>
+                  <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
                 </Button>
               </div>
               {emailError && (
@@ -89,259 +174,119 @@ export const Footer: React.FC = () => {
             </form>
 
             <p className="text-xs text-[var(--ks-text-muted)]">
-              Support channels and registered business contact details are maintained under Contact &amp; Legal Center.
+              {t(language, 'footerSupportNote')}
             </p>
           </div>
 
-          {/* Footer Link Columns */}
-          <div className="lg:col-span-7 grid grid-cols-2 sm:grid-cols-4 gap-8 text-sm">
-            <div className="space-y-3 col-span-2 sm:col-span-1">
-              <p className="ks-eyebrow">Departments ({categories.length})</p>
-              <ul className="space-y-1.5 text-xs sm:text-sm text-[var(--ks-text-secondary)]">
-                <li>
+          {/* Mobile Collapsible Category Accordions */}
+          <div className="md:hidden divide-y divide-[var(--ks-border-strong)] border-y border-[var(--ks-border-strong)]">
+            {footerColumns.map((col) => {
+              const isOpen = openMobileGroup === col.id;
+              return (
+                <div key={col.id}>
                   <button
                     type="button"
-                    onClick={() => navigate({ name: 'shop', category: 'all' })}
-                    className="hover:text-[var(--ks-text-primary)] cursor-pointer text-left leading-snug font-medium"
+                    aria-expanded={isOpen}
+                    onClick={() => toggleMobileGroup(col.id)}
+                    className="w-full min-h-[52px] py-3 flex items-center justify-between gap-3 text-start cursor-pointer"
                   >
-                    {t(language, 'shopAll')}
+                    <span className="ks-eyebrow text-[var(--ks-text-primary)]">{col.title}</span>
+                    <ChevronDown
+                      className={`w-4 h-4 text-[var(--ks-text-secondary)] shrink-0 transition-transform duration-150 ${
+                        isOpen ? 'rotate-180' : ''
+                      }`}
+                    />
                   </button>
-                </li>
-                {categories.map((cat) => (
-                  <li key={cat.slug}>
-                    <button
-                      type="button"
-                      onClick={() => navigate({ name: 'category', category: cat.slug })}
-                      className="hover:text-[var(--ks-text-primary)] cursor-pointer text-left leading-snug"
-                    >
-                      {cat.shortName}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
+                  <AnimatePresence initial={false}>
+                    {isOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={STUDIO_TRANSITION.accordion}
+                        className="overflow-hidden"
+                      >
+                        <ul className="pb-4 space-y-1 text-sm text-[var(--ks-text-secondary)]">
+                          {col.links.map((link) => (
+                            <li key={link.label}>
+                              <button
+                                type="button"
+                                onClick={link.onClick}
+                                className={`w-full min-h-[40px] py-1.5 text-start leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer ${
+                                  link.emphasize ? 'font-semibold text-[var(--ks-text-primary)]' : ''
+                                }`}
+                              >
+                                {link.label}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            })}
+          </div>
 
-            <div className="space-y-3">
-              <p className="ks-eyebrow">Shop</p>
-              <ul className="space-y-2.5 text-[var(--ks-text-secondary)]">
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'about' })}
-                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    About Kinto Studio
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'brands' })}
-                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    Featured Brands
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'shop', collection: 'new-arrivals', category: 'all' })}
-                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    New Arrivals
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'offers' })}
-                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    Special Offers
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'journal' })}
-                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    Journal
-                  </button>
-                </li>
-              </ul>
-            </div>
-
-            <div className="space-y-3">
-              <p className="ks-eyebrow">Customer Care</p>
-              <ul className="space-y-2.5 text-[var(--ks-text-secondary)]">
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'track-order' })}
-                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    {t(language, 'trackOrder')}
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'account', accountTab: 'overview' })}
-                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    {t(language, 'myAccount')}
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'shipping-policy' })}
-                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    Shipping &amp; Delivery
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'return-policy' })}
-                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    Returns &amp; Refunds
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'warranty-policy' })}
-                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    Warranty Policy
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'contact' })}
-                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    {t(language, 'contact')} &amp; Support
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'faq' })}
-                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    Help &amp; {t(language, 'faq')}
-                  </button>
-                </li>
-              </ul>
-            </div>
-
-            <div className="space-y-3">
-              <p className="ks-eyebrow">Policies &amp; Legal</p>
-              <ul className="space-y-2 text-[var(--ks-text-secondary)]">
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'legal' })}
-                    className="text-left font-medium text-[var(--ks-text-primary)] leading-snug hover:text-[var(--ks-accent)] cursor-pointer"
-                  >
-                    {t(language, 'legalCenter')} (17)
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'terms' })}
-                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    Terms &amp; Conditions
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'privacy-policy' })}
-                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    Privacy Policy
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'cancellation-policy' })}
-                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    Cancellation Policy
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'payment-policy' })}
-                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    Payment Policy
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'cookie-policy' })}
-                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    Cookie Policy
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'marketplace-terms' })}
-                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    Marketplace Terms
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'seller-agreement' })}
-                    className="text-left leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    Seller Terms
-                  </button>
-                </li>
-              </ul>
-            </div>
+          {/* Tablet & Desktop Multi-Column Architecture */}
+          <div className="hidden md:grid md:grid-cols-4 lg:col-span-7 gap-8 text-sm">
+            {footerColumns.map((col) => (
+              <div key={col.id} className="space-y-3">
+                <p className="ks-eyebrow">{col.title}</p>
+                <ul className="space-y-2 text-xs sm:text-sm text-[var(--ks-text-secondary)]">
+                  {col.links.map((link) => (
+                    <li key={link.label}>
+                      <button
+                        type="button"
+                        onClick={link.onClick}
+                        className={`text-start leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer ${
+                          link.emphasize ? 'font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)]' : ''
+                        }`}
+                      >
+                        {link.label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
         </div>
 
-        <div className="pt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-[var(--ks-text-secondary)]">
-          <p>© 2026 Kinto Studio · Operated for Bangladesh retail</p>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <div className="pt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-[var(--ks-text-secondary)] pe-14 sm:pe-0">
+          <p>{t(language, 'footerCopyright')}</p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <span className="hidden lg:inline text-[var(--ks-text-muted)]">
-              Payments: bKash · Nagad · Rocket · Cards · COD
+              {t(language, 'footerPayments')}
             </span>
             <span className="hidden lg:inline" aria-hidden="true">
               ·
             </span>
-            <button
-              type="button"
-              onClick={toggleLanguage}
-              className="text-left whitespace-nowrap hover:text-[var(--ks-text-primary)] cursor-pointer"
-            >
-              {t(language, 'languageLabel')}: {language === 'en' ? 'EN | বাংলা' : 'বাংলা | EN'}
-            </button>
+            <label className="inline-flex items-center gap-1.5 whitespace-nowrap min-h-[36px]">
+              <span>{t(language, 'languageLabel')}:</span>
+              <select
+                aria-label={t(language, 'languageLabel')}
+                value={language}
+                onChange={(e) => setLanguage(e.target.value as typeof language)}
+                className="bg-transparent font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer focus:outline-none min-h-[36px]"
+              >
+                {LANGUAGE_OPTIONS.map((opt) => (
+                  <option
+                    key={opt.code}
+                    value={opt.code}
+                    className="bg-[var(--ks-surface)] text-[var(--ks-text-primary)]"
+                  >
+                    {opt.nativeName}
+                  </option>
+                ))}
+              </select>
+            </label>
             <span aria-hidden="true">·</span>
             <button
               type="button"
               onClick={toggleCurrency}
-              className="font-mono-num text-left whitespace-nowrap hover:text-[var(--ks-text-primary)] cursor-pointer"
+              className="font-mono-num text-start whitespace-nowrap min-h-[36px] hover:text-[var(--ks-text-primary)] cursor-pointer"
             >
               {t(language, 'currencyLabel')}: {currency === 'BDT' ? 'BDT (৳)' : 'USD ($)'}
             </button>
@@ -349,9 +294,9 @@ export const Footer: React.FC = () => {
             <button
               type="button"
               onClick={openCookiePreferences}
-              className="text-left whitespace-nowrap hover:text-[var(--ks-text-primary)] cursor-pointer"
+              className="text-start whitespace-nowrap min-h-[36px] hover:text-[var(--ks-text-primary)] cursor-pointer"
             >
-              Cookie Preferences
+              {t(language, 'cookiePreferences')}
             </button>
             <PWAInstallButton variant="footer" />
           </div>

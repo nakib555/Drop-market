@@ -16,6 +16,12 @@ import {
   formatTypedAttributeValue,
   fuzzyScoreText,
 } from '../utils/format';
+import {
+  t,
+  translateDepartmentName,
+  translateDepartmentShortName,
+} from '../utils/i18n';
+import { LanguageCode } from '../types/commerce';
 import { ProductCard } from '../components/product/ProductCard';
 import { Button } from '../components/ui/Button';
 import { Checkbox } from '../components/ui/FormFields';
@@ -69,6 +75,7 @@ function findSubcategoryNode(
 
 interface ShopFilterPanelProps {
   idPrefix: string;
+  language: LanguageCode;
   categories: CategoryMeta[];
   activeCategoryMeta?: CategoryMeta;
   selectedCategory: CategorySlug | 'all';
@@ -97,10 +104,12 @@ interface ShopFilterPanelProps {
   onSaleOnly: boolean;
   onSaleOnlyChange: (val: boolean) => void;
   onResetFilters: () => void;
+  hideResetButton?: boolean;
 }
 
 const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
   idPrefix,
+  language,
   categories,
   activeCategoryMeta,
   selectedCategory,
@@ -129,37 +138,38 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
   onSaleOnly,
   onSaleOnlyChange,
   onResetFilters,
+  hideResetButton = false,
 }) => (
   <div className="space-y-6">
     {/* Department Filter */}
     <div className="space-y-2.5">
       <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)] font-medium">
-        Departments ({categories.length})
+        {t(language, 'departmentsWithCount', { count: categories.length })}
       </p>
-      <div className="space-y-1">
+      <div className="space-y-0.5">
         <button
           type="button"
           onClick={() => onCategoryChange('all')}
-          className={`w-full text-left leading-snug py-1.5 text-sm cursor-pointer ${
+          className={`w-full text-start leading-snug min-h-[40px] px-2 -mx-2 rounded-[var(--ks-radius-sm)] text-sm cursor-pointer transition-colors ${
             selectedCategory === 'all'
-              ? 'font-semibold text-[var(--ks-text-primary)]'
+              ? 'font-semibold text-[var(--ks-text-primary)] bg-[var(--ks-surface-muted)]'
               : 'text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)]'
           }`}
         >
-          All Departments
+          {t(language, 'allDepartments')}
         </button>
         {categories.map((cat) => (
           <button
             key={cat.slug}
             type="button"
             onClick={() => onCategoryChange(cat.slug)}
-            className={`w-full text-left leading-snug py-1.5 text-sm cursor-pointer ${
+            className={`w-full text-start leading-snug min-h-[40px] px-2 -mx-2 rounded-[var(--ks-radius-sm)] text-sm cursor-pointer transition-colors ${
               selectedCategory === cat.slug
-                ? 'font-semibold text-[var(--ks-accent)]'
+                ? 'font-semibold text-[var(--ks-accent)] bg-[var(--ks-surface-muted)]'
                 : 'text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)]'
             }`}
           >
-            {cat.name}
+            {translateDepartmentName(language, cat.slug, cat.name)}
           </button>
         ))}
       </div>
@@ -187,11 +197,11 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
                   id={`${idPrefix}-facet-${facet.key}`}
                   value={currentVal || 'all'}
                   onChange={(e) => onAttributeChange(facet.key, e.target.value)}
-                  className="w-full h-10 px-2.5 text-xs rounded-md bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)]"
+                  className="w-full min-h-[44px] px-3 text-base sm:text-xs rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border-strong)]"
                 >
-                  <option value="all">Any</option>
-                  <option value="true">Yes</option>
-                  <option value="false">No</option>
+                  <option value="all">{t(language, 'anyLabel')}</option>
+                  <option value="true">{t(language, 'yesLabel')}</option>
+                  <option value="false">{t(language, 'noLabel')}</option>
                 </select>
               </div>
             );
@@ -245,6 +255,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
                   <input
                     type="number"
                     step="any"
+                    inputMode="decimal"
                     aria-label={`Minimum ${facet.label}`}
                     placeholder={
                       facet.minBound !== undefined ? `Min ${facet.minBound}` : 'Min'
@@ -257,11 +268,12 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
                         nextMin || maxStr ? `range:${nextMin}:${maxStr}` : 'all'
                       );
                     }}
-                    className="h-9 px-2.5 text-xs font-mono-num rounded-md bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)]"
+                    className="min-h-[44px] px-3 text-base sm:text-xs font-mono-num rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border-strong)]"
                   />
                   <input
                     type="number"
                     step="any"
+                    inputMode="decimal"
                     aria-label={`Maximum ${facet.label}`}
                     placeholder={
                       facet.maxBound !== undefined ? `Max ${facet.maxBound}` : 'Max'
@@ -274,7 +286,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
                         minStr || nextMax ? `range:${minStr}:${nextMax}` : 'all'
                       );
                     }}
-                    className="h-9 px-2.5 text-xs font-mono-num rounded-md bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)]"
+                    className="min-h-[44px] px-3 text-base sm:text-xs font-mono-num rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border-strong)]"
                   />
                 </div>
               </div>
@@ -295,7 +307,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
                   type="date"
                   value={currentVal && currentVal !== 'all' ? currentVal : ''}
                   onChange={(e) => onAttributeChange(facet.key, e.target.value || 'all')}
-                  className="w-full h-10 px-2.5 text-xs font-mono-num rounded-md bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)]"
+                  className="w-full min-h-[44px] px-3 text-base sm:text-xs font-mono-num rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border-strong)]"
                 />
               </div>
             );
@@ -313,7 +325,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
                 id={`${idPrefix}-facet-${facet.key}`}
                 value={currentVal || 'all'}
                 onChange={(e) => onAttributeChange(facet.key, e.target.value)}
-                className="w-full h-10 px-2.5 text-xs rounded-md bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)]"
+                className="w-full min-h-[44px] px-3 text-base sm:text-xs rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border-strong)]"
               >
                 <option value="all">Any {facet.label}</option>
                 {facet.options.map((opt) => (
@@ -330,14 +342,16 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
 
     {/* Brand Filter */}
     <div className="space-y-2.5 pt-5 border-t border-[var(--ks-border)]">
-      <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)] font-medium">Brand</p>
+      <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)] font-medium">
+        {t(language, 'brand')}
+      </p>
       <select
-        aria-label="Filter by brand"
+        aria-label={t(language, 'brand')}
         value={selectedBrand}
         onChange={(e) => onBrandChange(e.target.value)}
-        className="w-full h-10 px-3 text-sm rounded-md bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)]"
+        className="w-full min-h-[44px] px-3 text-base sm:text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border-strong)]"
       >
-        <option value="all">All Brands</option>
+        <option value="all">{t(language, 'allBrands')}</option>
         {allBrands.map((brandName) => (
           <option key={brandName} value={brandName}>
             {brandName}
@@ -353,7 +367,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
           htmlFor={`${idPrefix}-price-range`}
           className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)] font-medium"
         >
-          Max Price
+          {t(language, 'maxPrice')}
         </label>
         <span className="text-xs font-mono-num font-medium">
           {formatCurrency(maxPrice, currency)}
@@ -367,7 +381,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
         step={25}
         value={maxPrice}
         onChange={(e) => onMaxPriceChange(Number(e.target.value))}
-        className="w-full accent-[var(--ks-accent)] cursor-pointer"
+        className="w-full h-8 accent-[var(--ks-accent)] cursor-pointer"
       />
       <div className="flex justify-between text-[11px] font-mono-num text-[var(--ks-text-muted)]">
         <span>{formatCurrency(0, currency)}</span>
@@ -378,15 +392,15 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
     {/* Finish / Color */}
     <div className="space-y-2.5 pt-5 border-t border-[var(--ks-border)]">
       <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)] font-medium">
-        Color / Finish
+        {t(language, 'colorFinish')}
       </p>
       <select
-        aria-label="Filter by finish or color"
+        aria-label={t(language, 'colorFinish')}
         value={selectedColor}
         onChange={(e) => onColorChange(e.target.value)}
-        className="w-full h-10 px-3 text-sm rounded-md bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)]"
+        className="w-full min-h-[44px] px-3 text-base sm:text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border-strong)]"
       >
-        <option value="all">All Colors &amp; Finishes</option>
+        <option value="all">{t(language, 'allColorsFinishes')}</option>
         {allColors.map((c) => (
           <option key={c} value={c}>
             {c}
@@ -398,15 +412,15 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
     {/* Size / Edition */}
     <div className="space-y-2.5 pt-5 border-t border-[var(--ks-border)]">
       <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)] font-medium">
-        Size / Edition
+        {t(language, 'sizeEdition')}
       </p>
       <select
-        aria-label="Filter by size or edition"
+        aria-label={t(language, 'sizeEdition')}
         value={selectedSize}
         onChange={(e) => onSizeChange(e.target.value)}
-        className="w-full h-10 px-3 text-sm rounded-md bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)]"
+        className="w-full min-h-[44px] px-3 text-base sm:text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border-strong)]"
       >
-        <option value="all">All Sizes &amp; Editions</option>
+        <option value="all">{t(language, 'allSizesEditions')}</option>
         {allSizes.map((s) => (
           <option key={s} value={s}>
             {s}
@@ -417,23 +431,25 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
 
     {/* Availability & Rating */}
     <div className="space-y-3 pt-5 border-t border-[var(--ks-border)]">
-      <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)] font-medium">Availability</p>
-      <div className="space-y-2 text-sm">
+      <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)] font-medium">
+        {t(language, 'availability')}
+      </p>
+      <div className="space-y-1 text-sm">
         {(
           [
-            { value: 'all', label: 'All Stock Status' },
-            { value: 'in-stock', label: 'Ready to Ship (In Stock)' },
-            { value: 'low-stock', label: 'Limited Quantity' },
-            { value: 'made-to-order', label: 'Made to Order' },
+            { value: 'all', label: t(language, 'allStockStatus') },
+            { value: 'in-stock', label: t(language, 'readyToShip') },
+            { value: 'low-stock', label: t(language, 'limitedQuantity') },
+            { value: 'made-to-order', label: t(language, 'madeToOrder') },
           ] as const
         ).map((opt) => (
-          <label key={opt.value} className="flex items-start gap-2.5 cursor-pointer py-0.5">
+          <label key={opt.value} className="flex items-center gap-2.5 cursor-pointer min-h-[40px] py-1">
             <input
               type="radio"
               name={`${idPrefix}-availability`}
               checked={availability === opt.value}
               onChange={() => onAvailabilityChange(opt.value)}
-              className="mt-[3px] shrink-0 accent-[var(--ks-action)]"
+              className="w-4 h-4 shrink-0 accent-[var(--ks-action)]"
             />
             <span className="text-sm leading-snug text-[var(--ks-text-secondary)]">{opt.label}</span>
           </label>
@@ -442,55 +458,55 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
 
       <div className="pt-2">
         <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)] font-medium mb-2">
-          Minimum Rating
+          {t(language, 'minimumRating')}
         </p>
         {hasAnyRatedProducts ? (
-          <div className="flex gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {[0, 4.5, 4.8].map((r) => (
               <button
                 key={r}
                 type="button"
                 aria-pressed={minRating === r}
                 onClick={() => onMinRatingChange(r)}
-                className={`px-3 py-2 rounded-md text-xs font-mono-num border cursor-pointer ${
+                className={`min-h-[40px] px-3.5 py-2 rounded-[var(--ks-radius-md)] text-xs font-mono-num border cursor-pointer transition-colors ${
                   minRating === r
                     ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)]'
                     : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)]'
                 }`}
               >
-                {r === 0 ? 'Any' : `${r}+ ★`}
+                {r === 0 ? t(language, 'anyLabel') : `${r}+ ★`}
               </button>
             ))}
           </div>
         ) : (
           <div className="space-y-1.5">
             <span className="inline-block px-3 py-1.5 rounded-md text-xs font-mono-num border border-[var(--ks-border)] bg-[var(--ks-surface-muted)] text-[var(--ks-text-primary)]">
-              Any
+              {t(language, 'anyLabel')}
             </span>
-            <p className="text-[11px] text-[var(--ks-text-muted)] leading-snug">
-              Verified ratings appear once customers review items.
-            </p>
           </div>
         )}
       </div>
 
       <div className="pt-2">
         <Checkbox
-          label="Special offers & discounts only"
+          label={t(language, 'onSaleOnly')}
           checked={onSaleOnly}
           onChange={onSaleOnlyChange}
         />
       </div>
     </div>
 
-    <Button variant="outline" size="sm" fullWidth onClick={onResetFilters}>
-      Reset All Filters
-    </Button>
+    {!hideResetButton && (
+      <Button variant="outline" size="sm" fullWidth onClick={onResetFilters}>
+        {t(language, 'resetAllFilters')}
+      </Button>
+    )}
   </div>
 );
 
 export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
   const {
+    language,
     categories,
     categoryNodes,
     getDescendantSlugs,
@@ -1014,28 +1030,35 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
     });
   }
 
+  const activeDeptDisplayName = activeCategoryMeta
+    ? translateDepartmentName(language, activeCategoryMeta.slug, activeCategoryMeta.name)
+    : '';
+  const activeDeptDisplayShortName = activeCategoryMeta
+    ? translateDepartmentShortName(language, activeCategoryMeta.slug, activeCategoryMeta.shortName)
+    : '';
+
   const pageHeading =
     mode === 'search'
       ? searchInput.trim()
-        ? `Search results for “${searchInput.trim()}”`
-        : 'Search Catalog'
+        ? t(language, 'searchResultsFor', { query: searchInput.trim() })
+        : t(language, 'searchCatalog')
       : mode === 'offers' || route.collection === 'offers'
-      ? 'Seasonal Offers & Studio Editions'
+      ? t(language, 'seasonalOffersTitle')
       : activeCategoryMeta
-      ? activeCategoryMeta.name
+      ? activeDeptDisplayName
       : route.collection === 'new-arrivals'
-      ? 'New Arrivals'
+      ? t(language, 'newArrivals')
       : route.collection === 'best-sellers'
-      ? 'Best Sellers'
+      ? t(language, 'bestSellers')
       : route.collection === 'trending'
-      ? 'Trending Now'
-      : 'Shop All Products';
+      ? t(language, 'trendingNowTitle')
+      : t(language, 'shopAllProducts');
 
   const pageDescription =
     activeCategoryMeta?.description ||
     (mode === 'offers'
-      ? 'Selected seasonal offers and multi-department discounts.'
-      : 'Browse electronics, fashion, home furniture, beauty, groceries, outdoor gear, office supplies, tools, kids, and wellness.');
+      ? t(language, 'seasonalOffersDesc')
+      : t(language, 'browseAllDesc'));
 
   // Find active Level 1 parent to display Level 2 children neatly when selected
   const activeLevel1Node = useMemo(() => {
@@ -1048,6 +1071,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
   }, [activeCategoryMeta, selectedSubcategory]);
 
   const sharedFilterProps = {
+    language,
     categories,
     activeCategoryMeta,
     selectedCategory,
@@ -1110,15 +1134,15 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
     <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-8">
       <Breadcrumb
         items={[
-          { label: 'Home', onClick: () => navigate({ name: 'home' }) },
+          { label: t(language, 'home'), onClick: () => navigate({ name: 'home' }) },
           ...(activeCategoryMeta
             ? [
                 {
-                  label: 'Shop',
+                  label: t(language, 'shop'),
                   onClick: () => navigate({ name: 'shop', category: 'all' }),
                 },
                 {
-                  label: activeCategoryMeta.name,
+                  label: activeDeptDisplayName,
                   ...(selectedSubcategory !== 'all'
                     ? {
                         onClick: () => {
@@ -1143,7 +1167,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
                 {activeCategoryMeta.bannerTagline}
               </p>
               <h1 className="font-display text-[clamp(1.85rem,3.4vw,3rem)] font-medium tracking-tight text-balance">
-                {activeCategoryMeta.name}
+                {activeDeptDisplayName}
               </h1>
               <p className="text-sm sm:text-base text-[var(--ks-text-secondary)] max-w-xl">
                 {activeCategoryMeta.description}
@@ -1165,7 +1189,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
                       : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:border-[var(--ks-action)]'
                   }`}
                 >
-                  All {activeCategoryMeta.shortName}
+                  {t(language, 'allDepartmentPrefix', { dept: activeDeptDisplayShortName })}
                 </button>
                 {activeCategoryMeta.subcategories.map((sub) => {
                   const isActiveSub =
@@ -1193,7 +1217,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
 
               {activeLevel1Node?.children && activeLevel1Node.children.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5 p-2.5 rounded-md bg-[var(--ks-surface-muted)] border border-[var(--ks-border)]">
-                  <span className="text-[11px] uppercase tracking-wider text-[var(--ks-text-muted)] mr-1">
+                  <span className="text-[11px] uppercase tracking-wider text-[var(--ks-text-muted)] me-1">
                     {activeLevel1Node.name}:
                   </span>
                   {activeLevel1Node.children.map((child) => (
@@ -1216,7 +1240,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
                 </div>
               )}
               <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--ks-text-muted)] leading-snug">
-                <span className="whitespace-nowrap">Featured brands:</span>
+                <span className="whitespace-nowrap">{t(language, 'featuredBrands')}:</span>
                 {activeCategoryMeta.featuredBrands.map((brand) => (
                   <button
                     key={brand}
@@ -1241,7 +1265,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
           <div className="lg:col-span-5 h-48 sm:h-56 lg:h-auto bg-[var(--ks-surface-muted)]">
             <ResilientImage
               src={activeCategoryMeta.image}
-              alt={activeCategoryMeta.name}
+              alt={activeDeptDisplayName}
               className="w-full h-full object-cover"
             />
           </div>
@@ -1265,7 +1289,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
             }}
             className="relative w-full lg:w-80"
           >
-            <Search className="w-4 h-4 text-[var(--ks-text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-[var(--ks-text-muted)] absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="search"
               value={searchInput}
@@ -1273,9 +1297,9 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
                 setSearchInput(e.target.value);
                 setPage(1);
               }}
-              placeholder="Filter by name, brand, or SKU..."
-              aria-label="Filter catalog by keyword"
-              className="w-full h-11 pl-10 pr-9 text-sm rounded-md bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)] focus:border-[var(--ks-action)]"
+              placeholder={t(language, 'filterPlaceholder')}
+              aria-label={t(language, 'search')}
+              className="w-full min-h-[44px] ps-10 pe-10 py-2 text-base sm:text-sm rounded-md bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)] focus:border-[var(--ks-action)]"
             />
             {searchInput && (
               <button
@@ -1284,8 +1308,8 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
                   setSearchInput('');
                   setPage(1);
                 }}
-                aria-label="Clear filter text"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                aria-label={t(language, 'clear')}
+                className="absolute end-1.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -1298,7 +1322,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
       {!activeCategoryMeta && (
         <div
           role="navigation"
-          aria-label="Department quick filter"
+          aria-label={t(language, 'departmentsEyebrow')}
           className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar"
         >
           <button
@@ -1310,7 +1334,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
                 : 'bg-[var(--ks-surface)] border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)]'
             }`}
           >
-            All Departments
+            {t(language, 'allDepartments')}
           </button>
           {categories.map((cat) => (
             <button
@@ -1323,7 +1347,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
                   : 'bg-[var(--ks-surface)] border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)]'
               }`}
             >
-              {cat.name}
+              {translateDepartmentName(language, cat.slug, cat.name)}
             </button>
           ))}
         </div>
@@ -1340,19 +1364,24 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
             <span>
-              Filters{activeFilterChips.length > 0 ? ` (${activeFilterChips.length})` : ''}
+              {t(language, 'filters')}
+              {activeFilterChips.length > 0 ? ` (${activeFilterChips.length})` : ''}
             </span>
           </Button>
           <p className="text-xs sm:text-sm text-[var(--ks-text-secondary)] font-mono-num truncate">
-            {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'}
-            {totalPages > 1 ? ` · Page ${safePage} of ${totalPages}` : ''}
+            {filteredProducts.length === 1
+              ? t(language, 'productsCountSingle', { count: filteredProducts.length })
+              : t(language, 'productsCountPlural', { count: filteredProducts.length })}
+            {totalPages > 1
+              ? ` · ${t(language, 'pageOfTotal', { page: safePage, total: totalPages })}`
+              : ''}
           </p>
         </div>
 
         <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0">
           <div className="flex items-center gap-2 flex-1 sm:flex-initial">
             <label htmlFor="sort-select" className="text-xs text-[var(--ks-text-muted)] whitespace-nowrap">
-              Sort by
+              {t(language, 'sortBy')}
             </label>
             <select
               id="sort-select"
@@ -1361,28 +1390,28 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
                 setSortBy(e.target.value as SortOption);
                 setPage(1);
               }}
-              className="flex-1 sm:flex-initial h-10 px-3 text-xs sm:text-sm rounded-md bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)]"
+              className="flex-1 sm:flex-initial min-h-[44px] px-3 text-base sm:text-sm rounded-md bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)]"
             >
-              <option value="featured">Featured</option>
-              <option value="newest">Newest</option>
-              <option value="price-asc">Price: Low to High</option>
-              <option value="price-desc">Price: High to Low</option>
-              <option value="best-selling">Best Selling</option>
+              <option value="featured">{t(language, 'sortFeatured')}</option>
+              <option value="newest">{t(language, 'sortNewest')}</option>
+              <option value="price-asc">{t(language, 'sortPriceAsc')}</option>
+              <option value="price-desc">{t(language, 'sortPriceDesc')}</option>
+              <option value="best-selling">{t(language, 'sortBestSelling')}</option>
               {filteredProducts.some((p) => p.reviewCount > 0) && (
-                <option value="highest-rated">Highest Rated</option>
+                <option value="highest-rated">{t(language, 'sortHighestRated')}</option>
               )}
             </select>
           </div>
 
           <div
             role="group"
-            aria-label="View layout"
+            aria-label={t(language, 'gridView')}
             className="hidden sm:flex items-center border border-[var(--ks-border)] rounded-md overflow-hidden shrink-0"
           >
             <button
               type="button"
               onClick={() => setViewLayout('grid')}
-              aria-label="Grid view"
+              aria-label={t(language, 'gridView')}
               aria-pressed={viewLayout === 'grid'}
               className={`w-10 h-10 flex items-center justify-center cursor-pointer transition-colors ${
                 viewLayout === 'grid'
@@ -1395,7 +1424,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
             <button
               type="button"
               onClick={() => setViewLayout('list')}
-              aria-label="List view"
+              aria-label={t(language, 'listView')}
               aria-pressed={viewLayout === 'list'}
               className={`w-10 h-10 flex items-center justify-center cursor-pointer transition-colors ${
                 viewLayout === 'list'
@@ -1417,18 +1446,18 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
               key={chip.key}
               type="button"
               onClick={chip.onClear}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] text-xs hover:border-[var(--ks-action)] cursor-pointer transition-colors"
+              className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1 rounded-md bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] text-xs hover:border-[var(--ks-action)] cursor-pointer transition-colors"
             >
               <span>{chip.label}</span>
-              <X className="w-3 h-3 text-[var(--ks-text-muted)]" />
+              <X className="w-3 h-3 text-[var(--ks-text-muted)] shrink-0" />
             </button>
           ))}
           <button
             type="button"
             onClick={resetFilters}
-            className="text-xs font-medium text-[var(--ks-accent)] hover:underline px-2 py-1 cursor-pointer"
+            className="min-h-[36px] text-xs font-medium text-[var(--ks-accent)] hover:underline px-2 py-1 cursor-pointer"
           >
-            Clear All
+            {t(language, 'clearAll')}
           </button>
         </div>
       )}
@@ -1451,18 +1480,18 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
           ) : catalogError && products.length === 0 ? (
             <div className="rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)]">
               <EmptyState
-                title="Unable to load catalog"
+                title={t(language, 'unableToLoadCatalog')}
                 description={catalogError}
-                actionLabel="Retry Loading Catalog"
+                actionLabel={t(language, 'retryLoadingCatalog')}
                 onAction={() => retryCatalogLoad()}
               />
             </div>
           ) : paginatedProducts.length === 0 ? (
             <div className="rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)]">
               <EmptyState
-                title="No matching products found"
-                description="Try adjusting your price range, switching finishes, or resetting active filters to browse all products."
-                actionLabel="Reset Filters"
+                title={t(language, 'noMatchingProducts')}
+                description={t(language, 'noMatchingProductsDesc')}
+                actionLabel={t(language, 'resetFilters')}
                 onAction={resetFilters}
               />
             </div>
@@ -1486,15 +1515,34 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
         </div>
       </div>
 
-      {/* Mobile Filter Drawer */}
+      {/* Mobile Slide-Over Filter Sheet with Live Match Count Footer */}
       <Drawer
         open={mobileFilterOpen}
         onClose={() => setMobileFilterOpen(false)}
-        title="Filter Products"
-        side="left"
+        title={t(language, 'filterProducts')}
+        side={language === 'ar' ? 'right' : 'left'}
       >
-        <div className="p-6">
-          <ShopFilterPanel idPrefix="mobile" {...sharedFilterProps} />
+        <div className="flex flex-col min-h-full">
+          <div className="p-5 sm:p-6 flex-1">
+            <ShopFilterPanel idPrefix="mobile" hideResetButton {...sharedFilterProps} />
+          </div>
+          <div className="sticky bottom-0 p-4 bg-[var(--ks-surface)]/95 backdrop-blur-md border-t border-[var(--ks-border)] flex items-center gap-2.5 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            {activeFilterChips.length > 0 && (
+              <Button variant="outline" size="md" onClick={resetFilters}>
+                {t(language, 'clearAll')}
+              </Button>
+            )}
+            <Button
+              variant="primary"
+              size="md"
+              fullWidth
+              onClick={() => setMobileFilterOpen(false)}
+            >
+              {filteredProducts.length === 1
+                ? t(language, 'productsCountSingle', { count: filteredProducts.length })
+                : t(language, 'productsCountPlural', { count: filteredProducts.length })}
+            </Button>
+          </div>
         </div>
       </Drawer>
     </div>

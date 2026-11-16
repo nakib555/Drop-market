@@ -56,6 +56,12 @@ import {
 } from '../types/commerce';
 import { LEGAL_VERSION } from '../data/legalPolicies';
 import {
+  getLanguageOption,
+  isSupportedLanguage,
+  LANGUAGE_OPTIONS,
+  t,
+} from '../utils/i18n';
+import {
   DEFAULT_BDT_RATE,
   formatCurrency,
   isProductOutOfStock,
@@ -254,9 +260,10 @@ interface StoreContextValue {
 const StoreContext = createContext<StoreContextValue | undefined>(undefined);
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguageState] = useState<LanguageCode>(() =>
-    readStorage<LanguageCode>('kinto-language', 'en')
-  );
+  const [language, setLanguageState] = useState<LanguageCode>(() => {
+    const saved = readStorage<unknown>('kinto-language', 'en');
+    return isSupportedLanguage(saved) ? saved : 'en';
+  });
   const [currency, setCurrencyState] = useState<CurrencyCode>(() =>
     readStorage<CurrencyCode>('kinto-currency', 'BDT')
   );
@@ -662,7 +669,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     writeStorage('kinto-language', language);
     if (typeof document !== 'undefined') {
-      document.documentElement.lang = language === 'bn' ? 'bn' : 'en';
+      const opt = getLanguageOption(language);
+      document.documentElement.lang = opt.code;
+      document.documentElement.dir = opt.dir;
     }
   }, [language]);
   useEffect(() => writeStorage('kinto-currency', currency), [currency]);
@@ -715,17 +724,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const setLanguage = useCallback(
     (next: LanguageCode) => {
       setLanguageState(next);
-      showToast(
-        next === 'bn' ? 'ভাষা বাংলায় পরিবর্তন করা হয়েছে' : 'Display language set to English',
-        undefined,
-        'info'
-      );
+      showToast(t(next, 'languageChangedToast'), undefined, 'info');
     },
     [showToast]
   );
 
   const toggleLanguage = useCallback(() => {
-    setLanguage(language === 'en' ? 'bn' : 'en');
+    const idx = LANGUAGE_OPTIONS.findIndex((o) => o.code === language);
+    const next = LANGUAGE_OPTIONS[(idx + 1) % LANGUAGE_OPTIONS.length]?.code ?? 'en';
+    setLanguage(next);
   }, [language, setLanguage]);
 
   const setCurrency = useCallback(

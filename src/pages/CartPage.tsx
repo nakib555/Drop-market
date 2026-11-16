@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { ArrowRight, Bookmark, ShoppingBag, Tag, Trash2, X } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { formatCurrency } from '../utils/format';
+import { t } from '../utils/i18n';
 import { QuantityStepper } from '../components/product/CommercePrimitives';
 import { Button } from '../components/ui/Button';
 import { Breadcrumb, EmptyState, ResilientImage } from '../components/ui/Primitives';
 
 export const CartPage: React.FC = () => {
   const {
+    language,
     currency,
     cart,
     savedForLater,
@@ -41,19 +43,21 @@ export const CartPage: React.FC = () => {
     <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-10">
       <Breadcrumb
         items={[
-          { label: 'Home', onClick: () => navigate({ name: 'home' }) },
-          { label: 'Shopping Bag' },
+          { label: t(language, 'home'), onClick: () => navigate({ name: 'home' }) },
+          { label: t(language, 'shoppingBag') },
         ]}
       />
 
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-[var(--ks-border)]">
-        <h1 className="font-display text-3xl sm:text-5xl font-medium">Shopping Bag</h1>
+        <h1 className="font-display text-3xl sm:text-5xl font-medium">
+          {t(language, 'shoppingBag')}
+        </h1>
         <button
           type="button"
           onClick={() => navigate({ name: 'shop', category: 'all' })}
-          className="self-start sm:self-auto text-left text-sm font-medium text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+          className="self-start sm:self-auto text-start text-sm font-medium text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer min-h-[36px]"
         >
-          Continue Shopping
+          {t(language, 'continueShopping')}
         </button>
       </div>
 
@@ -61,9 +65,9 @@ export const CartPage: React.FC = () => {
         <div className="rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)]">
           <EmptyState
             icon={<ShoppingBag className="w-6 h-6" />}
-            title="Your shopping bag is currently empty"
-            description="Browse Electronics, Fashion, Home & Kitchen, Beauty, Sports, Books, and everyday essentials across all departments."
-            actionLabel="Browse Products"
+            title={t(language, 'cartEmptyTitle')}
+            description={t(language, 'cartEmptyDesc')}
+            actionLabel={t(language, 'browseProducts')}
             onAction={() => navigate({ name: 'shop', category: 'all' })}
           />
         </div>
@@ -80,7 +84,7 @@ export const CartPage: React.FC = () => {
                       type="button"
                       onClick={() => navigate({ name: 'product', slug: item.slug })}
                       aria-label={`View ${item.name}`}
-                      className="w-full sm:w-36 aspect-[4/3] rounded-md overflow-hidden bg-[var(--ks-surface-muted)] shrink-0 cursor-pointer block text-left"
+                      className="w-full sm:w-36 aspect-[4/3] rounded-md overflow-hidden bg-[var(--ks-surface-muted)] shrink-0 cursor-pointer block text-start"
                     >
                       <ResilientImage
                         src={item.image}
@@ -99,7 +103,7 @@ export const CartPage: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => navigate({ name: 'product', slug: item.slug })}
-                              className="text-left hover:text-[var(--ks-accent)] cursor-pointer"
+                              className="text-start hover:text-[var(--ks-accent)] cursor-pointer"
                             >
                               {item.name}
                             </button>
@@ -114,8 +118,10 @@ export const CartPage: React.FC = () => {
                             </span>
                           </p>
                           <p className="text-xs font-mono-num text-[var(--ks-text-muted)] mt-1">
-                            {formatCurrency(item.price, currency)} each
-                            {atMaxStock ? ` · Max ${item.stockCount} available` : ''}
+                            {t(language, 'priceEach', { price: formatCurrency(item.price, currency) })}
+                            {atMaxStock
+                              ? ` · ${t(language, 'maxAvailable', { count: item.stockCount })}`
+                              : ''}
                           </p>
                         </div>
                         <span className="text-base font-mono-num font-semibold shrink-0 tabular-nums">
@@ -141,7 +147,7 @@ export const CartPage: React.FC = () => {
                             className="inline-flex items-center gap-1.5 min-h-[36px] py-1.5 px-1 text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer"
                           >
                             <Bookmark className="w-3.5 h-3.5" />
-                            <span>Save for later</span>
+                            <span>{t(language, 'saveForLater')}</span>
                           </button>
                           <button
                             type="button"
@@ -149,7 +155,7 @@ export const CartPage: React.FC = () => {
                             className="inline-flex items-center gap-1.5 min-h-[36px] py-1.5 px-1 text-[var(--ks-text-secondary)] hover:text-[var(--ks-error)] cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
-                            <span>Remove</span>
+                            <span>{t(language, 'remove')}</span>
                           </button>
                         </div>
                       </div>
@@ -162,11 +168,11 @@ export const CartPage: React.FC = () => {
 
           {/* Order Summary & Promo Code */}
           <aside className="lg:col-span-4 lg:sticky lg:top-28 p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-6">
-            <h2 className="font-display text-2xl font-medium">Order Summary</h2>
+            <h2 className="font-display text-2xl font-medium">{t(language, 'orderSummary')}</h2>
 
             <form onSubmit={handleCouponSubmit} className="space-y-2">
               <label htmlFor="coupon-code" className="text-xs font-medium block">
-                Promo Code
+                {t(language, 'promoCode')}
               </label>
               <div className="flex flex-col min-[360px]:flex-row gap-2">
                 <input
@@ -174,11 +180,11 @@ export const CartPage: React.FC = () => {
                   type="text"
                   value={couponInput}
                   onChange={(e) => setCouponInput(e.target.value)}
-                  placeholder="Try STUDIO15 or FREESHIP"
-                  className="flex-1 min-w-0 h-10 px-3 text-sm rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] uppercase text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)]"
+                  placeholder={t(language, 'promoPlaceholder')}
+                  className="flex-1 min-w-0 min-h-[44px] px-3 text-base sm:text-sm rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border-strong)] uppercase text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)]"
                 />
-                <Button type="submit" variant="outline" size="sm">
-                  Apply
+                <Button type="submit" variant="outline" size="md">
+                  {t(language, 'apply')}
                 </Button>
               </div>
               {couponMessage && (
@@ -213,41 +219,43 @@ export const CartPage: React.FC = () => {
 
             <div className="space-y-2.5 text-sm pt-4 border-t border-[var(--ks-border)]">
               <div className="flex items-baseline justify-between gap-4 text-[var(--ks-text-secondary)]">
-                <span className="min-w-0">Subtotal</span>
-                <span className="font-mono-num shrink-0 text-right">
+                <span className="min-w-0">{t(language, 'subtotal')}</span>
+                <span className="font-mono-num shrink-0 text-end tabular-nums">
                   {formatCurrency(cartSubtotal, currency)}
                 </span>
               </div>
               {cartDiscount > 0 && (
                 <div className="flex items-baseline justify-between gap-4 text-[var(--ks-success)]">
-                  <span className="min-w-0">Discount ({appliedPromo?.code})</span>
-                  <span className="font-mono-num shrink-0 text-right">
+                  <span className="min-w-0">
+                    {t(language, 'discountCodeLabel', { code: appliedPromo?.code || '' })}
+                  </span>
+                  <span className="font-mono-num shrink-0 text-end tabular-nums">
                     -{formatCurrency(cartDiscount, currency)}
                   </span>
                 </div>
               )}
               <div className="flex items-baseline justify-between gap-4 text-[var(--ks-text-secondary)]">
-                <span className="min-w-0">Estimated Tax (5%)</span>
-                <span className="font-mono-num shrink-0 text-right">
+                <span className="min-w-0">{t(language, 'estimatedTax')}</span>
+                <span className="font-mono-num shrink-0 text-end tabular-nums">
                   {formatCurrency(cartTax, currency)}
                 </span>
               </div>
               <div className="flex items-baseline justify-between gap-4 text-[var(--ks-text-secondary)]">
-                <span className="min-w-0">Estimated Shipping</span>
-                <span className="font-mono-num shrink-0 text-right">
+                <span className="min-w-0">{t(language, 'estimatedShipping')}</span>
+                <span className="font-mono-num shrink-0 text-end tabular-nums">
                   {estimatedShipping === 0
-                    ? 'Complimentary'
+                    ? t(language, 'complimentary')
                     : formatCurrency(estimatedShipping, currency)}
                 </span>
               </div>
               <div className="flex items-baseline justify-between gap-4 pt-3 border-t border-[var(--ks-border)] text-base font-semibold">
-                <span className="min-w-0">Estimated Total</span>
-                <span className="font-mono-num shrink-0 text-right">
+                <span className="min-w-0">{t(language, 'estimatedTotal')}</span>
+                <span className="font-mono-num shrink-0 text-end tabular-nums">
                   {formatCurrency(cartTotal, currency)}
                 </span>
               </div>
               <p className="text-xs text-[var(--ks-text-muted)] pt-1 leading-relaxed">
-                Shipping and VAT are estimated for Dhaka Metro and confirmed by delivery zone at checkout.
+                {t(language, 'shippingEstimateNote')}
               </p>
             </div>
 
@@ -257,8 +265,8 @@ export const CartPage: React.FC = () => {
               fullWidth
               onClick={() => navigate({ name: 'checkout' })}
             >
-              <span>Proceed to Checkout</span>
-              <ArrowRight className="w-4 h-4" />
+              <span>{t(language, 'proceedToCheckout')}</span>
+              <ArrowRight className="w-4 h-4 rtl:rotate-180" />
             </Button>
           </aside>
         </div>
@@ -268,7 +276,7 @@ export const CartPage: React.FC = () => {
       {savedForLater.length > 0 && (
         <section className="pt-10 border-t border-[var(--ks-border)] space-y-6">
           <h2 className="font-display text-3xl font-medium">
-            Saved for Later ({savedForLater.length})
+            {t(language, 'savedForLater', { count: savedForLater.length })}
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {savedForLater.map((item) => (
@@ -288,14 +296,14 @@ export const CartPage: React.FC = () => {
                   </p>
                   <div className="flex items-center gap-3 pt-1">
                     <Button variant="outline" size="xs" onClick={() => moveSavedToCart(item.key)}>
-                      Move to Bag
+                      {t(language, 'moveToBag')}
                     </Button>
                     <button
                       type="button"
                       onClick={() => removeSavedItem(item.key)}
-                      className="text-xs text-[var(--ks-text-muted)] hover:text-[var(--ks-error)] cursor-pointer"
+                      className="min-h-[36px] px-1.5 text-xs text-[var(--ks-text-muted)] hover:text-[var(--ks-error)] cursor-pointer"
                     >
-                      Remove
+                      {t(language, 'remove')}
                     </button>
                   </div>
                 </div>

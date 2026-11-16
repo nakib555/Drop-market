@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Building2,
   CheckCircle2,
+  ChevronDown,
   CreditCard,
   Globe,
   Lock,
@@ -16,7 +17,7 @@ import {
   Truck,
   X,
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { BANGLADESH_GEO_TREE, type BangladeshDivisionEntry } from '../../server/shared/marketplaceSchema';
 import { useStore } from '../context/StoreContext';
 import { buildPolicyAcceptance, getDepartmentSafetyNotice } from '../data/legalPolicies';
@@ -34,18 +35,19 @@ import type {
   PaymentSession,
 } from '../types/commerce';
 import { formatCurrency, formatDirectCurrency } from '../utils/format';
+import { t } from '../utils/i18n';
 import { STUDIO_TRANSITION } from '../utils/motion';
 import { Button } from '../components/ui/Button';
 import { Input, Select, Textarea } from '../components/ui/FormFields';
 import { EmptyState, Modal, ResilientImage } from '../components/ui/Primitives';
 
-const STEPS = [
-  'Customer',
-  'Shipping',
-  'Delivery',
-  'Payment',
-  'Review',
-  'Confirmation',
+const STEP_KEYS = [
+  'stepCustomer',
+  'stepShipping',
+  'stepDelivery',
+  'stepPayment',
+  'stepReview',
+  'stepConfirmation',
 ] as const;
 
 const PAYMENT_CHANNEL_META: Array<{
@@ -116,6 +118,7 @@ function createIdempotencyKey(): string {
 
 export const CheckoutPage: React.FC = () => {
   const {
+    language,
     currency,
     currencyConfig,
     cart,
@@ -220,6 +223,7 @@ export const CheckoutPage: React.FC = () => {
   } | null>(null);
   const [acceptedCheckoutTerms, setAcceptedCheckoutTerms] = useState(false);
   const [checkoutConsentError, setCheckoutConsentError] = useState('');
+  const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
 
   const isBangladesh = country === 'Bangladesh';
 
@@ -655,7 +659,7 @@ export const CheckoutPage: React.FC = () => {
         transition={STUDIO_TRANSITION.base}
         className="max-w-3xl mx-auto px-4 sm:px-6 py-12 lg:py-16 space-y-8"
       >
-        <div className="p-8 sm:p-10 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] text-center space-y-5">
+        <div className="p-6 sm:p-10 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] text-center space-y-5">
           <div className="w-14 h-14 mx-auto rounded-full bg-[var(--ks-success)]/12 text-[var(--ks-success)] flex items-center justify-center">
             <CheckCircle2 className="w-7 h-7" />
           </div>
@@ -674,7 +678,7 @@ export const CheckoutPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left p-5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-start p-5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs">
             <div className="min-w-0">
               <p className="text-[var(--ks-text-muted)] leading-snug">Delivery Estimate</p>
               <p className="font-medium mt-1 text-sm leading-snug">{placedOrder.estimatedArrival}</p>
@@ -702,7 +706,7 @@ export const CheckoutPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="text-left space-y-3 pt-2">
+          <div className="text-start space-y-3 pt-2">
             <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
               Itemized Receipt
             </p>
@@ -713,7 +717,7 @@ export const CheckoutPage: React.FC = () => {
                     {item.name} × {item.quantity}{' '}
                     <span className="text-xs text-[var(--ks-text-muted)]">({item.color})</span>
                   </span>
-                  <span className="font-mono-num font-medium shrink-0 text-right tabular-nums">
+                  <span className="font-mono-num font-medium shrink-0 text-end tabular-nums">
                     {snap
                       ? formatDirectCurrency(
                           snap.transactionCurrency === 'BDT'
@@ -728,20 +732,20 @@ export const CheckoutPage: React.FC = () => {
             </ul>
           </div>
 
-          <div className="flex flex-wrap justify-center gap-3 pt-4">
+          <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 pt-4">
             <Button
               variant="primary"
               size="lg"
               onClick={() => navigate({ name: 'track-order', orderId: placedOrder.id })}
             >
-              Track Order #{placedOrder.id}
+              {t(language, 'trackOrder')} #{placedOrder.id}
             </Button>
             <Button
               variant="outline"
               size="lg"
               onClick={() => navigate({ name: 'shop', category: 'all' })}
             >
-              Continue Shopping
+              {t(language, 'continueShopping')}
             </Button>
           </div>
         </div>
@@ -757,41 +761,218 @@ export const CheckoutPage: React.FC = () => {
     return avail && !avail.enabled;
   });
 
+  const progressPercent = Math.round((step / STEP_KEYS.length) * 100);
+
+  const renderOrderSummaryContent = (listMaxHeightClass: string) => (
+    <>
+      {quoteError && <p className="text-xs text-[var(--ks-error)]">{quoteError}</p>}
+
+      <ul className={`divide-y divide-[var(--ks-border)] ${listMaxHeightClass} overflow-y-auto`}>
+        {cart.map((item) => (
+          <li key={item.key} className="py-3 flex items-center gap-3">
+            <ResilientImage
+              src={item.image}
+              alt={item.name}
+              className="w-14 h-11 rounded-sm object-cover bg-[var(--ks-surface-muted)] shrink-0"
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{item.name}</p>
+              <p className="text-xs text-[var(--ks-text-muted)]">
+                Qty {item.quantity} · {item.color}
+              </p>
+            </div>
+            <span className="text-sm font-mono-num shrink-0 text-end tabular-nums">
+              {formatCurrency(item.price * item.quantity, currency)}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <form
+        onSubmit={handlePromoSubmit}
+        className="space-y-2 pt-4 border-t border-[var(--ks-border)]"
+      >
+        <div className="flex gap-2">
+          <input
+            type="text"
+            aria-label={t(language, 'promoCode')}
+            value={promoInput}
+            onChange={(e) => setPromoInput(e.target.value)}
+            placeholder={t(language, 'promoPlaceholder')}
+            className="flex-1 min-w-0 min-h-[44px] px-3 text-base sm:text-xs rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] uppercase text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)]"
+          />
+          <Button type="submit" variant="outline" size="md">
+            {t(language, 'apply')}
+          </Button>
+        </div>
+        {promoFeedback && (
+          <p
+            className={`text-[11px] ${
+              promoFeedback.ok ? 'text-[var(--ks-success)]' : 'text-[var(--ks-error)]'
+            }`}
+          >
+            {promoFeedback.text}
+          </p>
+        )}
+        {appliedPromo && (
+          <div className="flex items-center justify-between px-2.5 py-1.5 rounded-md bg-[var(--ks-surface-muted)] text-xs">
+            <span className="inline-flex items-center gap-1.5 font-mono-num font-medium">
+              <Tag className="w-3.5 h-3.5 text-[var(--ks-accent)]" />
+              {appliedPromo.code}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                removePromoCode();
+                setPromoFeedback(null);
+              }}
+              aria-label={t(language, 'remove')}
+              className="w-9 h-9 rounded flex items-center justify-center text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+      </form>
+
+      <div className="space-y-2 text-sm pt-4 border-t border-[var(--ks-border)]">
+        <div className="flex items-baseline justify-between gap-4 text-[var(--ks-text-secondary)]">
+          <span className="min-w-0">{t(language, 'subtotal')}</span>
+          <span className="font-mono-num shrink-0 text-end tabular-nums">
+            {formatCurrency(summarySubtotalUsd, currency)}
+          </span>
+        </div>
+        {summaryDiscountUsd > 0 && (
+          <div className="flex items-baseline justify-between gap-4 text-[var(--ks-success)]">
+            <span className="min-w-0">
+              {t(language, 'discountCodeLabel', { code: appliedPromo?.code || '' })}
+            </span>
+            <span className="font-mono-num shrink-0 text-end tabular-nums">
+              -{formatCurrency(summaryDiscountUsd, currency)}
+            </span>
+          </div>
+        )}
+        <div className="flex items-baseline justify-between gap-4 text-[var(--ks-text-secondary)]">
+          <span className="min-w-0">{t(language, 'estimatedTax')}</span>
+          <span className="font-mono-num shrink-0 text-end tabular-nums">
+            {formatCurrency(summaryTaxUsd, currency)}
+          </span>
+        </div>
+        <div className="flex items-baseline justify-between gap-4 text-[var(--ks-text-secondary)]">
+          <span className="min-w-0">
+            {t(language, 'estimatedShipping')}{selectedDelivery ? ` (${selectedDelivery.title})` : ''}
+          </span>
+          <span className="font-mono-num shrink-0 text-end tabular-nums">
+            {isRestrictedZone
+              ? 'Restricted'
+              : !quote
+              ? '...'
+              : summaryShippingUsd === 0
+              ? t(language, 'complimentary')
+              : formatCurrency(summaryShippingUsd, currency)}
+          </span>
+        </div>
+
+        <div className="flex items-baseline justify-between gap-4 pt-3 border-t border-[var(--ks-border)] text-base font-semibold">
+          <span className="min-w-0">{t(language, 'orderTotal')}</span>
+          <span className="font-mono-num shrink-0 text-end tabular-nums">
+            {formatCurrency(summaryTotalUsd, currency)}
+          </span>
+        </div>
+
+        {quote && quote.currency !== currency && (
+          <div className="flex items-baseline justify-between gap-4 text-xs font-mono-num text-[var(--ks-accent)] pt-1">
+            <span className="min-w-0">Settlement ({quote.currency})</span>
+            <span className="shrink-0 text-end tabular-nums">
+              {formatDirectCurrency(quote.totalCharged, quote.currency)}
+            </span>
+          </div>
+        )}
+
+        <p className="text-[11px] text-[var(--ks-text-muted)] pt-1 leading-snug">
+          FX Rate: 1 USD = ৳{currencyConfig.rates.BDT.toFixed(2)} ·{' '}
+          {quote?.shippingQuote.zoneLabel || 'Resolving zone...'}
+        </p>
+      </div>
+    </>
+  );
+
   return (
-    <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-[var(--ks-border)]">
+    <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-12 space-y-6 lg:space-y-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 sm:pb-6 border-b border-[var(--ks-border)]">
         <div>
           <p className="text-xs text-[var(--ks-text-muted)] uppercase tracking-wider">
-            Checkout · {isBangladesh ? 'Bangladesh (BDT Settlement)' : 'International Dispatch'}
+            {t(language, 'checkout')} · {isBangladesh ? 'Bangladesh (BDT)' : 'International'}
           </p>
           <h1 className="font-display text-3xl sm:text-4xl font-medium mt-1">
-            Complete Your Order
+            {t(language, 'completeYourOrder')}
           </h1>
         </div>
         <div className="inline-flex items-center gap-2 text-xs text-[var(--ks-text-secondary)]">
           <Lock className="w-3.5 h-3.5 text-[var(--ks-accent)] shrink-0" />
-          <span>Verified Server Pricing &amp; Delivery Quote</span>
+          <span>{t(language, 'verifiedServerPricing')}</span>
         </div>
       </div>
 
-      {/* Stepper */}
-      <div className="space-y-2">
-        <p className="sm:hidden text-xs font-mono-num font-medium text-[var(--ks-accent)]">
-          Step {step} of {STEPS.length} — {STEPS[step - 1]}
-        </p>
-        <nav aria-label="Checkout progress" className="overflow-x-auto pb-1">
-          <ol className="flex items-center gap-2 sm:gap-3 min-w-max">
-            {STEPS.map((label, idx) => {
+      {/* Stepper: Compact Progress Bar on Mobile, Full Horizontal Stepper on md+ */}
+      <div className="space-y-3">
+        <div className="md:hidden p-3.5 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-2.5">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-mono-num font-semibold text-[var(--ks-accent)]">
+              {t(language, 'stepOf', {
+                step,
+                total: STEP_KEYS.length,
+                label: t(language, STEP_KEYS[step - 1]),
+              })}
+            </p>
+            <span className="text-[11px] font-mono-num text-[var(--ks-text-muted)] tabular-nums">
+              {progressPercent}%
+            </span>
+          </div>
+          <div
+            role="progressbar"
+            aria-valuenow={step}
+            aria-valuemin={1}
+            aria-valuemax={STEP_KEYS.length}
+            aria-label={t(language, 'checkout')}
+            className="h-1.5 w-full rounded-full bg-[var(--ks-surface-muted)] overflow-hidden"
+          >
+            <div
+              className="h-full rounded-full bg-[var(--ks-action)] transition-[width] duration-200"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+          {step > 1 && (
+            <div className="flex flex-wrap gap-1.5 pt-0.5">
+              {STEP_KEYS.slice(0, step - 1).map((stepKey, idx) => (
+                <button
+                  key={stepKey}
+                  type="button"
+                  onClick={() => setStep(idx + 1)}
+                  className="min-h-[32px] px-2.5 rounded-[var(--ks-radius-sm)] bg-[var(--ks-surface-muted)] text-[11px] font-medium text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer inline-flex items-center gap-1"
+                >
+                  <span className="font-mono-num">{idx + 1}.</span>
+                  <span>{t(language, stepKey)}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <nav aria-label={t(language, 'checkout')} className="hidden md:block overflow-x-auto pb-1">
+          <ol className="flex items-center gap-3 min-w-max">
+            {STEP_KEYS.map((stepKey, idx) => {
+              const label = t(language, stepKey);
               const num = idx + 1;
               const active = num === step;
               const completed = num < step;
               return (
-                <li key={label} className="flex items-center gap-2">
+                <li key={stepKey} className="flex items-center gap-2">
                   <button
                     type="button"
                     disabled={num > step}
                     onClick={() => num < step && setStep(num)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    className={`inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                       active
                         ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)]'
                         : completed
@@ -802,7 +983,7 @@ export const CheckoutPage: React.FC = () => {
                     <span className="font-mono-num">{num}.</span>
                     <span>{label}</span>
                   </button>
-                  {idx < STEPS.length - 1 && (
+                  {idx < STEP_KEYS.length - 1 && (
                     <span className="text-[var(--ks-border-strong)]">—</span>
                   )}
                 </li>
@@ -810,6 +991,65 @@ export const CheckoutPage: React.FC = () => {
             })}
           </ol>
         </nav>
+      </div>
+
+      {/* Expandable Order Summary Accordion on Mobile & Tablet (< lg) */}
+      <div className="lg:hidden rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] overflow-hidden">
+        <button
+          type="button"
+          aria-expanded={mobileSummaryOpen}
+          onClick={() => setMobileSummaryOpen((o) => !o)}
+          className="w-full min-h-[60px] px-4 py-3 flex items-center justify-between gap-3 text-start cursor-pointer hover:bg-[var(--ks-bg)]/40 transition-colors"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="w-9 h-9 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface-muted)] flex items-center justify-center text-[var(--ks-accent)] shrink-0">
+              <ShoppingBag className="w-4 h-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-[var(--ks-text-primary)] truncate">
+                {t(language, 'orderSummary')} ({cart.length})
+              </p>
+              <p className="text-[11px] text-[var(--ks-text-muted)] truncate">
+                {quoteLoading
+                  ? 'Calculating...'
+                  : quote?.shippingQuote.zoneLabel || t(language, 'verifiedServerPricing')}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 text-end">
+            <div>
+              <p className="text-sm font-mono-num font-semibold tabular-nums">
+                {formatCurrency(summaryTotalUsd, currency)}
+              </p>
+              {quote && quote.currency !== currency && (
+                <p className="text-[11px] font-mono-num text-[var(--ks-accent)] tabular-nums">
+                  {formatDirectCurrency(quote.totalCharged, quote.currency)}
+                </p>
+              )}
+            </div>
+            <ChevronDown
+              className={`w-4 h-4 text-[var(--ks-text-muted)] transition-transform duration-150 ${
+                mobileSummaryOpen ? 'rotate-180' : ''
+              }`}
+            />
+          </div>
+        </button>
+
+        <AnimatePresence initial={false}>
+          {mobileSummaryOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={STUDIO_TRANSITION.accordion}
+              className="overflow-hidden border-t border-[var(--ks-border)]"
+            >
+              <div className="p-4 space-y-4">
+                {renderOrderSummaryContent('max-h-56')}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {paymentBanner && (
@@ -871,6 +1111,8 @@ export const CheckoutPage: React.FC = () => {
                 <Input
                   label="Email Address"
                   type="email"
+                  inputMode="email"
+                  autoComplete="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -881,6 +1123,7 @@ export const CheckoutPage: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Input
                     label="Full Name"
+                    autoComplete="name"
                     required
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
@@ -890,6 +1133,8 @@ export const CheckoutPage: React.FC = () => {
                   <Input
                     label="Mobile / Phone Number"
                     type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
                     required
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
@@ -902,7 +1147,7 @@ export const CheckoutPage: React.FC = () => {
 
             {step === 2 && (
               <div className="space-y-5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h2 className="font-display text-2xl font-medium">2. Shipping Address</h2>
                     <p className="text-xs text-[var(--ks-text-secondary)] mt-0.5">
@@ -924,7 +1169,7 @@ export const CheckoutPage: React.FC = () => {
                           setPostalCode(found.postalCode);
                         }
                       }}
-                      className="h-9 px-3 text-xs rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-[var(--ks-text-primary)]"
+                      className="min-h-[44px] px-3 text-base sm:text-xs rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-[var(--ks-text-primary)] max-w-full"
                     >
                       <option value="">Load saved address...</option>
                       {addresses.map((a) => (
@@ -1058,6 +1303,7 @@ export const CheckoutPage: React.FC = () => {
                   <div className="sm:col-span-2">
                     <Input
                       label="Street Address / House & Road"
+                      autoComplete="street-address"
                       required
                       value={streetAddress}
                       onChange={(e) => setStreetAddress(e.target.value)}
@@ -1071,6 +1317,7 @@ export const CheckoutPage: React.FC = () => {
                   </div>
                   <Input
                     label="Postal Code"
+                    autoComplete="postal-code"
                     required
                     value={postalCode}
                     onChange={(e) => setPostalCode(e.target.value)}
@@ -1114,7 +1361,7 @@ export const CheckoutPage: React.FC = () => {
                       return (
                         <label
                           key={opt.id}
-                          className={`flex items-start justify-between gap-4 p-4 rounded-lg border transition-colors ${
+                          className={`flex items-start justify-between gap-4 min-h-[64px] p-4 rounded-lg border transition-colors ${
                             !opt.available
                               ? 'opacity-55 cursor-not-allowed border-[var(--ks-border)] bg-[var(--ks-bg)]'
                               : active
@@ -1141,7 +1388,7 @@ export const CheckoutPage: React.FC = () => {
                               </p>
                             </div>
                           </div>
-                          <span className="text-sm font-mono-num font-semibold shrink-0 text-right tabular-nums">
+                          <span className="text-sm font-mono-num font-semibold shrink-0 text-end tabular-nums">
                             {!opt.available
                               ? 'N/A'
                               : opt.costUsd === 0
@@ -1204,7 +1451,7 @@ export const CheckoutPage: React.FC = () => {
                       return (
                         <label
                           key={id}
-                          className={`flex items-start justify-between gap-4 p-3.5 rounded-lg border transition-colors cursor-pointer ${
+                          className={`flex items-start justify-between gap-4 min-h-[56px] p-4 rounded-lg border transition-colors cursor-pointer ${
                             active
                               ? 'border-[var(--ks-action)] bg-[var(--ks-surface-muted)]'
                               : 'border-[var(--ks-border)] hover:border-[var(--ks-border-strong)]'
@@ -1243,6 +1490,9 @@ export const CheckoutPage: React.FC = () => {
                     <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)]">
                       <Input
                         label="Bangladesh Mobile Wallet Number"
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
                         value={mobileWalletNumber}
                         onChange={(e) => setMobileWalletNumber(e.target.value)}
                         error={errors.mobileWallet}
@@ -1315,7 +1565,7 @@ export const CheckoutPage: React.FC = () => {
                         <ShieldCheck className="w-3.5 h-3.5 mt-[2px] text-[var(--ks-success)] shrink-0" />
                         <span>Authoritative Currency Settlement ({quote.currency})</span>
                       </span>
-                      <span className="font-mono-num font-semibold shrink-0 text-right tabular-nums">
+                      <span className="font-mono-num font-semibold shrink-0 text-end tabular-nums">
                         {formatDirectCurrency(quote.totalCharged, quote.currency)}
                       </span>
                     </div>
@@ -1341,7 +1591,7 @@ export const CheckoutPage: React.FC = () => {
                           {((item.weightKg || 1) * item.quantity).toFixed(1)} kg
                         </p>
                       </div>
-                      <span className="text-sm font-mono-num font-medium shrink-0 text-right tabular-nums">
+                      <span className="text-sm font-mono-num font-medium shrink-0 text-end tabular-nums">
                         {formatCurrency(item.price * item.quantity, currency)}
                       </span>
                     </li>
@@ -1436,7 +1686,7 @@ export const CheckoutPage: React.FC = () => {
                     </span>
                   </label>
                   {checkoutConsentError && (
-                    <p id="checkout-consent-err" className="text-xs text-[var(--ks-error)] pl-6">
+                    <p id="checkout-consent-err" className="text-xs text-[var(--ks-error)] ps-6">
                       {checkoutConsentError}
                     </p>
                   )}
@@ -1449,7 +1699,7 @@ export const CheckoutPage: React.FC = () => {
           <div className="pt-4 border-t border-[var(--ks-border)] flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
             {step > 1 ? (
               <Button variant="outline" size="md" onClick={() => setStep((s) => s - 1)}>
-                <ArrowLeft className="w-4 h-4" />
+                <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
                 <span>Back</span>
               </Button>
             ) : (
@@ -1470,7 +1720,7 @@ export const CheckoutPage: React.FC = () => {
                 }
               >
                 <span>Continue</span>
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-4 h-4 rtl:rotate-180" />
               </Button>
             ) : (
               <Button
@@ -1507,8 +1757,8 @@ export const CheckoutPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Sticky Bag Summary Sidebar */}
-        <aside className="lg:col-span-5 lg:sticky lg:top-28 p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-5">
+        {/* Sticky Desktop Bag Summary Sidebar */}
+        <aside className="hidden lg:block lg:col-span-5 lg:sticky lg:top-28 p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-5">
           <div className="flex items-center justify-between gap-2">
             <h2 className="font-display text-2xl font-medium">In Your Bag ({cart.length})</h2>
             {quoteLoading && (
@@ -1518,133 +1768,7 @@ export const CheckoutPage: React.FC = () => {
             )}
           </div>
 
-          {quoteError && <p className="text-xs text-[var(--ks-error)]">{quoteError}</p>}
-
-          <ul className="divide-y divide-[var(--ks-border)] max-h-64 overflow-y-auto">
-            {cart.map((item) => (
-              <li key={item.key} className="py-3 flex items-center gap-3">
-                <ResilientImage
-                  src={item.image}
-                  alt={item.name}
-                  className="w-14 h-11 rounded-sm object-cover bg-[var(--ks-surface-muted)] shrink-0"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{item.name}</p>
-                  <p className="text-xs text-[var(--ks-text-muted)]">
-                    Qty {item.quantity} · {item.color}
-                  </p>
-                </div>
-                <span className="text-sm font-mono-num shrink-0 text-right tabular-nums">
-                  {formatCurrency(item.price * item.quantity, currency)}
-                </span>
-              </li>
-            ))}
-          </ul>
-
-          <form
-            onSubmit={handlePromoSubmit}
-            className="space-y-2 pt-4 border-t border-[var(--ks-border)]"
-          >
-            <div className="flex gap-2">
-              <input
-                type="text"
-                aria-label="Promo code"
-                value={promoInput}
-                onChange={(e) => setPromoInput(e.target.value)}
-                placeholder="Promo code (STUDIO15, FREESHIP)"
-                className="flex-1 min-w-0 h-10 px-3 text-xs rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] uppercase text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)]"
-              />
-              <Button type="submit" variant="outline" size="sm">
-                Apply
-              </Button>
-            </div>
-            {promoFeedback && (
-              <p
-                className={`text-[11px] ${
-                  promoFeedback.ok ? 'text-[var(--ks-success)]' : 'text-[var(--ks-error)]'
-                }`}
-              >
-                {promoFeedback.text}
-              </p>
-            )}
-            {appliedPromo && (
-              <div className="flex items-center justify-between px-2.5 py-1.5 rounded-md bg-[var(--ks-surface-muted)] text-xs">
-                <span className="inline-flex items-center gap-1.5 font-mono-num font-medium">
-                  <Tag className="w-3.5 h-3.5 text-[var(--ks-accent)]" />
-                  {appliedPromo.code}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    removePromoCode();
-                    setPromoFeedback(null);
-                  }}
-                  aria-label="Remove promo code"
-                  className="w-8 h-8 rounded flex items-center justify-center text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
-          </form>
-
-          <div className="space-y-2 text-sm pt-4 border-t border-[var(--ks-border)]">
-            <div className="flex items-baseline justify-between gap-4 text-[var(--ks-text-secondary)]">
-              <span className="min-w-0">Subtotal</span>
-              <span className="font-mono-num shrink-0 text-right tabular-nums">
-                {formatCurrency(summarySubtotalUsd, currency)}
-              </span>
-            </div>
-            {summaryDiscountUsd > 0 && (
-              <div className="flex items-baseline justify-between gap-4 text-[var(--ks-success)]">
-                <span className="min-w-0">Promo ({appliedPromo?.code})</span>
-                <span className="font-mono-num shrink-0 text-right tabular-nums">
-                  -{formatCurrency(summaryDiscountUsd, currency)}
-                </span>
-              </div>
-            )}
-            <div className="flex items-baseline justify-between gap-4 text-[var(--ks-text-secondary)]">
-              <span className="min-w-0">VAT / Tax (5%)</span>
-              <span className="font-mono-num shrink-0 text-right tabular-nums">
-                {formatCurrency(summaryTaxUsd, currency)}
-              </span>
-            </div>
-            <div className="flex items-baseline justify-between gap-4 text-[var(--ks-text-secondary)]">
-              <span className="min-w-0">
-                Shipping{selectedDelivery ? ` (${selectedDelivery.title})` : ''}
-              </span>
-              <span className="font-mono-num shrink-0 text-right tabular-nums">
-                {isRestrictedZone
-                  ? 'Restricted'
-                  : !quote
-                  ? 'Calculated by zone'
-                  : summaryShippingUsd === 0
-                  ? 'Complimentary'
-                  : formatCurrency(summaryShippingUsd, currency)}
-              </span>
-            </div>
-
-            <div className="flex items-baseline justify-between gap-4 pt-3 border-t border-[var(--ks-border)] text-base font-semibold">
-              <span className="min-w-0">Total</span>
-              <span className="font-mono-num shrink-0 text-right tabular-nums">
-                {formatCurrency(summaryTotalUsd, currency)}
-              </span>
-            </div>
-
-            {quote && quote.currency !== currency && (
-              <div className="flex items-baseline justify-between gap-4 text-xs font-mono-num text-[var(--ks-accent)] pt-1">
-                <span className="min-w-0">Settlement ({quote.currency})</span>
-                <span className="shrink-0 text-right tabular-nums">
-                  {formatDirectCurrency(quote.totalCharged, quote.currency)}
-                </span>
-              </div>
-            )}
-
-            <p className="text-[11px] text-[var(--ks-text-muted)] pt-1 leading-snug">
-              FX Rate: 1 USD = ৳{currencyConfig.rates.BDT.toFixed(2)} ·{' '}
-              {quote?.shippingQuote.zoneLabel || 'Resolving zone...'}
-            </p>
-          </div>
+          {renderOrderSummaryContent('max-h-64')}
         </aside>
       </div>
 
@@ -1664,19 +1788,19 @@ export const CheckoutPage: React.FC = () => {
             <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-2">
               <div className="flex items-baseline justify-between gap-4 text-xs text-[var(--ks-text-muted)]">
                 <span className="min-w-0">Transaction Reference</span>
-                <span className="font-mono-num font-semibold text-[var(--ks-text-primary)] shrink-0 text-right">
+                <span className="font-mono-num font-semibold text-[var(--ks-text-primary)] shrink-0 text-end">
                   {paymentSession.transactionRef}
                 </span>
               </div>
               <div className="flex items-baseline justify-between gap-4 text-xs text-[var(--ks-text-muted)]">
                 <span className="min-w-0">Settlement Amount</span>
-                <span className="font-mono-num text-base font-semibold text-[var(--ks-accent)] shrink-0 text-right tabular-nums">
+                <span className="font-mono-num text-base font-semibold text-[var(--ks-accent)] shrink-0 text-end tabular-nums">
                   {formatDirectCurrency(paymentSession.amount, paymentSession.currency)}
                 </span>
               </div>
               <div className="flex items-baseline justify-between gap-4 text-xs text-[var(--ks-text-muted)]">
                 <span className="min-w-0">Status</span>
-                <span className="font-mono-num uppercase shrink-0 text-right">
+                <span className="font-mono-num uppercase shrink-0 text-end">
                   {paymentSession.status}
                 </span>
               </div>

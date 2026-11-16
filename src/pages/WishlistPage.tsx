@@ -2,6 +2,7 @@ import React from 'react';
 import { Heart, ShoppingBag, Trash2 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { isProductOutOfStock } from '../utils/format';
+import { t } from '../utils/i18n';
 import { PriceDisplay } from '../components/product/CommercePrimitives';
 import { Button } from '../components/ui/Button';
 import {
@@ -13,6 +14,7 @@ import {
 
 export const WishlistPage: React.FC = () => {
   const {
+    language,
     currency,
     products,
     wishlistIds,
@@ -27,20 +29,24 @@ export const WishlistPage: React.FC = () => {
     <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-10">
       <Breadcrumb
         items={[
-          { label: 'Home', onClick: () => navigate({ name: 'home' }) },
-          { label: 'Wishlist' },
+          { label: t(language, 'home'), onClick: () => navigate({ name: 'home' }) },
+          { label: t(language, 'wishlist') },
         ]}
       />
 
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-[var(--ks-border)]">
         <div>
-          <h1 className="font-display text-3xl sm:text-5xl font-medium">Saved Wishlist</h1>
+          <h1 className="font-display text-3xl sm:text-5xl font-medium">
+            {t(language, 'savedWishlist')}
+          </h1>
           <p className="text-sm text-[var(--ks-text-secondary)] mt-1 font-mono-num">
-            {savedProducts.length} saved {savedProducts.length === 1 ? 'product' : 'products'}
+            {savedProducts.length === 1
+              ? t(language, 'productsCountSingle', { count: savedProducts.length })
+              : t(language, 'productsCountPlural', { count: savedProducts.length })}
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => navigate({ name: 'shop', category: 'all' })}>
-          Browse More Products
+          {t(language, 'browseMoreProducts')}
         </Button>
       </div>
 
@@ -54,9 +60,9 @@ export const WishlistPage: React.FC = () => {
         <div className="rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)]">
           <EmptyState
             icon={<Heart className="w-6 h-6" />}
-            title="Your wishlist is empty"
-            description="Save audio gear, garments, botanical skincare, coffee sets, and living pieces as you browse."
-            actionLabel="Explore Catalog"
+            title={t(language, 'wishlistEmpty')}
+            description={t(language, 'wishlistEmptyDesc')}
+            actionLabel={t(language, 'exploreCatalog')}
             onAction={() => navigate({ name: 'shop', category: 'all' })}
           />
         </div>
@@ -75,7 +81,7 @@ export const WishlistPage: React.FC = () => {
                   type="button"
                   onClick={() => navigate({ name: 'product', slug: product.slug })}
                   aria-label={`View ${product.name}`}
-                  className="aspect-[4/3] w-full bg-[var(--ks-surface-muted)] overflow-hidden cursor-pointer block text-left"
+                  className="aspect-[4/3] w-full bg-[var(--ks-surface-muted)] overflow-hidden cursor-pointer block text-start"
                 >
                   <ResilientImage
                     src={product.images[0]}
@@ -89,7 +95,7 @@ export const WishlistPage: React.FC = () => {
                     <div className="flex items-baseline justify-between gap-2 text-xs text-[var(--ks-text-muted)]">
                       <span className="uppercase tracking-wider min-w-0 truncate">{product.brand}</span>
                       <span
-                        className={`shrink-0 text-right ${
+                        className={`shrink-0 text-end ${
                           outOfStock
                             ? 'text-[var(--ks-error)]'
                             : product.availability === 'low-stock'
@@ -98,19 +104,19 @@ export const WishlistPage: React.FC = () => {
                         }`}
                       >
                         {outOfStock
-                          ? 'Out of Stock'
+                          ? t(language, 'outOfStock')
                           : product.availability === 'in-stock'
-                          ? 'In Stock'
+                          ? t(language, 'inStock')
                           : product.availability === 'low-stock'
-                          ? `Low Stock (${product.stockCount})`
-                          : 'Made to Order'}
+                          ? t(language, 'lowStockCount', { count: product.stockCount })
+                          : t(language, 'madeToOrder')}
                       </span>
                     </div>
                     <h2 className="text-base font-semibold mt-1">
                       <button
                         type="button"
                         onClick={() => navigate({ name: 'product', slug: product.slug })}
-                        className="text-left hover:text-[var(--ks-accent)] cursor-pointer"
+                        className="text-start hover:text-[var(--ks-accent)] cursor-pointer"
                       >
                         {product.name}
                       </button>
@@ -142,13 +148,13 @@ export const WishlistPage: React.FC = () => {
                       }
                     >
                       <ShoppingBag className="w-3.5 h-3.5" />
-                      <span>{outOfStock ? 'Out of Stock' : 'Add to Bag'}</span>
+                      <span>{outOfStock ? t(language, 'outOfStock') : t(language, 'addToBag')}</span>
                     </Button>
                     <button
                       type="button"
                       onClick={() => toggleWishlist(product)}
                       aria-label={`Remove ${product.name} from wishlist`}
-                      className="w-10 h-10 rounded-md border border-[var(--ks-border)] flex items-center justify-center text-[var(--ks-text-secondary)] hover:text-[var(--ks-error)] cursor-pointer shrink-0"
+                      className="w-11 h-11 rounded-md border border-[var(--ks-border)] flex items-center justify-center text-[var(--ks-text-secondary)] hover:text-[var(--ks-error)] cursor-pointer shrink-0"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

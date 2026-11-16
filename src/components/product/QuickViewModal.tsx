@@ -2,12 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { isProductOutOfStock } from '../../utils/format';
+import { t, translateDepartmentName } from '../../utils/i18n';
 import { Button } from '../ui/Button';
 import { Modal, ResilientImage } from '../ui/Primitives';
 import { PriceDisplay, QuantityStepper, RatingSummary, WishlistButton } from './CommercePrimitives';
 
 export const QuickViewModal: React.FC = () => {
   const {
+    language,
     currency,
     quickViewProduct,
     setQuickViewProduct,
@@ -41,7 +43,7 @@ export const QuickViewModal: React.FC = () => {
     <Modal
       open={Boolean(quickViewProduct)}
       onClose={() => setQuickViewProduct(null)}
-      title="Quick View"
+      title={t(language, 'quickView')}
       maxWidthClass="max-w-4xl"
     >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -57,7 +59,12 @@ export const QuickViewModal: React.FC = () => {
           <div className="space-y-4">
             <div>
               <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
-                {quickViewProduct.brand} · {quickViewProduct.categoryLabel}
+                {quickViewProduct.brand} ·{' '}
+                {translateDepartmentName(
+                  language,
+                  quickViewProduct.category,
+                  quickViewProduct.categoryLabel
+                )}
               </p>
               <h3 className="font-display text-3xl font-medium mt-1">{quickViewProduct.name}</h3>
               {quickViewProduct.subtitle && (
@@ -91,7 +98,7 @@ export const QuickViewModal: React.FC = () => {
             {/* Color selector */}
             <div className="space-y-2">
               <p className="text-xs font-medium">
-                {quickViewProduct.variantColorLabel || 'Finish / Color'}:{' '}
+                {quickViewProduct.variantColorLabel || t(language, 'finishColor')}:{' '}
                 <span className="text-[var(--ks-text-secondary)]">{color.name}</span>
               </p>
               <div className="flex flex-wrap gap-2">
@@ -121,7 +128,7 @@ export const QuickViewModal: React.FC = () => {
             {/* Size selector */}
             <div className="space-y-2">
               <p className="text-xs font-medium">
-                {quickViewProduct.variantSizeLabel || 'Edition / Size'}
+                {quickViewProduct.variantSizeLabel || t(language, 'editionSize')}
               </p>
               <div className="flex flex-wrap gap-2">
                 {quickViewProduct.sizes.map((s, idx) => (
@@ -166,7 +173,7 @@ export const QuickViewModal: React.FC = () => {
                     setQuickViewProduct(null);
                   }}
                 >
-                  {outOfStock ? 'Out of Stock' : 'Add to Bag'}
+                  {outOfStock ? t(language, 'outOfStock') : t(language, 'addToBag')}
                 </Button>
               </div>
 
@@ -188,8 +195,8 @@ export const QuickViewModal: React.FC = () => {
               }}
               className="w-full py-2 text-xs font-medium text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] inline-flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <span>View full specifications, Q&amp;A &amp; reviews</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <span>{t(language, 'viewFullSpecs')}</span>
+              <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
             </button>
           </div>
         </div>
