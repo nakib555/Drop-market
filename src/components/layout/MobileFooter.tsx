@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   AlertCircle,
   ArrowRight,
-  ArrowUp,
   CheckCircle2,
   ChevronDown,
   Cookie,
@@ -14,7 +13,6 @@ import {
   filterEnabledPaymentMethods,
   getCookieConsentStatusKey,
   getCopyrightYear,
-  scrollPageToTop,
   VERIFIED_SOCIAL_LINKS,
 } from '../../data/brandConfig';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
@@ -137,6 +135,7 @@ const PaymentMethodBadge: React.FC<{
 
 export const MobileFooter: React.FC = () => {
   const {
+    route,
     currency,
     language,
     setLanguage,
@@ -159,9 +158,11 @@ export const MobileFooter: React.FC = () => {
   const copyrightYear = getCopyrightYear();
   const activePaymentMethods = filterEnabledPaymentMethods(enabledPaymentMethods);
 
-  // Add extra clearance at footer end only while a floating mobile bottom banner is visible
-  const hasVisibleBottomBanner =
-    (cookieConsent.status === 'unset' && !cookieModalOpen) || (!isInstalled && !bannerDismissed);
+  // Add extra clearance at footer end only while a floating mobile bottom banner is actually rendered
+  const hasCookieBanner = cookieConsent.status === 'unset' && !cookieModalOpen;
+  const hasPwaBanner =
+    !isInstalled && !bannerDismissed && !hasCookieBanner && route.name !== 'product';
+  const hasVisibleBottomBanner = hasCookieBanner || hasPwaBanner;
 
   const accordionGroups: MobileAccordionGroup[] = [
     {
@@ -275,8 +276,8 @@ export const MobileFooter: React.FC = () => {
       data-mobile-footer="true"
       className={`md:hidden ks-container pt-9 ${
         hasVisibleBottomBanner
-          ? 'pb-[max(5.5rem,calc(env(safe-area-inset-bottom,0px)+5rem))]'
-          : 'pb-[max(2rem,calc(env(safe-area-inset-bottom,0px)+1.5rem))]'
+          ? 'pb-[max(4.75rem,calc(env(safe-area-inset-bottom,0px)+4.25rem))]'
+          : 'pb-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+0.875rem))]'
       }`}
     >
       {/* Section A — Brand Introduction */}
@@ -555,28 +556,17 @@ export const MobileFooter: React.FC = () => {
         </section>
       )}
 
-      {/* Section G — Copyright, Legal Bottom Bar & Docked Non-Obstructive Back-to-Top */}
-      <div className="pt-5 space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
-            {t(language, 'footerAllRightsReserved', { year: String(copyrightYear) })}
-          </p>
+      {/* Section G — Copyright & Compact Legal Bottom Bar */}
+      <div className="pt-5 space-y-1.5">
+        <p className="text-xs text-[var(--ks-text-secondary)] leading-snug">
+          {t(language, 'footerAllRightsReserved', { year: String(copyrightYear) })}
+        </p>
 
-          <button
-            type="button"
-            onClick={() => scrollPageToTop()}
-            aria-label={t(language, 'scrollBackToTop')}
-            className="w-11 h-11 rounded-[var(--ks-radius-md)] border border-[var(--ks-border-strong)] bg-[var(--ks-surface)] text-[var(--ks-text-primary)] hover:border-[var(--ks-action)] flex items-center justify-center shrink-0 cursor-pointer transition-colors"
-          >
-            <ArrowUp className="w-4 h-4" aria-hidden="true" />
-          </button>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--ks-text-secondary)]">
+        <div className="flex flex-wrap items-center gap-x-2 text-xs text-[var(--ks-text-secondary)] leading-snug">
           <button
             type="button"
             onClick={() => navigate({ name: 'privacy-policy' })}
-            className="min-h-[44px] px-1 inline-flex items-center hover:text-[var(--ks-text-primary)] cursor-pointer"
+            className="min-h-[40px] -my-2.5 px-0.5 inline-flex items-center hover:text-[var(--ks-text-primary)] cursor-pointer transition-colors"
           >
             {t(language, 'footerShortPrivacy')}
           </button>
@@ -584,7 +574,7 @@ export const MobileFooter: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate({ name: 'terms' })}
-            className="min-h-[44px] px-1 inline-flex items-center hover:text-[var(--ks-text-primary)] cursor-pointer"
+            className="min-h-[40px] -my-2.5 px-0.5 inline-flex items-center hover:text-[var(--ks-text-primary)] cursor-pointer transition-colors"
           >
             {t(language, 'footerShortTerms')}
           </button>
@@ -592,7 +582,7 @@ export const MobileFooter: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate({ name: 'cookie-policy' })}
-            className="min-h-[44px] px-1 inline-flex items-center hover:text-[var(--ks-text-primary)] cursor-pointer"
+            className="min-h-[40px] -my-2.5 px-0.5 inline-flex items-center hover:text-[var(--ks-text-primary)] cursor-pointer transition-colors"
           >
             {t(language, 'footerShortCookies')}
           </button>

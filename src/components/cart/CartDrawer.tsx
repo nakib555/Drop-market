@@ -1,11 +1,19 @@
-import React, { useState } from 'react';
-import { ArrowRight, ShoppingBag, Tag, Trash2, X } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ArrowRight, RotateCcw, ShoppingBag, Tag, X } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useStore } from '../../context/StoreContext';
+import { CartItem } from '../../types/commerce';
 import { formatCurrency } from '../../utils/format';
 import { t } from '../../utils/i18n';
-import { QuantityStepper } from '../product/CommercePrimitives';
+import { STUDIO_TRANSITION } from '../../utils/motion';
 import { Button } from '../ui/Button';
-import { Drawer, EmptyState, ResilientImage } from '../ui/Primitives';
+import { Drawer, EmptyState } from '../ui/Primitives';
+import { SwipeableCartItem } from './SwipeableCartItem';
+
+interface UndoRemovedEntry {
+  item: CartItem;
+  index: number;
+}
 
 export const CartDrawer: React.FC = () => {
   const {
@@ -17,6 +25,7 @@ export const CartDrawer: React.FC = () => {
     setCartDrawerOpen,
     updateCartQty,
     removeFromCart,
+    restoreCartItem,
     appliedPromo,
     applyPromoCode,
     removePromoCode,
@@ -32,6 +41,26 @@ export const CartDrawer: React.FC = () => {
 
   const [promoInput, setPromoInput] = useState('');
   const [promoFeedback, setPromoFeedback] = useState<{ ok: boolean; text: string } | null>(null);
+  const [revealedItemKey, setRevealedItemKey] = useState<string | null>(null);
+  const [undoEntry, setUndoEntry] = useState<UndoRemovedEntry | null>(null);
+  const undoTimerRef = useRef<number | null>(null);
+
+  const clearUndoTimer = () => {
+    if (undoTimerRef.current !== null && typeof window !== 'undefined') {
+      window.clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    if (!cartDrawerOpen) {
+      setRevealedItemKey(null);
+      setUndoEntry(null);
+      clearUndoTimer();
+    }
+  }, [cartDrawerOpen]);
+
+  useEffect(() => () => clearUndoTimer(), []);
 
   const dhakaThresholdUsd =
     shippingConfig.zones.find((z) => z.zoneId === 'dhaka_metro')?.freeThresholdUsd ?? 120;
@@ -44,6 +73,57 @@ export const CartDrawer: React.FC = () => {
     if (res.ok) setPromoInput('');
   };
 
+  const handleRemoveWithUndo = (item: CartItem) => {
+    const index = cart.findIndex((c) => c.key === item.key);
+    setRevealedItemKey((prev) => (prev === item.key ? null : prev));
+    removeFromCart(item.key, { silent: true });
+    clearUndoTimer();
+    setUndoEntry({ item, index: index >= 0 ? index : 0 });
+    if (typeof window !== 'undefined') {
+      undoTimerRef.current = window.setTimeout(() => {
+        setUndoEntry(null);
+        undoTimerRef.current = null;
+      }, 5500);
+    }
+  };
+
+  const handleUndoRemove = () => {
+    if (!undoEntry) return;
+    clearUndoTimer();
+    restoreCartItem(undoEntry.item, undoEntry.index);
+    setUndoEntry(null);
+  };
+
+  const renderUndoBanner = () => (
+    <AnimatePresence>
+      {undoEntry && (
+        <motion.div
+          key={`undo-${undoEntry.item.key}`}
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={STUDIO_TRANSITION.fast}
+          role="status"
+          aria-live="polite"
+          data-cart-undo-banner="true"
+          className="mx-6 mt-3 px-3.5 py-2.5 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg-secondary)] border border-[var(--ks-border-strong)] flex items-center justify-between gap-3"
+        >
+          <p className="text-xs text-[var(--ks-text-primary)] truncate min-w-0">
+            {t(language, 'removedItemUndo', { name: undoEntry.item.name })}
+          </p>
+          <button
+            type="button"
+            onClick={handleUndoRemove}
+            className="inline-flex items-center gap-1.5 min-h-[36px] px-2.5 -my-1.5 -me-1 rounded-[var(--ks-radius-sm)] text-xs font-semibold text-[var(--ks-accent)] hover:bg-[var(--ks-surface)] cursor-pointer shrink-0 transition-colors"
+          >
+            <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>{t(language, 'undoAction')}</span>
+          </button>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
   return (
     <Drawer
       open={cartDrawerOpen}
@@ -52,16 +132,21 @@ export const CartDrawer: React.FC = () => {
       side={language === 'ar' ? 'left' : 'right'}
     >
       {cart.length === 0 ? (
-        <EmptyState
-          icon={<ShoppingBag className="w-5 h-5" />}
-          title={t(language, 'yourBagEmpty')}
-          description={t(language, 'yourBagEmptyDesc')}
-          actionLabel={t(language, 'browseProducts')}
-          onAction={() => {
-            setCartDrawerOpen(false);
-            navigate({ name: 'shop', category: 'all' });
-          }}
-        />
+        <div className="flex flex-col min-h-full">
+          {renderUndoBanner()}
+          <div className="flex-1 flex items-center justify-center">
+            <EmptyState
+              icon={<ShoppingBag className="w-5 h-5" />}
+              title={t(language, 'yourBagEmpty')}
+              description={t(language, 'yourBagEmptyDesc')}
+              actionLabel={t(language, 'browseProducts')}
+              onAction={() => {
+                setCartDrawerOpen(false);
+                navigate({ name: 'shop', category: 'all' });
+              }}
+            />
+          </div>
+        </div>
       ) : (
         <div className="flex flex-col min-h-full">
           {/* Free shipping progress */}
@@ -81,77 +166,33 @@ export const CartDrawer: React.FC = () => {
                 }}
               />
             </div>
+            <p className="sm:hidden text-[11px] text-[var(--ks-text-muted)] mt-2">
+              {t(language, 'swipeLeftToRemove')}
+            </p>
           </div>
 
-          {/* Items list */}
-          <ul className="flex-1 divide-y divide-[var(--ks-border)] px-6">
-            {cart.map((item) => {
-              const atMaxStock = item.quantity >= item.stockCount;
-              return (
-                <li key={item.key} className="py-5 flex gap-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCartDrawerOpen(false);
-                      navigate({ name: 'product', slug: item.slug });
-                    }}
-                    aria-label={t(language, 'viewItemAria', { name: item.name })}
-                    className="w-20 h-16 rounded-md overflow-hidden bg-[var(--ks-surface-muted)] shrink-0 cursor-pointer block"
-                  >
-                    <ResilientImage
-                      src={item.image}
-                      alt={item.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCartDrawerOpen(false);
-                          navigate({ name: 'product', slug: item.slug });
-                        }}
-                        className="text-sm font-medium text-start text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] truncate cursor-pointer"
-                      >
-                        {item.name}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeFromCart(item.key)}
-                        aria-label={t(language, 'removeItemAria', { name: item.name })}
-                        className="w-10 h-10 -me-2 rounded-md flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-error)] cursor-pointer shrink-0"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <p className="text-xs text-[var(--ks-text-secondary)] mt-0.5">
-                      {item.color} · {item.size}
-                    </p>
-                    <p className="text-[11px] font-mono-num text-[var(--ks-text-muted)] mt-0.5">
-                      {t(language, 'priceEach', { price: formatCurrency(item.price, currency) })}
-                      {atMaxStock
-                        ? ` · ${t(language, 'maxAvailable', { count: item.stockCount })}`
-                        : ''}
-                    </p>
-                    <div className="mt-3 flex items-center justify-between gap-3">
-                      <QuantityStepper
-                        value={item.quantity}
-                        min={1}
-                        max={item.stockCount}
-                        allowRemoveAtMin
-                        onChange={(next) => updateCartQty(item.key, next)}
-                        itemName={item.name}
-                        size="sm"
-                      />
-                      <span className="text-sm font-mono-num font-medium tabular-nums">
-                        {formatCurrency(item.price * item.quantity, currency)}
-                      </span>
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
+          {renderUndoBanner()}
+
+          {/* Swipeable items list */}
+          <ul className="flex-1 divide-y divide-[var(--ks-border)]">
+            <AnimatePresence initial={false}>
+              {cart.map((item) => (
+                <SwipeableCartItem
+                  key={item.key}
+                  item={item}
+                  language={language}
+                  currency={currency}
+                  isRevealed={revealedItemKey === item.key}
+                  onRevealChange={setRevealedItemKey}
+                  onUpdateQty={updateCartQty}
+                  onRemove={handleRemoveWithUndo}
+                  onNavigateProduct={(slug) => {
+                    setCartDrawerOpen(false);
+                    navigate({ name: 'product', slug });
+                  }}
+                />
+              ))}
+            </AnimatePresence>
           </ul>
 
           {/* Summary footer */}

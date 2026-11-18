@@ -66,3 +66,72 @@ export function getDirectionalSlideSign(direction: number, isRtl: boolean): numb
   return isRtl ? -direction : direction;
 }
 
+export const CART_SWIPE_CONFIG = {
+  revealWidth: 88,
+  minCommitDistance: 132,
+  maxCommitDistance: 184,
+  commitRatio: 0.44,
+  flickVelocity: 520,
+  flickMinDistance: 64,
+  revealThreshold: 40,
+  revealVelocity: 240,
+  rubberBandLimit: 24,
+} as const;
+
+export type CartSwipeOutcome = 'remove' | 'revealed' | 'closed';
+
+export function getCartSwipeCommitThreshold(containerWidth = 340): number {
+  const safeWidth = Number.isFinite(containerWidth) && containerWidth > 0 ? containerWidth : 340;
+  return Math.max(
+    CART_SWIPE_CONFIG.minCommitDistance,
+    Math.min(CART_SWIPE_CONFIG.maxCommitDistance, Math.round(safeWidth * CART_SWIPE_CONFIG.commitRatio))
+  );
+}
+
+export function resolveCartSwipeOutcome(
+  offsetX: number,
+  velocityX: number,
+  isRtl: boolean,
+  containerWidth = 340
+): CartSwipeOutcome {
+  // Trailing-edge swipe distance is positive: leftward in LTR, rightward in RTL
+  const trailingDist = isRtl ? offsetX : -offsetX;
+  const trailingVel = isRtl ? velocityX : -velocityX;
+  const commitThreshold = getCartSwipeCommitThreshold(containerWidth);
+
+  if (
+    trailingDist >= commitThreshold ||
+    (trailingDist >= CART_SWIPE_CONFIG.flickMinDistance &&
+      trailingVel >= CART_SWIPE_CONFIG.flickVelocity)
+  ) {
+    return 'remove';
+  }
+
+  if (
+    trailingDist >= CART_SWIPE_CONFIG.revealThreshold ||
+    (trailingDist >= 22 && trailingVel >= CART_SWIPE_CONFIG.revealVelocity)
+  ) {
+    return 'revealed';
+  }
+
+  return 'closed';
+}
+
+export function getCartSwipeSnapX(outcome: 'revealed' | 'closed', isRtl: boolean): number {
+  if (outcome === 'closed') return 0;
+  return isRtl ? CART_SWIPE_CONFIG.revealWidth : -CART_SWIPE_CONFIG.revealWidth;
+}
+
+export function clampCartSwipeDragX(offsetX: number, isRtl: boolean): number {
+  if (isRtl) {
+    if (offsetX < 0) {
+      return -Math.min(CART_SWIPE_CONFIG.rubberBandLimit, Math.abs(offsetX) * 0.25);
+    }
+    return offsetX;
+  }
+  if (offsetX > 0) {
+    return Math.min(CART_SWIPE_CONFIG.rubberBandLimit, offsetX * 0.25);
+  }
+  return offsetX;
+}
+

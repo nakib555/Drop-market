@@ -310,7 +310,8 @@ interface StoreContextValue {
     openDrawer?: boolean
   ) => void;
   updateCartQty: (key: string, quantity: number) => void;
-  removeFromCart: (key: string) => void;
+  removeFromCart: (key: string, options?: { silent?: boolean }) => void;
+  restoreCartItem: (item: CartItem, index?: number) => void;
   saveItemForLater: (key: string) => void;
   moveSavedToCart: (key: string) => void;
   removeSavedItem: (key: string) => void;
@@ -1260,12 +1261,34 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 
   const removeFromCart = useCallback(
-    (key: string) => {
+    (key: string, options?: { silent?: boolean }) => {
       setCart((prev) => prev.filter((i) => i.key !== key));
-      showToast('Removed from bag', undefined, 'info');
+      if (!options?.silent) {
+        showToast('Removed from bag', undefined, 'info');
+      }
     },
     [showToast]
   );
+
+  const restoreCartItem = useCallback((item: CartItem, index?: number) => {
+    setCart((prev) => {
+      const existing = prev.find((i) => i.key === item.key);
+      if (existing) {
+        return prev.map((i) =>
+          i.key === item.key
+            ? { ...i, quantity: Math.min(i.stockCount, i.quantity + item.quantity) }
+            : i
+        );
+      }
+      const next = [...prev];
+      const safeIndex =
+        typeof index === 'number' && index >= 0
+          ? Math.min(index, next.length)
+          : next.length;
+      next.splice(safeIndex, 0, item);
+      return next;
+    });
+  }, []);
 
   const saveItemForLater = useCallback(
     (key: string) => {
@@ -2362,6 +2385,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       addToCart,
       updateCartQty,
       removeFromCart,
+      restoreCartItem,
       saveItemForLater,
       moveSavedToCart,
       removeSavedItem,
@@ -2480,6 +2504,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       addToCart,
       updateCartQty,
       removeFromCart,
+      restoreCartItem,
       saveItemForLater,
       moveSavedToCart,
       removeSavedItem,

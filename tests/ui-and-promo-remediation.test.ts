@@ -6,7 +6,15 @@ import {
   resolveActivePromo,
 } from '../server/services/paymentService.ts';
 import { createInitialShippingConfig } from '../server/services/shippingService.ts';
-import { getDirectionalSlideSign, getSwipeNavigationDelta } from '../src/utils/motion.ts';
+import {
+  CART_SWIPE_CONFIG,
+  clampCartSwipeDragX,
+  getCartSwipeCommitThreshold,
+  getCartSwipeSnapX,
+  getDirectionalSlideSign,
+  getSwipeNavigationDelta,
+  resolveCartSwipeOutcome,
+} from '../src/utils/motion.ts';
 import {
   filterEnabledPaymentMethods,
   getCookieConsentStatusKey,
@@ -226,5 +234,32 @@ test('mobile footer pure helpers enforce verified social links, active payments,
     matchMedia: () => ({ matches: true }),
   });
   assert.deepEqual(lastScrollCall, { top: 0, behavior: 'auto' });
+});
+
+test('cart drawer swipe-to-remove helpers enforce LTR/RTL trailing thresholds, flick velocity, and snap coordinates', () => {
+  assert.equal(getCartSwipeCommitThreshold(360), 158);
+  assert.equal(getCartSwipeCommitThreshold(200), CART_SWIPE_CONFIG.minCommitDistance);
+  assert.equal(getCartSwipeCommitThreshold(500), CART_SWIPE_CONFIG.maxCommitDistance);
+
+  // LTR: leftward swipe reveals at 40..131px and removes at commit threshold or fast flick
+  assert.equal(resolveCartSwipeOutcome(-18, 0, false, 340), 'closed');
+  assert.equal(resolveCartSwipeOutcome(60, 0, false, 340), 'closed');
+  assert.equal(resolveCartSwipeOutcome(-68, 0, false, 340), 'revealed');
+  assert.equal(resolveCartSwipeOutcome(-160, 0, false, 340), 'remove');
+  assert.equal(resolveCartSwipeOutcome(-72, -600, false, 340), 'remove');
+
+  // RTL: rightward swipe toward left trailing edge reveals and removes symmetrically
+  assert.equal(resolveCartSwipeOutcome(-68, 0, true, 340), 'closed');
+  assert.equal(resolveCartSwipeOutcome(68, 0, true, 340), 'revealed');
+  assert.equal(resolveCartSwipeOutcome(160, 0, true, 340), 'remove');
+  assert.equal(resolveCartSwipeOutcome(72, 600, true, 340), 'remove');
+
+  assert.equal(getCartSwipeSnapX('closed', false), 0);
+  assert.equal(getCartSwipeSnapX('revealed', false), -CART_SWIPE_CONFIG.revealWidth);
+  assert.equal(getCartSwipeSnapX('revealed', true), CART_SWIPE_CONFIG.revealWidth);
+
+  // Opposite-direction drag applies light rubber-band clamp
+  assert.equal(clampCartSwipeDragX(200, false), CART_SWIPE_CONFIG.rubberBandLimit);
+  assert.equal(clampCartSwipeDragX(-200, true), -CART_SWIPE_CONFIG.rubberBandLimit);
 });
 
