@@ -1,7 +1,7 @@
 import React from 'react';
 import { ExternalLink, Scale } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
-import { getLegalDocumentById, LEGAL_ENTITY } from '../../data/legalPolicies';
+import { getLegalDocumentById, translatePolicyCategory } from '../../data/legalPolicies';
 import { t } from '../../utils/i18n';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Primitives';
@@ -18,7 +18,11 @@ export const LegalModalPreview: React.FC = () => {
   } = useStore();
 
   const doc = previewPolicyId
-    ? getLegalDocumentById(previewPolicyId, { publishedRecords: publishedPolicies })
+    ? getLegalDocumentById(previewPolicyId, {
+        publishedRecords: publishedPolicies,
+        language,
+        facts: policyFactsPublic,
+      })
     : null;
 
   return (
@@ -36,7 +40,9 @@ export const LegalModalPreview: React.FC = () => {
                 <Scale className="w-3.5 h-3.5 text-[var(--ks-accent)] shrink-0" />
                 <span>{policyFactsPublic.tradingName}</span>
                 <span className="text-[var(--ks-text-muted)]" aria-hidden="true">·</span>
-                <span className="text-[var(--ks-text-secondary)] font-normal">{doc.policyCategory}</span>
+                <span className="text-[var(--ks-text-secondary)] font-normal">
+                  {translatePolicyCategory(doc.policyCategory, language)}
+                </span>
               </span>
               <span className="font-mono-num tabular-nums text-[var(--ks-text-muted)]">
                 v{doc.version} · {t(language, 'updatedLabel')} {doc.effectiveDate}
@@ -51,7 +57,7 @@ export const LegalModalPreview: React.FC = () => {
 
           <div className="pt-4 border-t border-[var(--ks-border)] flex flex-wrap items-center justify-between gap-3">
             <span className="text-xs text-[var(--ks-text-muted)] font-mono-num">
-              {t(language, 'legalInquiriesLabel')}: {LEGAL_ENTITY.legalEmail}
+              {t(language, 'legalInquiriesLabel')}: {policyFactsPublic.legalEmail}
             </span>
             <div className="flex items-center gap-2">
               <Button

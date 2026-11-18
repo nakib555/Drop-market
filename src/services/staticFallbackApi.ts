@@ -475,7 +475,7 @@ export async function staticFetchCatalogProducts(): Promise<Product[]> {
   return products;
 }
 
-export function staticFetchStorefrontSync(): {
+export function staticFetchStorefrontSync(lang?: LanguageCode): {
   productOverrides: Record<string, ProductOverride>;
   sellerProducts: ApiSellerProductRecord[];
   categoryTree: CategoryNode[];
@@ -489,6 +489,13 @@ export function staticFetchStorefrontSync(): {
   enabledPaymentMethods: PaymentMethodId[];
 } {
   const db = getStaticDb();
+  const safeLang: LanguageCode = lang || 'en';
+  const policyContext = {
+    facts: db.policyFacts,
+    shippingConfig: db.shippingConfig,
+    currencyConfig: db.currencyConfig,
+    promotions: db.promotions,
+  };
   const candidates: PaymentMethodId[] = [
     'cod',
     'bkash',
@@ -507,29 +514,37 @@ export function staticFetchStorefrontSync(): {
     currencyConfig: db.currencyConfig,
     shippingConfig: db.shippingConfig,
     promotions: db.promotions,
-    publishedPolicies: getPublicPublishedPolicies(db.policies),
-    policyFactsPublic: buildPublicFactsSummary(db.policyFacts),
-    cookieInventory: buildActiveCookieInventory(),
+    publishedPolicies: getPublicPublishedPolicies(db.policies, safeLang, policyContext),
+    policyFactsPublic: buildPublicFactsSummary(db.policyFacts, safeLang),
+    cookieInventory: buildActiveCookieInventory(safeLang),
     enabledPaymentMethods: candidates.filter((id) => getCheckoutChannelStatus(id).enabled),
   };
 }
 
-export function staticFetchPublicPolicies(): {
+export function staticFetchPublicPolicies(lang?: LanguageCode): {
   policies: PolicyDocumentRecord[];
   policyFactsPublic: PolicyFactsPublicSummary;
   cookieInventory: CookieInventoryItem[];
 } {
   const db = getStaticDb();
+  const safeLang: LanguageCode = lang || 'en';
+  const policyContext = {
+    facts: db.policyFacts,
+    shippingConfig: db.shippingConfig,
+    currencyConfig: db.currencyConfig,
+    promotions: db.promotions,
+  };
   return {
-    policies: getPublicPublishedPolicies(db.policies),
-    policyFactsPublic: buildPublicFactsSummary(db.policyFacts),
-    cookieInventory: buildActiveCookieInventory(),
+    policies: getPublicPublishedPolicies(db.policies, safeLang, policyContext),
+    policyFactsPublic: buildPublicFactsSummary(db.policyFacts, safeLang),
+    cookieInventory: buildActiveCookieInventory(safeLang),
   };
 }
 
 export function staticFetchPolicyBySlug(
   slug: string,
-  version?: string
+  version?: string,
+  lang?: LanguageCode
 ): {
   policy: PolicyDocumentRecord;
   historicalVersionRequested: string | null;
@@ -537,12 +552,19 @@ export function staticFetchPolicyBySlug(
   policyFactsPublic: PolicyFactsPublicSummary;
 } {
   const db = getStaticDb();
+  const safeLang: LanguageCode = lang || 'en';
+  const policyContext = {
+    facts: db.policyFacts,
+    shippingConfig: db.shippingConfig,
+    currencyConfig: db.currencyConfig,
+    promotions: db.promotions,
+  };
   const cleanSlug = slug.trim().toLowerCase();
   const found = db.policies.find((p) => p.slug.toLowerCase() === cleanSlug || p.id === cleanSlug);
   if (!found) {
     throw new ApiError('Policy document not found.', 404, false);
   }
-  const projected = projectPublicPolicyDocument(found, version);
+  const projected = projectPublicPolicyDocument(found, version, safeLang, policyContext);
   if (!projected) {
     throw new ApiError('This policy is not published for public viewing.', 404, false);
   }
@@ -550,7 +572,7 @@ export function staticFetchPolicyBySlug(
     policy: projected,
     historicalVersionRequested: version || null,
     isHistoricalSnapshot: Boolean(version && version !== found.currentVersion),
-    policyFactsPublic: buildPublicFactsSummary(db.policyFacts),
+    policyFactsPublic: buildPublicFactsSummary(db.policyFacts, safeLang),
   };
 }
 

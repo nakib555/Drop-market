@@ -1,21 +1,40 @@
 import type {
   CategorySlug,
   CurrencyRateState,
+  LanguageCode,
   LegalAcceptanceRecord,
   LegalDocumentId,
   ManagedPromoRecord,
+  PaymentMethodId,
   PolicyCategory,
   PolicyDocumentRecord,
+  PolicyFactsConfig,
+  PolicyFactsPublicSummary,
   PolicySection,
   ShippingRuleConfig,
 } from '../types/commerce';
 import {
+  buildActiveCookieInventory,
   buildDefaultPolicyRecords,
   createInitialPolicyFacts,
   getPublicPublishedPolicies,
   POLICY_BASE_VERSION,
   POLICY_EFFECTIVE_DATE,
 } from '../../server/services/policyService';
+import {
+  buildLocalizedDynamicVars,
+  getLocalizedDepartmentSafetyNotice,
+  localizePolicyRecord,
+  localizePublicFactsSummary,
+  translateCookieInventoryItems,
+  translatePolicyCategory,
+} from '../../server/shared/policyTranslations/index';
+
+export {
+  localizePublicFactsSummary,
+  translateCookieInventoryItems,
+  translatePolicyCategory,
+};
 
 export const LEGAL_VERSION = POLICY_BASE_VERSION;
 export const LEGAL_EFFECTIVE_DATE = POLICY_EFFECTIVE_DATE;
@@ -143,7 +162,13 @@ export const DEPARTMENT_SAFETY_NOTICES: Record<string, DepartmentSafetyNotice> =
   },
 };
 
-export function getDepartmentSafetyNotice(category?: CategorySlug | string): DepartmentSafetyNotice {
+export function getDepartmentSafetyNotice(
+  category?: CategorySlug | string,
+  language: LanguageCode = 'en'
+): DepartmentSafetyNotice {
+  if (language && language !== 'en') {
+    return getLocalizedDepartmentSafetyNotice(category, language);
+  }
   if (category && DEPARTMENT_SAFETY_NOTICES[category]) {
     return DEPARTMENT_SAFETY_NOTICES[category];
   }
@@ -173,9 +198,51 @@ export function getLegalDocuments(options?: {
   currencyConfig?: CurrencyRateState;
   promotions?: ManagedPromoRecord[];
   publishedRecords?: PolicyDocumentRecord[];
+  language?: LanguageCode;
+  facts?: PolicyFactsPublicSummary | PolicyFactsConfig;
+  enabledPaymentMethods?: PaymentMethodId[];
 }): LegalDocument[] {
+  const lang = options?.language || 'en';
+
   if (options?.publishedRecords && options.publishedRecords.length > 0) {
-    return getPublicPublishedPolicies(options.publishedRecords).map(policyRecordToLegalDocument);
+    const baseDocs = getPublicPublishedPolicies(options.publishedRecords);
+    if (lang === 'en') {
+      return baseDocs.map(policyRecordToLegalDocument);
+    }
+    const gatewayMethods: Array<Exclude<PaymentMethodId, 'mastercard' | 'card' | 'wallet'>> = [
+      'cod',
+      'bkash',
+      'nagad',
+      'rocket',
+      'sslcommerz',
+      'visa',
+      'bank-transfer',
+    ];
+    const enabledSet = options.enabledPaymentMethods
+      ? new Set(options.enabledPaymentMethods)
+      : new Set<PaymentMethodId>(['cod']);
+    const dynamicVars = buildLocalizedDynamicVars({
+      lang,
+      version: POLICY_BASE_VERSION,
+      facts: options.facts || createInitialPolicyFacts(),
+      shippingConfig: options.shippingConfig,
+      currencyConfig: options.currencyConfig,
+      promotions: options.promotions,
+      cookieInventory: buildActiveCookieInventory(lang),
+      gatewayStatuses: gatewayMethods.map((method) => ({
+        method,
+        enabled: enabledSet.has(method) || (method === 'visa' && enabledSet.has('mastercard')),
+      })),
+    });
+    return baseDocs
+      .map((rec) =>
+        localizePolicyRecord(rec, {
+          lang,
+          baseVersion: POLICY_BASE_VERSION,
+          dynamicVars,
+        })
+      )
+      .map(policyRecordToLegalDocument);
   }
 
   const facts = createInitialPolicyFacts();
@@ -217,7 +284,12 @@ export function getLegalDocuments(options?: {
     promotions: options?.promotions,
   });
 
-  return getPublicPublishedPolicies(records).map(policyRecordToLegalDocument);
+  return getPublicPublishedPolicies(records, lang, {
+    facts,
+    shippingConfig: baseShipping,
+    currencyConfig: options?.currencyConfig,
+    promotions: options?.promotions,
+  }).map(policyRecordToLegalDocument);
 }
 
 export function getLegalDocumentById(
@@ -225,6 +297,12 @@ export function getLegalDocumentById(
   options?: {
     dhakaThresholdUsd?: number;
     publishedRecords?: PolicyDocumentRecord[];
+    language?: LanguageCode;
+    facts?: PolicyFactsPublicSummary | PolicyFactsConfig;
+    shippingConfig?: ShippingRuleConfig;
+    currencyConfig?: CurrencyRateState;
+    promotions?: ManagedPromoRecord[];
+    enabledPaymentMethods?: PaymentMethodId[];
   }
 ): LegalDocument {
   const docs = getLegalDocuments(options);

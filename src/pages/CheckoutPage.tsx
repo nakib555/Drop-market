@@ -9,6 +9,7 @@ import {
   CreditCard,
   Globe,
   Lock,
+  Printer,
   RefreshCw,
   ShoppingBag,
   Smartphone,
@@ -871,7 +872,7 @@ export const CheckoutPage: React.FC = () => {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={STUDIO_TRANSITION.base}
-          className="max-w-3xl mx-auto"
+          className="max-w-3xl mx-auto ks-print-document-root"
         >
           <div className="p-6 sm:p-10 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] text-center space-y-6">
             <div className="w-12 h-12 mx-auto rounded-full bg-[var(--ks-success)]/12 text-[var(--ks-success)] flex items-center justify-center">
@@ -955,7 +956,7 @@ export const CheckoutPage: React.FC = () => {
             </div>
 
             {!profile.isAuthenticated && (
-              <div className="p-4 rounded-md bg-[var(--ks-bg)]/70 text-start flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="p-4 rounded-md bg-[var(--ks-bg)]/70 text-start flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
                 <div className="space-y-1">
                   <h3 className="text-sm font-semibold text-[var(--ks-text-primary)]">
                     {t(language, 'checkoutGuestClaimTitle')}
@@ -992,13 +993,17 @@ export const CheckoutPage: React.FC = () => {
               </div>
             )}
 
-            <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 pt-2">
+            <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 pt-2 print:hidden">
               <Button
                 variant="primary"
                 size="lg"
                 onClick={() => navigate({ name: 'track-order', orderId: placedOrder.id })}
               >
                 {t(language, 'trackOrder')} #{placedOrder.id}
+              </Button>
+              <Button variant="outline" size="lg" onClick={() => window.print()}>
+                <Printer className="w-4 h-4" />
+                <span>{t(language, 'printOfficialCopy')}</span>
               </Button>
               <Button
                 variant="outline"
@@ -1009,15 +1014,15 @@ export const CheckoutPage: React.FC = () => {
               </Button>
             </div>
 
-            <div className="pt-4 border-t border-[var(--ks-border)] text-xs text-[var(--ks-text-muted)] flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-              <span>Order Policies:</span>
+            <div className="pt-4 border-t border-[var(--ks-border)] text-xs text-[var(--ks-text-muted)] flex flex-wrap items-center justify-center gap-x-3 gap-y-1 ks-print-avoid-break">
+              <span>{t(language, 'orderPoliciesPrefix')}</span>
               {(
                 [
-                  { id: 'terms', label: 'Terms' },
-                  { id: 'return-policy', label: 'Returns' },
-                  { id: 'shipping-policy', label: 'Shipping' },
-                  { id: 'cancellation-policy', label: 'Cancellation' },
-                  { id: 'privacy-policy', label: 'Privacy' },
+                  { id: 'terms', label: t(language, 'termsShortLabel') },
+                  { id: 'return-policy', label: t(language, 'returnsShortLabel') },
+                  { id: 'shipping-policy', label: t(language, 'shippingShortLabel') },
+                  { id: 'cancellation-policy', label: t(language, 'cancellationShortLabel') },
+                  { id: 'privacy-policy', label: t(language, 'privacyShortLabel') },
                 ] as const
               ).map((pol) => {
                 const snapVer =
@@ -1633,13 +1638,15 @@ export const CheckoutPage: React.FC = () => {
                   {errors.delivery && <p className="text-xs text-[var(--ks-error)]">{errors.delivery}</p>}
 
                   <p className="pt-1 text-xs text-[var(--ks-text-muted)] leading-relaxed">
-                    Free pre-dispatch cancellation ({policyFactsPublic.cancelPreDispatchCutoff.toLowerCase()}).{' '}
+                    {t(language, 'freePreDispatchNote', {
+                      cutoff: policyFactsPublic.cancelPreDispatchCutoff.toLowerCase(),
+                    })}{' '}
                     <button
                       type="button"
                       onClick={() => openPolicyPreview('shipping-policy')}
                       className="underline text-[var(--ks-text-secondary)] hover:text-[var(--ks-accent)] cursor-pointer"
                     >
-                      Shipping Policy
+                      {t(language, 'shippingPolicyShort')}
                     </button>
                     {' · '}
                     <button
@@ -1647,7 +1654,7 @@ export const CheckoutPage: React.FC = () => {
                       onClick={() => openPolicyPreview('cancellation-policy')}
                       className="underline text-[var(--ks-text-secondary)] hover:text-[var(--ks-accent)] cursor-pointer"
                     >
-                      Cancellation Policy
+                      {t(language, 'cancellationPolicy')}
                     </button>
                   </p>
                 </div>
@@ -1880,24 +1887,35 @@ export const CheckoutPage: React.FC = () => {
 
                   <div className="pt-4 border-t border-[var(--ks-border)] space-y-2.5 text-xs text-[var(--ks-text-secondary)]">
                     <p className="font-medium text-[var(--ks-text-primary)]">
-                      Order &amp; Buyer Protection Summary
+                      {t(language, 'orderBuyerProtectionHeading')}
                     </p>
                     <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 leading-snug">
                       <li>
-                        <span className="font-medium text-[var(--ks-text-primary)]">Returns:</span>{' '}
-                        {policyFactsPublic.returnWindowDays}-day return ({policyFactsPublic.defectReportHours}h defect notice)
+                        <span className="font-medium text-[var(--ks-text-primary)]">
+                          {t(language, 'returnsLabelColon')}
+                        </span>{' '}
+                        {t(language, 'returnWindowDefectInline', {
+                          days: policyFactsPublic.returnWindowDays,
+                          hours: policyFactsPublic.defectReportHours,
+                        })}
                       </li>
                       <li>
-                        <span className="font-medium text-[var(--ks-text-primary)]">Cancellation:</span>{' '}
+                        <span className="font-medium text-[var(--ks-text-primary)]">
+                          {t(language, 'cancellationLabelColon')}
+                        </span>{' '}
                         {policyFactsPublic.cancelPreDispatchCutoff}
                       </li>
                       <li>
-                        <span className="font-medium text-[var(--ks-text-primary)]">Refunds:</span>{' '}
+                        <span className="font-medium text-[var(--ks-text-primary)]">
+                          {t(language, 'refundsLabelColon')}
+                        </span>{' '}
                         {policyFactsPublic.refundSlaBusinessDays}
                       </li>
                       <li>
-                        <span className="font-medium text-[var(--ks-text-primary)]">Consumer Rights:</span>{' '}
-                        Protected under Bangladesh Consumer Rights Act 2009
+                        <span className="font-medium text-[var(--ks-text-primary)]">
+                          {t(language, 'consumerRightsLabelColon')}
+                        </span>{' '}
+                        {t(language, 'protectedConsumerAct2009')}
                       </li>
                     </ul>
                     {Array.from(new Set(cart.map((c) => c.category))).length > 0 && (
@@ -1905,7 +1923,7 @@ export const CheckoutPage: React.FC = () => {
                         {Array.from(new Set(cart.map((c) => c.category)))
                           .slice(0, 2)
                           .map((cat) => {
-                            const notice = getDepartmentSafetyNotice(cat);
+                            const notice = getDepartmentSafetyNotice(cat, language);
                             return (
                               <p key={cat}>
                                 <span className="font-medium text-[var(--ks-text-secondary)]">

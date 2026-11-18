@@ -375,39 +375,195 @@
 
 @media print {
   @page {
-    margin: 1.5cm;
+    size: A4 portrait;
+    margin: 14mm 15mm 16mm 15mm;
   }
 
-  html,
-  body,
+  :root,
+  .dark {
+    --ks-bg: #ffffff !important;
+    --ks-bg-secondary: #f7f6f2 !important;
+    --ks-surface: #ffffff !important;
+    --ks-surface-elevated: #ffffff !important;
+    --ks-surface-muted: #f7f6f2 !important;
+    --ks-text-primary: #141413 !important;
+    --ks-text-secondary: #373632 !important;
+    --ks-text-muted: #57544d !important;
+    --ks-action: #141413 !important;
+    --ks-action-text: #ffffff !important;
+    --ks-accent: #5e3d1e !important;
+    --ks-border: #d5d2c8 !important;
+    --ks-border-strong: #b4b0a4 !important;
+    --ks-divider: #e2dfd7 !important;
+    --ks-success: #14532d !important;
+    --ks-warning: #7c2d12 !important;
+    --ks-error: #991b1b !important;
+  }
+
+  html {
+    font-size: 10pt !important;
+    line-height: 1.5 !important;
+    background: #ffffff !important;
+    color: #141413 !important;
+    overflow: visible !important;
+    width: 100% !important;
+    height: auto !important;
+    color-scheme: light !important;
+  }
+
+  html[lang="bn"],
+  html[lang="hi"],
+  html[lang="ar"] {
+    font-size: 9.75pt !important;
+    line-height: 1.64 !important;
+  }
+
+  body {
+    font-size: 10pt !important;
+    line-height: 1.52 !important;
+    background: #ffffff !important;
+    color: #141413 !important;
+    overflow: visible !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   main {
     background: #ffffff !important;
-    color: #171716 !important;
+    color: #141413 !important;
+    overflow: visible !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+    will-change: auto !important;
+    box-shadow: none !important;
   }
 
   header,
   footer,
   .ks-announcement-bar,
   .ks-print-hide,
-  [role="region"],
-  [aria-live="polite"],
+  [data-cookie-banner="true"],
   [data-scroll-top-btn="true"],
   [aria-label="Scroll back to top"] {
     display: none !important;
   }
 
-  .ks-reading-measure {
+  .ks-heading-hero,
+  .ks-heading-page {
+    font-size: 17.5pt !important;
+    line-height: 1.2 !important;
+    letter-spacing: -0.01em !important;
+    text-wrap: normal !important;
+  }
+
+  .ks-heading-section {
+    font-size: 13.5pt !important;
+    line-height: 1.25 !important;
+    text-wrap: normal !important;
+  }
+
+  .ks-body-reading {
+    font-size: 10pt !important;
+    line-height: 1.55 !important;
+  }
+
+  .ks-reading-measure,
+  .ks-print-document-root {
     max-width: none !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .ks-print-grid-single {
+    display: block !important;
     width: 100% !important;
   }
 
-  h2,
-  h3 {
-    break-after: avoid;
+  .ks-print-no-truncate {
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
   }
 
-  table,
-  tr {
+  .ks-print-table-wrap {
+    overflow: visible !important;
+    width: 100% !important;
+    border-color: #c8c4b8 !important;
+  }
+
+  .ks-print-table-wrap table {
+    width: 100% !important;
+    table-layout: auto !important;
+    border-collapse: collapse !important;
+  }
+
+  .ks-print-table-wrap th,
+  .ks-print-table-wrap td {
+    white-space: normal !important;
+    overflow-wrap: break-word !important;
+    word-break: normal !important;
+    font-size: 8.75pt !important;
+    line-height: 1.44 !important;
+    padding: 5pt 7pt !important;
+    vertical-align: top !important;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  dt,
+  legend {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  tr,
+  li,
+  dl,
+  blockquote,
+  .ks-print-avoid-break {
     break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  section,
+  article,
+  table {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  p {
+    orphans: 3;
+    widows: 3;
+    text-wrap: normal !important;
+  }
+
+  a {
+    color: inherit !important;
+    text-decoration: underline;
   }
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Check, PackageSearch, RotateCcw, Truck, X } from 'lucide-react';
+import { Check, PackageSearch, Printer, RotateCcw, Truck, X } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { trackOrderApi } from '../services/api';
 import { Order } from '../types/commerce';
@@ -94,28 +94,40 @@ export const OrderTrackingPage: React.FC = () => {
   };
 
   return (
-    <div className="ks-container py-8 lg:py-12 space-y-10">
-      <Breadcrumb
-        items={[
-          { label: t(language, 'home'), onClick: () => navigate({ name: 'home' }) },
-          { label: t(language, 'trackOrder') },
-        ]}
-      />
+    <div className="ks-container py-8 lg:py-12 space-y-10 ks-print-document-root">
+      <div className="print:hidden">
+        <Breadcrumb
+          items={[
+            { label: t(language, 'home'), onClick: () => navigate({ name: 'home' }) },
+            { label: t(language, 'trackOrder') },
+          ]}
+        />
+      </div>
 
-      <div className="max-w-2xl space-y-2">
-        <p className="ks-eyebrow text-[var(--ks-accent)]">
-          {t(language, 'logisticsStatus')}
-        </p>
-        <h1 className="font-display text-3xl sm:text-5xl font-medium">
-          {t(language, 'trackYourOrder')}
-        </h1>
-        <p className="text-sm text-[var(--ks-text-secondary)]">
-          {t(language, 'trackOrderDesc')}
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 ks-print-avoid-break">
+        <div className="max-w-2xl print:max-w-none space-y-2">
+          <p className="ks-eyebrow text-[var(--ks-accent)]">
+            {t(language, 'logisticsStatus')}
+          </p>
+          <h1 className="font-display text-3xl sm:text-5xl font-medium">
+            {t(language, 'trackYourOrder')}
+          </h1>
+          <p className="text-sm text-[var(--ks-text-secondary)]">
+            {t(language, 'trackOrderDesc')}
+          </p>
+        </div>
+        {trackedOrder && (
+          <div className="shrink-0 print:hidden">
+            <Button variant="outline" size="sm" onClick={() => window.print()}>
+              <Printer className="w-3.5 h-3.5" />
+              <span>{t(language, 'printOfficialCopy')}</span>
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Lookup Form */}
-      <div className="p-5 sm:p-8 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-5">
+      <div className="p-5 sm:p-8 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-5 print:hidden">
         <form onSubmit={handleTrackSubmit} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
           <div className="md:col-span-5">
             <Input
@@ -180,8 +192,8 @@ export const OrderTrackingPage: React.FC = () => {
 
       {/* Visual Progress Timeline */}
       {trackedOrder ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          <div className="lg:col-span-8 p-5 sm:p-8 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start ks-print-grid-single">
+          <div className="lg:col-span-8 p-5 sm:p-8 print:p-0 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] print:border-0 space-y-8 print:space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b border-[var(--ks-border)]">
               <div>
                 <p className="text-xs text-[var(--ks-text-muted)] font-mono-num">
@@ -291,7 +303,7 @@ export const OrderTrackingPage: React.FC = () => {
             </ol>
           </div>
 
-          <aside className="lg:col-span-4 p-6 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-5 text-sm">
+          <aside className="lg:col-span-4 p-6 print:p-4 print:mt-4 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-5 text-sm ks-print-avoid-break">
             <div className="flex items-center gap-2.5 pb-3 border-b border-[var(--ks-border)]">
               <Truck className="w-4 h-4 text-[var(--ks-accent)]" />
               <h3 className="font-semibold">{t(language, 'courierInfo')}</h3>
@@ -345,7 +357,7 @@ export const OrderTrackingPage: React.FC = () => {
               </p>
               {trackedOrder.items.map((item) => (
                 <div key={item.key} className="flex items-baseline justify-between text-xs gap-3">
-                  <span className="min-w-0 truncate">
+                  <span className="min-w-0 truncate ks-print-no-truncate">
                     {item.name} × {item.quantity}
                   </span>
                   <span className="font-mono-num shrink-0 text-end tabular-nums">
@@ -376,28 +388,33 @@ export const OrderTrackingPage: React.FC = () => {
             <div className="pt-4 border-t border-[var(--ks-border)] space-y-3 text-xs">
               <div className="space-y-1.5">
                 <p className="uppercase tracking-wider text-[var(--ks-text-muted)]">
-                  Next Steps &amp; Order Support
+                  {t(language, 'nextStepsOrderSupportHeading')}
                 </p>
                 {['Confirmed', 'Processing'].includes(trackedOrder.currentStage) ? (
                   <p className="text-[var(--ks-text-secondary)] leading-relaxed">
-                    Cancellation available {policyFactsPublic.cancelPreDispatchCutoff.toLowerCase()}.{' '}
+                    {t(language, 'cancellationAvailableNote', {
+                      cutoff: policyFactsPublic.cancelPreDispatchCutoff.toLowerCase(),
+                    })}{' '}
                     <button
                       type="button"
                       onClick={() => navigate({ name: 'cancellation-policy' })}
                       className="underline text-[var(--ks-accent)] cursor-pointer"
                     >
-                      Cancellation Policy
+                      {t(language, 'cancellationPolicy')}
                     </button>
                   </p>
                 ) : trackedOrder.currentStage === 'Delivered' ? (
                   <p className="text-[var(--ks-text-secondary)] leading-relaxed">
-                    Eligible items can be returned within {policyFactsPublic.returnWindowDays} days ({policyFactsPublic.defectReportHours}h for transit damage/wrong item).{' '}
+                    {t(language, 'eligibleReturnWindowNote', {
+                      days: policyFactsPublic.returnWindowDays,
+                      hours: policyFactsPublic.defectReportHours,
+                    })}{' '}
                     <button
                       type="button"
                       onClick={() => navigate({ name: 'return-policy' })}
                       className="underline text-[var(--ks-accent)] cursor-pointer"
                     >
-                      Return Policy
+                      {t(language, 'returnPolicyShort')}
                     </button>
                     {' · '}
                     <button
@@ -405,18 +422,18 @@ export const OrderTrackingPage: React.FC = () => {
                       onClick={() => navigate({ name: 'warranty-policy' })}
                       className="underline text-[var(--ks-accent)] cursor-pointer"
                     >
-                      Warranty
+                      {t(language, 'warrantyShortLabel')}
                     </button>
                   </p>
                 ) : (
                   <p className="text-[var(--ks-text-secondary)] leading-relaxed">
-                    Need help with dispatch, courier handoff, or a complaint?{' '}
+                    {t(language, 'needDispatchHelpNote')}{' '}
                     <button
                       type="button"
                       onClick={() => navigate({ name: 'customer-support-policy' })}
                       className="underline text-[var(--ks-accent)] cursor-pointer"
                     >
-                      Dispute &amp; Support Policy
+                      {t(language, 'disputeEscalationBtn')}
                     </button>
                     {' · '}
                     <button
@@ -424,44 +441,49 @@ export const OrderTrackingPage: React.FC = () => {
                       onClick={() => navigate({ name: 'contact' })}
                       className="underline text-[var(--ks-accent)] cursor-pointer"
                     >
-                      Contact Desk
+                      {t(language, 'contactDeskLabel')}
                     </button>
                   </p>
                 )}
               </div>
 
-              <div className="p-3 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-1.5">
+              <div className="p-3 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-1.5 ks-print-avoid-break">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium text-[var(--ks-text-primary)]">
-                    Order-Time Policy Snapshot
+                    {t(language, 'orderTimeSnapshotHeading')}
                   </span>
                   <span className="font-mono-num text-xs text-[var(--ks-accent)]">
                     v{trackedOrder.policyAcceptance?.version || '2026-11.1'}
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-x-3 gap-y-1">
-                  {(['terms', 'return-policy', 'shipping-policy', 'privacy-policy'] as const).map(
-                    (pid) => {
-                      const ver =
-                        trackedOrder.policyAcceptance?.acceptedPolicyVersions?.[pid] ||
-                        trackedOrder.policyAcceptance?.version;
-                      return (
-                        <button
-                          key={pid}
-                          type="button"
-                          onClick={() =>
-                            navigate({
-                              name: pid,
-                              policyVersion: ver,
-                            })
-                          }
-                          className="underline text-xs text-[var(--ks-text-secondary)] hover:text-[var(--ks-accent)] cursor-pointer"
-                        >
-                          {pid.replace('-policy', '').replace('-', ' ')}
-                        </button>
-                      );
-                    }
-                  )}
+                  {(
+                    [
+                      { id: 'terms', label: t(language, 'termsShortLabel') },
+                      { id: 'return-policy', label: t(language, 'returnsShortLabel') },
+                      { id: 'shipping-policy', label: t(language, 'shippingShortLabel') },
+                      { id: 'privacy-policy', label: t(language, 'privacyShortLabel') },
+                    ] as const
+                  ).map(({ id: pid, label }) => {
+                    const ver =
+                      trackedOrder.policyAcceptance?.acceptedPolicyVersions?.[pid] ||
+                      trackedOrder.policyAcceptance?.version;
+                    return (
+                      <button
+                        key={pid}
+                        type="button"
+                        onClick={() =>
+                          navigate({
+                            name: pid,
+                            policyVersion: ver,
+                          })
+                        }
+                        className="underline text-xs text-[var(--ks-text-secondary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>

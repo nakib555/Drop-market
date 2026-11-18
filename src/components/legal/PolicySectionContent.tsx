@@ -8,7 +8,7 @@ interface PolicySectionContentProps {
 
 function splitStructuredPoint(raw: string): { label?: string; body: string } {
   const colonIdx = raw.indexOf(':');
-  if (colonIdx > 1 && colonIdx <= 48) {
+  if (colonIdx > 1 && colonIdx <= 64) {
     const candidateLabel = raw.slice(0, colonIdx).trim();
     const candidateBody = raw.slice(colonIdx + 1).trim();
     // Avoid splitting URLs like https:// or times like 24:00
@@ -39,7 +39,7 @@ export const PolicySectionContent: React.FC<PolicySectionContentProps> = ({
           className={
             isModal
               ? `${idx === 0 ? '' : 'pt-5'} space-y-3`
-              : `${idx === 0 ? 'pb-7' : 'py-7'} scroll-mt-28 space-y-4`
+              : `${idx === 0 ? 'pb-7 print:pb-4' : 'py-7 print:py-4'} scroll-mt-28 space-y-4 print:space-y-2.5`
           }
         >
           {isModal ? (
@@ -47,20 +47,20 @@ export const PolicySectionContent: React.FC<PolicySectionContentProps> = ({
               {sec.heading}
             </h3>
           ) : (
-            <h2 className="font-display text-[clamp(1.375rem,1.15rem+0.85vw,1.75rem)] font-medium tracking-tight text-[var(--ks-text-primary)]">
+            <h2 className="font-display text-[clamp(1.375rem,1.15rem+0.85vw,1.75rem)] print:text-[13pt] print:leading-[1.28] font-medium tracking-tight text-[var(--ks-text-primary)]">
               {sec.heading}
             </h2>
           )}
 
           {sec.paragraphs.length > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-2 print:space-y-1.5">
               {sec.paragraphs.map((para, pIdx) => (
                 <p
                   key={pIdx}
                   className={
                     isModal
                       ? 'text-sm sm:text-[0.9375rem] leading-relaxed text-[var(--ks-text-secondary)]'
-                      : 'ks-body-reading text-[var(--ks-text-secondary)]'
+                      : 'ks-body-reading print:text-[9.75pt] print:leading-[1.52] text-[var(--ks-text-secondary)]'
                   }
                 >
                   {para}
@@ -70,7 +70,7 @@ export const PolicySectionContent: React.FC<PolicySectionContentProps> = ({
           )}
 
           {sec.bullets && sec.bullets.length > 0 && (
-            <ul className={isModal ? 'space-y-2.5 pt-0.5' : 'space-y-3 pt-1'}>
+            <ul className={isModal ? 'space-y-2.5 pt-0.5' : 'space-y-3 print:space-y-1.5 pt-1 print:pt-0.5'}>
               {sec.bullets.map((bullet, bIdx) => {
                 const { label, body } = splitStructuredPoint(bullet);
                 return (
@@ -79,7 +79,7 @@ export const PolicySectionContent: React.FC<PolicySectionContentProps> = ({
                     className={`flex items-start gap-2.5 ${
                       isModal
                         ? 'text-xs sm:text-sm leading-relaxed'
-                        : 'text-[clamp(0.9rem,0.86rem+0.15vw,0.975rem)] leading-[1.65]'
+                        : 'text-[clamp(0.9rem,0.86rem+0.15vw,0.975rem)] leading-[1.65] print:text-[9.5pt] print:leading-[1.48]'
                     } text-[var(--ks-text-secondary)]`}
                   >
                     <span
@@ -106,32 +106,32 @@ export const PolicySectionContent: React.FC<PolicySectionContentProps> = ({
 
           {sec.notice && (
             <div
-              className={`rounded-md px-4 py-3 text-xs sm:text-sm space-y-1 border ${
+              className={`ks-print-avoid-break rounded-md px-4 py-3 print:px-3 print:py-2.5 text-xs sm:text-sm print:text-[9pt] space-y-1 border ${
                 sec.notice.tone === 'warning'
                   ? 'bg-[var(--ks-surface-muted)]/70 border-[var(--ks-accent)]/35'
                   : 'bg-[var(--ks-surface-muted)]/50 border-[var(--ks-border)]'
               }`}
             >
-              <p className="font-semibold uppercase tracking-[0.08em] text-xs text-[var(--ks-accent)]">
+              <p className="font-semibold uppercase tracking-[0.08em] text-xs print:text-[8.5pt] text-[var(--ks-accent)]">
                 {sec.notice.label}
               </p>
-              <p className="text-[var(--ks-text-secondary)] leading-relaxed">
+              <p className="text-[var(--ks-text-secondary)] leading-relaxed print:leading-[1.45]">
                 {sec.notice.body}
               </p>
             </div>
           )}
 
           {sec.table && sec.table.headers.length > 0 && (
-            <div className="overflow-x-auto rounded-md border border-[var(--ks-border)] mt-2">
-              <table className="w-full text-start border-collapse text-xs sm:text-sm">
+            <div className="ks-print-table-wrap overflow-x-auto print:overflow-visible rounded-md border border-[var(--ks-border)] mt-2 print:mt-1.5">
+              <table className="w-full text-start border-collapse text-xs sm:text-sm print:text-[8.75pt]">
                 <thead>
                   <tr className="bg-[var(--ks-surface-muted)]/55 border-b border-[var(--ks-border)]">
                     {sec.table.headers.map((head) => (
                       <th
                         key={head}
                         className={`${
-                          isModal ? 'px-3 py-2.5' : 'px-4 py-3'
-                        } font-semibold text-start text-[var(--ks-text-primary)] whitespace-nowrap`}
+                          isModal ? 'px-3 py-2.5' : 'px-4 py-3 print:px-2.5 print:py-2'
+                        } font-semibold text-start text-[var(--ks-text-primary)] whitespace-nowrap print:whitespace-normal`}
                       >
                         {head}
                       </th>
@@ -145,8 +145,8 @@ export const PolicySectionContent: React.FC<PolicySectionContentProps> = ({
                         <td
                           key={cIdx}
                           className={`${
-                            isModal ? 'px-3 py-2.5' : 'px-4 py-3'
-                          } align-top leading-relaxed tabular-nums ${
+                            isModal ? 'px-3 py-2.5' : 'px-4 py-3 print:px-2.5 print:py-2'
+                          } align-top leading-relaxed print:leading-[1.42] tabular-nums ${
                             cIdx === 0
                               ? 'font-medium text-[var(--ks-text-primary)]'
                               : 'text-[var(--ks-text-secondary)]'

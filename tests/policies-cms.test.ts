@@ -16,6 +16,7 @@ import {
   recordOptionalEvent,
 } from '../src/utils/consentGate.ts';
 import {
+  buildActiveCookieInventory,
   buildDefaultPolicyRecords,
   buildPolicyChecklistSummary,
   buildPublicFactsSummary,
@@ -27,7 +28,12 @@ import {
   savePolicyDraft,
   transitionPolicyStatus,
 } from '../server/services/policyService.ts';
-import type { CookieConsentState } from '../src/types/commerce.ts';
+import {
+  SUPPORTED_POLICY_LANGUAGES,
+  translatePolicyCategory,
+  getLocalizedDepartmentSafetyNotice,
+} from '../server/shared/policyTranslations/index.ts';
+import type { CookieConsentState, LanguageCode } from '../src/types/commerce.ts';
 
 test('policySanitizer strips XSS vectors, counsel notes, and detects unresolved placeholders', () => {
   const dirty =
@@ -188,4 +194,89 @@ test('policyService builds 20 active policies + 10 not_applicable, omits placeho
   const checklistSummary = buildPolicyChecklistSummary(records, facts, checklist);
   assert.equal(checklistSummary.totalActivePolicies, 20);
   assert.equal(checklistSummary.totalNotApplicable, 10);
+});
+
+test('all 20 active policies, categories, facts, cookie inventory, and safety notices are formally localized across all 6 languages', () => {
+  const facts = createInitialPolicyFacts();
+  const records = buildDefaultPolicyRecords({ facts });
+  const englishDocs = getPublicPublishedPolicies(records, 'en', { facts });
+  assert.equal(englishDocs.length, 20);
+
+  const scriptExpectation: Record<LanguageCode, RegExp> = {
+    en: /[A-Za-z]/,
+    bn: /[\u0980-\u09FF]/,
+    hi: /[\u0900-\u097F]/,
+    ar: /[\u0600-\u06FF]/,
+    es: /[A-Za-zÁÉÍÓÚÑáéíóúñ]/,
+    fr: /[A-Za-zÀÂÇÉÈÊËÎÏÔÙÛÜàâçéèêëîïôùûü]/,
+  };
+
+  for (const lang of SUPPORTED_POLICY_LANGUAGES) {
+    const docs = getPublicPublishedPolicies(records, lang, { facts });
+    assert.equal(docs.length, 20, `Expected 20 published policies for ${lang}`);
+
+    const localizedFacts = buildPublicFactsSummary(facts, lang);
+    assert.equal(localizedFacts.returnWindowDays, 14);
+    assert.equal(localizedFacts.defectReportHours, 48);
+    assert.equal(localizedFacts.hasConfirmedEntityDetails, false);
+    assert.match(localizedFacts.governingLaw, scriptExpectation[lang]);
+    assert.match(localizedFacts.competentCourts, scriptExpectation[lang]);
+
+    const cookies = buildActiveCookieInventory(lang);
+    assert.ok(cookies.length >= 6);
+    for (const c of cookies) {
+      assert.ok(c.classification.length > 0);
+      assert.ok(c.purpose.length > 0);
+    }
+
+    assert.match(translatePolicyCategory('Returns & Warranty', lang), scriptExpectation[lang]);
+    const safety = getLocalizedDepartmentSafetyNotice('electronics-tech', lang);
+    assert.match(safety.title, scriptExpectation[lang]);
+    assert.ok(safety.points.length >= 2);
+
+    const serialized = JSON.stringify(docs);
+    assert.equal(/\[CONFIRM\s+/i.test(serialized), false, `Placeholder leaked in ${lang}`);
+    assert.equal(/Counsel Review Note/i.test(serialized), false, `Counsel note leaked in ${lang}`);
+    assert.equal(/<script/i.test(serialized), false, `Unsafe tag in ${lang}`);
+
+    for (const doc of docs) {
+      const enCounterpart = englishDocs.find((e) => e.id === doc.id)!;
+      assert.ok(doc.title.trim().length > 0);
+      assert.ok(doc.summary.trim().length > 0);
+      assert.equal(
+        doc.sections.length,
+        enCounterpart.sections.length,
+        `Section count mismatch for ${doc.id} in ${lang}`
+      );
+      if (lang !== 'en') {
+        assert.notEqual(
+          doc.title,
+          enCounterpart.title,
+          `Expected translated title for ${doc.id} in ${lang}`
+        );
+      }
+      assert.match(doc.title, scriptExpectation[lang]);
+    }
+  }
+
+  // Custom Admin CMS published version (> baseline) must NOT be overwritten by baseline translation pack
+  const target = records.find((p) => p.slug === 'privacy-policy')!;
+  const drafted = savePolicyDraft(target, {
+    title: 'Custom Published Privacy Notice',
+    summary: 'Custom admin revision summary.',
+    sections: [
+      {
+        id: 'custom-sec',
+        heading: 'Custom Privacy Clause',
+        paragraphs: ['Custom published clause text.'],
+      },
+    ],
+    changeNote: 'Custom CMS test',
+    updatedBy: 'Admin',
+  });
+  const reviewed = transitionPolicyStatus(drafted, 'submit_review', 'Admin').updated;
+  const published = transitionPolicyStatus(reviewed, 'publish', 'Admin').updated;
+  const bnCustom = projectPublicPolicyDocument(published, undefined, 'bn', { facts });
+  assert.ok(bnCustom);
+  assert.equal(bnCustom.title, 'Custom Published Privacy Notice');
 });

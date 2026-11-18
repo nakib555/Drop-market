@@ -29,6 +29,7 @@ import {
   LEGAL_ENTITY,
   LEGAL_VERSION,
   policyRecordToLegalDocument,
+  translatePolicyCategory,
 } from '../data/legalPolicies';
 import { useStore } from '../context/StoreContext';
 import { fetchPolicyBySlugApi, submitSupportInquiryApi } from '../services/api';
@@ -523,16 +524,50 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
     publishedPolicies,
     policyFactsPublic,
     openCookiePreferences,
+    shippingConfig,
+    currencyConfig,
+    enabledPaymentMethods,
     language,
   } = useStore();
 
   const docs = useMemo(
-    () => getLegalDocuments({ publishedRecords: publishedPolicies }),
-    [publishedPolicies]
+    () =>
+      getLegalDocuments({
+        publishedRecords: publishedPolicies,
+        language,
+        facts: policyFactsPublic,
+        shippingConfig,
+        currencyConfig,
+        enabledPaymentMethods,
+      }),
+    [
+      publishedPolicies,
+      language,
+      policyFactsPublic,
+      shippingConfig,
+      currencyConfig,
+      enabledPaymentMethods,
+    ]
   );
   const currentDoc = useMemo(
-    () => getLegalDocumentById(policyId, { publishedRecords: publishedPolicies }),
-    [policyId, publishedPolicies]
+    () =>
+      getLegalDocumentById(policyId, {
+        publishedRecords: publishedPolicies,
+        language,
+        facts: policyFactsPublic,
+        shippingConfig,
+        currencyConfig,
+        enabledPaymentMethods,
+      }),
+    [
+      policyId,
+      publishedPolicies,
+      language,
+      policyFactsPublic,
+      shippingConfig,
+      currencyConfig,
+      enabledPaymentMethods,
+    ]
   );
 
   const requestedVersion = route.policyVersion;
@@ -546,7 +581,7 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
       setHistoricalNotFound(false);
       return;
     }
-    fetchPolicyBySlugApi(policyId, requestedVersion)
+    fetchPolicyBySlugApi(policyId, requestedVersion, language)
       .then((res) => {
         if (!active) return;
         if (res.isHistoricalSnapshot && res.policy) {
@@ -565,7 +600,7 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
     return () => {
       active = false;
     };
-  }, [currentDoc.version, policyId, requestedVersion]);
+  }, [currentDoc.version, language, policyId, requestedVersion]);
 
   const doc = historicalDoc || currentDoc;
   const isViewingHistorical = Boolean(historicalDoc);
@@ -582,9 +617,10 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
         item.title.toLowerCase().includes(q) ||
         item.shortTitle.toLowerCase().includes(q) ||
         item.policyCategory.toLowerCase().includes(q) ||
+        translatePolicyCategory(item.policyCategory, language).toLowerCase().includes(q) ||
         item.summary.toLowerCase().includes(q)
     );
-  }, [docs, policyQuery]);
+  }, [docs, language, policyQuery]);
 
   const scrollToSection = (sectionId: string) => {
     setMobileTocOpen(false);
@@ -598,59 +634,80 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
   };
 
   return (
-    <div className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-12 space-y-6 lg:space-y-8">
-      <Breadcrumb
-        items={[
-          { label: t(language, 'home'), onClick: () => navigate({ name: 'home' }) },
-          { label: t(language, 'legalCenter'), onClick: () => navigate({ name: 'legal' }) },
-          { label: doc.shortTitle },
-        ]}
-      />
+    <div className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-12 space-y-6 lg:space-y-8 ks-print-document-root">
+      <div className="print:hidden">
+        <Breadcrumb
+          items={[
+            { label: t(language, 'home'), onClick: () => navigate({ name: 'home' }) },
+            { label: t(language, 'legalCenter'), onClick: () => navigate({ name: 'legal' }) },
+            { label: doc.shortTitle },
+          ]}
+        />
+      </div>
+
+      {/* Print-Only Formal Edition Masthead */}
+      <div className="hidden print:flex items-baseline justify-between gap-4 border-b border-[var(--ks-border-strong)] pb-2 text-[8.5pt] text-[var(--ks-text-muted)]">
+        <span className="font-semibold text-[var(--ks-text-primary)]">
+          {policyFactsPublic.tradingName} — {t(language, 'officialPolicyEditionLabel')}
+        </span>
+        <span className="font-mono-num">
+          v{doc.version} · {t(language, 'effectivePrefixLabel', { date: doc.effectiveDate })}
+        </span>
+      </div>
 
       {isViewingHistorical && (
         <div
           role="status"
-          className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface-muted)] border border-[var(--ks-accent)]/40 flex flex-wrap items-center justify-between gap-3 text-xs"
+          className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface-muted)] border border-[var(--ks-accent)]/40 flex flex-wrap items-center justify-between gap-3 text-xs ks-print-avoid-break"
         >
           <div className="space-y-0.5">
             <p className="font-semibold text-[var(--ks-text-primary)]">
-              Archived Order-Time Policy Snapshot · v{doc.version}
+              {t(language, 'archivedSnapshotTitle', { version: doc.version })}
             </p>
             <p className="text-[var(--ks-text-secondary)]">
-              You are viewing historical terms effective {doc.effectiveDate}. Current published version is v{currentDoc.version}.
+              {t(language, 'archivedSnapshotDesc', {
+                date: doc.effectiveDate,
+                currentVersion: currentDoc.version,
+              })}
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate({ name: policyId })}
-          >
-            View Current Published Version (v{currentDoc.version})
-          </Button>
+          <div className="print:hidden">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate({ name: policyId })}
+            >
+              {t(language, 'viewCurrentVersionBtn', { version: currentDoc.version })}
+            </Button>
+          </div>
         </div>
       )}
 
       {historicalNotFound && requestedVersion && !isViewingHistorical && (
         <div
           role="status"
-          className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface-muted)] border border-[var(--ks-border-strong)] flex flex-wrap items-center justify-between gap-3 text-xs"
+          className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface-muted)] border border-[var(--ks-border-strong)] flex flex-wrap items-center justify-between gap-3 text-xs print:hidden"
         >
           <p className="text-[var(--ks-text-secondary)]">
-            Snapshot v{requestedVersion} was superseded or unavailable; showing current published policy v{currentDoc.version}.
+            {t(language, 'snapshotSupersededDesc', {
+              requestedVersion,
+              currentVersion: currentDoc.version,
+            })}
           </p>
           <Button variant="ghost" size="sm" onClick={() => navigate({ name: policyId })}>
-            Dismiss
+            {t(language, 'dismissBtn')}
           </Button>
         </div>
       )}
 
       {/* Policy Header */}
-      <div className="pb-5 sm:pb-6 border-b border-[var(--ks-border)] flex flex-col lg:flex-row lg:items-end justify-between gap-4 sm:gap-5">
-        <div className="max-w-3xl space-y-2">
+      <div className="pb-5 sm:pb-6 border-b border-[var(--ks-border)] flex flex-col lg:flex-row lg:items-end justify-between gap-4 sm:gap-5 ks-print-avoid-break">
+        <div className="max-w-3xl print:max-w-none space-y-2">
           <p className="text-xs uppercase tracking-[0.14em] text-[var(--ks-accent)] font-medium">
-            {doc.policyCategory} · v{doc.version} · Effective {doc.effectiveDate}
+            {translatePolicyCategory(doc.policyCategory, language)} · v{doc.version} ·{' '}
+            {t(language, 'effectivePrefixLabel', { date: doc.effectiveDate })}
           </p>
-          <h1 className="ks-heading-page text-balance">
+          <h1 className="ks-heading-page text-balance print:text-wrap">
             {doc.title}
           </h1>
           <p className="ks-body-reading text-[var(--ks-text-secondary)]">
@@ -667,7 +724,7 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
           )}
           <Button variant="outline" size="sm" onClick={() => window.print()}>
             <Printer className="w-3.5 h-3.5" />
-            <span>{t(language, 'printDocument')}</span>
+            <span>{t(language, 'printOfficialCopy')}</span>
           </Button>
           <Button variant="ghost" size="sm" onClick={() => navigate({ name: 'legal' })}>
             <span>{t(language, 'allPolicies')}</span>
@@ -726,7 +783,7 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
                   transition={STUDIO_TRANSITION.accordion}
                   className="overflow-hidden border-t border-[var(--ks-border)]"
                 >
-                  <nav aria-label="Mobile document sections" className="p-2 space-y-0.5">
+                  <nav aria-label={t(language, 'mobileDocSectionsAria')} className="p-2 space-y-0.5">
                     {doc.sections.map((sec) => (
                       <button
                         key={sec.id}
@@ -787,7 +844,7 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
                 return (
                   <div key={group} className="space-y-1.5">
                     <p className="px-1 text-xs uppercase tracking-[0.12em] font-semibold text-[var(--ks-text-muted)]">
-                      {group} ({groupDocs.length})
+                      {translatePolicyCategory(group, language)} ({groupDocs.length})
                     </p>
                     <div className="rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] divide-y divide-[var(--ks-border)] overflow-hidden">
                       {groupDocs.map((item) => {
@@ -834,14 +891,14 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
         </div>
       </Drawer>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start ks-print-grid-single">
         {/* Sticky Desktop Index & Clause Navigation */}
         <aside className="hidden lg:block lg:col-span-4 lg:sticky lg:top-24 space-y-5 print:hidden">
           <div className="p-5 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-[var(--ks-text-muted)]">
               {t(language, 'inThisDocument')}
             </p>
-            <nav aria-label="Document sections" className="space-y-1.5">
+            <nav aria-label={t(language, 'docSectionsAria')} className="space-y-1.5">
               {doc.sections.map((sec) => (
                 <button
                   key={sec.id}
@@ -883,26 +940,26 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
         </aside>
 
         {/* Main Policy Clauses */}
-        <article className="lg:col-span-8 space-y-6 ks-reading-measure">
-          <div className="pb-5 border-b border-[var(--ks-border)] space-y-3">
+        <article className="lg:col-span-8 space-y-6 ks-reading-measure print:max-w-none print:w-full">
+          <div className="pb-5 border-b border-[var(--ks-border)] space-y-3 ks-print-avoid-break">
             <p className="ks-body-reading text-[var(--ks-text-secondary)]">
               {doc.summary}
             </p>
-            <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs">
+            <dl className="grid grid-cols-1 sm:grid-cols-3 print:grid-cols-3 gap-3 pt-2 text-xs ks-print-avoid-break">
               <div>
-                <dt className="text-[var(--ks-text-muted)]">Operator</dt>
+                <dt className="text-[var(--ks-text-muted)]">{t(language, 'operatorLabel')}</dt>
                 <dd className="font-medium text-[var(--ks-text-primary)] mt-0.5">
                   {policyFactsPublic.tradingName}
                 </dd>
               </div>
               <div>
-                <dt className="text-[var(--ks-text-muted)]">Governing Law</dt>
+                <dt className="text-[var(--ks-text-muted)]">{t(language, 'governingLawShortLabel')}</dt>
                 <dd className="font-medium text-[var(--ks-text-primary)] mt-0.5">
                   {policyFactsPublic.governingLaw}
                 </dd>
               </div>
               <div>
-                <dt className="text-[var(--ks-text-muted)]">Jurisdiction</dt>
+                <dt className="text-[var(--ks-text-muted)]">{t(language, 'jurisdictionLabel')}</dt>
                 <dd className="font-medium text-[var(--ks-text-primary)] mt-0.5">
                   {policyFactsPublic.competentCourts}
                 </dd>
@@ -913,7 +970,7 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
           <PolicySectionContent sections={doc.sections} variant="page" />
 
           {/* Entity & Related Agreements Footer */}
-          <div className="pt-6 border-t border-[var(--ks-border)] space-y-4">
+          <div className="pt-6 border-t border-[var(--ks-border)] space-y-4 ks-print-avoid-break">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="space-y-1 text-xs text-[var(--ks-text-secondary)]">
                 <p className="font-semibold text-[var(--ks-text-primary)]">
@@ -923,7 +980,8 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
                   {policyFactsPublic.tradingName} · {policyFactsPublic.operatingCountry}
                 </p>
                 <p className="font-mono-num">
-                  Support: {policyFactsPublic.supportEmail} · Legal: {policyFactsPublic.legalEmail}
+                  {t(language, 'supportDeskColon')}: {policyFactsPublic.supportEmail} ·{' '}
+                  {t(language, 'legalDeskColon')}: {policyFactsPublic.legalEmail}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 print:hidden">
@@ -932,14 +990,14 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
                   size="sm"
                   onClick={() => navigate({ name: 'contact' })}
                 >
-                  Contact Support Desk
+                  {t(language, 'contactSupportDeskBtn')}
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate({ name: 'customer-support-policy' })}
                 >
-                  Dispute Resolution
+                  {t(language, 'disputeResolutionBtn')}
                 </Button>
               </div>
             </div>
@@ -950,7 +1008,11 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {doc.relatedIds.map((relId) => {
-                    const relDoc = getLegalDocumentById(relId, { publishedRecords: publishedPolicies });
+                    const relDoc = getLegalDocumentById(relId, {
+                      publishedRecords: publishedPolicies,
+                      language,
+                      facts: policyFactsPublic,
+                    });
                     return (
                       <Button
                         key={relId}
@@ -979,12 +1041,30 @@ export const LegalCenterPage: React.FC = () => {
     policyFactsPublic,
     openCookiePreferences,
     cookieConsent,
+    shippingConfig,
+    currencyConfig,
+    enabledPaymentMethods,
     language,
   } = useStore();
 
   const docs = useMemo(
-    () => getLegalDocuments({ publishedRecords: publishedPolicies }),
-    [publishedPolicies]
+    () =>
+      getLegalDocuments({
+        publishedRecords: publishedPolicies,
+        language,
+        facts: policyFactsPublic,
+        shippingConfig,
+        currencyConfig,
+        enabledPaymentMethods,
+      }),
+    [
+      publishedPolicies,
+      language,
+      policyFactsPublic,
+      shippingConfig,
+      currencyConfig,
+      enabledPaymentMethods,
+    ]
   );
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -1005,10 +1085,11 @@ export const LegalCenterPage: React.FC = () => {
         doc.shortTitle.toLowerCase().includes(q) ||
         doc.summary.toLowerCase().includes(q) ||
         doc.policyCategory.toLowerCase().includes(q) ||
+        translatePolicyCategory(doc.policyCategory, language).toLowerCase().includes(q) ||
         inSections
       );
     });
-  }, [docs, searchQuery, selectedCategory]);
+  }, [docs, language, searchQuery, selectedCategory]);
 
   const activeCategories = useMemo(
     () =>
@@ -1021,28 +1102,39 @@ export const LegalCenterPage: React.FC = () => {
   );
 
   return (
-    <div className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-8 sm:space-y-10">
-      <Breadcrumb
-        items={[
-          { label: t(language, 'home'), onClick: () => navigate({ name: 'home' }) },
-          { label: t(language, 'legalCenter') },
-        ]}
-      />
+    <div className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-8 sm:space-y-10 ks-print-document-root">
+      <div className="print:hidden">
+        <Breadcrumb
+          items={[
+            { label: t(language, 'home'), onClick: () => navigate({ name: 'home' }) },
+            { label: t(language, 'legalCenter') },
+          ]}
+        />
+      </div>
 
-      <div className="max-w-3xl space-y-3 pb-6 border-b border-[var(--ks-border)]">
-        <p className="text-xs uppercase tracking-[0.14em] text-[var(--ks-accent)] font-medium">
-          {t(language, 'legalCenter')} · {docs.length} Published Policies · Effective {policyFactsPublic.effectiveDate}
-        </p>
-        <h1 className="ks-heading-page text-balance">
-          {t(language, 'legalCenterHeadline')}
-        </h1>
-        <p className="ks-body-reading text-[var(--ks-text-secondary)]">
-          {t(language, 'legalCenterSubtitle', { name: policyFactsPublic.tradingName })}
-        </p>
+      <div className="max-w-3xl print:max-w-none space-y-3 pb-6 border-b border-[var(--ks-border)] flex flex-col sm:flex-row sm:items-end justify-between gap-4 ks-print-avoid-break">
+        <div className="space-y-3">
+          <p className="text-xs uppercase tracking-[0.14em] text-[var(--ks-accent)] font-medium">
+            {t(language, 'legalCenter')} · {t(language, 'legalCenterPublishedBadge', { count: docs.length })} ·{' '}
+            {t(language, 'effectivePrefixLabel', { date: policyFactsPublic.effectiveDate })}
+          </p>
+          <h1 className="ks-heading-page text-balance print:text-wrap">
+            {t(language, 'legalCenterHeadline')}
+          </h1>
+          <p className="ks-body-reading text-[var(--ks-text-secondary)]">
+            {t(language, 'legalCenterSubtitle', { name: policyFactsPublic.tradingName })}
+          </p>
+        </div>
+        <div className="shrink-0 print:hidden">
+          <Button variant="outline" size="sm" onClick={() => window.print()}>
+            <Printer className="w-3.5 h-3.5" />
+            <span>{t(language, 'printOfficialCopy')}</span>
+          </Button>
+        </div>
       </div>
 
       {/* Search & Category Filter Controls */}
-      <div className="space-y-4">
+      <div className="space-y-4 print:hidden">
         <div className="flex flex-col md:flex-row md:items-center gap-3">
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-[var(--ks-text-muted)] absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -1050,15 +1142,15 @@ export const LegalCenterPage: React.FC = () => {
               type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search policies by topic (returns, bKash, delivery, warranty, privacy, seller)..."
-              aria-label="Search policies by topic"
+              placeholder={t(language, 'searchPoliciesTopicPlaceholder')}
+              aria-label={t(language, 'searchPoliciesTopicPlaceholder')}
               className="w-full min-h-[44px] ps-10 pe-10 py-2 text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border-strong)] text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)] focus:outline-none focus:border-[var(--ks-accent)]"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                aria-label="Clear policy search"
+                aria-label={t(language, 'clearPolicySearch')}
                 className="absolute end-1.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -1070,11 +1162,11 @@ export const LegalCenterPage: React.FC = () => {
             size="md"
             onClick={() => navigate({ name: 'contact' })}
           >
-            Contact Support &amp; Disputes
+            {t(language, 'contactSupportDisputesBtn')}
           </Button>
         </div>
 
-        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Policy categories">
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label={t(language, 'policyCategoriesAria')}>
           <button
             type="button"
             role="tab"
@@ -1086,7 +1178,7 @@ export const LegalCenterPage: React.FC = () => {
                 : 'bg-[var(--ks-surface)] text-[var(--ks-text-secondary)] border-[var(--ks-border)] hover:border-[var(--ks-border-strong)]'
             }`}
           >
-            All Policies ({docs.length})
+            {t(language, 'allPoliciesCountTab', { count: docs.length })}
           </button>
           {POLICY_CATEGORY_ORDER.map((cat) => {
             const count = docs.filter((d) => d.policyCategory === cat).length;
@@ -1104,7 +1196,7 @@ export const LegalCenterPage: React.FC = () => {
                     : 'bg-[var(--ks-surface)] text-[var(--ks-text-secondary)] border-[var(--ks-border)] hover:border-[var(--ks-border-strong)]'
                 }`}
               >
-                {cat} ({count})
+                {translatePolicyCategory(cat, language)} ({count})
               </button>
             );
           })}
@@ -1112,26 +1204,27 @@ export const LegalCenterPage: React.FC = () => {
       </div>
 
       {/* Jurisdiction & Governance Summary Bar */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="p-5 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-1.5">
+      <div className="grid grid-cols-1 md:grid-cols-3 print:grid-cols-3 gap-5 ks-print-avoid-break">
+        <div className="p-5 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-1.5 ks-print-avoid-break">
           <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
-            Storefront &amp; Support Desk
+            {t(language, 'storefrontSupportDeskLabel')}
           </p>
           <p className="text-sm font-semibold">{policyFactsPublic.tradingName}</p>
           <p className="text-xs font-mono-num text-[var(--ks-accent)]">
             {policyFactsPublic.supportEmail} · {policyFactsPublic.legalEmail}
           </p>
         </div>
-        <div className="p-5 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-1.5">
+        <div className="p-5 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-1.5 ks-print-avoid-break">
           <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
             {t(language, 'governingLawLabel')}
           </p>
           <p className="text-sm font-semibold">{policyFactsPublic.governingLaw}</p>
           <p className="text-xs text-[var(--ks-text-secondary)]">
-            {policyFactsPublic.competentCourts} · {policyFactsPublic.returnWindowDays}-day return policy
+            {policyFactsPublic.competentCourts} ·{' '}
+            {t(language, 'returnWindowDaysSummary', { days: policyFactsPublic.returnWindowDays })}
           </p>
         </div>
-        <div className="p-5 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] flex flex-col justify-between gap-3">
+        <div className="p-5 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] flex flex-col justify-between gap-3 ks-print-avoid-break">
           <div className="space-y-1">
             <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
               {t(language, 'cookieTrackingStatus')}
@@ -1139,10 +1232,14 @@ export const LegalCenterPage: React.FC = () => {
             <p className="text-sm font-semibold capitalize">
               {cookieConsent.status === 'unset'
                 ? t(language, 'pendingSelection')
-                : cookieConsent.status.replace('-', ' ')}
+                : cookieConsent.status === 'all'
+                ? t(language, 'cookieStatusAccepted')
+                : cookieConsent.status === 'essential-only'
+                ? t(language, 'cookieStatusEssential')
+                : t(language, 'cookieStatusCustom')}
             </p>
           </div>
-          <div>
+          <div className="print:hidden">
             <Button variant="outline" size="sm" onClick={openCookiePreferences}>
               <Cookie className="w-3.5 h-3.5" />
               <span>{t(language, 'manageCookiePreferences')}</span>
@@ -1155,7 +1252,7 @@ export const LegalCenterPage: React.FC = () => {
       {filteredDocs.length === 0 ? (
         <div className="p-8 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] text-center space-y-3">
           <p className="text-sm text-[var(--ks-text-secondary)]">
-            No policies matched "{searchQuery}".
+            {t(language, 'noPoliciesMatchedQuery', { query: searchQuery })}
           </p>
           <Button
             variant="outline"
@@ -1165,24 +1262,24 @@ export const LegalCenterPage: React.FC = () => {
               setSelectedCategory('all');
             }}
           >
-            Reset Filters
+            {t(language, 'resetFiltersBtn')}
           </Button>
         </div>
       ) : (
-        <div className="space-y-10">
+        <div className="space-y-10 print:space-y-6">
           {activeCategories.map((group) => {
             const groupDocs = filteredDocs.filter((d) => d.policyCategory === group);
             if (groupDocs.length === 0) return null;
             return (
               <section key={group} className="space-y-4">
                 <h2 className="font-display text-2xl font-medium border-b border-[var(--ks-border)] pb-2">
-                  {group} ({groupDocs.length})
+                  {translatePolicyCategory(group, language)} ({groupDocs.length})
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 print:grid-cols-2 gap-5 print:gap-3.5">
                   {groupDocs.map((doc) => (
                     <article
                       key={doc.id}
-                      className="p-5 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] flex flex-col justify-between gap-5"
+                      className="p-5 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] flex flex-col justify-between gap-5 ks-print-avoid-break"
                     >
                       <div className="space-y-2">
                         <div className="flex items-center justify-between gap-2 text-xs text-[var(--ks-text-muted)]">
@@ -1202,7 +1299,7 @@ export const LegalCenterPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => navigate({ name: doc.id })}
-                        className="min-h-[36px] inline-flex items-center gap-1.5 text-xs font-medium text-[var(--ks-accent)] hover:underline self-start cursor-pointer"
+                        className="min-h-[36px] inline-flex items-center gap-1.5 text-xs font-medium text-[var(--ks-accent)] hover:underline self-start cursor-pointer print:hidden"
                       >
                         <span>{t(language, 'readDocBtn', { name: doc.shortTitle })}</span>
                         <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
@@ -1216,16 +1313,14 @@ export const LegalCenterPage: React.FC = () => {
         </div>
       )}
 
-      <div className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--ks-text-secondary)]">
-        <p>
-          Need clarification on an order, return window, warranty, or privacy request? Contact Kinto Studio Care or review our dispute escalation procedure.
-        </p>
-        <div className="flex flex-wrap gap-2">
+      <div className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--ks-text-secondary)] ks-print-avoid-break">
+        <p>{t(language, 'legalCenterFooterNote')}</p>
+        <div className="flex flex-wrap gap-2 print:hidden">
           <Button variant="outline" size="sm" onClick={() => navigate({ name: 'customer-support-policy' })}>
-            Dispute Escalation
+            {t(language, 'disputeEscalationBtn')}
           </Button>
           <Button variant="primary" size="sm" onClick={() => navigate({ name: 'track-order' })}>
-            Track Order
+            {t(language, 'trackOrder')}
           </Button>
         </div>
       </div>

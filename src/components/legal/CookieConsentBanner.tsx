@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Cookie, Lock } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useStore } from '../../context/StoreContext';
-import { LEGAL_ENTITY, LEGAL_VERSION } from '../../data/legalPolicies';
+import { LEGAL_VERSION } from '../../data/legalPolicies';
 import { PrivacyPrefs } from '../../types/commerce';
 import { t } from '../../utils/i18n';
 import { STUDIO_TRANSITION } from '../../utils/motion';
@@ -24,6 +24,7 @@ export const CookieConsentBanner: React.FC = () => {
     navigate,
     openPolicyPreview,
     publishedPolicies,
+    policyFactsPublic,
     cookieInventory,
   } = useStore();
 
@@ -49,6 +50,7 @@ export const CookieConsentBanner: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 12 }}
             transition={STUDIO_TRANSITION.fast}
+            data-cookie-banner="true"
             role="region"
             aria-label={t(language, 'cookiesTitle')}
             className="fixed bottom-2 inset-x-2 sm:inset-x-auto sm:end-5 sm:bottom-5 sm:max-w-md z-40 rounded-lg bg-[var(--ks-surface)]/95 backdrop-blur-md border border-[var(--ks-border)] shadow-xl p-2.5 sm:p-4 print:hidden"
@@ -119,7 +121,10 @@ export const CookieConsentBanner: React.FC = () => {
       >
         <div className="space-y-5 text-sm">
           <p className="text-xs leading-relaxed text-[var(--ks-text-secondary)]">
-            Manage how {LEGAL_ENTITY.legalName} stores browser data and optional storefront preferences (Policy v{cookiePolicyVersion}). Changes apply immediately and clear declined storage keys.
+            {t(language, 'cookieManagePrefsIntro', {
+              name: policyFactsPublic.tradingName,
+              version: cookiePolicyVersion,
+            })}
           </p>
 
           <div className="p-3.5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] flex items-start justify-between gap-3">
@@ -167,7 +172,7 @@ export const CookieConsentBanner: React.FC = () => {
           {cookieInventory.length > 0 && (
             <details className="rounded-md border border-[var(--ks-border)] bg-[var(--ks-bg)] p-3 text-[11px]">
               <summary className="font-medium text-[var(--ks-text-primary)] cursor-pointer select-none">
-                Browser Storage &amp; Cookie Inventory ({cookieInventory.length} active entries)
+                {t(language, 'cookieInventorySummary', { count: cookieInventory.length })}
               </summary>
               <div className="mt-2.5 space-y-2 max-h-36 overflow-y-auto pe-1">
                 {cookieInventory.map((item) => (

@@ -739,6 +739,45 @@ test('Public policy endpoints, historical snapshot projection, and Admin Policy 
   });
   assert.equal(factsPatch.status, 200);
   assert.equal(factsPatch.data.policyFacts.returnWindowDays, 14);
+
+  // Localized /api/policies, /api/policies/:slug, and /api/storefront/state across all non-English locales
+  const localeChecks: Array<{ lang: string; titlePattern: RegExp; lawPattern: RegExp }> = [
+    { lang: 'bn', titlePattern: /[\u0980-\u09FF]/, lawPattern: /[\u0980-\u09FF]/ },
+    { lang: 'hi', titlePattern: /[\u0900-\u097F]/, lawPattern: /[\u0900-\u097F]/ },
+    { lang: 'ar', titlePattern: /[\u0600-\u06FF]/, lawPattern: /[\u0600-\u06FF]/ },
+    { lang: 'es', titlePattern: /Términos|Política|Devoluciones|Privacidad|Envío/i, lawPattern: /Leyes|Bangladés/i },
+    { lang: 'fr', titlePattern: /Conditions|Politique|Retour|Confidentialité|Livraison/i, lawPattern: /Lois|Bangladesh/i },
+  ];
+
+  for (const { lang, titlePattern, lawPattern } of localeChecks) {
+    const listRes = await apiJson<{
+      policies: Array<{ id: string; title: string; sections: Array<{ heading: string }> }>;
+      policyFactsPublic: { governingLaw: string; competentCourts: string };
+      cookieInventory: Array<{ classification: string; purpose: string }>;
+    }>(`/api/policies?lang=${lang}`);
+    assert.equal(listRes.status, 200);
+    assert.equal(listRes.data.policies.length, 20);
+    const terms = listRes.data.policies.find((p) => p.id === 'terms');
+    assert.ok(terms);
+    assert.match(terms.title, titlePattern);
+    assert.match(listRes.data.policyFactsPublic.governingLaw, lawPattern);
+    assert.ok(listRes.data.cookieInventory.length >= 6);
+
+    const singleRes = await apiJson<{
+      policy: { id: string; title: string; sections: Array<{ heading: string }> };
+    }>(`/api/policies/return-policy?lang=${lang}`);
+    assert.equal(singleRes.status, 200);
+    assert.match(singleRes.data.policy.title, titlePattern);
+    assert.ok(singleRes.data.policy.sections.length > 0);
+  }
+
+  const syncAr = await apiJson<{
+    publishedPolicies: Array<{ id: string; title: string }>;
+    policyFactsPublic: { governingLaw: string };
+  }>('/api/storefront/state?lang=ar');
+  assert.equal(syncAr.status, 200);
+  assert.equal(syncAr.data.publishedPolicies.length, 20);
+  assert.match(syncAr.data.policyFactsPublic.governingLaw, /[\u0600-\u06FF]/);
 });
 
 

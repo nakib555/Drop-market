@@ -308,7 +308,7 @@ export async function fetchCatalogProductsApi(): Promise<Product[]> {
   );
 }
 
-export async function fetchStorefrontSync(): Promise<{
+export async function fetchStorefrontSync(lang?: LanguageCode): Promise<{
   productOverrides: Record<string, ProductOverride>;
   sellerProducts: ApiSellerProductRecord[];
   categoryTree: CategoryNode[];
@@ -321,36 +321,42 @@ export async function fetchStorefrontSync(): Promise<{
   cookieInventory?: CookieInventoryItem[];
   enabledPaymentMethods?: import('../types/commerce').PaymentMethodId[];
 }> {
+  const qs = lang ? `?lang=${encodeURIComponent(lang)}` : '';
   return withStaticFallback(
-    () => requestJson('/api/storefront/state'),
-    (mod) => mod.staticFetchStorefrontSync()
+    () => requestJson(`/api/storefront/state${qs}`),
+    (mod) => mod.staticFetchStorefrontSync(lang)
   );
 }
 
-export async function fetchPublicPoliciesApi(): Promise<{
+export async function fetchPublicPoliciesApi(lang?: LanguageCode): Promise<{
   policies: PolicyDocumentRecord[];
   policyFactsPublic: PolicyFactsPublicSummary;
   cookieInventory: CookieInventoryItem[];
 }> {
+  const qs = lang ? `?lang=${encodeURIComponent(lang)}` : '';
   return withStaticFallback(
-    () => requestJson('/api/policies'),
-    (mod) => mod.staticFetchPublicPolicies()
+    () => requestJson(`/api/policies${qs}`),
+    (mod) => mod.staticFetchPublicPolicies(lang)
   );
 }
 
 export async function fetchPolicyBySlugApi(
   slug: string,
-  version?: string
+  version?: string,
+  lang?: LanguageCode
 ): Promise<{
   policy: PolicyDocumentRecord;
   historicalVersionRequested: string | null;
   isHistoricalSnapshot: boolean;
   policyFactsPublic: PolicyFactsPublicSummary;
 }> {
-  const qs = version ? `?version=${encodeURIComponent(version)}` : '';
+  const params = new URLSearchParams();
+  if (version) params.set('version', version);
+  if (lang) params.set('lang', lang);
+  const qs = params.toString() ? `?${params.toString()}` : '';
   return withStaticFallback(
     () => requestJson(`/api/policies/${encodeURIComponent(slug)}${qs}`),
-    (mod) => mod.staticFetchPolicyBySlug(slug, version)
+    (mod) => mod.staticFetchPolicyBySlug(slug, version, lang)
   );
 }
 

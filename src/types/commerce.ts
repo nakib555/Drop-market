@@ -646,7 +646,7 @@ export interface LegalReviewChecklistItem {
 export interface CookieInventoryItem {
   key: string;
   storageType: 'localStorage' | 'sessionStorage' | 'httpOnlyCookie';
-  classification: 'Strictly Necessary' | 'Optional Preference' | 'Optional Analytics';
+  classification: string;
   provider: string;
   duration: string;
   purpose: string;

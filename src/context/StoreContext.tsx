@@ -95,6 +95,11 @@ import {
   getPublicPublishedPolicies,
 } from '../../server/services/policyService';
 import {
+  buildLocalizedDynamicVars,
+  localizePolicyRecord,
+  localizePublicFactsSummary,
+} from '../../server/shared/policyTranslations/index';
+import {
   canPersonalizeCatalog,
   canTrackSearchHistory,
   clearGatedStorage,
@@ -530,17 +535,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
   const [cookieModalOpen, setCookieModalOpen] = useState(false);
   const [previewPolicyId, setPreviewPolicyId] = useState<LegalDocumentId | null>(null);
-  const [publishedPolicies, setPublishedPolicies] = useState<PolicyDocumentRecord[]>(() =>
+  const [publishedPoliciesRaw, setPublishedPoliciesRaw] = useState<PolicyDocumentRecord[]>(() =>
     getPublicPublishedPolicies(
       buildDefaultPolicyRecords({ facts: createInitialPolicyFacts() })
     )
   );
-  const [policyFactsPublic, setPolicyFactsPublic] = useState<PolicyFactsPublicSummary>(() =>
+  const [policyFactsPublicRaw, setPolicyFactsPublicRaw] = useState<PolicyFactsPublicSummary>(() =>
     buildPublicFactsSummary(createInitialPolicyFacts())
   );
-  const [cookieInventory, setCookieInventory] = useState<CookieInventoryItem[]>(() =>
+  const [cookieInventoryRaw, setCookieInventoryRaw] = useState<CookieInventoryItem[]>(() =>
     buildActiveCookieInventory()
   );
+  const [policyDataLang, setPolicyDataLang] = useState<LanguageCode>('en');
   const [enabledPaymentMethods, setEnabledPaymentMethods] = useState<PaymentMethodId[]>(['cod']);
 
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
@@ -551,6 +557,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     apiProductsRef.current = apiProducts;
   }, [apiProducts]);
+
+  const languageRef = React.useRef<LanguageCode>(language);
+  useEffect(() => {
+    languageRef.current = language;
+  }, [language]);
 
   const hydrateOrderImages = useCallback(
     (apiOrders: Order[], catalogList: Product[] = apiProductsRef.current): Order[] => {
@@ -572,7 +583,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 
   const applySyncPayload = useCallback(
-    (sync: Awaited<ReturnType<typeof fetchStorefrontSync>>) => {
+    (
+      sync: Awaited<ReturnType<typeof fetchStorefrontSync>>,
+      fetchedLang: LanguageCode = languageRef.current
+    ) => {
       if (!sync || typeof sync !== 'object') return;
       if (sync.productOverrides && typeof sync.productOverrides === 'object') {
         setProductOverrides(sync.productOverrides);
@@ -594,13 +608,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setPromotions(sync.promotions);
       }
       if (Array.isArray(sync.publishedPolicies) && sync.publishedPolicies.length > 0) {
-        setPublishedPolicies(sync.publishedPolicies);
+        setPublishedPoliciesRaw(sync.publishedPolicies);
+        setPolicyDataLang(fetchedLang);
       }
       if (sync.policyFactsPublic) {
-        setPolicyFactsPublic(sync.policyFactsPublic);
+        setPolicyFactsPublicRaw(sync.policyFactsPublic);
       }
       if (Array.isArray(sync.cookieInventory) && sync.cookieInventory.length > 0) {
-        setCookieInventory(sync.cookieInventory);
+        setCookieInventoryRaw(sync.cookieInventory);
       }
       if (Array.isArray(sync.enabledPaymentMethods)) {
         setEnabledPaymentMethods(sync.enabledPaymentMethods);
@@ -610,25 +625,28 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 
   const refreshStorefrontSync = useCallback(async () => {
+    const reqLang = languageRef.current;
     try {
-      const sync = await fetchStorefrontSync();
-      applySyncPayload(sync);
+      const sync = await fetchStorefrontSync(reqLang);
+      applySyncPayload(sync, reqLang);
     } catch {
       // Static deploy fallback uses base bundled catalog
     }
   }, [applySyncPayload]);
 
   const refreshPublishedPolicies = useCallback(async () => {
+    const reqLang = languageRef.current;
     try {
-      const res = await fetchPublicPoliciesApi();
+      const res = await fetchPublicPoliciesApi(reqLang);
       if (Array.isArray(res.policies) && res.policies.length > 0) {
-        setPublishedPolicies(res.policies);
+        setPublishedPoliciesRaw(res.policies);
+        setPolicyDataLang(reqLang);
       }
       if (res.policyFactsPublic) {
-        setPolicyFactsPublic(res.policyFactsPublic);
+        setPolicyFactsPublicRaw(res.policyFactsPublic);
       }
       if (Array.isArray(res.cookieInventory) && res.cookieInventory.length > 0) {
-        setCookieInventory(res.cookieInventory);
+        setCookieInventoryRaw(res.cookieInventory);
       }
     } catch {
       // Keep active fallback policies
@@ -744,9 +762,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       try {
         clearStoredToken();
+        const initialLang = languageRef.current;
         const [catalogRes, syncRes, sessionRes] = await Promise.allSettled([
           fetchCatalogProductsApi(),
-          fetchStorefrontSync(),
+          fetchStorefrontSync(initialLang),
           fetchAuthSession(),
         ]);
 
@@ -767,7 +786,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
 
         if (syncRes.status === 'fulfilled' && syncRes.value) {
-          applySyncPayload(syncRes.value);
+          applySyncPayload(syncRes.value, initialLang);
         }
 
         const activePolicy =
@@ -818,10 +837,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const retryCatalogLoad = useCallback(async () => {
     setStorefrontLoading(true);
     setCatalogError(null);
+    const reqLang = languageRef.current;
     try {
       const [catalogRes, syncRes] = await Promise.allSettled([
         fetchCatalogProductsApi(),
-        fetchStorefrontSync(),
+        fetchStorefrontSync(reqLang),
       ]);
       const loadedCatalog =
         catalogRes.status === 'fulfilled' && Array.isArray(catalogRes.value)
@@ -836,7 +856,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         );
       }
       if (syncRes.status === 'fulfilled' && syncRes.value) {
-        applySyncPayload(syncRes.value);
+        applySyncPayload(syncRes.value, reqLang);
       }
     } finally {
       setStorefrontLoading(false);
@@ -962,6 +982,102 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       document.documentElement.dir = opt.dir;
     }
   }, [language]);
+
+  // Refresh public policies from server whenever active storefront language changes
+  useEffect(() => {
+    if (policyDataLang !== language) {
+      void refreshPublishedPolicies();
+    }
+  }, [language, policyDataLang, refreshPublishedPolicies]);
+
+  const policyFactsPublic = useMemo<PolicyFactsPublicSummary>(() => {
+    if (policyDataLang === language) {
+      return policyFactsPublicRaw;
+    }
+    const baseFacts = {
+      ...createInitialPolicyFacts(),
+      tradingName: policyFactsPublicRaw.tradingName,
+      supportEmail: policyFactsPublicRaw.supportEmail,
+      legalEmail: policyFactsPublicRaw.legalEmail,
+      ...(policyFactsPublicRaw.supportPhone
+        ? { supportPhone: policyFactsPublicRaw.supportPhone }
+        : {}),
+      returnWindowDays: policyFactsPublicRaw.returnWindowDays,
+      defectReportHours: policyFactsPublicRaw.defectReportHours,
+    };
+    return localizePublicFactsSummary(baseFacts, language);
+  }, [language, policyDataLang, policyFactsPublicRaw]);
+
+  const cookieInventory = useMemo<CookieInventoryItem[]>(() => {
+    if (policyDataLang === language) {
+      return cookieInventoryRaw;
+    }
+    return buildActiveCookieInventory(language);
+  }, [cookieInventoryRaw, language, policyDataLang]);
+
+  const publishedPolicies = useMemo<PolicyDocumentRecord[]>(() => {
+    if (policyDataLang === language) {
+      return publishedPoliciesRaw;
+    }
+    const baseFacts = {
+      ...createInitialPolicyFacts(),
+      tradingName: policyFactsPublicRaw.tradingName,
+      supportEmail: policyFactsPublicRaw.supportEmail,
+      legalEmail: policyFactsPublicRaw.legalEmail,
+      ...(policyFactsPublicRaw.supportPhone
+        ? { supportPhone: policyFactsPublicRaw.supportPhone }
+        : {}),
+      returnWindowDays: policyFactsPublicRaw.returnWindowDays,
+      defectReportHours: policyFactsPublicRaw.defectReportHours,
+    };
+    if (language === 'en') {
+      const enDefaults = getPublicPublishedPolicies(
+        buildDefaultPolicyRecords({
+          facts: baseFacts,
+          shippingConfig,
+          currencyConfig,
+          promotions,
+        })
+      );
+      return publishedPoliciesRaw.map((rec) => {
+        const match = enDefaults.find((d) => d.id === rec.id);
+        return rec.currentVersion === '2026.11' && match ? match : rec;
+      });
+    }
+    const enabledSet = new Set(enabledPaymentMethods);
+    const dynamicVars = buildLocalizedDynamicVars({
+      lang: language,
+      version: '2026.11',
+      baseFactsConfig: baseFacts,
+      shippingConfig,
+      currencyConfig,
+      promotions,
+      cookieInventory,
+      gatewayStatuses: (
+        ['cod', 'bkash', 'nagad', 'rocket', 'sslcommerz', 'visa', 'bank-transfer'] as const
+      ).map((method) => ({
+        method,
+        enabled: enabledSet.has(method) || (method === 'visa' && enabledSet.has('mastercard')),
+      })),
+    });
+    return publishedPoliciesRaw.map((rec) =>
+      localizePolicyRecord(rec, {
+        lang: language,
+        baseVersion: '2026.11',
+        dynamicVars,
+      })
+    );
+  }, [
+    cookieInventory,
+    currencyConfig,
+    enabledPaymentMethods,
+    language,
+    policyDataLang,
+    policyFactsPublicRaw,
+    promotions,
+    publishedPoliciesRaw,
+    shippingConfig,
+  ]);
   useEffect(() => writeStorage('kinto-currency', currency), [currency]);
   useEffect(() => {
     writeStorage('kinto-cart', cart);

@@ -24,6 +24,7 @@ import {
   savePolicyDraft,
   transitionPolicyStatus,
 } from './server/services/policyService.ts';
+import { normalizePolicyLanguage } from './server/shared/policyTranslations/index.ts';
 import {
   buildAuthoritativeCheckoutQuote,
   buildVerifiedOrderFromSession,
@@ -677,7 +678,14 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
   });
 
   // Live Storefront Sync: Overrides, Seller Created Products, Dynamic Category Tree, Currency, Shipping & Published Policies
-  app.get('/api/storefront/state', (_req, res) => {
+  app.get('/api/storefront/state', (req, res) => {
+    const lang = normalizePolicyLanguage(req.query.lang);
+    const policyContext = {
+      facts: db.policyFacts,
+      shippingConfig: db.shippingConfig,
+      currencyConfig: db.currencyConfig,
+      promotions: db.promotions,
+    };
     const paymentCandidates: PaymentMethodId[] = [
       'cod',
       'bkash',
@@ -696,31 +704,45 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
       currencyConfig: db.currencyConfig,
       shippingConfig: db.shippingConfig,
       promotions: db.promotions,
-      publishedPolicies: getPublicPublishedPolicies(db.policies),
-      policyFactsPublic: buildPublicFactsSummary(db.policyFacts),
-      cookieInventory: buildActiveCookieInventory(),
+      publishedPolicies: getPublicPublishedPolicies(db.policies, lang, policyContext),
+      policyFactsPublic: buildPublicFactsSummary(db.policyFacts, lang),
+      cookieInventory: buildActiveCookieInventory(lang),
       enabledPaymentMethods: paymentCandidates.filter((id) => getCheckoutChannelStatus(id).enabled),
     });
   });
 
   // Public Policy Centre & Individual Policy APIs (serves only published/immutable snapshots)
-  app.get('/api/policies', (_req, res) => {
+  app.get('/api/policies', (req, res) => {
+    const lang = normalizePolicyLanguage(req.query.lang);
+    const policyContext = {
+      facts: db.policyFacts,
+      shippingConfig: db.shippingConfig,
+      currencyConfig: db.currencyConfig,
+      promotions: db.promotions,
+    };
     res.json({
-      policies: getPublicPublishedPolicies(db.policies),
-      policyFactsPublic: buildPublicFactsSummary(db.policyFacts),
-      cookieInventory: buildActiveCookieInventory(),
+      policies: getPublicPublishedPolicies(db.policies, lang, policyContext),
+      policyFactsPublic: buildPublicFactsSummary(db.policyFacts, lang),
+      cookieInventory: buildActiveCookieInventory(lang),
     });
   });
 
   app.get('/api/policies/:slug', (req, res) => {
     const slug = String(req.params.slug || '').trim().toLowerCase();
     const version = typeof req.query.version === 'string' ? req.query.version.trim() : undefined;
+    const lang = normalizePolicyLanguage(req.query.lang);
+    const policyContext = {
+      facts: db.policyFacts,
+      shippingConfig: db.shippingConfig,
+      currencyConfig: db.currencyConfig,
+      promotions: db.promotions,
+    };
     const found = db.policies.find((p) => p.slug.toLowerCase() === slug || p.id === slug);
     if (!found) {
       res.status(404).json({ error: 'Policy document not found.' });
       return;
     }
-    const projected = projectPublicPolicyDocument(found, version);
+    const projected = projectPublicPolicyDocument(found, version, lang, policyContext);
     if (!projected) {
       res.status(404).json({ error: 'This policy is not published for public viewing.' });
       return;
@@ -729,7 +751,7 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
       policy: projected,
       historicalVersionRequested: version || null,
       isHistoricalSnapshot: Boolean(version && version !== found.currentVersion),
-      policyFactsPublic: buildPublicFactsSummary(db.policyFacts),
+      policyFactsPublic: buildPublicFactsSummary(db.policyFacts, lang),
     });
   });
 

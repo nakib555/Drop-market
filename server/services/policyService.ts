@@ -1,6 +1,7 @@
 import type {
   CookieInventoryItem,
   CurrencyRateState,
+  LanguageCode,
   LegalAcceptanceRecord,
   LegalDocumentId,
   LegalReviewChecklistItem,
@@ -25,6 +26,13 @@ import {
   stripInternalCounselNotes,
 } from '../../src/utils/policySanitizer.ts';
 import { getGatewayConfigStatus } from './paymentService.ts';
+import {
+  buildLocalizedDynamicVars,
+  localizePolicyRecord,
+  localizePublicFactsSummary,
+  normalizePolicyLanguage,
+  translateCookieInventoryItems,
+} from '../shared/policyTranslations/index.ts';
 
 export const POLICY_BASE_VERSION = '2026.11';
 export const POLICY_EFFECTIVE_DATE = 'November 14, 2026';
@@ -59,13 +67,16 @@ export function createInitialPolicyFacts(): PolicyFactsConfig {
   };
 }
 
-export function buildPublicFactsSummary(facts: PolicyFactsConfig): PolicyFactsPublicSummary {
+export function buildPublicFactsSummary(
+  facts: PolicyFactsConfig,
+  lang: LanguageCode = 'en'
+): PolicyFactsPublicSummary {
   const hasConfirmedEntityDetails =
     !isPlaceholderValue(facts.legalEntityName) &&
     !isPlaceholderValue(facts.registrationTradeLicense) &&
     !isPlaceholderValue(facts.registeredAddress);
 
-  return {
+  const enSummary: PolicyFactsPublicSummary = {
     tradingName: sanitizePlainText(facts.tradingName || 'Kinto Studio'),
     operatingCountry: sanitizePlainText(facts.operatingCountry || 'Bangladesh'),
     supportEmail: sanitizePlainText(facts.supportEmail || 'support@kintostudio.bd'),
@@ -86,10 +97,14 @@ export function buildPublicFactsSummary(facts: PolicyFactsConfig): PolicyFactsPu
     effectiveDate: sanitizePlainText(facts.effectiveDate),
     hasConfirmedEntityDetails,
   };
+
+  const safeLang = normalizePolicyLanguage(lang);
+  if (safeLang === 'en') return enSummary;
+  return localizePublicFactsSummary(facts, safeLang);
 }
 
-export function buildActiveCookieInventory(): CookieInventoryItem[] {
-  return [
+export function buildActiveCookieInventory(lang: LanguageCode = 'en'): CookieInventoryItem[] {
+  const baseItems: CookieInventoryItem[] = [
     {
       key: 'HttpOnly Session Token Cookie',
       storageType: 'httpOnlyCookie',
@@ -158,6 +173,9 @@ export function buildActiveCookieInventory(): CookieInventoryItem[] {
       consentKey: 'analyticsOptIn',
     },
   ];
+
+  const safeLang = normalizePolicyLanguage(lang);
+  return safeLang === 'en' ? baseItems : translateCookieInventoryItems(baseItems, safeLang);
 }
 
 export function createInitialLegalReviewChecklist(): LegalReviewChecklistItem[] {
@@ -1323,19 +1341,49 @@ export function buildDefaultPolicyRecords(params: {
   return [...activeRecords, ...notApplicableRecords];
 }
 
+export interface PolicyTranslationContext {
+  facts?: PolicyFactsConfig | PolicyFactsPublicSummary;
+  shippingConfig?: ShippingRuleConfig;
+  currencyConfig?: CurrencyRateState;
+  promotions?: ManagedPromoRecord[];
+}
+
+function getGatewayStatusesList(): Array<{
+  method: Exclude<PaymentMethodId, 'mastercard' | 'card' | 'wallet'>;
+  enabled: boolean;
+}> {
+  const methods: Array<Exclude<PaymentMethodId, 'mastercard' | 'card' | 'wallet'>> = [
+    'cod',
+    'bkash',
+    'nagad',
+    'rocket',
+    'sslcommerz',
+    'visa',
+    'bank-transfer',
+  ];
+  return methods.map((method) => ({
+    method,
+    enabled: getGatewayConfigStatus(method).enabled,
+  }));
+}
+
 export function projectPublicPolicyDocument(
   record: PolicyDocumentRecord,
-  requestedVersion?: string
+  requestedVersion?: string,
+  lang: LanguageCode = 'en',
+  context?: PolicyTranslationContext
 ): PolicyDocumentRecord | null {
   if (record.applicability === 'not_applicable') return null;
   if (record.status !== 'published' && record.versionHistory.length === 0) return null;
+
+  let projected: PolicyDocumentRecord | null = null;
 
   // Serve immutable requested historical version when specified (e.g. from order receipt ?version=2026.11)
   if (requestedVersion && requestedVersion.trim()) {
     const cleanVer = requestedVersion.trim();
     const matched = record.versionHistory.find((v) => v.version === cleanVer);
     if (matched) {
-      return {
+      projected = {
         ...record,
         currentVersion: matched.version,
         title: sanitizePlainText(matched.title),
@@ -1349,39 +1397,94 @@ export function projectPublicPolicyDocument(
     }
   }
 
-  // Always prefer last published immutable snapshot for public viewing so unapproved edits never leak
-  const latestPublished = record.versionHistory[0];
-  const baseTitle = latestPublished ? latestPublished.title : record.title;
-  const baseSubtitle = latestPublished ? latestPublished.subtitle : record.subtitle;
-  const baseSummary = latestPublished ? latestPublished.summary : record.summary;
-  const baseSections = latestPublished ? latestPublished.sections : record.sections;
-  const baseEffective = latestPublished ? latestPublished.effectiveDate : record.effectiveDate;
-  const baseLastUpdated = latestPublished ? latestPublished.lastUpdated : record.lastUpdated;
-  const baseVersion = latestPublished ? latestPublished.version : record.currentVersion;
+  if (!projected) {
+    // Always prefer last published immutable snapshot for public viewing so unapproved edits never leak
+    const latestPublished = record.versionHistory[0];
+    const baseTitle = latestPublished ? latestPublished.title : record.title;
+    const baseSubtitle = latestPublished ? latestPublished.subtitle : record.subtitle;
+    const baseSummary = latestPublished ? latestPublished.summary : record.summary;
+    const baseSections = latestPublished ? latestPublished.sections : record.sections;
+    const baseEffective = latestPublished ? latestPublished.effectiveDate : record.effectiveDate;
+    const baseLastUpdated = latestPublished ? latestPublished.lastUpdated : record.lastUpdated;
+    const baseVersion = latestPublished ? latestPublished.version : record.currentVersion;
 
-  return {
-    ...record,
-    currentVersion: baseVersion,
-    title: sanitizePlainText(baseTitle),
-    subtitle: stripInternalCounselNotes(sanitizePlainText(baseSubtitle)),
-    summary: stripInternalCounselNotes(sanitizePlainText(baseSummary)),
-    sections: sanitizePolicySections(baseSections).map((sec) => ({
-      ...sec,
-      paragraphs: sec.paragraphs.map((p) => stripInternalCounselNotes(p)),
-      bullets: sec.bullets?.map((b) => stripInternalCounselNotes(b)),
-    })),
-    effectiveDate: sanitizePlainText(baseEffective),
-    lastUpdated: sanitizePlainText(baseLastUpdated),
-    unresolvedPlaceholders: [],
-    draftContent: undefined,
-  };
+    projected = {
+      ...record,
+      currentVersion: baseVersion,
+      title: sanitizePlainText(baseTitle),
+      subtitle: stripInternalCounselNotes(sanitizePlainText(baseSubtitle)),
+      summary: stripInternalCounselNotes(sanitizePlainText(baseSummary)),
+      sections: sanitizePolicySections(baseSections).map((sec) => ({
+        ...sec,
+        paragraphs: sec.paragraphs.map((p) => stripInternalCounselNotes(p)),
+        bullets: sec.bullets?.map((b) => stripInternalCounselNotes(b)),
+      })),
+      effectiveDate: sanitizePlainText(baseEffective),
+      lastUpdated: sanitizePlainText(baseLastUpdated),
+      unresolvedPlaceholders: [],
+      draftContent: undefined,
+    };
+  }
+
+  const safeLang = normalizePolicyLanguage(lang);
+  if (safeLang === 'en') {
+    return projected;
+  }
+
+  const baseFactsConfig =
+    context?.facts && 'legalEntityName' in context.facts ? context.facts : undefined;
+  const dynamicVars = buildLocalizedDynamicVars({
+    lang: safeLang,
+    version: projected.currentVersion,
+    facts: context?.facts,
+    baseFactsConfig,
+    shippingConfig: context?.shippingConfig,
+    currencyConfig: context?.currencyConfig,
+    promotions: context?.promotions,
+    cookieInventory: buildActiveCookieInventory(safeLang),
+    gatewayStatuses: getGatewayStatusesList(),
+  });
+
+  return localizePolicyRecord(projected, {
+    lang: safeLang,
+    baseVersion: POLICY_BASE_VERSION,
+    dynamicVars,
+  });
 }
 
 export function getPublicPublishedPolicies(
-  policies: PolicyDocumentRecord[]
+  policies: PolicyDocumentRecord[],
+  lang: LanguageCode = 'en',
+  context?: PolicyTranslationContext
 ): PolicyDocumentRecord[] {
+  const safeLang = normalizePolicyLanguage(lang);
+  const dynamicVars =
+    safeLang === 'en'
+      ? undefined
+      : buildLocalizedDynamicVars({
+          lang: safeLang,
+          version: POLICY_BASE_VERSION,
+          facts: context?.facts,
+          baseFactsConfig:
+            context?.facts && 'legalEntityName' in context.facts ? context.facts : undefined,
+          shippingConfig: context?.shippingConfig,
+          currencyConfig: context?.currencyConfig,
+          promotions: context?.promotions,
+          cookieInventory: buildActiveCookieInventory(safeLang),
+          gatewayStatuses: getGatewayStatusesList(),
+        });
+
   return policies
-    .map((doc) => projectPublicPolicyDocument(doc))
+    .map((doc) => {
+      const projected = projectPublicPolicyDocument(doc, undefined, 'en');
+      if (!projected) return null;
+      if (safeLang === 'en') return projected;
+      return localizePolicyRecord(projected, {
+        lang: safeLang,
+        baseVersion: POLICY_BASE_VERSION,
+        dynamicVars,
+      });
+    })
     .filter((doc): doc is PolicyDocumentRecord => doc !== null);
 }
 

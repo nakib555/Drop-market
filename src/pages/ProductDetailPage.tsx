@@ -634,7 +634,7 @@ export const ProductDetailPage: React.FC = () => {
             </div>
 
             {(() => {
-              const safetyNotice = getDepartmentSafetyNotice(product.category);
+              const safetyNotice = getDepartmentSafetyNotice(product.category, language);
               return (
                 <div className="mt-3 p-3.5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-1.5">
                   <p className="text-xs font-semibold text-[var(--ks-text-primary)]">
@@ -866,13 +866,13 @@ export const ProductDetailPage: React.FC = () => {
                     {t(language, 'reviewsAuthOnlyDesc')}
                   </p>
                   <p className="text-xs text-[var(--ks-text-muted)] leading-relaxed">
-                    Only signed-in members can post verified feedback. Moderation rules are published in our{' '}
+                    {t(language, 'signedInReviewsNoticePrefix')}{' '}
                     <button
                       type="button"
                       onClick={() => navigate({ name: 'reviews-policy' })}
                       className="underline text-[var(--ks-accent)] hover:text-[var(--ks-text-primary)] cursor-pointer"
                     >
-                      Product Reviews &amp; UGC Policy
+                      {t(language, 'productReviewsUgcPolicy')}
                     </button>
                     .
                   </p>
@@ -903,13 +903,13 @@ export const ProductDetailPage: React.FC = () => {
                       {t(language, 'writeReviewHeading')}
                     </h3>
                     <p className="text-xs text-[var(--ks-text-muted)]">
-                      Published reviews must follow our{' '}
+                      {t(language, 'publishedReviewsNoticePrefix')}{' '}
                       <button
                         type="button"
                         onClick={() => openPolicyPreview('reviews-policy')}
                         className="underline text-[var(--ks-accent)] hover:text-[var(--ks-text-primary)] cursor-pointer"
                       >
-                        Product Reviews &amp; UGC Policy
+                        {t(language, 'productReviewsUgcPolicy')}
                       </button>
                       .
                     </p>
