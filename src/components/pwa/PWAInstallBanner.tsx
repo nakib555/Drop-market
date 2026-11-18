@@ -14,11 +14,11 @@ export const PWAInstallBanner: React.FC = () => {
     usePWAInstall();
   const [guideOpen, setGuideOpen] = useState(false);
 
-  // On mobile and tablet viewports (< lg), defer while CookieConsentBanner is unset so banners never overlap
+  // Defer while CookieConsentBanner is unset so floating bottom banners never stack simultaneously
   const deferToCookie = cookieConsent.status === 'unset' && !cookieModalOpen;
   // On Product Detail mobile, avoid stacking above the fixed sticky purchase bar
   const hideOnMobilePdp = route.name === 'product';
-  const showBanner = !isInstalled && !bannerDismissed;
+  const showBanner = !isInstalled && !bannerDismissed && !deferToCookie;
 
   const handleInstallClick = async () => {
     if (isInstallable) {

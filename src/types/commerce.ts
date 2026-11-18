@@ -447,6 +447,8 @@ export interface LegalAcceptanceRecord {
   acceptedAt: string;
   scope: string[];
   jurisdiction: string;
+  acceptedPolicyVersions?: Record<string, string>;
+  marketingOptIn?: boolean;
 }
 
 export type CookieConsentStatus = 'unset' | 'essential-only' | 'custom' | 'all';
@@ -478,7 +480,188 @@ export type LegalDocumentId =
   | 'intellectual-property'
   | 'customer-support-policy'
   | 'data-retention-policy'
-  | 'accessibility';
+  | 'accessibility'
+  | 'reviews-policy'
+  | 'promo-terms'
+  | 'international-orders-policy';
+
+export type PolicyStatus =
+  | 'draft'
+  | 'review'
+  | 'scheduled'
+  | 'published'
+  | 'archived'
+  | 'not_applicable';
+
+export type PolicyCategory =
+  | 'Shopping'
+  | 'Payments'
+  | 'Orders & Delivery'
+  | 'Returns & Warranty'
+  | 'Privacy & Legal'
+  | 'Seller Information';
+
+export type PolicyApplicability = 'required' | 'applicable' | 'not_applicable';
+
+export interface PolicyTableData {
+  headers: string[];
+  rows: string[][];
+}
+
+export interface PolicySection {
+  id: string;
+  heading: string;
+  paragraphs: string[];
+  bullets?: string[];
+  table?: PolicyTableData;
+  notice?: {
+    tone: 'info' | 'warning' | 'statutory';
+    label: string;
+    body: string;
+  };
+}
+
+export interface PolicyVersionRecord {
+  version: string;
+  title: string;
+  subtitle: string;
+  summary: string;
+  sections: PolicySection[];
+  effectiveDate: string;
+  lastUpdated: string;
+  publishedAt: string;
+  publishedBy: string;
+  changeNote?: string;
+  materialChange?: boolean;
+}
+
+export interface PolicyDocumentRecord {
+  id: LegalDocumentId | string;
+  slug: string;
+  category: PolicyCategory;
+  legacyCategory: 'Core Agreements' | 'Commerce & Logistics' | 'Marketplace Governance' | 'Safety & Rights';
+  applicability: PolicyApplicability;
+  notApplicableReason?: string;
+  status: PolicyStatus;
+  jurisdiction: string;
+  scope: string;
+  ownerRole: string;
+  requiresLegalReview: boolean;
+  requiresOwnerConfirmation: boolean;
+  unresolvedPlaceholders: string[];
+  scheduledFor?: string;
+  currentVersion: string;
+  effectiveDate: string;
+  lastUpdated: string;
+  title: string;
+  shortTitle: string;
+  subtitle: string;
+  summary: string;
+  relatedIds: LegalDocumentId[];
+  sections: PolicySection[];
+  draftContent?: {
+    title: string;
+    shortTitle: string;
+    subtitle: string;
+    summary: string;
+    effectiveDate: string;
+    sections: PolicySection[];
+    changeNote?: string;
+    materialChange?: boolean;
+    updatedAt: string;
+    updatedBy: string;
+  };
+  versionHistory: PolicyVersionRecord[];
+}
+
+export interface PolicyFactsConfig {
+  legalEntityName: string;
+  tradingName: string;
+  registrationTradeLicense: string;
+  registrationDbid: string;
+  registrationBinVat: string;
+  registrationTin: string;
+  registeredAddress: string;
+  operatingCountry: string;
+  supportEmail: string;
+  legalEmail: string;
+  supportPhone: string;
+  supportHours: string;
+  returnWindowDays: number;
+  defectReportHours: number;
+  refundSlaBusinessDays: string;
+  cancelPreDispatchCutoff: string;
+  marketplaceModel: 'hybrid_1p_3p';
+  sellerCommissionSummary: string;
+  sellerPayoutCycle: string;
+  governingLaw: string;
+  competentCourts: string;
+  policyOwner: string;
+  effectiveDate: string;
+  materialChangeNoticeDays: number;
+  updatedAt: string;
+}
+
+export interface PolicyFactsPublicSummary {
+  tradingName: string;
+  operatingCountry: string;
+  supportEmail: string;
+  legalEmail: string;
+  supportPhone?: string;
+  supportHours: string;
+  returnWindowDays: number;
+  defectReportHours: number;
+  refundSlaBusinessDays: string;
+  cancelPreDispatchCutoff: string;
+  marketplaceModelLabel: string;
+  governingLaw: string;
+  competentCourts: string;
+  effectiveDate: string;
+  hasConfirmedEntityDetails: boolean;
+}
+
+export interface PolicyAcceptanceLedgerEntry {
+  id: string;
+  context: 'registration' | 'checkout' | 'seller_listing' | 'material_notice';
+  subjectRef: string;
+  policyIds: string[];
+  policyVersions: Record<string, string>;
+  versionTag: string;
+  acceptedAt: string;
+  jurisdiction: string;
+  marketingOptIn?: boolean;
+}
+
+export interface LegalReviewChecklistItem {
+  id: string;
+  topic: string;
+  jurisdiction: string;
+  statutoryReference: string;
+  status: 'needs_legal_review' | 'needs_business_confirmation' | 'verified';
+  reviewer: string;
+  reviewDate: string;
+  notes: string;
+}
+
+export interface CookieInventoryItem {
+  key: string;
+  storageType: 'localStorage' | 'sessionStorage' | 'httpOnlyCookie';
+  classification: 'Strictly Necessary' | 'Optional Preference' | 'Optional Analytics';
+  provider: string;
+  duration: string;
+  purpose: string;
+  consentKey?: 'saveSearchHistory' | 'personalizedCatalog' | 'analyticsOptIn';
+}
+
+export interface PolicyChecklistSummary {
+  totalActivePolicies: number;
+  totalNotApplicable: number;
+  publishedCount: number;
+  draftOrReviewCount: number;
+  unresolvedPlaceholdersCount: number;
+  pendingLegalReviewCount: number;
+  pendingOwnerFactsCount: number;
+}
 
 export interface AccountDirectoryEntry {
   id: string;
@@ -686,6 +869,11 @@ export interface AdminDashboardData {
   platformSettings: PlatformSettingsState;
   supportInquiries?: SupportInquiryRecord[];
   newsletterSubscribersCount?: number;
+  policies?: PolicyDocumentRecord[];
+  policyFacts?: PolicyFactsConfig;
+  policyAcceptanceLedger?: PolicyAcceptanceLedgerEntry[];
+  legalReviewChecklist?: LegalReviewChecklistItem[];
+  policyChecklistSummary?: PolicyChecklistSummary;
 }
 
 export interface PaymentMethodRecord {
@@ -795,6 +983,9 @@ export type RouteName =
   | 'customer-support-policy'
   | 'data-retention-policy'
   | 'accessibility'
+  | 'reviews-policy'
+  | 'promo-terms'
+  | 'international-orders-policy'
   | 'maintenance'
   | 'not-found';
 
@@ -915,6 +1106,7 @@ export interface PendingAction {
     category?: CategorySlug | 'all';
     accountTab?: string;
     orderId?: string;
+    policyVersion?: string;
   };
 }
 

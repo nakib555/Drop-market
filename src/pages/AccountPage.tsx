@@ -1308,6 +1308,35 @@ export const AccountPage: React.FC = () => {
                               {t(language, 'trackShort')}
                             </Button>
                           </div>
+                          {!canCancel && !canReturn && (
+                            <p className="w-full text-[11px] text-[var(--ks-text-secondary)] sm:basis-full pt-1">
+                              Self-service cancel/return unavailable at stage &ldquo;{ord.currentStage}&rdquo;. Review our{' '}
+                              <button
+                                type="button"
+                                onClick={() => navigate({ name: 'cancellation-policy' })}
+                                className="underline text-[var(--ks-accent)] cursor-pointer"
+                              >
+                                Cancellation
+                              </button>
+                              {' / '}
+                              <button
+                                type="button"
+                                onClick={() => navigate({ name: 'return-policy' })}
+                                className="underline text-[var(--ks-accent)] cursor-pointer"
+                              >
+                                Return Policy
+                              </button>
+                              {' or contact '}
+                              <button
+                                type="button"
+                                onClick={() => switchSection('support')}
+                                className="underline text-[var(--ks-accent)] cursor-pointer"
+                              >
+                                Support
+                              </button>
+                              .
+                            </p>
+                          )}
                         </div>
                       );
                     })}
@@ -1841,6 +1870,20 @@ export const AccountPage: React.FC = () => {
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() => navigate({ name: 'data-retention-policy' })}
+                      >
+                        Data Retention &amp; Deletion
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => switchSection('support')}
+                      >
+                        Request Data Access / Export
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => navigate({ name: 'legal' })}
                       >
                         {t(language, 'openLegalCenter')}
@@ -1927,6 +1970,40 @@ export const AccountPage: React.FC = () => {
                   {selectedOrder.currencySnapshot.rateSource}
                 </p>
               )}
+            </div>
+
+            <div className="p-3.5 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold text-[var(--ks-text-primary)]">
+                  Order-Time Policy Snapshot &amp; Invoice Reference
+                </span>
+                <span className="font-mono-num text-[11px] text-[var(--ks-accent)]">
+                  v{selectedOrder.policyAcceptance?.version || '2026-11.1'}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-x-3 gap-y-1">
+                {(['terms', 'return-policy', 'shipping-policy', 'privacy-policy'] as const).map(
+                  (pid) => {
+                    const ver =
+                      selectedOrder.policyAcceptance?.acceptedPolicyVersions?.[pid] ||
+                      selectedOrder.policyAcceptance?.version;
+                    return (
+                      <button
+                        key={pid}
+                        type="button"
+                        onClick={() => {
+                          setSelectedOrder(null);
+                          navigate({ name: pid, policyVersion: ver });
+                        }}
+                        className="underline text-[var(--ks-accent)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                      >
+                        {pid.replace('-policy', '').replace('-', ' ')}
+                        {ver ? ` (v${ver})` : ''}
+                      </button>
+                    );
+                  }
+                )}
+              </div>
             </div>
           </div>
         )}

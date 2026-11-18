@@ -53,6 +53,7 @@ import { STUDIO_TRANSITION } from '../../utils/motion';
 import { Button } from '../ui/Button';
 import { Input, Select } from '../ui/FormFields';
 import { ResilientImage, SkeletonLoader } from '../ui/Primitives';
+import { AdminPolicyCmsConsole } from './AdminPolicyCmsConsole';
 
 const ORDER_STAGES: OrderStage[] = [
   'Confirmed',
@@ -1575,41 +1576,45 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* 12. Content Governance */}
+      {/* 12. Content & Policy CMS Governance */}
       {activeTab === 'content' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
-          {[
-            {
-              title: 'Legal & Governance Hub (17 Policies)',
-              desc: 'Bangladesh statutory policies, consumer protection, seller agreement, and privacy standards.',
-              action: () => navigate({ name: 'legal' }),
-            },
-            {
-              title: 'Studio Journal & Editorial',
-              desc: 'Manage department monographs, product research essays, and material stories.',
-              action: () => navigate({ name: 'journal' }),
-            },
-            {
-              title: 'Help & Frequently Asked Questions',
-              desc: 'Public guidance on Dhaka delivery zones, COD caps, returns, and warranties.',
-              action: () => navigate({ name: 'faq' }),
-            },
-          ].map((card) => (
-            <div
-              key={card.title}
-              className="p-5 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)] flex flex-col justify-between gap-4"
-            >
-              <div className="space-y-1.5">
-                <FileText className="w-4 h-4 text-[var(--ks-accent)]" />
-                <p className="text-sm font-semibold">{card.title}</p>
-                <p className="text-[var(--ks-text-secondary)] leading-relaxed">{card.desc}</p>
+        <div className="space-y-8">
+          <AdminPolicyCmsConsole />
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs pt-4 border-t border-[var(--ks-border)]">
+            {[
+              {
+                title: 'Public Policies & Help Center (20)',
+                desc: 'Customer-facing policies index across Shopping, Payments, Delivery, Returns, Privacy, and Sellers.',
+                action: () => navigate({ name: 'legal' }),
+              },
+              {
+                title: 'Studio Journal & Editorial',
+                desc: 'Manage department monographs, product research essays, and material stories.',
+                action: () => navigate({ name: 'journal' }),
+              },
+              {
+                title: 'Help & Frequently Asked Questions',
+                desc: 'Public guidance on Dhaka delivery zones, COD caps, returns, and warranties.',
+                action: () => navigate({ name: 'faq' }),
+              },
+            ].map((card) => (
+              <div
+                key={card.title}
+                className="p-5 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)] flex flex-col justify-between gap-4"
+              >
+                <div className="space-y-1.5">
+                  <FileText className="w-4 h-4 text-[var(--ks-accent)]" />
+                  <p className="text-sm font-semibold">{card.title}</p>
+                  <p className="text-[var(--ks-text-secondary)] leading-relaxed">{card.desc}</p>
+                </div>
+                <Button variant="outline" size="xs" onClick={card.action}>
+                  <span>Open Section</span>
+                  <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
+                </Button>
               </div>
-              <Button variant="outline" size="xs" onClick={card.action}>
-                <span>Open Section</span>
-                <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
-              </Button>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 
@@ -1711,7 +1716,16 @@ export const AdminDashboard: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <p className="ks-eyebrow">Bangladesh Legal &amp; Regulatory Checklist</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="ks-eyebrow">Bangladesh Legal &amp; Regulatory Checklist</p>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('content')}
+                      className="text-xs underline text-[var(--ks-accent)] cursor-pointer"
+                    >
+                      Open Policy CMS
+                    </button>
+                  </div>
                   <div className="divide-y divide-[var(--ks-divider)] border border-[var(--ks-border)] rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)]">
                     {readiness.businessCompliance.map((reg) => (
                       <div key={reg.id} className="p-3 flex items-start justify-between gap-3">

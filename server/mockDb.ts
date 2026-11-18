@@ -8,6 +8,8 @@ import type {
   CategoryNode,
   CurrencyRateState,
   DynamicCategoryRecord,
+  LegalAcceptanceRecord,
+  LegalReviewChecklistItem,
   ManagedPromoRecord,
   NewsletterSubscriptionRecord,
   Order,
@@ -15,6 +17,9 @@ import type {
   PaymentMethodId,
   PaymentMethodRecord,
   PlatformSettingsState,
+  PolicyAcceptanceLedgerEntry,
+  PolicyDocumentRecord,
+  PolicyFactsConfig,
   ProductOverride,
   ProductReview,
   SellerApplicationRecord,
@@ -30,6 +35,12 @@ import type {
 import { INITIAL_CATEGORY_TREE, PROMO_CODES } from './shared/marketplaceSchema.ts';
 import { createInitialCurrencyState } from './services/currencyService.ts';
 import { createInitialShippingConfig } from './services/shippingService.ts';
+import {
+  buildDefaultPolicyRecords,
+  createAcceptanceLedgerEntry,
+  createInitialLegalReviewChecklist,
+  createInitialPolicyFacts,
+} from './services/policyService.ts';
 import { DEFAULT_STORE_POLICY } from '../src/policy/authPolicy.ts';
 import type { PendingSessionContext } from './services/paymentService.ts';
 
@@ -716,6 +727,28 @@ export class MockMarketplaceDb {
     string,
     { email: string; userId: string; code: string; expiresAt: number; used: boolean }
   > = new Map();
+  policyFacts: PolicyFactsConfig = createInitialPolicyFacts();
+  policies: PolicyDocumentRecord[] = buildDefaultPolicyRecords({
+    facts: this.policyFacts,
+    shippingConfig: this.shippingConfig,
+    currencyConfig: this.currencyConfig,
+    promotions: this.promotions,
+  });
+  policyAcceptanceLedger: PolicyAcceptanceLedgerEntry[] = [];
+  legalReviewChecklist: LegalReviewChecklistItem[] = createInitialLegalReviewChecklist();
+
+  recordPolicyAcceptance(
+    context: PolicyAcceptanceLedgerEntry['context'],
+    subjectRef: string,
+    acceptance: LegalAcceptanceRecord
+  ): PolicyAcceptanceLedgerEntry {
+    const entry = createAcceptanceLedgerEntry({ context, subjectRef, acceptance });
+    this.policyAcceptanceLedger.unshift(entry);
+    if (this.policyAcceptanceLedger.length > 500) {
+      this.policyAcceptanceLedger.length = 500;
+    }
+    return entry;
+  }
 
   toPublicAccount(u: ServerUserRecord): AccountDirectoryEntry {
     return {
@@ -1138,7 +1171,7 @@ export class MockMarketplaceDb {
             note ||
             (nextStage === 'Cancelled'
               ? 'Order cancelled before dispatch via marketplace portal'
-              : '30-day studio return initiated by customer'),
+              : `Return requested within ${this.policyFacts.returnWindowDays}-day return policy window`),
           completed: true,
         },
       ];

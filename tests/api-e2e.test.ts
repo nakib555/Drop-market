@@ -75,6 +75,11 @@ test('health, robots.txt, and sitemap.xml endpoints serve expected SEO & health 
   assert.equal(sitemap.status, 200);
   assert.match(sitemap.text, /<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9">/);
   assert.match(sitemap.text, /\/category\/electronics-tech<\/loc>/);
+  assert.match(sitemap.text, /\/legal<\/loc>/);
+  assert.match(sitemap.text, /\/return-policy<\/loc>/);
+  assert.match(sitemap.text, /\/reviews-policy<\/loc>/);
+  assert.match(sitemap.text, /\/international-orders-policy<\/loc>/);
+  assert.match(sitemap.text, /\/customer-support-policy<\/loc>/);
 });
 
 test('auth endpoints enforce password rules, return tokens, and validate /api/auth/me', async () => {
@@ -629,5 +634,112 @@ test('HttpOnly cookie sessions, CSRF guard, logout revocation, and protected acc
   assert.equal(postLogoutSession.status, 200);
   assert.equal(postLogoutSession.data.authenticated, false);
 });
+
+test('Public policy endpoints, historical snapshot projection, and Admin Policy CMS RBAC workflow succeed end-to-end', async () => {
+  const pubRes = await apiJson<{
+    policies: Array<{ id: string; slug: string; currentVersion: string }>;
+    policyFactsPublic: { returnWindowDays: number; defectReportHours: number };
+    cookieInventory: Array<{ key: string }>;
+  }>('/api/policies');
+  assert.equal(pubRes.status, 200);
+  assert.equal(pubRes.data.policies.length, 20);
+  assert.equal(pubRes.data.policyFactsPublic.returnWindowDays, 14);
+  assert.equal(pubRes.data.policyFactsPublic.defectReportHours, 48);
+  assert.ok(pubRes.data.cookieInventory.length >= 6);
+  assert.equal(/\[CONFIRM\s+/i.test(pubRes.text), false);
+
+  // Unauthenticated and customer access to /api/admin/policies blocked
+  assert.equal((await apiJson('/api/admin/policies')).status, 401);
+  const custLogin = await apiJson<{ token: string }>('/api/auth/login', {
+    method: 'POST',
+    body: { email: 'rafiq.islam@kintostudio.bd', password: 'studio2026' },
+  });
+  assert.equal(
+    (await apiJson('/api/admin/policies', { token: custLogin.data.token })).status,
+    403
+  );
+
+  // Admin logs in and exercises Draft (with XSS payload) -> Review -> Publish
+  const adminLogin = await apiJson<{ token: string }>('/api/auth/login', {
+    method: 'POST',
+    body: { email: 'admin@kintostudio.bd', password: 'admin2026' },
+  });
+  assert.equal(adminLogin.status, 200);
+
+  const adminPolicies = await apiJson<{
+    policies: Array<{ slug: string; applicability: string; currentVersion: string }>;
+  }>('/api/admin/policies', { token: adminLogin.data.token });
+  assert.equal(adminPolicies.status, 200);
+  assert.equal(adminPolicies.data.policies.length, 30);
+
+  const originalPromoVer =
+    adminPolicies.data.policies.find((p) => p.slug === 'promo-terms')?.currentVersion || '2026.11';
+
+  const saveDraft = await apiJson<{ policy: { status: string; draftContent?: { summary: string } } }>(
+    '/api/admin/policies/promo-terms/draft',
+    {
+      method: 'POST',
+      token: adminLogin.data.token,
+      body: {
+        title: 'Promotions, Coupon Codes & Offer Terms',
+        summary: 'Updated promotional transparency.<script>evil()</script>',
+        sections: [
+          {
+            id: 'promo-e2e',
+            heading: 'Single Promo Stack Rule',
+            paragraphs: ['Only one coupon applies per order quote.'],
+          },
+        ],
+        changeNote: 'E2E compliance revision',
+      },
+    }
+  );
+  assert.equal(saveDraft.status, 200);
+  assert.equal(saveDraft.data.policy.status, 'draft');
+  assert.equal(saveDraft.data.policy.draftContent?.summary.includes('<script>'), false);
+
+  const reviewRes = await apiJson<{ policy: { status: string } }>(
+    '/api/admin/policies/promo-terms/transition',
+    {
+      method: 'POST',
+      token: adminLogin.data.token,
+      body: { action: 'submit_review' },
+    }
+  );
+  assert.equal(reviewRes.status, 200);
+  assert.equal(reviewRes.data.policy.status, 'review');
+
+  const publishRes = await apiJson<{
+    policy: { status: string; currentVersion: string };
+    newVersionPublished?: { version: string };
+  }>('/api/admin/policies/promo-terms/transition', {
+    method: 'POST',
+    token: adminLogin.data.token,
+    body: { action: 'publish' },
+  });
+  assert.equal(publishRes.status, 200);
+  assert.equal(publishRes.data.policy.status, 'published');
+  assert.notEqual(publishRes.data.policy.currentVersion, originalPromoVer);
+
+  // Verify historical snapshot query returns previous immutable version
+  const oldSnapshot = await apiJson<{
+    policy: { currentVersion: string };
+    requestedVersion: string;
+  }>(`/api/policies/promo-terms?version=${encodeURIComponent(originalPromoVer)}`);
+  assert.equal(oldSnapshot.status, 200);
+  assert.equal(oldSnapshot.data.policy.currentVersion, originalPromoVer);
+
+  // Owner facts update syncs public returnWindowDays
+  const factsPatch = await apiJson<{
+    policyFacts: { returnWindowDays: number };
+  }>('/api/admin/policies/facts', {
+    method: 'PATCH',
+    token: adminLogin.data.token,
+    body: { returnWindowDays: 14, supportHours: 'Sat-Thu 09:00-19:00 BST' },
+  });
+  assert.equal(factsPatch.status, 200);
+  assert.equal(factsPatch.data.policyFacts.returnWindowDays, 14);
+});
+
 
 

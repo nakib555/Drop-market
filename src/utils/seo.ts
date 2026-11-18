@@ -30,7 +30,91 @@ export interface SeoRouteInput {
   collection?: 'trending' | 'best-sellers' | 'new-arrivals' | 'offers';
   accountTab?: string;
   orderId?: string;
+  policyVersion?: string;
 }
+
+const POLICY_SEO_META: Partial<Record<RouteName, { title: string; description: string }>> = {
+  terms: {
+    title: 'Terms & Conditions — KINTO STUDIO',
+    description: 'Platform terms governing buyer orders, marketplace roles, intellectual property, liability, and dispute resolution under Bangladesh law.',
+  },
+  'privacy-policy': {
+    title: 'Privacy Policy — KINTO STUDIO',
+    description: 'How Kinto Studio collects, uses, secures, retains, and shares personal data, plus your access, correction, and deletion rights.',
+  },
+  'cookie-policy': {
+    title: 'Cookie & Browser Storage Policy — KINTO STUDIO',
+    description: 'Transparent inventory of strictly necessary session storage versus consent-gated search history, personalization, and analytics.',
+  },
+  'shipping-policy': {
+    title: 'Shipping & Delivery Policy — KINTO STUDIO',
+    description: 'Dhaka Metro and nationwide Bangladesh courier zones, shipping fees, weight tiers, dispatch timelines, and failed-delivery procedures.',
+  },
+  'return-policy': {
+    title: 'Return, Exchange & Refund Policy — KINTO STUDIO',
+    description: 'Return eligibility, 14-day return window, defective or damaged parcel claims within 48 hours, hygiene exemptions, and refund SLAs.',
+  },
+  'cancellation-policy': {
+    title: 'Order Cancellation Policy — KINTO STUDIO',
+    description: 'Self-service pre-dispatch cancellation rules, authorization release timing, and post-dispatch return guidance.',
+  },
+  'payment-policy': {
+    title: 'Payment, Billing & Security Policy — KINTO STUDIO',
+    description: 'Supported Bangladesh BDT and international USD payment options, gateway readiness, pricing accuracy, and chargeback resolution.',
+  },
+  'warranty-policy': {
+    title: 'Warranty & Authenticity Policy — KINTO STUDIO',
+    description: 'Manufacturer and partner studio warranty coverage, non-waivable statutory rights, proof of purchase, and claim channels.',
+  },
+  'reviews-policy': {
+    title: 'Reviews, Ratings & UGC Policy — KINTO STUDIO',
+    description: 'Rules for verified customer reviews, ratings integrity, moderation criteria, and prohibition of incentivized or fabricated feedback.',
+  },
+  'promo-terms': {
+    title: 'Promotions, Coupons & Discount Terms — KINTO STUDIO',
+    description: 'Single-code stacking rules, minimum order subtotals, expiration, and promo allocation during partial or full returns.',
+  },
+  'international-orders-policy': {
+    title: 'Cross-Border & International Orders Policy — KINTO STUDIO',
+    description: 'BDT vs USD settlement scope, customs duties, import restrictions, and delivery eligibility outside Bangladesh.',
+  },
+  'marketplace-terms': {
+    title: 'Marketplace Participation Terms — KINTO STUDIO',
+    description: 'Distinction between Kinto Studio direct listings and independent Partner Seller Studio items across checkout and fulfillment.',
+  },
+  'seller-agreement': {
+    title: 'Seller Agreement & Onboarding Terms — KINTO STUDIO',
+    description: 'Merchant KYC, listing accuracy, fulfillment SLA, commission, payout settlement, and compliance obligations for Partner Sellers.',
+  },
+  'prohibited-items': {
+    title: 'Prohibited & Restricted Items Policy — KINTO STUDIO',
+    description: 'Goods prohibited or restricted under Bangladesh law and Kinto Studio safety standards, including counterfeit and hazardous items.',
+  },
+  'product-safety': {
+    title: 'Product Safety & Regulatory Advisories — KINTO STUDIO',
+    description: 'Electrical voltage (220-240V/50Hz), cosmetic patch testing, food allergens, child toy age grading, and mechanical PPE warnings.',
+  },
+  'acceptable-use': {
+    title: 'Acceptable Use Policy — KINTO STUDIO',
+    description: 'Platform security boundaries prohibiting automated scraping, promo abuse, credential stuffing, and interference with storefront APIs.',
+  },
+  'intellectual-property': {
+    title: 'Intellectual Property & Takedown Policy — KINTO STUDIO',
+    description: 'Trademark, copyright, and counterfeit reporting process under Bangladesh intellectual property statutes.',
+  },
+  'customer-support-policy': {
+    title: 'Contact, Complaints & Dispute Resolution — KINTO STUDIO',
+    description: 'Official customer care escalation path, response SLAs, and statutory consumer complaint channels in Bangladesh.',
+  },
+  'data-retention-policy': {
+    title: 'Data Retention & Deletion Policy — KINTO STUDIO',
+    description: 'Retention schedules for tax invoices, order records, support logs, and consented browser storage cleanup.',
+  },
+  accessibility: {
+    title: 'Accessibility Statement — KINTO STUDIO',
+    description: 'WCAG 2.1 AA commitment, keyboard navigation, RTL Arabic support, reduced-motion support, and accessibility feedback channel.',
+  },
+};
 
 const DEFAULT_DESCRIPTION =
   'Shop electronics, tailored fashion, home furnishings, botanical beauty, groceries, outdoor gear, books, industrial tools, kids, and wellness with BDT and USD pricing across Bangladesh.';
@@ -285,7 +369,7 @@ export function resolveSeoMetadata(params: {
     description = 'Essays and field notes on design longevity, acoustic craftsmanship, botanical formulation, and daily rituals.';
   } else if (route.name === 'faq') {
     title = 'Frequently Asked Questions — KINTO STUDIO';
-    description = 'Answers on Bangladesh courier zones, BDT settlement, bKash/Nagad/SSLCommerz payments, and 30-day returns.';
+    description = 'Answers on Bangladesh courier zones, BDT settlement, payment gateways, warranty coverage, and returns.';
     if (faqItems.length > 0) {
       jsonLd.push({
         '@context': 'https://schema.org',
@@ -305,7 +389,38 @@ export function resolveSeoMetadata(params: {
   } else if (route.name === 'contact') {
     title = 'Contact & Customer Care — KINTO STUDIO';
   } else if (route.name === 'legal') {
-    title = 'Legal Center & Marketplace Policies — KINTO STUDIO';
+    title = 'Policies & Legal Center — KINTO STUDIO';
+    description = 'Browse all 20 published shopping, payment, delivery, returns, privacy, cookie, and partner seller policies for Kinto Studio.';
+    jsonLd.push({
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      name: title,
+      description,
+      url: canonicalUrl,
+    });
+  } else if (POLICY_SEO_META[route.name]) {
+    const pMeta = POLICY_SEO_META[route.name]!;
+    title = route.policyVersion ? `${pMeta.title} (v${route.policyVersion})` : pMeta.title;
+    description = pMeta.description;
+    if (route.policyVersion) {
+      robots = 'noindex, follow';
+    }
+    jsonLd.push({
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      name: title,
+      description,
+      url: canonicalUrl,
+    });
+    jsonLd.push({
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: `${cleanOrigin}/` },
+        { '@type': 'ListItem', position: 2, name: 'Policies & Legal', item: `${cleanOrigin}/legal` },
+        { '@type': 'ListItem', position: 3, name: pMeta.title.replace(' — KINTO STUDIO', ''), item: canonicalUrl },
+      ],
+    });
   } else if (route.name === 'search') {
     title = route.query ? `Search: ${route.query} — KINTO STUDIO` : 'Search Catalog — KINTO STUDIO';
   } else if (route.name === 'not-found') {

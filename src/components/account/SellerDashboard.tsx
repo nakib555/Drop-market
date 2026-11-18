@@ -445,6 +445,32 @@ export const SellerDashboard: React.FC = () => {
               })}
             </div>
           </div>
+
+          <div className="p-5 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] bg-[var(--ks-bg)] space-y-2.5 text-xs">
+            <p className="font-semibold text-sm">Partner Studio Governance &amp; Buyer Data Rules</p>
+            <p className="text-[var(--ks-text-secondary)] leading-relaxed">
+              Partner sellers must use buyer shipping information strictly for order dispatch, uphold intellectual property authenticity, and avoid prohibited goods.
+            </p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-0.5">
+              {(
+                [
+                  { id: 'seller-agreement', label: 'Seller Marketplace Agreement' },
+                  { id: 'marketplace-terms', label: 'Marketplace Model Terms' },
+                  { id: 'prohibited-items', label: 'Prohibited Items' },
+                  { id: 'intellectual-property', label: 'IP & Takedown Policy' },
+                ] as const
+              ).map((pol) => (
+                <button
+                  key={pol.id}
+                  type="button"
+                  onClick={() => openPolicyPreview(pol.id)}
+                  className="underline font-medium text-[var(--ks-accent)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                >
+                  {pol.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -1064,6 +1090,40 @@ export const SellerDashboard: React.FC = () => {
           <Button type="submit" variant="primary" size="md" disabled={savingId === 'settings'}>
             {savingId === 'settings' ? 'Saving...' : 'Save Store Settings'}
           </Button>
+
+          <div className="pt-4 border-t border-[var(--ks-border)] space-y-2 text-xs">
+            <p className="font-semibold">Seller Governance &amp; Commission Reference</p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              <button
+                type="button"
+                onClick={() => navigate({ name: 'seller-agreement' })}
+                className="underline text-[var(--ks-accent)] cursor-pointer"
+              >
+                Seller Marketplace Agreement
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate({ name: 'marketplace-terms' })}
+                className="underline text-[var(--ks-accent)] cursor-pointer"
+              >
+                Marketplace Terms
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate({ name: 'prohibited-items' })}
+                className="underline text-[var(--ks-accent)] cursor-pointer"
+              >
+                Prohibited Items
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate({ name: 'intellectual-property' })}
+                className="underline text-[var(--ks-accent)] cursor-pointer"
+              >
+                IP Policy
+              </button>
+            </div>
+          </div>
         </form>
       )}
 

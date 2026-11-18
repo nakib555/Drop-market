@@ -54,7 +54,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
   onOpenFullPage,
   onDismiss,
 }) => {
-  const { signIn, registerAccount, navigate, openPolicyPreview, showToast, language } = useStore();
+  const { signIn, registerAccount, navigate, openPolicyPreview, showToast, language, publishedPolicies } = useStore();
   const prefersReducedMotion = useReducedMotion();
   const isRtl = language === 'ar';
 
@@ -81,6 +81,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
   const [regRole, setRegRole] = useState<'customer' | 'seller'>('customer');
   const [regStudioName, setRegStudioName] = useState('');
   const [regAccepted, setRegAccepted] = useState(false);
+  const [regMarketingOptIn, setRegMarketingOptIn] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
@@ -257,8 +258,24 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
     setSubmitting(true);
     const scope =
       regRole === 'seller'
-        ? ['terms', 'privacy-policy', 'acceptable-use', 'seller-agreement', 'prohibited-items']
-        : ['terms', 'privacy-policy', 'acceptable-use'];
+        ? [
+            'terms',
+            'privacy-policy',
+            'acceptable-use',
+            'marketplace-terms',
+            'seller-agreement',
+            'prohibited-items',
+            'data-retention-policy',
+          ]
+        : ['terms', 'privacy-policy', 'acceptable-use', 'data-retention-policy'];
+
+    const acceptedPolicyVersions: Record<string, string> = {};
+    for (const policyId of scope) {
+      const matched = publishedPolicies.find((p) => p.id === policyId || p.slug === policyId);
+      if (matched) {
+        acceptedPolicyVersions[policyId] = matched.currentVersion;
+      }
+    }
 
     const result = await registerAccount({
       fullName: trimmedName,
@@ -267,7 +284,10 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
       password: regPassword,
       role: regRole,
       studioName: regRole === 'seller' ? trimmedStudio : undefined,
-      acceptedPolicies: buildPolicyAcceptance(scope),
+      acceptedPolicies: buildPolicyAcceptance(scope, {
+        acceptedPolicyVersions,
+        marketingOptIn: regMarketingOptIn,
+      }),
     });
 
     setSubmitting(false);
@@ -826,6 +846,22 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                 )}
               </div>
 
+              {/* Optional Unbundled Marketing Consent */}
+              <div className="p-3.5 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface-muted)]/40 border border-[var(--ks-border)] space-y-1">
+                <label className="flex items-start gap-2.5 cursor-pointer text-xs leading-relaxed text-[var(--ks-text-secondary)] select-none">
+                  <input
+                    type="checkbox"
+                    checked={regMarketingOptIn}
+                    onChange={(e) => setRegMarketingOptIn(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 shrink-0 accent-[var(--ks-action)] cursor-pointer"
+                  />
+                  <span>{t(language, 'authMarketingOptInLabel')}</span>
+                </label>
+                <p className="text-[11px] text-[var(--ks-text-muted)] ps-6">
+                  {t(language, 'authMarketingOptInHint')}
+                </p>
+              </div>
+
               <RegistrationErrorAlert
                 error={regError}
                 onDismiss={() => setRegError(null)}
@@ -846,6 +882,18 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                 <span>{submitting ? t(language, 'creatingAccount') : t(language, 'createAccount')}</span>
                 <ArrowRight className="w-4 h-4 rtl:rotate-180" />
               </Button>
+
+              <p className="text-[11px] text-[var(--ks-text-muted)] leading-relaxed">
+                {t(language, 'authPrivacyShortNotice')}{' '}
+                <button
+                  type="button"
+                  onClick={() => openPolicyPreview('privacy-policy')}
+                  className="underline text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                >
+                  {t(language, 'privacyPolicy')}
+                </button>
+                .
+              </p>
             </form>
           )}
             </motion.div>

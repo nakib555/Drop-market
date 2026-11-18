@@ -65,6 +65,8 @@ export const ProductDetailPage: React.FC = () => {
     profile,
     runProtectedAction,
     storefrontLoading,
+    policyFactsPublic,
+    openPolicyPreview,
   } = useStore();
 
   const product = useMemo(
@@ -432,6 +434,21 @@ export const ProductDetailPage: React.FC = () => {
             {product.subtitle && (
               <p className="text-xs font-medium text-[var(--ks-accent)]">{product.subtitle}</p>
             )}
+            <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--ks-text-secondary)]">
+              <span>
+                {product.brand === 'Kinto Studio'
+                  ? 'Sold & fulfilled by Kinto Studio (1P)'
+                  : `Partner Seller Studio: ${product.brand} (Marketplace fulfillment)`}
+              </span>
+              <span aria-hidden="true">·</span>
+              <button
+                type="button"
+                onClick={() => openPolicyPreview('marketplace-terms')}
+                className="underline hover:text-[var(--ks-accent)] cursor-pointer"
+              >
+                Marketplace Disclosure
+              </button>
+            </div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1">
               <RatingSummary
                 rating={product.rating}
@@ -639,7 +656,21 @@ export const ProductDetailPage: React.FC = () => {
                       onClick={() => navigate({ name: 'return-policy' })}
                       className="min-h-[44px] sm:min-h-0 inline-flex items-center underline text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer"
                     >
-                      {t(language, 'returnEligibility')}
+                      {t(language, 'returnEligibility')} ({policyFactsPublic.returnWindowDays}d)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate({ name: 'cancellation-policy' })}
+                      className="min-h-[44px] sm:min-h-0 inline-flex items-center underline text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                    >
+                      {t(language, 'cancellationPolicy')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate({ name: 'warranty-policy' })}
+                      className="min-h-[44px] sm:min-h-0 inline-flex items-center underline text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                    >
+                      {t(language, 'warrantyPolicy')}
                     </button>
                   </div>
                 </div>
@@ -834,6 +865,17 @@ export const ProductDetailPage: React.FC = () => {
                   <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
                     {t(language, 'reviewsAuthOnlyDesc')}
                   </p>
+                  <p className="text-xs text-[var(--ks-text-muted)] leading-relaxed">
+                    Only signed-in members can post verified feedback. Moderation rules are published in our{' '}
+                    <button
+                      type="button"
+                      onClick={() => navigate({ name: 'reviews-policy' })}
+                      className="underline text-[var(--ks-accent)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                    >
+                      Product Reviews &amp; UGC Policy
+                    </button>
+                    .
+                  </p>
                   <Button
                     type="button"
                     variant="primary"
@@ -856,9 +898,22 @@ export const ProductDetailPage: React.FC = () => {
                   onSubmit={handleReviewSubmit}
                   className="lg:col-span-5 p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-4 h-fit"
                 >
-                  <h3 className="font-display text-2xl font-medium">
-                    {t(language, 'writeReviewHeading')}
-                  </h3>
+                  <div className="space-y-1">
+                    <h3 className="font-display text-2xl font-medium">
+                      {t(language, 'writeReviewHeading')}
+                    </h3>
+                    <p className="text-xs text-[var(--ks-text-muted)]">
+                      Published reviews must follow our{' '}
+                      <button
+                        type="button"
+                        onClick={() => openPolicyPreview('reviews-policy')}
+                        className="underline text-[var(--ks-accent)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                      >
+                        Product Reviews &amp; UGC Policy
+                      </button>
+                      .
+                    </p>
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Input
                       label={t(language, 'yourNameLabel')}

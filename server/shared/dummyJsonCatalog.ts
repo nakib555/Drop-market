@@ -469,7 +469,12 @@ export function mapDummyJsonProduct(item: DummyJsonProductDto, index: number): P
     },
     specifications: specs,
     deliveryEstimate: item.shippingInformation || 'Ships in 1–3 business days',
-    returnPolicy: item.returnPolicy || '30-day studio return guarantee',
+    returnPolicy:
+      dept.category === 'beauty-personal-care' || dept.category === 'grocery-food-household'
+        ? '14-day unopened/sealed return · 48h defect or wrong-item remedy'
+        : dept.category === 'health-wellness-pets'
+        ? '14-day unopened hygiene return · 48h defect remedy'
+        : '14-day studio return · 48h defect or wrong-item replacement',
     warranty: item.warrantyInformation || '1-Year Studio Guarantee',
     tags: Array.from(
       new Set([

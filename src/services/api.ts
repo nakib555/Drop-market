@@ -10,12 +10,14 @@ import type {
   CategoryFacetConfig,
   CategoryNode,
   CheckoutQuoteResponse,
+  CookieInventoryItem,
   CurrencyCode,
   CurrencyRateState,
   DeliveryMethodId,
   DynamicCategoryRecord,
   LanguageCode,
   LegalAcceptanceRecord,
+  LegalReviewChecklistItem,
   ManagedPromoRecord,
   NewsletterSubscriptionRecord,
   Order,
@@ -25,6 +27,13 @@ import type {
   PaymentMethodRecord,
   PaymentSession,
   PlatformSettingsState,
+  PolicyAcceptanceLedgerEntry,
+  PolicyChecklistSummary,
+  PolicyDocumentRecord,
+  PolicyFactsConfig,
+  PolicyFactsPublicSummary,
+  PolicySection,
+  PolicyVersionRecord,
   Product,
   ProductOverride,
   ProductReview,
@@ -307,10 +316,40 @@ export async function fetchStorefrontSync(): Promise<{
   currencyConfig: CurrencyRateState;
   shippingConfig: ShippingRuleConfig;
   promotions?: ManagedPromoRecord[];
+  publishedPolicies?: PolicyDocumentRecord[];
+  policyFactsPublic?: PolicyFactsPublicSummary;
+  cookieInventory?: CookieInventoryItem[];
 }> {
   return withStaticFallback(
     () => requestJson('/api/storefront/state'),
     (mod) => mod.staticFetchStorefrontSync()
+  );
+}
+
+export async function fetchPublicPoliciesApi(): Promise<{
+  policies: PolicyDocumentRecord[];
+  policyFactsPublic: PolicyFactsPublicSummary;
+  cookieInventory: CookieInventoryItem[];
+}> {
+  return withStaticFallback(
+    () => requestJson('/api/policies'),
+    (mod) => mod.staticFetchPublicPolicies()
+  );
+}
+
+export async function fetchPolicyBySlugApi(
+  slug: string,
+  version?: string
+): Promise<{
+  policy: PolicyDocumentRecord;
+  historicalVersionRequested: string | null;
+  isHistoricalSnapshot: boolean;
+  policyFactsPublic: PolicyFactsPublicSummary;
+}> {
+  const qs = version ? `?version=${encodeURIComponent(version)}` : '';
+  return withStaticFallback(
+    () => requestJson(`/api/policies/${encodeURIComponent(slug)}${qs}`),
+    (mod) => mod.staticFetchPolicyBySlug(slug, version)
   );
 }
 
@@ -1110,5 +1149,116 @@ export async function submitProductReviewApi(
     (mod) => mod.staticSubmitProductReview(productId, payload, getStoredToken())
   );
 }
+
+export async function fetchAdminPoliciesApi(): Promise<{
+  policies: PolicyDocumentRecord[];
+  policyFacts: PolicyFactsConfig;
+  policyAcceptanceLedger: PolicyAcceptanceLedgerEntry[];
+  legalReviewChecklist: LegalReviewChecklistItem[];
+  policyChecklistSummary: PolicyChecklistSummary;
+}> {
+  return withStaticFallback(
+    () => requestJson('/api/admin/policies'),
+    (mod) => mod.staticFetchAdminPolicies(getStoredToken())
+  );
+}
+
+export async function saveAdminPolicyDraftApi(
+  slug: string,
+  payload: {
+    title: string;
+    shortTitle?: string;
+    subtitle?: string;
+    summary: string;
+    effectiveDate?: string;
+    sections: PolicySection[];
+    changeNote?: string;
+    materialChange?: boolean;
+  }
+): Promise<{
+  policy: PolicyDocumentRecord;
+  policyChecklistSummary: PolicyChecklistSummary;
+}> {
+  return withStaticFallback(
+    () =>
+      requestJson(`/api/admin/policies/${encodeURIComponent(slug)}/draft`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    (mod) => mod.staticSaveAdminPolicyDraft(slug, payload, getStoredToken())
+  );
+}
+
+export async function transitionAdminPolicyApi(
+  slug: string,
+  payload: {
+    action: 'submit_review' | 'schedule' | 'publish' | 'archive';
+    scheduledFor?: string;
+    forceAllowPlaceholders?: boolean;
+  }
+): Promise<{
+  policy: PolicyDocumentRecord;
+  newVersionPublished?: PolicyVersionRecord;
+  policyChecklistSummary: PolicyChecklistSummary;
+}> {
+  return withStaticFallback(
+    () =>
+      requestJson(`/api/admin/policies/${encodeURIComponent(slug)}/transition`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    (mod) => mod.staticTransitionAdminPolicy(slug, payload, getStoredToken())
+  );
+}
+
+export async function updateAdminPolicyFactsApi(
+  updates: Partial<PolicyFactsConfig>
+): Promise<{
+  policyFacts: PolicyFactsConfig;
+  policyChecklistSummary: PolicyChecklistSummary;
+}> {
+  return withStaticFallback(
+    () =>
+      requestJson('/api/admin/policies/facts', {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
+      }),
+    (mod) => mod.staticUpdateAdminPolicyFacts(updates, getStoredToken())
+  );
+}
+
+export async function updateAdminLegalChecklistApi(
+  id: string,
+  updates: Partial<LegalReviewChecklistItem>
+): Promise<{
+  item: LegalReviewChecklistItem;
+  legalReviewChecklist: LegalReviewChecklistItem[];
+  policyChecklistSummary: PolicyChecklistSummary;
+}> {
+  return withStaticFallback(
+    () =>
+      requestJson(`/api/admin/policies/checklist/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
+      }),
+    (mod) => mod.staticUpdateAdminLegalChecklist(id, updates, getStoredToken())
+  );
+}
+
+export async function notifyMaterialPolicyChangeApi(payload: {
+  title: string;
+  summary: string;
+  policyIds?: string[];
+}): Promise<{ ok: boolean; entry: PolicyAcceptanceLedgerEntry }> {
+  return withStaticFallback(
+    () =>
+      requestJson('/api/admin/policies/notify-material-change', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    (mod) => mod.staticNotifyMaterialPolicyChange(payload, getStoredToken())
+  );
+}
+
 
 

@@ -100,6 +100,8 @@ export const CheckoutPage: React.FC = () => {
     showToast,
     navigate,
     openPolicyPreview,
+    publishedPolicies,
+    policyFactsPublic,
   } = useStore();
 
   const defaultAddr = useMemo(
@@ -606,13 +608,29 @@ export const CheckoutPage: React.FC = () => {
         promoCode: appliedPromo?.code,
         requestedCurrency: currency,
         allowInternationalUsd,
-        acceptedPolicies: buildPolicyAcceptance([
-          'terms',
-          'return-policy',
-          'shipping-policy',
-          'privacy-policy',
-          'product-safety',
-        ]),
+        acceptedPolicies: (() => {
+          const scopeIds = [
+            'terms',
+            'return-policy',
+            'shipping-policy',
+            'cancellation-policy',
+            'payment-policy',
+            'privacy-policy',
+            'product-safety',
+            'marketplace-terms',
+            ...(isBangladesh ? [] : ['international-orders-policy']),
+          ];
+          const acceptedPolicyVersions: Record<string, string> = {};
+          for (const pid of scopeIds) {
+            const match = publishedPolicies.find((p) => p.id === pid || p.slug === pid);
+            acceptedPolicyVersions[pid] = match?.currentVersion || '2026-11.1';
+          }
+          return buildPolicyAcceptance(scopeIds, {
+            version: acceptedPolicyVersions.terms || '2026-11.1',
+            acceptedPolicyVersions,
+            marketingOptIn: false,
+          });
+        })(),
       });
       setQuote(res.quote);
 
@@ -807,6 +825,51 @@ export const CheckoutPage: React.FC = () => {
                 </li>
               ))}
             </ul>
+          </div>
+
+          <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-start space-y-2 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-semibold text-[var(--ks-text-primary)]">
+                Order-Time Accepted Policy Snapshot
+              </span>
+              <span className="font-mono-num text-[11px] text-[var(--ks-accent)]">
+                Version {placedOrder.policyAcceptance?.version || '2026-11.1'}
+              </span>
+            </div>
+            <p className="text-[var(--ks-text-secondary)] leading-relaxed">
+              Your confirmation receipt and invoice reference the exact policy versions active when this order was placed:
+            </p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-0.5">
+              {(
+                [
+                  { id: 'terms', label: 'Terms & Conditions' },
+                  { id: 'return-policy', label: 'Return & Refund Policy' },
+                  { id: 'shipping-policy', label: 'Shipping Policy' },
+                  { id: 'cancellation-policy', label: 'Cancellation Policy' },
+                  { id: 'privacy-policy', label: 'Privacy Policy' },
+                ] as const
+              ).map((pol) => {
+                const snapVer =
+                  placedOrder.policyAcceptance?.acceptedPolicyVersions?.[pol.id] ||
+                  placedOrder.policyAcceptance?.version;
+                return (
+                  <button
+                    key={pol.id}
+                    type="button"
+                    onClick={() =>
+                      navigate({
+                        name: pol.id,
+                        policyVersion: snapVer,
+                      })
+                    }
+                    className="underline text-[var(--ks-accent)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                  >
+                    {pol.label}
+                    {snapVer ? ` (v${snapVer})` : ''}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {!profile.isAuthenticated && (
@@ -1437,15 +1500,28 @@ export const CheckoutPage: React.FC = () => {
                 )}
 
                 {!isBangladesh && (
-                  <label className="flex items-start gap-2.5 min-h-[44px] p-3 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={allowInternationalUsd}
-                      onChange={(e) => setAllowInternationalUsd(e.target.checked)}
-                      className="mt-[2px] w-4 h-4 shrink-0 accent-[var(--ks-action)]"
-                    />
-                    <span className="leading-snug">{t(language, 'quoteIntlUsdLabel')}</span>
-                  </label>
+                  <div className="space-y-2.5">
+                    <label className="flex items-start gap-2.5 min-h-[44px] p-3 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={allowInternationalUsd}
+                        onChange={(e) => setAllowInternationalUsd(e.target.checked)}
+                        className="mt-[2px] w-4 h-4 shrink-0 accent-[var(--ks-action)]"
+                      />
+                      <span className="leading-snug">{t(language, 'quoteIntlUsdLabel')}</span>
+                    </label>
+                    <div className="p-3 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs text-[var(--ks-text-secondary)] leading-relaxed">
+                      Cross-border dispatches settle in USD and may be subject to destination customs duties, VAT, and carrier clearance rules.{' '}
+                      <button
+                        type="button"
+                        onClick={() => openPolicyPreview('international-orders-policy')}
+                        className="underline font-medium text-[var(--ks-accent)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                      >
+                        Read International Orders &amp; Customs Policy
+                      </button>
+                      .
+                    </div>
+                  </div>
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1576,6 +1652,25 @@ export const CheckoutPage: React.FC = () => {
                 )}
 
                 {errors.delivery && <p className="text-xs text-[var(--ks-error)]">{errors.delivery}</p>}
+
+                <div className="p-3.5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs text-[var(--ks-text-secondary)] leading-relaxed">
+                  Orders remain eligible for self-service cancellation {policyFactsPublic.cancelPreDispatchCutoff.toLowerCase()}.{' '}
+                  <button
+                    type="button"
+                    onClick={() => openPolicyPreview('shipping-policy')}
+                    className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                  >
+                    Shipping Policy
+                  </button>
+                  {' · '}
+                  <button
+                    type="button"
+                    onClick={() => openPolicyPreview('cancellation-policy')}
+                    className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                  >
+                    Cancellation Policy
+                  </button>
+                </div>
               </div>
             )}
 
@@ -1693,6 +1788,17 @@ export const CheckoutPage: React.FC = () => {
                   </div>
                 )}
 
+                <div className="p-3.5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs text-[var(--ks-text-secondary)] leading-relaxed">
+                  Authorized payments settle strictly against server-verified order quotes. Active channels require live server credentials; unconfigured gateways remain visibly marked above.{' '}
+                  <button
+                    type="button"
+                    onClick={() => openPolicyPreview('payment-policy')}
+                    className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                  >
+                    Read Payment &amp; Billing Policy
+                  </button>
+                </div>
+
                 {errors.payment && (
                   <p className="text-xs text-[var(--ks-error)]">{errors.payment}</p>
                 )}
@@ -1802,6 +1908,36 @@ export const CheckoutPage: React.FC = () => {
                   </div>
                 )}
 
+                {/* Pre-Payment Policy Highlights */}
+                <div className="p-4 rounded-md bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] space-y-2.5 text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-semibold text-[var(--ks-text-primary)]">
+                      Key Order &amp; Buyer Protection Terms
+                    </p>
+                    <span className="text-[11px] font-mono-num text-[var(--ks-accent)]">
+                      {policyFactsPublic.marketplaceModelLabel}
+                    </span>
+                  </div>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-[var(--ks-text-secondary)] leading-snug">
+                    <li>
+                      • <strong className="text-[var(--ks-text-primary)]">Returns:</strong>{' '}
+                      {policyFactsPublic.returnWindowDays}-day return window ({policyFactsPublic.defectReportHours}h defect reporting)
+                    </li>
+                    <li>
+                      • <strong className="text-[var(--ks-text-primary)]">Cancellation:</strong>{' '}
+                      {policyFactsPublic.cancelPreDispatchCutoff}
+                    </li>
+                    <li>
+                      • <strong className="text-[var(--ks-text-primary)]">Refund SLA:</strong>{' '}
+                      {policyFactsPublic.refundSlaBusinessDays} after QC inspection
+                    </li>
+                    <li>
+                      • <strong className="text-[var(--ks-text-primary)]">Statutory Rights:</strong>{' '}
+                      Non-waivable Bangladesh Consumer Rights Act 2009 protections apply
+                    </li>
+                  </ul>
+                </div>
+
                 {/* Mandatory Clickwrap Agreement */}
                 <div
                   className={`p-4 rounded-md border space-y-2 ${
@@ -1849,10 +1985,34 @@ export const CheckoutPage: React.FC = () => {
                       ,{' '}
                       <button
                         type="button"
+                        onClick={() => openPolicyPreview('cancellation-policy')}
+                        className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                      >
+                        {t(language, 'cancellationPolicy')}
+                      </button>
+                      ,{' '}
+                      <button
+                        type="button"
+                        onClick={() => openPolicyPreview('payment-policy')}
+                        className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                      >
+                        {t(language, 'paymentPolicy')}
+                      </button>
+                      ,{' '}
+                      <button
+                        type="button"
                         onClick={() => openPolicyPreview('product-safety')}
                         className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                       >
                         {t(language, 'productSafetyDisclaimers')}
+                      </button>
+                      ,{' '}
+                      <button
+                        type="button"
+                        onClick={() => openPolicyPreview('marketplace-terms')}
+                        className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                      >
+                        {t(language, 'marketplaceTerms')}
                       </button>
                       ,{' '}
                       <button

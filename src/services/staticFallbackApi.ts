@@ -18,6 +18,16 @@ import {
   type ShippingQuoteItemInput,
 } from '../../server/services/shippingService';
 import {
+  buildActiveCookieInventory,
+  buildPolicyChecklistSummary,
+  buildPublicFactsSummary,
+  buildValidatedAcceptanceRecord,
+  getPublicPublishedPolicies,
+  projectPublicPolicyDocument,
+  savePolicyDraft,
+  transitionPolicyStatus,
+} from '../../server/services/policyService';
+import {
   fetchLiveDummyJsonCatalog,
   getCachedDummyJsonProductsSync,
   getDummyJsonAuthoritativeSkus,
@@ -39,12 +49,14 @@ import type {
   CategoryFacetConfig,
   CategoryNode,
   CheckoutQuoteResponse,
+  CookieInventoryItem,
   CurrencyCode,
   CurrencyRateState,
   DeliveryMethodId,
   DynamicCategoryRecord,
   LanguageCode,
   LegalAcceptanceRecord,
+  LegalReviewChecklistItem,
   ManagedPromoRecord,
   NewsletterSubscriptionRecord,
   Order,
@@ -54,6 +66,13 @@ import type {
   PaymentMethodRecord,
   PaymentSession,
   PlatformSettingsState,
+  PolicyAcceptanceLedgerEntry,
+  PolicyChecklistSummary,
+  PolicyDocumentRecord,
+  PolicyFactsConfig,
+  PolicyFactsPublicSummary,
+  PolicySection,
+  PolicyVersionRecord,
   Product,
   ProductOverride,
   ProductReview,
@@ -97,6 +116,10 @@ interface SerializedStaticDb {
   userPaymentMethods?: Array<[string, PaymentMethodRecord[]]>;
   productReviews?: Array<[string, ProductReview[]]>;
   paymentSessions: Array<[string, PendingSessionContext]>;
+  policyFacts?: PolicyFactsConfig;
+  policies?: PolicyDocumentRecord[];
+  policyAcceptanceLedger?: PolicyAcceptanceLedgerEntry[];
+  legalReviewChecklist?: LegalReviewChecklistItem[];
 }
 
 let cachedDb: MockMarketplaceDb | null = null;
@@ -187,6 +210,18 @@ function getStaticDb(): MockMarketplaceDb {
         if (Array.isArray(parsed.paymentSessions)) {
           instance.paymentSessions = new Map(parsed.paymentSessions);
         }
+        if (parsed.policyFacts) {
+          instance.policyFacts = parsed.policyFacts;
+        }
+        if (Array.isArray(parsed.policies) && parsed.policies.length > 0) {
+          instance.policies = parsed.policies;
+        }
+        if (Array.isArray(parsed.policyAcceptanceLedger)) {
+          instance.policyAcceptanceLedger = parsed.policyAcceptanceLedger;
+        }
+        if (Array.isArray(parsed.legalReviewChecklist) && parsed.legalReviewChecklist.length > 0) {
+          instance.legalReviewChecklist = parsed.legalReviewChecklist;
+        }
       }
     }
   } catch {
@@ -223,6 +258,10 @@ function persistStaticDb(db: MockMarketplaceDb): void {
       userPaymentMethods: Array.from(db.userPaymentMethods.entries()),
       productReviews: Array.from(db.productReviews.entries()),
       paymentSessions: Array.from(db.paymentSessions.entries()),
+      policyFacts: db.policyFacts,
+      policies: db.policies,
+      policyAcceptanceLedger: db.policyAcceptanceLedger,
+      legalReviewChecklist: db.legalReviewChecklist,
     };
     window.localStorage.setItem(STATIC_DB_STORAGE_KEY, JSON.stringify(payload));
   } catch {
@@ -320,6 +359,19 @@ export function staticRegister(payload: {
     throw new ApiError('An account with that email already exists.', 409, false);
   }
 
+  const validatedAcceptance = buildValidatedAcceptanceRecord({
+    policies: db.policies,
+    requestedPolicyIds:
+      Array.isArray(payload.acceptedPolicies.scope) && payload.acceptedPolicies.scope.length > 0
+        ? payload.acceptedPolicies.scope
+        : payload.role === 'seller'
+        ? ['terms', 'privacy-policy', 'marketplace-terms', 'seller-agreement']
+        : ['terms', 'privacy-policy', 'marketplace-terms'],
+    requestedVersion: payload.acceptedPolicies.version,
+    jurisdiction: payload.acceptedPolicies.jurisdiction,
+    marketingOptIn: Boolean(payload.acceptedPolicies.marketingOptIn),
+  });
+
   const chosenRole: UserRole = payload.role === 'seller' ? 'seller' : 'customer';
   const newId = `usr-${chosenRole}-${Date.now().toString(36)}`;
   const newUser: ServerUserRecord = {
@@ -337,13 +389,11 @@ export function staticRegister(payload: {
     joinedAt: new Date().toISOString().slice(0, 10),
     location: 'Dhaka, Bangladesh',
     password: cleanPassword,
-    policyAcceptance: {
-      ...payload.acceptedPolicies,
-      acceptedAt: payload.acceptedPolicies.acceptedAt || new Date().toISOString(),
-    },
+    policyAcceptance: validatedAcceptance,
   };
 
   db.users.unshift(newUser);
+  db.recordPolicyAcceptance('registration', `user:${newId}`, validatedAcceptance);
   if (chosenRole === 'seller') {
     db.sellerApplications.unshift({
       id: `app-${Date.now().toString(36)}`,
@@ -432,6 +482,9 @@ export function staticFetchStorefrontSync(): {
   currencyConfig: CurrencyRateState;
   shippingConfig: ShippingRuleConfig;
   promotions: ManagedPromoRecord[];
+  publishedPolicies: PolicyDocumentRecord[];
+  policyFactsPublic: PolicyFactsPublicSummary;
+  cookieInventory: CookieInventoryItem[];
 } {
   const db = getStaticDb();
   return {
@@ -442,6 +495,49 @@ export function staticFetchStorefrontSync(): {
     currencyConfig: db.currencyConfig,
     shippingConfig: db.shippingConfig,
     promotions: db.promotions,
+    publishedPolicies: getPublicPublishedPolicies(db.policies),
+    policyFactsPublic: buildPublicFactsSummary(db.policyFacts),
+    cookieInventory: buildActiveCookieInventory(),
+  };
+}
+
+export function staticFetchPublicPolicies(): {
+  policies: PolicyDocumentRecord[];
+  policyFactsPublic: PolicyFactsPublicSummary;
+  cookieInventory: CookieInventoryItem[];
+} {
+  const db = getStaticDb();
+  return {
+    policies: getPublicPublishedPolicies(db.policies),
+    policyFactsPublic: buildPublicFactsSummary(db.policyFacts),
+    cookieInventory: buildActiveCookieInventory(),
+  };
+}
+
+export function staticFetchPolicyBySlug(
+  slug: string,
+  version?: string
+): {
+  policy: PolicyDocumentRecord;
+  historicalVersionRequested: string | null;
+  isHistoricalSnapshot: boolean;
+  policyFactsPublic: PolicyFactsPublicSummary;
+} {
+  const db = getStaticDb();
+  const cleanSlug = slug.trim().toLowerCase();
+  const found = db.policies.find((p) => p.slug.toLowerCase() === cleanSlug || p.id === cleanSlug);
+  if (!found) {
+    throw new ApiError('Policy document not found.', 404, false);
+  }
+  const projected = projectPublicPolicyDocument(found, version);
+  if (!projected) {
+    throw new ApiError('This policy is not published for public viewing.', 404, false);
+  }
+  return {
+    policy: projected,
+    historicalVersionRequested: version || null,
+    isHistoricalSnapshot: Boolean(version && version !== found.currentVersion),
+    policyFactsPublic: buildPublicFactsSummary(db.policyFacts),
   };
 }
 
@@ -713,7 +809,15 @@ export async function staticInitiatePayment(payload: {
     currencyState: db.currencyConfig,
     shippingConfig: db.shippingConfig,
     existingSessions: db.paymentSessions,
-    policyAcceptance: payload.acceptedPolicies,
+    policyAcceptance: buildValidatedAcceptanceRecord({
+      policies: db.policies,
+      requestedPolicyIds:
+        Array.isArray(payload.acceptedPolicies.scope) && payload.acceptedPolicies.scope.length > 0
+          ? payload.acceptedPolicies.scope
+          : ['terms', 'return-policy', 'cancellation-policy', 'shipping-policy', 'payment-policy', 'product-safety'],
+      requestedVersion: payload.acceptedPolicies.version,
+      jurisdiction: payload.acceptedPolicies.jurisdiction,
+    }),
     dynamicCatalogSkus,
     promotions: db.promotions,
   });
@@ -775,6 +879,9 @@ export function staticVerifyPayment(payload: {
       }
     }
     db.orders = [order, ...db.orders.filter((o) => o.id !== order.id)];
+    if (order.policyAcceptance) {
+      db.recordPolicyAcceptance('checkout', `order:${order.id}`, order.policyAcceptance);
+    }
     db.notifications.unshift({
       id: `notif-${Date.now()}`,
       title:
@@ -1121,15 +1228,23 @@ export function staticCreateSellerProduct(
       { label: 'Warranty', value: '2 Years Standard Coverage' },
     ],
     deliveryEstimate: 'Dispatches within 24–48 hours via Insured Courier',
-    returnPolicy: '30-Day Studio Return Policy',
+    returnPolicy: `${db.policyFacts.returnWindowDays}-Day Return Policy (see Return & Refund Policy)`,
     warranty: '2-Year Partner Warranty',
     tags: ['seller listing', 'new arrival', payload.categoryLabel || 'marketplace'],
     sellerId: user?.id || 'usr-seller-elena',
     isNewArrival: true,
-    policyAcceptance: payload.acceptedPolicies,
+    policyAcceptance: buildValidatedAcceptanceRecord({
+      policies: db.policies,
+      requestedPolicyIds: ['seller-agreement', 'marketplace-terms', 'prohibited-items'],
+      requestedVersion: payload.acceptedPolicies.version,
+      jurisdiction: payload.acceptedPolicies.jurisdiction,
+    }),
   };
 
   db.sellerCreatedProducts.unshift(newProduct);
+  if (newProduct.policyAcceptance) {
+    db.recordPolicyAcceptance('seller_listing', `sku:${newProduct.sku}`, newProduct.policyAcceptance);
+  }
   persistStaticDb(db);
   return newProduct;
 }
@@ -1201,6 +1316,15 @@ export function staticFetchAdminDashboard(token?: string): AdminDashboardData {
     platformSettings: db.platformSettings,
     supportInquiries: db.supportInquiries,
     newsletterSubscribersCount: db.newsletterSubscribers.length,
+    policies: db.policies,
+    policyFacts: db.policyFacts,
+    policyAcceptanceLedger: db.policyAcceptanceLedger.slice(0, 100),
+    legalReviewChecklist: db.legalReviewChecklist,
+    policyChecklistSummary: buildPolicyChecklistSummary(
+      db.policies,
+      db.policyFacts,
+      db.legalReviewChecklist
+    ),
   };
 }
 
@@ -1859,5 +1983,199 @@ export function staticSubmitProductReview(
   persistStaticDb(db);
   return { review, reviews };
 }
+
+export function staticFetchAdminPolicies(token?: string): {
+  policies: PolicyDocumentRecord[];
+  policyFacts: PolicyFactsConfig;
+  policyAcceptanceLedger: PolicyAcceptanceLedgerEntry[];
+  legalReviewChecklist: LegalReviewChecklistItem[];
+  policyChecklistSummary: PolicyChecklistSummary;
+} {
+  const db = getStaticDb();
+  assertStaticRole(db, token, ['admin']);
+  return {
+    policies: db.policies,
+    policyFacts: db.policyFacts,
+    policyAcceptanceLedger: db.policyAcceptanceLedger.slice(0, 100),
+    legalReviewChecklist: db.legalReviewChecklist,
+    policyChecklistSummary: buildPolicyChecklistSummary(
+      db.policies,
+      db.policyFacts,
+      db.legalReviewChecklist
+    ),
+  };
+}
+
+export function staticSaveAdminPolicyDraft(
+  slug: string,
+  payload: {
+    title: string;
+    shortTitle?: string;
+    subtitle?: string;
+    summary: string;
+    effectiveDate?: string;
+    sections: PolicySection[];
+    changeNote?: string;
+    materialChange?: boolean;
+  },
+  token?: string
+): {
+  policy: PolicyDocumentRecord;
+  policyChecklistSummary: PolicyChecklistSummary;
+} {
+  const db = getStaticDb();
+  const admin = assertStaticRole(db, token, ['admin']);
+  const cleanSlug = slug.trim().toLowerCase();
+  const targetIdx = db.policies.findIndex((p) => p.slug.toLowerCase() === cleanSlug || p.id === cleanSlug);
+  if (targetIdx === -1) {
+    throw new ApiError('Policy document not found.', 404, false);
+  }
+  const updated = savePolicyDraft(db.policies[targetIdx], {
+    ...payload,
+    updatedBy: admin.fullName,
+  });
+  db.policies[targetIdx] = updated;
+  persistStaticDb(db);
+  return {
+    policy: updated,
+    policyChecklistSummary: buildPolicyChecklistSummary(
+      db.policies,
+      db.policyFacts,
+      db.legalReviewChecklist
+    ),
+  };
+}
+
+export function staticTransitionAdminPolicy(
+  slug: string,
+  payload: {
+    action: 'submit_review' | 'schedule' | 'publish' | 'archive';
+    scheduledFor?: string;
+    forceAllowPlaceholders?: boolean;
+  },
+  token?: string
+): {
+  policy: PolicyDocumentRecord;
+  newVersionPublished?: PolicyVersionRecord;
+  policyChecklistSummary: PolicyChecklistSummary;
+} {
+  const db = getStaticDb();
+  const admin = assertStaticRole(db, token, ['admin']);
+  const cleanSlug = slug.trim().toLowerCase();
+  const targetIdx = db.policies.findIndex((p) => p.slug.toLowerCase() === cleanSlug || p.id === cleanSlug);
+  if (targetIdx === -1) {
+    throw new ApiError('Policy document not found.', 404, false);
+  }
+  const { updated, newVersionPublished } = transitionPolicyStatus(
+    db.policies[targetIdx],
+    payload.action,
+    admin.fullName,
+    {
+      scheduledFor: payload.scheduledFor,
+      forceAllowPlaceholders: payload.forceAllowPlaceholders,
+    }
+  );
+  db.policies[targetIdx] = updated;
+  if (newVersionPublished && newVersionPublished.materialChange) {
+    db.notifications.unshift({
+      id: `notif-pol-${Date.now().toString(36)}`,
+      title: `Policy Update Notice · ${updated.shortTitle} (${updated.currentVersion})`,
+      message: `Material update to ${updated.title} effective ${updated.effectiveDate}. Review updated terms in Policies & Legal.`,
+      category: 'system',
+      createdAt: 'Just now',
+      read: false,
+      roleScope: 'all',
+    });
+  }
+  persistStaticDb(db);
+  return {
+    policy: updated,
+    newVersionPublished,
+    policyChecklistSummary: buildPolicyChecklistSummary(
+      db.policies,
+      db.policyFacts,
+      db.legalReviewChecklist
+    ),
+  };
+}
+
+export function staticUpdateAdminPolicyFacts(
+  updates: Partial<PolicyFactsConfig>,
+  token?: string
+): {
+  policyFacts: PolicyFactsConfig;
+  policyChecklistSummary: PolicyChecklistSummary;
+} {
+  const db = getStaticDb();
+  assertStaticRole(db, token, ['admin']);
+  db.policyFacts = {
+    ...db.policyFacts,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  };
+  persistStaticDb(db);
+  return {
+    policyFacts: db.policyFacts,
+    policyChecklistSummary: buildPolicyChecklistSummary(
+      db.policies,
+      db.policyFacts,
+      db.legalReviewChecklist
+    ),
+  };
+}
+
+export function staticUpdateAdminLegalChecklist(
+  id: string,
+  updates: Partial<LegalReviewChecklistItem>,
+  token?: string
+): {
+  item: LegalReviewChecklistItem;
+  legalReviewChecklist: LegalReviewChecklistItem[];
+  policyChecklistSummary: PolicyChecklistSummary;
+} {
+  const db = getStaticDb();
+  assertStaticRole(db, token, ['admin']);
+  const item = db.legalReviewChecklist.find((c) => c.id === id);
+  if (!item) {
+    throw new ApiError('Checklist entry not found.', 404, false);
+  }
+  Object.assign(item, updates);
+  persistStaticDb(db);
+  return {
+    item,
+    legalReviewChecklist: db.legalReviewChecklist,
+    policyChecklistSummary: buildPolicyChecklistSummary(
+      db.policies,
+      db.policyFacts,
+      db.legalReviewChecklist
+    ),
+  };
+}
+
+export function staticNotifyMaterialPolicyChange(
+  payload: { title: string; summary: string; policyIds?: string[] },
+  token?: string
+): { ok: boolean; entry: PolicyAcceptanceLedgerEntry } {
+  const db = getStaticDb();
+  const admin = assertStaticRole(db, token, ['admin']);
+  const ids = Array.isArray(payload.policyIds) && payload.policyIds.length > 0 ? payload.policyIds : ['terms', 'privacy-policy'];
+  const acceptance = buildValidatedAcceptanceRecord({
+    policies: db.policies,
+    requestedPolicyIds: ids,
+  });
+  const entry = db.recordPolicyAcceptance('material_notice', `broadcast:${admin.id}`, acceptance);
+  db.notifications.unshift({
+    id: `notif-mat-${Date.now().toString(36)}`,
+    title: payload.title.trim(),
+    message: payload.summary.trim(),
+    category: 'system',
+    createdAt: 'Just now',
+    read: false,
+    roleScope: 'all',
+  });
+  persistStaticDb(db);
+  return { ok: true, entry };
+}
+
 
 

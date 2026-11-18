@@ -75,7 +75,7 @@ export function buildCartMergeProducts(params: {
     specifications: base.specifications || [],
     attributes: {},
     deliveryEstimate: base.deliveryEstimate || '2-4 business days',
-    returnPolicy: '30-day studio return',
+    returnPolicy: '14-day studio return',
     warranty: 'Standard studio warranty',
     tags: [],
     weightKg: base.weightKg,

@@ -166,6 +166,9 @@ export const StorefrontRouter: React.FC<StorefrontRouterProps> = ({ route }) => 
       case 'customer-support-policy':
       case 'data-retention-policy':
       case 'accessibility':
+      case 'reviews-policy':
+      case 'promo-terms':
+      case 'international-orders-policy':
         return <PolicyPage policyId={route.name} />;
       case 'maintenance':
         return <MaintenancePage />;
@@ -176,7 +179,7 @@ export const StorefrontRouter: React.FC<StorefrontRouterProps> = ({ route }) => 
   };
 
   return (
-    <RouteChunkErrorBoundary resetKey={route.name}>
+    <RouteChunkErrorBoundary resetKey={`${route.name}:${route.policyVersion || ''}`}>
       <Suspense fallback={<RouteSuspenseFallback routeName={route.name} />}>
         {renderRouteView()}
       </Suspense>

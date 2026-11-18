@@ -12,14 +12,12 @@ export const LegalModalPreview: React.FC = () => {
     previewPolicyId,
     closePolicyPreview,
     navigate,
-    shippingConfig,
+    publishedPolicies,
+    policyFactsPublic,
   } = useStore();
 
-  const dhakaThresholdUsd =
-    shippingConfig.zones.find((z) => z.zoneId === 'dhaka_metro')?.freeThresholdUsd ?? 120;
-
   const doc = previewPolicyId
-    ? getLegalDocumentById(previewPolicyId, { dhakaThresholdUsd })
+    ? getLegalDocumentById(previewPolicyId, { publishedRecords: publishedPolicies })
     : null;
 
   return (
@@ -34,10 +32,10 @@ export const LegalModalPreview: React.FC = () => {
           <div className="p-3.5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--ks-text-secondary)]">
             <span className="inline-flex items-center gap-1.5 font-medium text-[var(--ks-text-primary)]">
               <Scale className="w-3.5 h-3.5 text-[var(--ks-accent)] shrink-0" />
-              <span>{LEGAL_ENTITY.legalName}</span>
+              <span>{policyFactsPublic.tradingName}</span>
             </span>
             <span className="font-mono-num">
-              v{doc.version} · {t(language, 'updatedLabel')} {doc.lastUpdated}
+              v{doc.version} · {t(language, 'updatedLabel')} {doc.effectiveDate}
             </span>
           </div>
 
@@ -65,6 +63,12 @@ export const LegalModalPreview: React.FC = () => {
                       <li key={idx}>{bullet}</li>
                     ))}
                   </ul>
+                )}
+                {section.notice && (
+                  <div className="p-3 rounded-md bg-[var(--ks-surface-muted)] border border-[var(--ks-border-strong)] text-xs space-y-1">
+                    <p className="font-semibold text-[var(--ks-text-primary)]">{section.notice.label}</p>
+                    <p className="text-[var(--ks-text-secondary)] leading-relaxed">{section.notice.body}</p>
+                  </div>
                 )}
                 {section.table && (
                   <div className="overflow-x-auto border border-[var(--ks-border)] rounded-md">

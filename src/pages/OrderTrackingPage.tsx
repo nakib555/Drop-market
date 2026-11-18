@@ -10,7 +10,7 @@ import { Input } from '../components/ui/FormFields';
 import { Breadcrumb } from '../components/ui/Primitives';
 
 export const OrderTrackingPage: React.FC = () => {
-  const { language, currency, route, orders, navigate, profile } = useStore();
+  const { language, currency, route, orders, navigate, profile, policyFactsPublic } = useStore();
   const [orderIdInput, setOrderIdInput] = useState(route.orderId || orders[0]?.id || '');
   const [contactVerify, setContactVerify] = useState('');
   const contactVerifyRef = useRef('');
@@ -370,6 +370,100 @@ export const OrderTrackingPage: React.FC = () => {
                   {trackedOrder.currencySnapshot.rateSource}
                 </p>
               )}
+            </div>
+
+            {/* Next-Step Escalation & Order-Time Policy Snapshot */}
+            <div className="pt-4 border-t border-[var(--ks-border)] space-y-3 text-xs">
+              <div className="space-y-1.5">
+                <p className="uppercase tracking-wider text-[var(--ks-text-muted)]">
+                  Next Steps &amp; Order Support
+                </p>
+                {['Confirmed', 'Processing'].includes(trackedOrder.currentStage) ? (
+                  <p className="text-[var(--ks-text-secondary)] leading-relaxed">
+                    Cancellation available {policyFactsPublic.cancelPreDispatchCutoff.toLowerCase()}.{' '}
+                    <button
+                      type="button"
+                      onClick={() => navigate({ name: 'cancellation-policy' })}
+                      className="underline text-[var(--ks-accent)] cursor-pointer"
+                    >
+                      Cancellation Policy
+                    </button>
+                  </p>
+                ) : trackedOrder.currentStage === 'Delivered' ? (
+                  <p className="text-[var(--ks-text-secondary)] leading-relaxed">
+                    Eligible items can be returned within {policyFactsPublic.returnWindowDays} days ({policyFactsPublic.defectReportHours}h for transit damage/wrong item).{' '}
+                    <button
+                      type="button"
+                      onClick={() => navigate({ name: 'return-policy' })}
+                      className="underline text-[var(--ks-accent)] cursor-pointer"
+                    >
+                      Return Policy
+                    </button>
+                    {' · '}
+                    <button
+                      type="button"
+                      onClick={() => navigate({ name: 'warranty-policy' })}
+                      className="underline text-[var(--ks-accent)] cursor-pointer"
+                    >
+                      Warranty
+                    </button>
+                  </p>
+                ) : (
+                  <p className="text-[var(--ks-text-secondary)] leading-relaxed">
+                    Need help with dispatch, courier handoff, or a complaint?{' '}
+                    <button
+                      type="button"
+                      onClick={() => navigate({ name: 'customer-support-policy' })}
+                      className="underline text-[var(--ks-accent)] cursor-pointer"
+                    >
+                      Dispute &amp; Support Policy
+                    </button>
+                    {' · '}
+                    <button
+                      type="button"
+                      onClick={() => navigate({ name: 'contact' })}
+                      className="underline text-[var(--ks-accent)] cursor-pointer"
+                    >
+                      Contact Desk
+                    </button>
+                  </p>
+                )}
+              </div>
+
+              <div className="p-3 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-[var(--ks-text-primary)]">
+                    Order-Time Policy Snapshot
+                  </span>
+                  <span className="font-mono-num text-[11px] text-[var(--ks-accent)]">
+                    v{trackedOrder.policyAcceptance?.version || '2026-11.1'}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                  {(['terms', 'return-policy', 'shipping-policy', 'privacy-policy'] as const).map(
+                    (pid) => {
+                      const ver =
+                        trackedOrder.policyAcceptance?.acceptedPolicyVersions?.[pid] ||
+                        trackedOrder.policyAcceptance?.version;
+                      return (
+                        <button
+                          key={pid}
+                          type="button"
+                          onClick={() =>
+                            navigate({
+                              name: pid,
+                              policyVersion: ver,
+                            })
+                          }
+                          className="underline text-[11px] text-[var(--ks-text-secondary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                        >
+                          {pid.replace('-policy', '').replace('-', ' ')}
+                        </button>
+                      );
+                    }
+                  )}
+                </div>
+              </div>
             </div>
           </aside>
         </div>

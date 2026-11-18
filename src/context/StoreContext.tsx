@@ -24,6 +24,7 @@ import {
   fetchCatalogProductsApi,
   fetchNotificationsApi,
   fetchOrdersApi,
+  fetchPublicPoliciesApi,
   fetchStorefrontSync,
   loginWithApi,
   logoutWithApi,
@@ -51,6 +52,7 @@ import {
   CategoryMeta,
   CategoryNode,
   CookieConsentState,
+  CookieInventoryItem,
   CurrencyCode,
   CurrencyRateState,
   CustomerProfile,
@@ -62,6 +64,8 @@ import {
   Order,
   PaymentMethodRecord,
   PendingAction,
+  PolicyDocumentRecord,
+  PolicyFactsPublicSummary,
   PrivacyPrefs,
   Product,
   ProductOverride,
@@ -82,6 +86,19 @@ import {
   serializePendingAction,
 } from '../policy/authPolicy';
 import { LEGAL_VERSION } from '../data/legalPolicies';
+import {
+  buildActiveCookieInventory,
+  buildDefaultPolicyRecords,
+  buildPublicFactsSummary,
+  createInitialPolicyFacts,
+  getPublicPublishedPolicies,
+} from '../../server/services/policyService';
+import {
+  canPersonalizeCatalog,
+  canTrackSearchHistory,
+  clearGatedStorage,
+  recordOptionalEvent,
+} from '../utils/consentGate';
 import {
   getLanguageOption,
   isSupportedLanguage,
@@ -388,6 +405,11 @@ interface StoreContextValue {
   previewPolicyId: LegalDocumentId | null;
   openPolicyPreview: (id: LegalDocumentId) => void;
   closePolicyPreview: () => void;
+  publishedPolicies: PolicyDocumentRecord[];
+  policyFactsPublic: PolicyFactsPublicSummary;
+  cookieInventory: CookieInventoryItem[];
+  refreshPublishedPolicies: () => Promise<void>;
+  trackOptionalEvent: (name: string, meta?: { route?: string; category?: string }) => boolean;
 }
 
 const StoreContext = createContext<StoreContextValue | undefined>(undefined);
@@ -414,11 +436,43 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     readStorage('kinto-wishlist', [])
   );
   const [compareIds, setCompareIds] = useState<string[]>(() => readStorage('kinto-compare', []));
+  const [cookieConsent, setCookieConsent] = useState<CookieConsentState>(() =>
+    readStorage<CookieConsentState>('kinto-cookie-consent', {
+      version: LEGAL_VERSION,
+      status: 'unset',
+      necessary: true,
+      saveSearchHistory: true,
+      personalizedCatalog: true,
+      analyticsOptIn: false,
+    })
+  );
   const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>(() =>
-    readStorage('kinto-recent-views', [])
+    canPersonalizeCatalog(
+      readStorage<CookieConsentState>('kinto-cookie-consent', {
+        version: LEGAL_VERSION,
+        status: 'unset',
+        necessary: true,
+        saveSearchHistory: true,
+        personalizedCatalog: true,
+        analyticsOptIn: false,
+      })
+    )
+      ? readStorage('kinto-recent-views', [])
+      : []
   );
   const [recentSearches, setRecentSearches] = useState<string[]>(() =>
-    readStorage('kinto-recent-searches', ['iPhone', 'MacBook', 'Perfume'])
+    canTrackSearchHistory(
+      readStorage<CookieConsentState>('kinto-cookie-consent', {
+        version: LEGAL_VERSION,
+        status: 'unset',
+        necessary: true,
+        saveSearchHistory: true,
+        personalizedCatalog: true,
+        analyticsOptIn: false,
+      })
+    )
+      ? readStorage('kinto-recent-searches', [])
+      : []
   );
   const [appliedPromoCode, setAppliedPromoCode] = useState<string | null>(() =>
     readStorage('kinto-promo', null)
@@ -471,18 +525,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       analyticsOptIn: false,
     })
   );
-  const [cookieConsent, setCookieConsent] = useState<CookieConsentState>(() =>
-    readStorage<CookieConsentState>('kinto-cookie-consent', {
-      version: LEGAL_VERSION,
-      status: 'unset',
-      necessary: true,
-      saveSearchHistory: true,
-      personalizedCatalog: true,
-      analyticsOptIn: false,
-    })
-  );
   const [cookieModalOpen, setCookieModalOpen] = useState(false);
   const [previewPolicyId, setPreviewPolicyId] = useState<LegalDocumentId | null>(null);
+  const [publishedPolicies, setPublishedPolicies] = useState<PolicyDocumentRecord[]>(() =>
+    getPublicPublishedPolicies(
+      buildDefaultPolicyRecords({ facts: createInitialPolicyFacts() })
+    )
+  );
+  const [policyFactsPublic, setPolicyFactsPublic] = useState<PolicyFactsPublicSummary>(() =>
+    buildPublicFactsSummary(createInitialPolicyFacts())
+  );
+  const [cookieInventory, setCookieInventory] = useState<CookieInventoryItem[]>(() =>
+    buildActiveCookieInventory()
+  );
 
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
@@ -534,6 +589,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (Array.isArray(sync.promotions) && sync.promotions.length > 0) {
         setPromotions(sync.promotions);
       }
+      if (Array.isArray(sync.publishedPolicies) && sync.publishedPolicies.length > 0) {
+        setPublishedPolicies(sync.publishedPolicies);
+      }
+      if (sync.policyFactsPublic) {
+        setPolicyFactsPublic(sync.policyFactsPublic);
+      }
+      if (Array.isArray(sync.cookieInventory) && sync.cookieInventory.length > 0) {
+        setCookieInventory(sync.cookieInventory);
+      }
     },
     []
   );
@@ -546,6 +610,23 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // Static deploy fallback uses base bundled catalog
     }
   }, [applySyncPayload]);
+
+  const refreshPublishedPolicies = useCallback(async () => {
+    try {
+      const res = await fetchPublicPoliciesApi();
+      if (Array.isArray(res.policies) && res.policies.length > 0) {
+        setPublishedPolicies(res.policies);
+      }
+      if (res.policyFactsPublic) {
+        setPolicyFactsPublic(res.policyFactsPublic);
+      }
+      if (Array.isArray(res.cookieInventory) && res.cookieInventory.length > 0) {
+        setCookieInventory(res.cookieInventory);
+      }
+    } catch {
+      // Keep active fallback policies
+    }
+  }, []);
 
   const refreshOrders = useCallback(async () => {
     try {
@@ -893,8 +974,25 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [storePolicy.wishlistAuthRequired, wishlistIds]);
   useEffect(() => writeStorage('kinto-compare', compareIds), [compareIds]);
-  useEffect(() => writeStorage('kinto-recent-views', recentlyViewedIds), [recentlyViewedIds]);
-  useEffect(() => writeStorage('kinto-recent-searches', recentSearches), [recentSearches]);
+  useEffect(() => {
+    if (canPersonalizeCatalog(cookieConsent)) {
+      writeStorage('kinto-recent-views', recentlyViewedIds);
+    }
+  }, [cookieConsent, recentlyViewedIds]);
+  useEffect(() => {
+    if (canTrackSearchHistory(cookieConsent)) {
+      writeStorage('kinto-recent-searches', recentSearches);
+    }
+  }, [cookieConsent, recentSearches]);
+  useEffect(() => {
+    clearGatedStorage(cookieConsent);
+    if (!canPersonalizeCatalog(cookieConsent)) {
+      setRecentlyViewedIds([]);
+    }
+    if (!canTrackSearchHistory(cookieConsent)) {
+      setRecentSearches([]);
+    }
+  }, [cookieConsent]);
   useEffect(() => writeStorage('kinto-promo', appliedPromoCode), [appliedPromoCode]);
   useEffect(() => writeStorage('kinto-reviews', customReviews), [customReviews]);
   useEffect(() => writeStorage('kinto-questions', customQuestions), [customQuestions]);
@@ -1463,25 +1561,32 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const recordProductView = useCallback(
     (productId: string) => {
-      if (!privacyPrefs.personalizedCatalog) return;
+      if (!canPersonalizeCatalog(cookieConsent)) return;
       setRecentlyViewedIds((prev) => {
         if (prev[0] === productId) return prev;
         return [productId, ...prev.filter((id) => id !== productId)].slice(0, 8);
       });
     },
-    [privacyPrefs.personalizedCatalog]
+    [cookieConsent]
   );
 
   const addRecentSearch = useCallback(
     (query: string) => {
-      if (!privacyPrefs.saveSearchHistory) return;
+      if (!canTrackSearchHistory(cookieConsent)) return;
       const clean = query.trim();
       if (!clean) return;
       setRecentSearches((prev) =>
         [clean, ...prev.filter((q) => q.toLowerCase() !== clean.toLowerCase())].slice(0, 6)
       );
     },
-    [privacyPrefs.saveSearchHistory]
+    [cookieConsent]
+  );
+
+  const trackOptionalEvent = useCallback(
+    (name: string, meta?: { route?: string; category?: string }) => {
+      return recordOptionalEvent(cookieConsent, { name, ...meta });
+    },
+    [cookieConsent]
   );
 
   const clearRecentSearches = useCallback(() => setRecentSearches([]), []);
@@ -1645,7 +1750,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const updated = await performOrderCustomerActionApi(
           orderId,
           'return',
-          reason || '30-day return requested through Customer Account'
+          reason || `${policyFactsPublic.returnWindowDays}-day return requested through Customer Account`
         );
         setOrders((prev) => prev.map((o) => (o.id === orderId ? hydrateOrderImages([updated])[0] : o)));
         showToast(
@@ -1662,7 +1767,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         );
       }
     },
-    [hydrateOrderImages, profile.role, refreshNotifications, showToast]
+    [hydrateOrderImages, policyFactsPublic.returnWindowDays, profile.role, refreshNotifications, showToast]
   );
 
   const requestOrderReturn = useCallback(
@@ -2111,24 +2216,34 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [showToast]
   );
 
+  const activeCookieVersion = useMemo(
+    () => publishedPolicies.find((p) => p.id === 'cookie-policy')?.currentVersion || LEGAL_VERSION,
+    [publishedPolicies]
+  );
+
   const setPrivacyPrefs = useCallback(
     (prefs: PrivacyPrefs) => {
       setPrivacyPrefsState(prefs);
-      setCookieConsent({
-        version: LEGAL_VERSION,
+      const nextConsent: CookieConsentState = {
+        version: activeCookieVersion,
         status: 'custom',
         decidedAt: new Date().toISOString(),
         necessary: true,
         saveSearchHistory: prefs.saveSearchHistory,
         personalizedCatalog: prefs.personalizedCatalog,
         analyticsOptIn: prefs.analyticsOptIn,
-      });
+      };
+      setCookieConsent(nextConsent);
+      clearGatedStorage(nextConsent);
       if (!prefs.saveSearchHistory) {
         setRecentSearches([]);
       }
+      if (!prefs.personalizedCatalog) {
+        setRecentlyViewedIds([]);
+      }
       showToast('Privacy settings updated', undefined, 'success');
     },
-    [showToast]
+    [activeCookieVersion, showToast]
   );
 
   const openCookiePreferences = useCallback(() => setCookieModalOpen(true), []);
@@ -2142,7 +2257,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
     setPrivacyPrefsState(nextPrefs);
     setCookieConsent({
-      version: LEGAL_VERSION,
+      version: activeCookieVersion,
       status: 'all',
       decidedAt: new Date().toISOString(),
       necessary: true,
@@ -2150,7 +2265,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
     setCookieModalOpen(false);
     showToast('Cookie preferences saved', 'All optional storefront preferences enabled.', 'success');
-  }, [showToast]);
+  }, [activeCookieVersion, showToast]);
 
   const rejectNonEssentialCookies = useCallback(() => {
     const nextPrefs: PrivacyPrefs = {
@@ -2160,16 +2275,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
     setPrivacyPrefsState(nextPrefs);
     setRecentSearches([]);
-    setCookieConsent({
-      version: LEGAL_VERSION,
+    setRecentlyViewedIds([]);
+    const nextConsent: CookieConsentState = {
+      version: activeCookieVersion,
       status: 'essential-only',
       decidedAt: new Date().toISOString(),
       necessary: true,
       ...nextPrefs,
-    });
+    };
+    clearGatedStorage(nextConsent);
+    setCookieConsent(nextConsent);
     setCookieModalOpen(false);
     showToast('Essential cookies only', 'Non-essential personalization and diagnostics disabled.', 'info');
-  }, [showToast]);
+  }, [activeCookieVersion, showToast]);
 
   const saveCookiePreferences = useCallback(
     (prefs: PrivacyPrefs) => {
@@ -2177,17 +2295,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (!prefs.saveSearchHistory) {
         setRecentSearches([]);
       }
-      setCookieConsent({
-        version: LEGAL_VERSION,
+      if (!prefs.personalizedCatalog) {
+        setRecentlyViewedIds([]);
+      }
+      const nextConsent: CookieConsentState = {
+        version: activeCookieVersion,
         status: 'custom',
         decidedAt: new Date().toISOString(),
         necessary: true,
         ...prefs,
-      });
+      };
+      clearGatedStorage(nextConsent);
+      setCookieConsent(nextConsent);
       setCookieModalOpen(false);
       showToast('Cookie preferences updated', undefined, 'success');
     },
-    [showToast]
+    [activeCookieVersion, showToast]
   );
 
   const openPolicyPreview = useCallback((id: LegalDocumentId) => setPreviewPolicyId(id), []);
@@ -2307,6 +2430,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       previewPolicyId,
       openPolicyPreview,
       closePolicyPreview,
+      publishedPolicies,
+      policyFactsPublic,
+      cookieInventory,
+      refreshPublishedPolicies,
+      trackOptionalEvent,
     }),
     [
       route,
@@ -2417,6 +2545,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       previewPolicyId,
       openPolicyPreview,
       closePolicyPreview,
+      publishedPolicies,
+      policyFactsPublic,
+      cookieInventory,
+      refreshPublishedPolicies,
+      trackOptionalEvent,
     ]
   );
 

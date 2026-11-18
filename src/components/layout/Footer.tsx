@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, ChevronDown } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { ArrowRight } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { subscribeNewsletterApi } from '../../services/api';
 import {
@@ -8,11 +7,16 @@ import {
   t,
   translateDepartmentShortName,
 } from '../../utils/i18n';
-import { STUDIO_TRANSITION } from '../../utils/motion';
 import { PWAInstallButton } from '../pwa/PWAInstallButton';
 import { Button } from '../ui/Button';
 
 type FooterGroupId = 'departments' | 'shop' | 'care' | 'legal';
+
+interface FooterLinkItem {
+  label: string;
+  onClick: () => void;
+  emphasize?: boolean;
+}
 
 export const Footer: React.FC = () => {
   const {
@@ -24,11 +28,13 @@ export const Footer: React.FC = () => {
     navigate,
     showToast,
     openCookiePreferences,
+    publishedPolicies,
   } = useStore();
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
   const [subscribing, setSubscribing] = useState(false);
-  const [openMobileGroup, setOpenMobileGroup] = useState<FooterGroupId | null>('care');
+
+  const policyCount = publishedPolicies.length || 20;
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,14 +59,10 @@ export const Footer: React.FC = () => {
     }
   };
 
-  const toggleMobileGroup = (id: FooterGroupId) => {
-    setOpenMobileGroup((prev) => (prev === id ? null : id));
-  };
-
-  const footerColumns: {
+  const desktopColumns: {
     id: FooterGroupId;
     title: string;
-    links: { label: string; onClick: () => void; emphasize?: boolean }[];
+    links: FooterLinkItem[];
   }[] = [
     {
       id: 'departments',
@@ -89,6 +91,10 @@ export const Footer: React.FC = () => {
         },
         { label: t(language, 'specialOffers'), onClick: () => navigate({ name: 'offers' }) },
         { label: t(language, 'journal'), onClick: () => navigate({ name: 'journal' }) },
+        {
+          label: t(language, 'becomeSellerLink'),
+          onClick: () => navigate({ name: 'login', accountTab: 'register' }),
+        },
       ],
     },
     {
@@ -105,6 +111,7 @@ export const Footer: React.FC = () => {
         { label: t(language, 'warrantyPolicy'), onClick: () => navigate({ name: 'warranty-policy' }) },
         { label: t(language, 'contactSupport'), onClick: () => navigate({ name: 'contact' }) },
         { label: t(language, 'helpFaq'), onClick: () => navigate({ name: 'faq' }) },
+        { label: t(language, 'accessibility'), onClick: () => navigate({ name: 'accessibility' }) },
       ],
     },
     {
@@ -112,32 +119,98 @@ export const Footer: React.FC = () => {
       title: t(language, 'footerLegalHeading'),
       links: [
         {
-          label: `${t(language, 'legalCenter')} (17)`,
+          label: `${t(language, 'policiesAndHelpCenter')} (${policyCount})`,
           onClick: () => navigate({ name: 'legal' }),
           emphasize: true,
         },
         { label: t(language, 'termsConditions'), onClick: () => navigate({ name: 'terms' }) },
         { label: t(language, 'privacyPolicy'), onClick: () => navigate({ name: 'privacy-policy' }) },
+        { label: t(language, 'cookiePolicy'), onClick: () => navigate({ name: 'cookie-policy' }) },
         { label: t(language, 'cancellationPolicy'), onClick: () => navigate({ name: 'cancellation-policy' }) },
         { label: t(language, 'paymentPolicy'), onClick: () => navigate({ name: 'payment-policy' }) },
-        { label: t(language, 'cookiePolicy'), onClick: () => navigate({ name: 'cookie-policy' }) },
         { label: t(language, 'marketplaceTerms'), onClick: () => navigate({ name: 'marketplace-terms' }) },
         { label: t(language, 'sellerTerms'), onClick: () => navigate({ name: 'seller-agreement' }) },
+        { label: t(language, 'reviewsPolicy'), onClick: () => navigate({ name: 'reviews-policy' }) },
+      ],
+    },
+  ];
+
+  // Mobile 2x2 Footer Grid matching screenshot structure:
+  // Top-Left: Customer Service | Top-Right: Shopping
+  // Bottom-Left: Policies & Legal | Bottom-Right: For Sellers
+  const mobileQuadrants: {
+    id: string;
+    title: string;
+    links: FooterLinkItem[];
+  }[] = [
+    {
+      id: 'customer-service',
+      title: t(language, 'footerCustomerServiceHeading'),
+      links: [
+        { label: t(language, 'contactUsLink'), onClick: () => navigate({ name: 'contact' }) },
+        { label: t(language, 'helpCenterLink'), onClick: () => navigate({ name: 'faq' }) },
+        { label: t(language, 'trackOrder'), onClick: () => navigate({ name: 'track-order' }) },
+        { label: t(language, 'returnsRefunds'), onClick: () => navigate({ name: 'return-policy' }) },
+      ],
+    },
+    {
+      id: 'shopping',
+      title: t(language, 'footerShoppingHeading'),
+      links: [
+        { label: t(language, 'allCategoriesLink'), onClick: () => navigate({ name: 'shop', category: 'all' }) },
+        {
+          label: t(language, 'newArrivals'),
+          onClick: () => navigate({ name: 'shop', collection: 'new-arrivals', category: 'all' }),
+        },
+        { label: t(language, 'offersLink'), onClick: () => navigate({ name: 'offers' }) },
+        { label: t(language, 'featuredBrands'), onClick: () => navigate({ name: 'brands' }) },
+      ],
+    },
+    {
+      id: 'policies-legal',
+      title: t(language, 'footerLegalHeading'),
+      links: [
+        {
+          label: t(language, 'policiesAndHelpCenter'),
+          onClick: () => navigate({ name: 'legal' }),
+          emphasize: true,
+        },
+        { label: t(language, 'termsConditions'), onClick: () => navigate({ name: 'terms' }) },
+        { label: t(language, 'privacyPolicy'), onClick: () => navigate({ name: 'privacy-policy' }) },
+        { label: t(language, 'cookiePolicy'), onClick: () => navigate({ name: 'cookie-policy' }) },
+        { label: t(language, 'shippingPolicyShort'), onClick: () => navigate({ name: 'shipping-policy' }) },
+        { label: t(language, 'returnPolicyShort'), onClick: () => navigate({ name: 'return-policy' }) },
+      ],
+    },
+    {
+      id: 'for-sellers',
+      title: t(language, 'footerForSellersHeading'),
+      links: [
+        {
+          label: t(language, 'becomeSellerLink'),
+          onClick: () => navigate({ name: 'login', accountTab: 'register' }),
+        },
+        { label: t(language, 'sellerAgreementLink'), onClick: () => navigate({ name: 'seller-agreement' }) },
+        { label: t(language, 'sellerPoliciesLink'), onClick: () => navigate({ name: 'marketplace-terms' }) },
+        { label: t(language, 'sellerSupportLink'), onClick: () => navigate({ name: 'contact' }) },
       ],
     },
   ];
 
   return (
     <footer className="print:hidden bg-[var(--ks-bg-secondary)] border-t border-[var(--ks-border)] text-[var(--ks-text-primary)] mt-16 sm:mt-20">
-      <div className="ks-container pt-12 pb-20 sm:py-14 lg:py-16">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 pb-10 lg:pb-12 border-b border-[var(--ks-border-strong)]">
+      <div className="ks-container pt-10 pb-20 sm:py-14 lg:py-16">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 pb-8 lg:pb-12 border-b border-[var(--ks-border-strong)]">
           {/* Newsletter & Brand Overview */}
           <div className="lg:col-span-5 space-y-5">
             <div>
               <p className="font-display text-2xl font-semibold tracking-[0.07em]">
                 KINTO STUDIO
               </p>
-              <p className="text-sm text-[var(--ks-text-secondary)] mt-2 max-w-sm leading-relaxed">
+              <p className="md:hidden text-sm text-[var(--ks-text-secondary)] mt-1.5 leading-relaxed">
+                {t(language, 'footerShortSubtitle')}
+              </p>
+              <p className="hidden md:block text-sm text-[var(--ks-text-secondary)] mt-2 max-w-sm leading-relaxed">
                 {t(language, 'footerOverview')}
               </p>
             </div>
@@ -173,65 +246,43 @@ export const Footer: React.FC = () => {
               )}
             </form>
 
-            <p className="text-xs text-[var(--ks-text-muted)]">
+            <p className="hidden md:block text-xs text-[var(--ks-text-muted)]">
               {t(language, 'footerSupportNote')}
             </p>
           </div>
 
-          {/* Mobile Collapsible Category Accordions */}
-          <div className="md:hidden divide-y divide-[var(--ks-border-strong)] border-y border-[var(--ks-border-strong)]">
-            {footerColumns.map((col) => {
-              const isOpen = openMobileGroup === col.id;
-              return (
-                <div key={col.id}>
-                  <button
-                    type="button"
-                    aria-expanded={isOpen}
-                    onClick={() => toggleMobileGroup(col.id)}
-                    className="w-full min-h-[52px] py-3 flex items-center justify-between gap-3 text-start cursor-pointer"
-                  >
-                    <span className="ks-eyebrow text-[var(--ks-text-primary)]">{col.title}</span>
-                    <ChevronDown
-                      className={`w-4 h-4 text-[var(--ks-text-secondary)] shrink-0 transition-transform duration-150 ${
-                        isOpen ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </button>
-                  <AnimatePresence initial={false}>
-                    {isOpen && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={STUDIO_TRANSITION.accordion}
-                        className="overflow-hidden"
+          {/* Mobile 2x2 Always-Visible Quadrant Grid */}
+          <nav
+            aria-label={t(language, 'policiesAndHelpCenter')}
+            className="md:hidden grid grid-cols-2 gap-x-5 gap-y-7 pt-1"
+          >
+            {mobileQuadrants.map((quad) => (
+              <div key={quad.id} className="min-w-0 space-y-2.5">
+                <p className="text-sm font-semibold text-[var(--ks-text-primary)] leading-snug">
+                  {quad.title}
+                </p>
+                <ul className="space-y-1 text-[13px] text-[var(--ks-text-secondary)]">
+                  {quad.links.map((link) => (
+                    <li key={link.label}>
+                      <button
+                        type="button"
+                        onClick={link.onClick}
+                        className={`w-full min-h-[40px] py-1 -my-0.5 flex items-center text-start leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer ${
+                          link.emphasize ? 'font-medium text-[var(--ks-text-primary)]' : ''
+                        }`}
                       >
-                        <ul className="pb-4 space-y-1 text-sm text-[var(--ks-text-secondary)]">
-                          {col.links.map((link) => (
-                            <li key={link.label}>
-                              <button
-                                type="button"
-                                onClick={link.onClick}
-                                className={`w-full min-h-[44px] py-1.5 text-start leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer ${
-                                  link.emphasize ? 'font-semibold text-[var(--ks-text-primary)]' : ''
-                                }`}
-                              >
-                                {link.label}
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              );
-            })}
-          </div>
+                        <span>{link.label}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </nav>
 
           {/* Tablet & Desktop Multi-Column Architecture */}
           <div className="hidden md:grid md:grid-cols-4 lg:col-span-7 gap-8 text-sm">
-            {footerColumns.map((col) => (
+            {desktopColumns.map((col) => (
               <div key={col.id} className="space-y-3">
                 <p className="ks-eyebrow">{col.title}</p>
                 <ul className="space-y-2 text-xs sm:text-sm text-[var(--ks-text-secondary)]">
@@ -254,8 +305,40 @@ export const Footer: React.FC = () => {
           </div>
         </div>
 
-        <div className="pt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-[var(--ks-text-secondary)] pe-14 sm:pe-0">
-          <p>{t(language, 'footerCopyright')}</p>
+        {/* Bottom Legal & Preferences Bar */}
+        <div className="pt-6 sm:pt-8 space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between gap-4 text-xs text-[var(--ks-text-secondary)] pe-12 sm:pe-0">
+          {/* Mobile Compact Copyright + Quick Legal Links Row (matching screenshot) */}
+          <div className="flex md:hidden items-center justify-between gap-3 flex-wrap">
+            <p className="text-[var(--ks-text-secondary)]">{t(language, 'footerShortCopyright')}</p>
+            <div className="flex items-center gap-1.5 text-[var(--ks-text-secondary)]">
+              <button
+                type="button"
+                onClick={() => navigate({ name: 'privacy-policy' })}
+                className="min-h-[40px] inline-flex items-center px-1 hover:text-[var(--ks-text-primary)] cursor-pointer"
+              >
+                {t(language, 'footerShortPrivacy')}
+              </button>
+              <span aria-hidden="true">·</span>
+              <button
+                type="button"
+                onClick={() => navigate({ name: 'terms' })}
+                className="min-h-[40px] inline-flex items-center px-1 hover:text-[var(--ks-text-primary)] cursor-pointer"
+              >
+                {t(language, 'footerShortTerms')}
+              </button>
+              <span aria-hidden="true">·</span>
+              <button
+                type="button"
+                onClick={() => navigate({ name: 'cookie-policy' })}
+                className="min-h-[40px] inline-flex items-center px-1 hover:text-[var(--ks-text-primary)] cursor-pointer"
+              >
+                {t(language, 'footerShortCookies')}
+              </button>
+            </div>
+          </div>
+
+          <p className="hidden md:block">{t(language, 'footerCopyright')}</p>
+
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <span className="hidden lg:inline text-[var(--ks-text-muted)]">
               {t(language, 'footerPayments')}

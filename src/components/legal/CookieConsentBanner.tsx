@@ -23,9 +23,13 @@ export const CookieConsentBanner: React.FC = () => {
     privacyPrefs,
     navigate,
     openPolicyPreview,
+    publishedPolicies,
+    cookieInventory,
   } = useStore();
 
   const [draftPrefs, setDraftPrefs] = useState<PrivacyPrefs>(privacyPrefs);
+  const cookiePolicyVersion =
+    publishedPolicies.find((p) => p.id === 'cookie-policy')?.currentVersion || LEGAL_VERSION;
 
   useEffect(() => {
     if (cookieModalOpen) {
@@ -115,7 +119,7 @@ export const CookieConsentBanner: React.FC = () => {
       >
         <div className="space-y-5 text-sm">
           <p className="text-xs leading-relaxed text-[var(--ks-text-secondary)]">
-            Manage how {LEGAL_ENTITY.legalName} stores browser data and optional storefront preferences (Policy v{LEGAL_VERSION}). Changes apply immediately across this browser.
+            Manage how {LEGAL_ENTITY.legalName} stores browser data and optional storefront preferences (Policy v{cookiePolicyVersion}). Changes apply immediately and clear declined storage keys.
           </p>
 
           <div className="p-3.5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] flex items-start justify-between gap-3">
@@ -159,6 +163,27 @@ export const CookieConsentBanner: React.FC = () => {
               }
             />
           </div>
+
+          {cookieInventory.length > 0 && (
+            <details className="rounded-md border border-[var(--ks-border)] bg-[var(--ks-bg)] p-3 text-[11px]">
+              <summary className="font-medium text-[var(--ks-text-primary)] cursor-pointer select-none">
+                Browser Storage &amp; Cookie Inventory ({cookieInventory.length} active entries)
+              </summary>
+              <div className="mt-2.5 space-y-2 max-h-36 overflow-y-auto pe-1">
+                {cookieInventory.map((item) => (
+                  <div
+                    key={item.key}
+                    className="pt-2 border-t border-[var(--ks-border)] first:border-t-0 first:pt-0"
+                  >
+                    <p className="font-mono-num font-medium text-[var(--ks-text-primary)]">
+                      {item.key} · <span className="text-[var(--ks-accent)]">{item.classification}</span>
+                    </p>
+                    <p className="text-[var(--ks-text-secondary)]">{item.purpose}</p>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
 
           <div className="pt-2 border-t border-[var(--ks-border)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <button

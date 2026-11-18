@@ -28,10 +28,15 @@ import {
   getLegalDocuments,
   LEGAL_ENTITY,
   LEGAL_VERSION,
+  policyRecordToLegalDocument,
 } from '../data/legalPolicies';
 import { useStore } from '../context/StoreContext';
-import { submitSupportInquiryApi } from '../services/api';
-import { JournalArticle, LanguageCode, LegalDocumentId } from '../types/commerce';
+import { fetchPolicyBySlugApi, submitSupportInquiryApi } from '../services/api';
+import {
+  JournalArticle,
+  LegalDocumentId,
+  PolicyCategory,
+} from '../types/commerce';
 import { t } from '../utils/i18n';
 import { STUDIO_TRANSITION } from '../utils/motion';
 import { isValidContactPhone } from '../utils/validation';
@@ -39,21 +44,14 @@ import { Button } from '../components/ui/Button';
 import { Input, Select, Textarea } from '../components/ui/FormFields';
 import { Accordion, Breadcrumb, Drawer, Modal, ResilientImage } from '../components/ui/Primitives';
 
-const translateLegalGroup = (
-  language: LanguageCode,
-  group: 'Core Agreements' | 'Commerce & Logistics' | 'Marketplace Governance' | 'Safety & Rights'
-) => {
-  switch (group) {
-    case 'Core Agreements':
-      return t(language, 'legalCatCore');
-    case 'Commerce & Logistics':
-      return t(language, 'legalCatCommerce');
-    case 'Marketplace Governance':
-      return t(language, 'legalCatGovernance');
-    case 'Safety & Rights':
-      return t(language, 'legalCatSafety');
-  }
-};
+const POLICY_CATEGORY_ORDER: PolicyCategory[] = [
+  'Shopping',
+  'Payments',
+  'Orders & Delivery',
+  'Returns & Warranty',
+  'Privacy & Legal',
+  'Seller Information',
+];
 
 export const BrandsPage: React.FC = () => {
   const { navigate, products, language } = useStore();
@@ -518,28 +516,62 @@ interface PolicyPageProps {
 }
 
 export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
-  const { navigate, shippingConfig, openCookiePreferences, language } = useStore();
-  const dhakaThresholdUsd =
-    shippingConfig.zones.find((z) => z.zoneId === 'dhaka_metro')?.freeThresholdUsd ?? 120;
+  const {
+    navigate,
+    route,
+    publishedPolicies,
+    policyFactsPublic,
+    openCookiePreferences,
+    language,
+  } = useStore();
 
-  const docs = useMemo(() => getLegalDocuments({ dhakaThresholdUsd }), [dhakaThresholdUsd]);
-  const doc = useMemo(
-    () => getLegalDocumentById(policyId, { dhakaThresholdUsd }),
-    [policyId, dhakaThresholdUsd]
+  const docs = useMemo(
+    () => getLegalDocuments({ publishedRecords: publishedPolicies }),
+    [publishedPolicies]
   );
+  const currentDoc = useMemo(
+    () => getLegalDocumentById(policyId, { publishedRecords: publishedPolicies }),
+    [policyId, publishedPolicies]
+  );
+
+  const requestedVersion = route.policyVersion;
+  const [historicalDoc, setHistoricalDoc] = useState<ReturnType<typeof policyRecordToLegalDocument> | null>(null);
+  const [historicalNotFound, setHistoricalNotFound] = useState(false);
+
+  React.useEffect(() => {
+    let active = true;
+    if (!requestedVersion || requestedVersion === currentDoc.version) {
+      setHistoricalDoc(null);
+      setHistoricalNotFound(false);
+      return;
+    }
+    fetchPolicyBySlugApi(policyId, requestedVersion)
+      .then((res) => {
+        if (!active) return;
+        if (res.isHistoricalSnapshot && res.policy) {
+          setHistoricalDoc(policyRecordToLegalDocument(res.policy));
+          setHistoricalNotFound(false);
+        } else {
+          setHistoricalDoc(null);
+          setHistoricalNotFound(true);
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setHistoricalDoc(null);
+        setHistoricalNotFound(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [currentDoc.version, policyId, requestedVersion]);
+
+  const doc = historicalDoc || currentDoc;
+  const isViewingHistorical = Boolean(historicalDoc);
 
   const [policyDrawerOpen, setPolicyDrawerOpen] = useState(false);
   const [policyQuery, setPolicyQuery] = useState('');
   const [mobileTocOpen, setMobileTocOpen] = useState(false);
-
-  const categories: Array<
-    'Core Agreements' | 'Commerce & Logistics' | 'Marketplace Governance' | 'Safety & Rights'
-  > = [
-    'Core Agreements',
-    'Commerce & Logistics',
-    'Marketplace Governance',
-    'Safety & Rights',
-  ];
 
   const filteredDocs = useMemo(() => {
     const q = policyQuery.trim().toLowerCase();
@@ -548,7 +580,7 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
       (item) =>
         item.title.toLowerCase().includes(q) ||
         item.shortTitle.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q) ||
+        item.policyCategory.toLowerCase().includes(q) ||
         item.summary.toLowerCase().includes(q)
     );
   }, [docs, policyQuery]);
@@ -557,7 +589,10 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
     setMobileTocOpen(false);
     const target = document.getElementById(`legal-sec-${sectionId}`);
     if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const reducedMotion =
+        typeof window !== 'undefined' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      target.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
     }
   };
 
@@ -571,11 +606,48 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
         ]}
       />
 
+      {isViewingHistorical && (
+        <div
+          role="status"
+          className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface-muted)] border border-[var(--ks-accent)]/40 flex flex-wrap items-center justify-between gap-3 text-xs"
+        >
+          <div className="space-y-0.5">
+            <p className="font-semibold text-[var(--ks-text-primary)]">
+              Archived Order-Time Policy Snapshot · v{doc.version}
+            </p>
+            <p className="text-[var(--ks-text-secondary)]">
+              You are viewing historical terms effective {doc.effectiveDate}. Current published version is v{currentDoc.version}.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate({ name: policyId })}
+          >
+            View Current Published Version (v{currentDoc.version})
+          </Button>
+        </div>
+      )}
+
+      {historicalNotFound && requestedVersion && !isViewingHistorical && (
+        <div
+          role="status"
+          className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface-muted)] border border-[var(--ks-border-strong)] flex flex-wrap items-center justify-between gap-3 text-xs"
+        >
+          <p className="text-[var(--ks-text-secondary)]">
+            Snapshot v{requestedVersion} was superseded or unavailable; showing current published policy v{currentDoc.version}.
+          </p>
+          <Button variant="ghost" size="sm" onClick={() => navigate({ name: policyId })}>
+            Dismiss
+          </Button>
+        </div>
+      )}
+
       {/* Policy Header */}
       <div className="pb-5 sm:pb-6 border-b border-[var(--ks-border)] flex flex-col lg:flex-row lg:items-end justify-between gap-4 sm:gap-5">
         <div className="max-w-3xl space-y-2">
           <p className="text-xs uppercase tracking-[0.14em] text-[var(--ks-accent)] font-medium">
-            {doc.category} · v{doc.version} · {doc.lastUpdated}
+            {doc.policyCategory} · v{doc.version} · Effective {doc.effectiveDate}
           </p>
           <h1 className="font-display text-3xl sm:text-5xl font-medium text-balance">
             {doc.title}
@@ -672,7 +744,7 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
         )}
       </div>
 
-      {/* Custom Searchable Grouped Drawer Sheet for all 17 Policies */}
+      {/* Custom Searchable Grouped Drawer Sheet for all Published Policies */}
       <Drawer
         open={policyDrawerOpen}
         onClose={() => setPolicyDrawerOpen(false)}
@@ -708,13 +780,13 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
             </p>
           ) : (
             <div className="space-y-5">
-              {categories.map((group) => {
-                const groupDocs = filteredDocs.filter((d) => d.category === group);
+              {POLICY_CATEGORY_ORDER.map((group) => {
+                const groupDocs = filteredDocs.filter((d) => d.policyCategory === group);
                 if (groupDocs.length === 0) return null;
                 return (
                   <div key={group} className="space-y-1.5">
                     <p className="px-1 text-[11px] uppercase tracking-[0.12em] font-semibold text-[var(--ks-text-muted)]">
-                      {translateLegalGroup(language, group)} ({groupDocs.length})
+                      {group} ({groupDocs.length})
                     </p>
                     <div className="rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] divide-y divide-[var(--ks-border)] overflow-hidden">
                       {groupDocs.map((item) => {
@@ -727,7 +799,6 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
                               setPolicyDrawerOpen(false);
                               setPolicyQuery('');
                               navigate({ name: item.id });
-                              window.scrollTo({ top: 0, behavior: 'smooth' });
                             }}
                             className={`w-full min-h-[52px] px-3.5 py-2.5 flex items-center justify-between gap-3 text-start transition-colors cursor-pointer ${
                               active
@@ -815,10 +886,12 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
           <div className="p-4 rounded-md bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] space-y-1.5 text-xs">
             <p className="font-semibold text-[var(--ks-text-primary)] inline-flex items-center gap-1.5">
               <Scale className="w-3.5 h-3.5 text-[var(--ks-accent)] shrink-0" />
-              <span>{LEGAL_ENTITY.legalName} · {LEGAL_ENTITY.jurisdictionLabel}</span>
+              <span>
+                {policyFactsPublic.tradingName} · {policyFactsPublic.governingLaw} · {policyFactsPublic.competentCourts}
+              </span>
             </p>
             <p className="text-[var(--ks-text-secondary)] leading-relaxed">
-              {LEGAL_ENTITY.counselAdvisory}
+              {doc.summary}
             </p>
           </div>
 
@@ -846,6 +919,18 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
                       <li key={idx}>{bullet}</li>
                     ))}
                   </ul>
+                )}
+                {sec.notice && (
+                  <div
+                    className={`p-3.5 rounded-md border text-xs space-y-1 ${
+                      sec.notice.tone === 'warning'
+                        ? 'bg-[var(--ks-surface-muted)] border-[var(--ks-accent)]/40 text-[var(--ks-text-primary)]'
+                        : 'bg-[var(--ks-surface)] border-[var(--ks-border-strong)] text-[var(--ks-text-secondary)]'
+                    }`}
+                  >
+                    <p className="font-semibold text-[var(--ks-text-primary)]">{sec.notice.label}</p>
+                    <p className="leading-relaxed">{sec.notice.body}</p>
+                  </div>
                 )}
                 {sec.table && (
                   <div className="overflow-x-auto border border-[var(--ks-border)] rounded-md mt-3">
@@ -882,12 +967,32 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
 
           {/* Entity & Related Agreements Footer */}
           <div className="p-5 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-4">
-            <div className="space-y-1 text-xs text-[var(--ks-text-secondary)]">
-              <p className="font-semibold text-[var(--ks-text-primary)]">
-                {t(language, 'officialLegalNotices')}
-              </p>
-              <p>{LEGAL_ENTITY.registeredHub}</p>
-              <p className="font-mono-num">{LEGAL_ENTITY.legalEmail}</p>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="space-y-1 text-xs text-[var(--ks-text-secondary)]">
+                <p className="font-semibold text-[var(--ks-text-primary)]">
+                  {t(language, 'officialLegalNotices')}
+                </p>
+                <p>{policyFactsPublic.tradingName} · {policyFactsPublic.operatingCountry}</p>
+                <p className="font-mono-num">
+                  Support: {policyFactsPublic.supportEmail} · Legal: {policyFactsPublic.legalEmail}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 print:hidden">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate({ name: 'contact' })}
+                >
+                  Contact Support Desk
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate({ name: 'customer-support-policy' })}
+                >
+                  Dispute Resolution
+                </Button>
+              </div>
             </div>
             {doc.relatedIds.length > 0 && (
               <div className="pt-3 border-t border-[var(--ks-border)] space-y-2 print:hidden">
@@ -896,7 +1001,7 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {doc.relatedIds.map((relId) => {
-                    const relDoc = getLegalDocumentById(relId, { dhakaThresholdUsd });
+                    const relDoc = getLegalDocumentById(relId, { publishedRecords: publishedPolicies });
                     return (
                       <Button
                         key={relId}
@@ -919,22 +1024,55 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
 };
 
 export const LegalCenterPage: React.FC = () => {
-  const { navigate, shippingConfig, openCookiePreferences, cookieConsent, language } = useStore();
-  const dhakaThresholdUsd =
-    shippingConfig.zones.find((z) => z.zoneId === 'dhaka_metro')?.freeThresholdUsd ?? 120;
-  const docs = getLegalDocuments({ dhakaThresholdUsd });
+  const {
+    navigate,
+    publishedPolicies,
+    policyFactsPublic,
+    openCookiePreferences,
+    cookieConsent,
+    language,
+  } = useStore();
 
-  const categories: Array<
-    'Core Agreements' | 'Commerce & Logistics' | 'Marketplace Governance' | 'Safety & Rights'
-  > = [
-    'Core Agreements',
-    'Commerce & Logistics',
-    'Marketplace Governance',
-    'Safety & Rights',
-  ];
+  const docs = useMemo(
+    () => getLegalDocuments({ publishedRecords: publishedPolicies }),
+    [publishedPolicies]
+  );
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<'all' | PolicyCategory>('all');
+
+  const filteredDocs = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return docs.filter((doc) => {
+      if (selectedCategory !== 'all' && doc.policyCategory !== selectedCategory) return false;
+      if (!q) return true;
+      const inSections = doc.sections.some(
+        (s) =>
+          s.heading.toLowerCase().includes(q) ||
+          s.paragraphs.some((p) => p.toLowerCase().includes(q))
+      );
+      return (
+        doc.title.toLowerCase().includes(q) ||
+        doc.shortTitle.toLowerCase().includes(q) ||
+        doc.summary.toLowerCase().includes(q) ||
+        doc.policyCategory.toLowerCase().includes(q) ||
+        inSections
+      );
+    });
+  }, [docs, searchQuery, selectedCategory]);
+
+  const activeCategories = useMemo(
+    () =>
+      selectedCategory === 'all'
+        ? POLICY_CATEGORY_ORDER.filter((cat) =>
+            filteredDocs.some((d) => d.policyCategory === cat)
+          )
+        : [selectedCategory],
+    [filteredDocs, selectedCategory]
+  );
 
   return (
-    <div className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-10">
+    <div className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-8 sm:space-y-10">
       <Breadcrumb
         items={[
           { label: t(language, 'home'), onClick: () => navigate({ name: 'home' }) },
@@ -944,34 +1082,104 @@ export const LegalCenterPage: React.FC = () => {
 
       <div className="max-w-3xl space-y-3 pb-6 border-b border-[var(--ks-border)]">
         <p className="text-xs uppercase tracking-[0.14em] text-[var(--ks-accent)] font-medium">
-          {t(language, 'legalCenter')} · {docs.length} · v{LEGAL_VERSION}
+          {t(language, 'legalCenter')} · {docs.length} Published Policies · Effective {policyFactsPublic.effectiveDate}
         </p>
         <h1 className="font-display text-3xl sm:text-5xl font-medium text-balance">
           {t(language, 'legalCenterHeadline')}
         </h1>
         <p className="text-sm sm:text-base text-[var(--ks-text-secondary)] leading-relaxed">
-          {t(language, 'legalCenterSubtitle', { name: LEGAL_ENTITY.legalName })}
+          {t(language, 'legalCenterSubtitle', { name: policyFactsPublic.tradingName })}
         </p>
+      </div>
+
+      {/* Search & Category Filter Controls */}
+      <div className="space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center gap-3">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-[var(--ks-text-muted)] absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search policies by topic (returns, bKash, delivery, warranty, privacy, seller)..."
+              aria-label="Search policies by topic"
+              className="w-full min-h-[44px] ps-10 pe-10 py-2 text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border-strong)] text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)] focus:outline-none focus:border-[var(--ks-accent)]"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                aria-label="Clear policy search"
+                className="absolute end-1.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            size="md"
+            onClick={() => navigate({ name: 'contact' })}
+          >
+            Contact Support &amp; Disputes
+          </Button>
+        </div>
+
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Policy categories">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={selectedCategory === 'all'}
+            onClick={() => setSelectedCategory('all')}
+            className={`min-h-[38px] px-3.5 py-1.5 rounded-[var(--ks-radius-sm)] text-xs font-medium border transition-colors cursor-pointer ${
+              selectedCategory === 'all'
+                ? 'bg-[var(--ks-text-primary)] text-[var(--ks-bg)] border-[var(--ks-text-primary)]'
+                : 'bg-[var(--ks-surface)] text-[var(--ks-text-secondary)] border-[var(--ks-border)] hover:border-[var(--ks-border-strong)]'
+            }`}
+          >
+            All Policies ({docs.length})
+          </button>
+          {POLICY_CATEGORY_ORDER.map((cat) => {
+            const count = docs.filter((d) => d.policyCategory === cat).length;
+            const active = selectedCategory === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setSelectedCategory(cat)}
+                className={`min-h-[38px] px-3.5 py-1.5 rounded-[var(--ks-radius-sm)] text-xs font-medium border transition-colors cursor-pointer ${
+                  active
+                    ? 'bg-[var(--ks-text-primary)] text-[var(--ks-bg)] border-[var(--ks-text-primary)]'
+                    : 'bg-[var(--ks-surface)] text-[var(--ks-text-secondary)] border-[var(--ks-border)] hover:border-[var(--ks-border-strong)]'
+                }`}
+              >
+                {cat} ({count})
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Jurisdiction & Governance Summary Bar */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div className="p-5 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-1.5">
           <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
-            {t(language, 'entityCounselLabel')}
+            Storefront &amp; Support Desk
           </p>
-          <p className="text-sm font-semibold">{LEGAL_ENTITY.legalName}</p>
+          <p className="text-sm font-semibold">{policyFactsPublic.tradingName}</p>
           <p className="text-xs font-mono-num text-[var(--ks-accent)]">
-            {LEGAL_ENTITY.legalEmail}
+            {policyFactsPublic.supportEmail} · {policyFactsPublic.legalEmail}
           </p>
         </div>
         <div className="p-5 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-1.5">
           <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
             {t(language, 'governingLawLabel')}
           </p>
-          <p className="text-sm font-semibold">{t(language, 'lawsOfBangladesh')}</p>
+          <p className="text-sm font-semibold">{policyFactsPublic.governingLaw}</p>
           <p className="text-xs text-[var(--ks-text-secondary)]">
-            {t(language, 'dhakaCourtsDesc')}
+            {policyFactsPublic.competentCourts} · {policyFactsPublic.returnWindowDays}-day return policy
           </p>
         </div>
         <div className="p-5 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] flex flex-col justify-between gap-3">
@@ -994,53 +1202,84 @@ export const LegalCenterPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Categorized Legal Document Index */}
-      <div className="space-y-10">
-        {categories.map((group) => {
-          const groupDocs = docs.filter((d) => d.category === group);
-          return (
-            <section key={group} className="space-y-4">
-              <h2 className="font-display text-2xl font-medium border-b border-[var(--ks-border)] pb-2">
-                {translateLegalGroup(language, group)} ({groupDocs.length})
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {groupDocs.map((doc) => (
-                  <article
-                    key={doc.id}
-                    className="p-5 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] flex flex-col justify-between gap-5"
-                  >
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between gap-2 text-xs text-[var(--ks-text-muted)]">
-                        <span className="inline-flex items-center gap-1.5">
-                          <FileText className="w-3.5 h-3.5 text-[var(--ks-accent)]" />
-                          <span>{t(language, 'clausesCount', { count: doc.sections.length })}</span>
-                        </span>
-                        <span className="font-mono-num">v{doc.version}</span>
-                      </div>
-                      <h3 className="text-base font-semibold">{doc.title}</h3>
-                      <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
-                        {doc.summary}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => navigate({ name: doc.id })}
-                      className="min-h-[36px] inline-flex items-center gap-1.5 text-xs font-medium text-[var(--ks-accent)] hover:underline self-start cursor-pointer"
+      {/* Categorized Policy Directory */}
+      {filteredDocs.length === 0 ? (
+        <div className="p-8 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] text-center space-y-3">
+          <p className="text-sm text-[var(--ks-text-secondary)]">
+            No policies matched "{searchQuery}".
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSearchQuery('');
+              setSelectedCategory('all');
+            }}
+          >
+            Reset Filters
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-10">
+          {activeCategories.map((group) => {
+            const groupDocs = filteredDocs.filter((d) => d.policyCategory === group);
+            if (groupDocs.length === 0) return null;
+            return (
+              <section key={group} className="space-y-4">
+                <h2 className="font-display text-2xl font-medium border-b border-[var(--ks-border)] pb-2">
+                  {group} ({groupDocs.length})
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {groupDocs.map((doc) => (
+                    <article
+                      key={doc.id}
+                      className="p-5 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] flex flex-col justify-between gap-5"
                     >
-                      <span>{t(language, 'readDocBtn', { name: doc.shortTitle })}</span>
-                      <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
-                    </button>
-                  </article>
-                ))}
-              </div>
-            </section>
-          );
-        })}
-      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2 text-xs text-[var(--ks-text-muted)]">
+                          <span className="inline-flex items-center gap-1.5">
+                            <FileText className="w-3.5 h-3.5 text-[var(--ks-accent)]" />
+                            <span>{t(language, 'clausesCount', { count: doc.sections.length })}</span>
+                          </span>
+                          <span className="font-mono-num">
+                            v{doc.version} · {doc.effectiveDate}
+                          </span>
+                        </div>
+                        <h3 className="text-base font-semibold">{doc.title}</h3>
+                        <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
+                          {doc.summary}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => navigate({ name: doc.id })}
+                        className="min-h-[36px] inline-flex items-center gap-1.5 text-xs font-medium text-[var(--ks-accent)] hover:underline self-start cursor-pointer"
+                      >
+                        <span>{t(language, 'readDocBtn', { name: doc.shortTitle })}</span>
+                        <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      )}
 
-      <p className="text-xs text-[var(--ks-text-secondary)] p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface-muted)] border border-[var(--ks-border)]">
-        {LEGAL_ENTITY.counselAdvisory}
-      </p>
+      <div className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--ks-text-secondary)]">
+        <p>
+          Need clarification on an order, return window, warranty, or privacy request? Contact Kinto Studio Care or review our dispute escalation procedure.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => navigate({ name: 'customer-support-policy' })}>
+            Dispute Escalation
+          </Button>
+          <Button variant="primary" size="sm" onClick={() => navigate({ name: 'track-order' })}>
+            Track Order
+          </Button>
+        </div>
+      </div>
     </div>
   );
 };

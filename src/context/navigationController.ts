@@ -15,6 +15,7 @@ export interface RouteState {
   accountTab?: string;
   orderId?: string;
   redirectTo?: string;
+  policyVersion?: string;
 }
 
 const PAGE_TITLES: Record<RouteName, string> = {
@@ -53,9 +54,12 @@ const PAGE_TITLES: Record<RouteName, string> = {
   'product-safety': 'Product Safety Information — KINTO STUDIO',
   'acceptable-use': 'Acceptable Use Policy — KINTO STUDIO',
   'intellectual-property': 'Intellectual Property Policy — KINTO STUDIO',
-  'customer-support-policy': 'Customer Support & Grievance Policy — KINTO STUDIO',
+  'customer-support-policy': 'Contact, Complaints & Dispute Resolution — KINTO STUDIO',
   'data-retention-policy': 'Data Retention Policy — KINTO STUDIO',
   accessibility: 'Accessibility — KINTO STUDIO',
+  'reviews-policy': 'Reviews, Ratings & UGC Policy — KINTO STUDIO',
+  'promo-terms': 'Promotions, Coupons & Discount Terms — KINTO STUDIO',
+  'international-orders-policy': 'Cross-Border & International Orders Policy — KINTO STUDIO',
   maintenance: 'Maintenance Notice — KINTO STUDIO',
   'not-found': 'Page Not Found — KINTO STUDIO',
 };
@@ -91,6 +95,9 @@ const ROUTE_DEPTH: Record<RouteName, number> = {
   'customer-support-policy': 2,
   'data-retention-policy': 2,
   accessibility: 2,
+  'reviews-policy': 2,
+  'promo-terms': 2,
+  'international-orders-policy': 2,
   maintenance: 2,
   'not-found': 2,
   product: 3,
@@ -142,6 +149,9 @@ const PEER_ROUTE_ORDER: Partial<Record<RouteName, number>> = {
   'intellectual-property': 35,
   'customer-support-policy': 36,
   accessibility: 37,
+  'reviews-policy': 38,
+  'promo-terms': 39,
+  'international-orders-policy': 40,
 };
 
 const VALID_ROUTES: RouteName[] = [
@@ -183,9 +193,35 @@ const VALID_ROUTES: RouteName[] = [
   'customer-support-policy',
   'data-retention-policy',
   'accessibility',
+  'reviews-policy',
+  'promo-terms',
+  'international-orders-policy',
   'maintenance',
   'not-found',
 ];
+
+const POLICY_ROUTE_SET = new Set<RouteName>([
+  'terms',
+  'privacy-policy',
+  'cookie-policy',
+  'shipping-policy',
+  'return-policy',
+  'cancellation-policy',
+  'payment-policy',
+  'warranty-policy',
+  'seller-agreement',
+  'marketplace-terms',
+  'prohibited-items',
+  'product-safety',
+  'acceptable-use',
+  'intellectual-property',
+  'customer-support-policy',
+  'data-retention-policy',
+  'accessibility',
+  'reviews-policy',
+  'promo-terms',
+  'international-orders-policy',
+]);
 
 export function getRouteKey(route: RouteState): string {
   return [
@@ -199,6 +235,7 @@ export function getRouteKey(route: RouteState): string {
     route.accountTab || '',
     route.orderId || '',
     route.redirectTo || '',
+    route.policyVersion || '',
   ].join(':');
 }
 
@@ -293,6 +330,10 @@ export function parseLocationToRoute(
   }
 
   if (VALID_ROUTES.includes(first)) {
+    if (POLICY_ROUTE_SET.has(first)) {
+      const ver = searchParams.get('version')?.trim();
+      return ver ? { name: first, policyVersion: ver } : { name: first };
+    }
     return { name: first };
   }
   return { name: 'not-found' };
@@ -341,8 +382,12 @@ export function serializeRouteToPath(route: RouteState): string {
       return '/admin';
     case 'track-order':
       return route.orderId ? `/track-order?id=${encodeURIComponent(route.orderId)}` : '/track-order';
-    default:
+    default: {
+      if (POLICY_ROUTE_SET.has(route.name) && route.policyVersion) {
+        return `/${route.name}?version=${encodeURIComponent(route.policyVersion)}`;
+      }
       return `/${route.name}`;
+    }
   }
 }
 

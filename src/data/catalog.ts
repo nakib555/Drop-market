@@ -209,9 +209,9 @@ export const FAQ_ITEMS = [
   },
   {
     category: 'Returns & Exchanges',
-    question: 'How does the 30-day trial work across departments?',
+    question: 'How do returns and exchanges work across departments?',
     answer:
-      'All in-stock purchases across all 10 departments qualify for a 30-day return or apparel size exchange directly from your Customer Account portal.',
+      'Eligible in-stock purchases qualify for returns within 14 days of delivery (and defective, damaged, or wrong-item claims within 48 hours of delivery) directly through your Customer Account portal, subject to hygiene and safety seal exclusions.',
   },
 ];
 

@@ -15,6 +15,16 @@ import {
 import { updateCurrencyState } from './server/services/currencyService.ts';
 import { calculateShippingQuote, type ShippingQuoteItemInput } from './server/services/shippingService.ts';
 import {
+  buildActiveCookieInventory,
+  buildPolicyChecklistSummary,
+  buildPublicFactsSummary,
+  buildValidatedAcceptanceRecord,
+  getPublicPublishedPolicies,
+  projectPublicPolicyDocument,
+  savePolicyDraft,
+  transitionPolicyStatus,
+} from './server/services/policyService.ts';
+import {
   buildAuthoritativeCheckoutQuote,
   buildVerifiedOrderFromSession,
   createPaymentSession,
@@ -35,10 +45,13 @@ import type {
   DeliveryMethodId,
   LanguageCode,
   LegalAcceptanceRecord,
+  LegalReviewChecklistItem,
   Order,
   OrderStage,
   PaymentMethodId,
   PaymentMethodRecord,
+  PolicyFactsConfig,
+  PolicySection,
   ProductReview,
   SellerStoreSettings,
   ShippingZoneId,
@@ -355,6 +368,20 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
     }
 
     const chosenRole: UserRole = role === 'seller' ? 'seller' : 'customer';
+
+    const validatedAcceptance = buildValidatedAcceptanceRecord({
+      policies: db.policies,
+      requestedPolicyIds:
+        Array.isArray(acceptedPolicies.scope) && acceptedPolicies.scope.length > 0
+          ? acceptedPolicies.scope
+          : chosenRole === 'seller'
+          ? ['terms', 'privacy-policy', 'marketplace-terms', 'seller-agreement']
+          : ['terms', 'privacy-policy', 'marketplace-terms'],
+      requestedVersion: acceptedPolicies.version,
+      jurisdiction: acceptedPolicies.jurisdiction,
+      marketingOptIn: Boolean(acceptedPolicies.marketingOptIn),
+    });
+
     const newId = `usr-${chosenRole}-${Date.now().toString(36)}`;
     const newUser = {
       id: newId,
@@ -368,13 +395,11 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
       joinedAt: new Date().toISOString().slice(0, 10),
       location: 'Dhaka, Bangladesh',
       password: cleanPassword,
-      policyAcceptance: {
-        ...acceptedPolicies,
-        acceptedAt: acceptedPolicies.acceptedAt || new Date().toISOString(),
-      },
+      policyAcceptance: validatedAcceptance,
     };
 
     db.users.unshift(newUser);
+    db.recordPolicyAcceptance('registration', `user:${newId}`, validatedAcceptance);
     if (chosenRole === 'seller') {
       db.sellerApplications.unshift({
         id: `app-${Date.now().toString(36)}`,
@@ -650,7 +675,7 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
     }
   });
 
-  // Live Storefront Sync: Overrides, Seller Created Products, Dynamic Category Tree, Currency & Shipping
+  // Live Storefront Sync: Overrides, Seller Created Products, Dynamic Category Tree, Currency, Shipping & Published Policies
   app.get('/api/storefront/state', (_req, res) => {
     res.json({
       productOverrides: db.productOverrides,
@@ -660,6 +685,39 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
       currencyConfig: db.currencyConfig,
       shippingConfig: db.shippingConfig,
       promotions: db.promotions,
+      publishedPolicies: getPublicPublishedPolicies(db.policies),
+      policyFactsPublic: buildPublicFactsSummary(db.policyFacts),
+      cookieInventory: buildActiveCookieInventory(),
+    });
+  });
+
+  // Public Policy Centre & Individual Policy APIs (serves only published/immutable snapshots)
+  app.get('/api/policies', (_req, res) => {
+    res.json({
+      policies: getPublicPublishedPolicies(db.policies),
+      policyFactsPublic: buildPublicFactsSummary(db.policyFacts),
+      cookieInventory: buildActiveCookieInventory(),
+    });
+  });
+
+  app.get('/api/policies/:slug', (req, res) => {
+    const slug = String(req.params.slug || '').trim().toLowerCase();
+    const version = typeof req.query.version === 'string' ? req.query.version.trim() : undefined;
+    const found = db.policies.find((p) => p.slug.toLowerCase() === slug || p.id === slug);
+    if (!found) {
+      res.status(404).json({ error: 'Policy document not found.' });
+      return;
+    }
+    const projected = projectPublicPolicyDocument(found, version);
+    if (!projected) {
+      res.status(404).json({ error: 'This policy is not published for public viewing.' });
+      return;
+    }
+    res.json({
+      policy: projected,
+      historicalVersionRequested: version || null,
+      isHistoricalSnapshot: Boolean(version && version !== found.currentVersion),
+      policyFactsPublic: buildPublicFactsSummary(db.policyFacts),
     });
   });
 
@@ -898,6 +956,16 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
         `idem-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
       const dynamicCatalogSkus = await getDummyJsonAuthoritativeSkus();
+      const validatedCheckoutAcceptance = buildValidatedAcceptanceRecord({
+        policies: db.policies,
+        requestedPolicyIds:
+          Array.isArray(body.acceptedPolicies.scope) && body.acceptedPolicies.scope.length > 0
+            ? body.acceptedPolicies.scope
+            : ['terms', 'return-policy', 'cancellation-policy', 'shipping-policy', 'payment-policy', 'product-safety'],
+        requestedVersion: body.acceptedPolicies.version,
+        jurisdiction: body.acceptedPolicies.jurisdiction,
+      });
+
       const ctx = createPaymentSession({
         idempotencyKey,
         paymentMethod: body.paymentMethod,
@@ -927,7 +995,7 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
         currencyState: db.currencyConfig,
         shippingConfig: db.shippingConfig,
         existingSessions: db.paymentSessions,
-        policyAcceptance: body.acceptedPolicies,
+        policyAcceptance: validatedCheckoutAcceptance,
         dynamicCatalogSkus,
         promotions: db.promotions,
       });
@@ -1007,6 +1075,9 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
         }
       }
       db.orders = [order, ...db.orders.filter((o) => o.id !== order.id)];
+      if (order.policyAcceptance) {
+        db.recordPolicyAcceptance('checkout', `order:${order.id}`, order.policyAcceptance);
+      }
       db.notifications.unshift({
         id: `notif-${Date.now()}`,
         title:
@@ -1610,15 +1681,23 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
         { label: 'Warranty', value: '2 Years Standard Coverage' },
       ],
       deliveryEstimate: 'Dispatches within 24–48 hours via Insured Courier',
-      returnPolicy: '30-Day Studio Return Policy',
+      returnPolicy: `${db.policyFacts.returnWindowDays}-Day Return Policy (see Return & Refund Policy)`,
       warranty: '2-Year Partner Warranty',
       tags: ['seller listing', 'new arrival', body.categoryLabel || 'marketplace'],
       sellerId: user?.id || 'usr-seller-elena',
       isNewArrival: true,
-      policyAcceptance: body.acceptedPolicies,
+      policyAcceptance: buildValidatedAcceptanceRecord({
+        policies: db.policies,
+        requestedPolicyIds: ['seller-agreement', 'marketplace-terms', 'prohibited-items'],
+        requestedVersion: body.acceptedPolicies.version,
+        jurisdiction: body.acceptedPolicies.jurisdiction,
+      }),
     };
 
     db.sellerCreatedProducts.unshift(newProduct);
+    if (newProduct.policyAcceptance) {
+      db.recordPolicyAcceptance('seller_listing', `sku:${newProduct.sku}`, newProduct.policyAcceptance);
+    }
     res.status(201).json({ product: newProduct });
   });
 
@@ -1689,7 +1768,222 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
       platformSettings: db.platformSettings,
       supportInquiries: db.supportInquiries,
       newsletterSubscribersCount: db.newsletterSubscribers.length,
+      policies: db.policies,
+      policyFacts: db.policyFacts,
+      policyAcceptanceLedger: db.policyAcceptanceLedger.slice(0, 100),
+      legalReviewChecklist: db.legalReviewChecklist,
+      policyChecklistSummary: buildPolicyChecklistSummary(
+        db.policies,
+        db.policyFacts,
+        db.legalReviewChecklist
+      ),
     });
+  });
+
+  // Admin Policy CMS, Facts Configuration, Legal Review Checklist & Material Change Notice APIs
+  app.get('/api/admin/policies', (req, res) => {
+    const admin = requireRole(req, res, ['admin']);
+    if (!admin) return;
+    res.json({
+      policies: db.policies,
+      policyFacts: db.policyFacts,
+      policyAcceptanceLedger: db.policyAcceptanceLedger.slice(0, 100),
+      legalReviewChecklist: db.legalReviewChecklist,
+      policyChecklistSummary: buildPolicyChecklistSummary(
+        db.policies,
+        db.policyFacts,
+        db.legalReviewChecklist
+      ),
+    });
+  });
+
+  app.post('/api/admin/policies/:slug/draft', (req, res) => {
+    const admin = requireRole(req, res, ['admin']);
+    if (!admin) return;
+    const slug = String(req.params.slug || '').trim().toLowerCase();
+    const targetIdx = db.policies.findIndex((p) => p.slug.toLowerCase() === slug || p.id === slug);
+    if (targetIdx === -1) {
+      res.status(404).json({ error: 'Policy document not found.' });
+      return;
+    }
+    try {
+      const body = (req.body || {}) as {
+        title?: string;
+        shortTitle?: string;
+        subtitle?: string;
+        summary?: string;
+        effectiveDate?: string;
+        sections?: PolicySection[];
+        changeNote?: string;
+        materialChange?: boolean;
+      };
+      const updated = savePolicyDraft(db.policies[targetIdx], {
+        title: body.title || db.policies[targetIdx].title,
+        shortTitle: body.shortTitle,
+        subtitle: body.subtitle,
+        summary: body.summary || db.policies[targetIdx].summary,
+        effectiveDate: body.effectiveDate,
+        sections: Array.isArray(body.sections) ? body.sections : db.policies[targetIdx].sections,
+        changeNote: body.changeNote,
+        materialChange: body.materialChange,
+        updatedBy: admin.fullName,
+      });
+      db.policies[targetIdx] = updated;
+      res.json({
+        policy: updated,
+        policyChecklistSummary: buildPolicyChecklistSummary(
+          db.policies,
+          db.policyFacts,
+          db.legalReviewChecklist
+        ),
+      });
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : 'Unable to save policy draft.' });
+    }
+  });
+
+  app.post('/api/admin/policies/:slug/transition', (req, res) => {
+    const admin = requireRole(req, res, ['admin']);
+    if (!admin) return;
+    const slug = String(req.params.slug || '').trim().toLowerCase();
+    const targetIdx = db.policies.findIndex((p) => p.slug.toLowerCase() === slug || p.id === slug);
+    if (targetIdx === -1) {
+      res.status(404).json({ error: 'Policy document not found.' });
+      return;
+    }
+    const { action, scheduledFor, forceAllowPlaceholders } = (req.body || {}) as {
+      action?: 'submit_review' | 'schedule' | 'publish' | 'archive';
+      scheduledFor?: string;
+      forceAllowPlaceholders?: boolean;
+    };
+    if (!action || !['submit_review', 'schedule', 'publish', 'archive'].includes(action)) {
+      res.status(400).json({ error: 'Valid transition action is required.' });
+      return;
+    }
+    try {
+      const { updated, newVersionPublished } = transitionPolicyStatus(
+        db.policies[targetIdx],
+        action,
+        admin.fullName,
+        { scheduledFor, forceAllowPlaceholders }
+      );
+      db.policies[targetIdx] = updated;
+      if (newVersionPublished && newVersionPublished.materialChange) {
+        db.notifications.unshift({
+          id: `notif-pol-${Date.now().toString(36)}`,
+          title: `Policy Update Notice · ${updated.shortTitle} (${updated.currentVersion})`,
+          message: `Material update to ${updated.title} effective ${updated.effectiveDate}. Review updated terms in Policies & Legal.`,
+          category: 'system',
+          createdAt: 'Just now',
+          read: false,
+          roleScope: 'all',
+        });
+      }
+      res.json({
+        policy: updated,
+        newVersionPublished,
+        policyChecklistSummary: buildPolicyChecklistSummary(
+          db.policies,
+          db.policyFacts,
+          db.legalReviewChecklist
+        ),
+      });
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : 'Unable to transition policy state.' });
+    }
+  });
+
+  app.patch('/api/admin/policies/facts', (req, res) => {
+    const admin = requireRole(req, res, ['admin']);
+    if (!admin) return;
+    const updates = (req.body || {}) as Partial<PolicyFactsConfig>;
+    db.policyFacts = {
+      ...db.policyFacts,
+      ...(typeof updates.legalEntityName === 'string' ? { legalEntityName: updates.legalEntityName.trim() } : {}),
+      ...(typeof updates.tradingName === 'string' && updates.tradingName.trim() ? { tradingName: updates.tradingName.trim() } : {}),
+      ...(typeof updates.registrationTradeLicense === 'string' ? { registrationTradeLicense: updates.registrationTradeLicense.trim() } : {}),
+      ...(typeof updates.registrationDbid === 'string' ? { registrationDbid: updates.registrationDbid.trim() } : {}),
+      ...(typeof updates.registrationBinVat === 'string' ? { registrationBinVat: updates.registrationBinVat.trim() } : {}),
+      ...(typeof updates.registrationTin === 'string' ? { registrationTin: updates.registrationTin.trim() } : {}),
+      ...(typeof updates.registeredAddress === 'string' ? { registeredAddress: updates.registeredAddress.trim() } : {}),
+      ...(typeof updates.supportEmail === 'string' && updates.supportEmail.includes('@') ? { supportEmail: updates.supportEmail.trim() } : {}),
+      ...(typeof updates.legalEmail === 'string' && updates.legalEmail.includes('@') ? { legalEmail: updates.legalEmail.trim() } : {}),
+      ...(typeof updates.supportPhone === 'string' ? { supportPhone: updates.supportPhone.trim() } : {}),
+      ...(typeof updates.supportHours === 'string' ? { supportHours: updates.supportHours.trim() } : {}),
+      ...(typeof updates.returnWindowDays === 'number' && updates.returnWindowDays >= 1 ? { returnWindowDays: Math.round(updates.returnWindowDays) } : {}),
+      ...(typeof updates.defectReportHours === 'number' && updates.defectReportHours >= 12 ? { defectReportHours: Math.round(updates.defectReportHours) } : {}),
+      ...(typeof updates.refundSlaBusinessDays === 'string' && updates.refundSlaBusinessDays.trim() ? { refundSlaBusinessDays: updates.refundSlaBusinessDays.trim() } : {}),
+      ...(typeof updates.cancelPreDispatchCutoff === 'string' && updates.cancelPreDispatchCutoff.trim() ? { cancelPreDispatchCutoff: updates.cancelPreDispatchCutoff.trim() } : {}),
+      ...(typeof updates.sellerCommissionSummary === 'string' ? { sellerCommissionSummary: updates.sellerCommissionSummary.trim() } : {}),
+      ...(typeof updates.sellerPayoutCycle === 'string' ? { sellerPayoutCycle: updates.sellerPayoutCycle.trim() } : {}),
+      ...(typeof updates.policyOwner === 'string' ? { policyOwner: updates.policyOwner.trim() } : {}),
+      ...(typeof updates.effectiveDate === 'string' && updates.effectiveDate.trim() ? { effectiveDate: updates.effectiveDate.trim() } : {}),
+      updatedAt: new Date().toISOString(),
+    };
+    res.json({
+      policyFacts: db.policyFacts,
+      policyChecklistSummary: buildPolicyChecklistSummary(
+        db.policies,
+        db.policyFacts,
+        db.legalReviewChecklist
+      ),
+    });
+  });
+
+  app.patch('/api/admin/policies/checklist/:id', (req, res) => {
+    const admin = requireRole(req, res, ['admin']);
+    if (!admin) return;
+    const item = db.legalReviewChecklist.find((c) => c.id === req.params.id);
+    if (!item) {
+      res.status(404).json({ error: 'Checklist entry not found.' });
+      return;
+    }
+    const updates = (req.body || {}) as Partial<LegalReviewChecklistItem>;
+    if (updates.status && ['needs_legal_review', 'needs_business_confirmation', 'verified'].includes(updates.status)) {
+      item.status = updates.status;
+    }
+    if (typeof updates.reviewer === 'string' && updates.reviewer.trim()) item.reviewer = updates.reviewer.trim();
+    if (typeof updates.reviewDate === 'string' && updates.reviewDate.trim()) item.reviewDate = updates.reviewDate.trim();
+    if (typeof updates.notes === 'string') item.notes = updates.notes.trim();
+    res.json({
+      item,
+      legalReviewChecklist: db.legalReviewChecklist,
+      policyChecklistSummary: buildPolicyChecklistSummary(
+        db.policies,
+        db.policyFacts,
+        db.legalReviewChecklist
+      ),
+    });
+  });
+
+  app.post('/api/admin/policies/notify-material-change', (req, res) => {
+    const admin = requireRole(req, res, ['admin']);
+    if (!admin) return;
+    const { title, summary, policyIds } = (req.body || {}) as {
+      title?: string;
+      summary?: string;
+      policyIds?: string[];
+    };
+    if (!title?.trim() || !summary?.trim()) {
+      res.status(400).json({ error: 'Notice title and summary are required.' });
+      return;
+    }
+    const ids = Array.isArray(policyIds) && policyIds.length > 0 ? policyIds : ['terms', 'privacy-policy'];
+    const acceptance = buildValidatedAcceptanceRecord({
+      policies: db.policies,
+      requestedPolicyIds: ids,
+    });
+    const entry = db.recordPolicyAcceptance('material_notice', `broadcast:${admin.id}`, acceptance);
+    db.notifications.unshift({
+      id: `notif-mat-${Date.now().toString(36)}`,
+      title: title.trim(),
+      message: summary.trim(),
+      category: 'system',
+      createdAt: 'Just now',
+      read: false,
+      roleScope: 'all',
+    });
+    res.status(201).json({ ok: true, entry });
   });
 
   app.get('/api/admin/readiness', (req, res) => {
@@ -2022,13 +2316,12 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
       { path: '/about', changefreq: 'monthly', priority: '0.6' },
       { path: '/contact', changefreq: 'monthly', priority: '0.6' },
       { path: '/faq', changefreq: 'monthly', priority: '0.6' },
-      { path: '/legal', changefreq: 'monthly', priority: '0.5' },
-      { path: '/shipping-policy', changefreq: 'monthly', priority: '0.4' },
-      { path: '/return-policy', changefreq: 'monthly', priority: '0.4' },
-      { path: '/payment-policy', changefreq: 'monthly', priority: '0.4' },
-      { path: '/warranty-policy', changefreq: 'monthly', priority: '0.4' },
-      { path: '/privacy-policy', changefreq: 'monthly', priority: '0.4' },
-      { path: '/terms', changefreq: 'monthly', priority: '0.4' },
+      { path: '/legal', changefreq: 'monthly', priority: '0.6' },
+      ...getPublicPublishedPolicies(db.policies).map((pol) => ({
+        path: `/${encodeURIComponent(pol.slug)}`,
+        changefreq: 'monthly',
+        priority: '0.5',
+      })),
     ];
 
     const categoryUrls = db.categoryTree

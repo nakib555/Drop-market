@@ -120,7 +120,11 @@ test('mapRawToCatalog deduplicates IDs/slugs, drops invalid records, and omits u
     },
   ];
 
-  const { products, skus } = mapRawToCatalog(rawItems);
+  const { products, skus } = mapRawToCatalog(
+    rawItems.map((entry, idx) =>
+      idx === 0 ? { ...entry, returnPolicy: '30 days return policy' } : entry
+    )
+  );
   assert.equal(products.length, 2);
   assert.equal(skus.length, 2);
 
@@ -129,6 +133,8 @@ test('mapRawToCatalog deduplicates IDs/slugs, drops invalid records, and omits u
   assert.equal(products[0].reviewCount, 0);
   assert.deepEqual(products[0].reviews, []);
   assert.notEqual(products[0].badgeText, 'Top Rated');
+  assert.match(products[0].returnPolicy, /14-day/i);
+  assert.doesNotMatch(products[0].returnPolicy, /30[- ]day/i);
 
   assert.notEqual(products[0].slug, products[1].slug);
   assert.equal(products[1].availability, 'low-stock');
@@ -280,6 +286,37 @@ test('resolveSeoMetadata emits clean canonical URLs, noindex on private routes, 
     origin: 'https://kintostudio.bd',
   });
   assert.equal(checkoutSeo.robots, 'noindex, follow');
+
+  // All 20 policy routes parse/serialize cleanly with optional ?version= snapshots
+  const policyRoute = parseLocationToRoute('/reviews-policy', '?version=2026.11', '');
+  assert.deepEqual(policyRoute, {
+    name: 'reviews-policy',
+    policyVersion: '2026.11',
+  });
+  assert.equal(
+    serializeRouteToPath(policyRoute),
+    '/reviews-policy?version=2026.11'
+  );
+
+  const livePolicySeo = resolveSeoMetadata({
+    route: { name: 'return-policy' },
+    products: [unreviewedProduct],
+    categories,
+    origin: 'https://kintostudio.bd',
+  });
+  assert.equal(livePolicySeo.robots, 'index, follow');
+  assert.equal(livePolicySeo.canonicalUrl, 'https://kintostudio.bd/return-policy');
+  assert.ok(livePolicySeo.jsonLd.some((s) => s['@type'] === 'WebPage'));
+  assert.ok(livePolicySeo.jsonLd.some((s) => s['@type'] === 'BreadcrumbList'));
+
+  const historicalPolicySeo = resolveSeoMetadata({
+    route: { name: 'return-policy', policyVersion: '2026.11' },
+    products: [unreviewedProduct],
+    categories,
+    origin: 'https://kintostudio.bd',
+  });
+  assert.equal(historicalPolicySeo.robots, 'noindex, follow');
+  assert.equal(historicalPolicySeo.canonicalUrl, 'https://kintostudio.bd/return-policy');
 });
 
 test('expandCatalogFromApiBase expands live API items into 1,000+ unique products and authoritative SKUs', () => {
