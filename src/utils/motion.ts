@@ -52,3 +52,17 @@ export const slideFadeVariants = {
   }),
 };
 
+export function getSwipeNavigationDelta(
+  startXMinusEndX: number,
+  isRtl: boolean,
+  threshold = 40
+): 1 | -1 | 0 {
+  if (Math.abs(startXMinusEndX) <= threshold) return 0;
+  const raw = startXMinusEndX > 0 ? 1 : -1;
+  return isRtl ? ((raw === 1 ? -1 : 1) as 1 | -1) : raw;
+}
+
+export function getDirectionalSlideSign(direction: number, isRtl: boolean): number {
+  return isRtl ? -direction : direction;
+}
+

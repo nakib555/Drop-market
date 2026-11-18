@@ -387,30 +387,29 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                 placeholder="name@example.com"
               />
 
-              <div className="relative">
-                <Input
-                  label={t(language, 'passwordLabel')}
-                  type={showLoginPassword ? 'text' : 'password'}
-                  required
-                  autoComplete="current-password"
-                  enterKeyHint="go"
-                  value={loginPassword}
-                  onChange={(e) => {
-                    setLoginPassword(e.target.value);
-                    if (formError) setFormError('');
-                  }}
-                  placeholder={t(language, 'enterPasswordPlaceholder')}
-                  className="pe-11"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowLoginPassword((p) => !p)}
-                  aria-label={showLoginPassword ? t(language, 'hidePassword') : t(language, 'showPassword')}
-                  className="absolute end-1.5 top-[25px] w-10 h-10 rounded flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer"
-                >
-                  {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
+              <Input
+                label={t(language, 'passwordLabel')}
+                type={showLoginPassword ? 'text' : 'password'}
+                required
+                autoComplete="current-password"
+                enterKeyHint="go"
+                value={loginPassword}
+                onChange={(e) => {
+                  setLoginPassword(e.target.value);
+                  if (formError) setFormError('');
+                }}
+                placeholder={t(language, 'enterPasswordPlaceholder')}
+                endAdornment={
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginPassword((p) => !p)}
+                    aria-label={showLoginPassword ? t(language, 'hidePassword') : t(language, 'showPassword')}
+                    className="w-10 h-10 rounded flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                  >
+                    {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                }
+              />
 
               {formError && (
                 <p className="text-xs text-[var(--ks-error)]" role="alert">
@@ -523,29 +522,28 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                   placeholder="123456"
                 />
 
-                <div className="relative">
-                  <Input
-                    label={t(language, 'newPasswordLabel')}
-                    type={showRecoverPassword ? 'text' : 'password'}
-                    required
-                    autoComplete="new-password"
-                    value={recoverNewPassword}
-                    onChange={(e) => {
-                      setRecoverNewPassword(e.target.value);
-                      if (formError) setFormError('');
-                    }}
-                    placeholder={t(language, 'atLeast6CharsPlaceholder')}
-                    className="pe-11"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowRecoverPassword((p) => !p)}
-                    aria-label={showRecoverPassword ? t(language, 'hidePassword') : t(language, 'showPassword')}
-                    className="absolute end-1.5 top-[25px] w-10 h-10 rounded flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    {showRecoverPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
+                <Input
+                  label={t(language, 'newPasswordLabel')}
+                  type={showRecoverPassword ? 'text' : 'password'}
+                  required
+                  autoComplete="new-password"
+                  value={recoverNewPassword}
+                  onChange={(e) => {
+                    setRecoverNewPassword(e.target.value);
+                    if (formError) setFormError('');
+                  }}
+                  placeholder={t(language, 'atLeast6CharsPlaceholder')}
+                  endAdornment={
+                    <button
+                      type="button"
+                      onClick={() => setShowRecoverPassword((p) => !p)}
+                      aria-label={showRecoverPassword ? t(language, 'hidePassword') : t(language, 'showPassword')}
+                      className="w-10 h-10 rounded flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                    >
+                      {showRecoverPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  }
+                />
 
                 {formError && (
                   <p className="text-xs text-[var(--ks-error)]" role="alert">
@@ -679,31 +677,30 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                   error={fieldErrors.phone}
                   placeholder="+880 1711-000100"
                 />
-                <div className="relative">
-                  <Input
-                    label={t(language, 'passwordLabel')}
-                    type={showRegPassword ? 'text' : 'password'}
-                    required
-                    autoComplete="new-password"
-                    enterKeyHint="done"
-                    value={regPassword}
-                    onChange={(e) => {
-                      setRegPassword(e.target.value);
-                      clearFieldError('password');
-                    }}
-                    error={fieldErrors.password}
-                    placeholder={t(language, 'atLeast6CharsPlaceholder')}
-                    className="pe-11"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowRegPassword((p) => !p)}
-                    aria-label={showRegPassword ? t(language, 'hidePassword') : t(language, 'showPassword')}
-                    className="absolute end-1.5 top-[25px] w-10 h-10 rounded flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    {showRegPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
+                <Input
+                  label={t(language, 'passwordLabel')}
+                  type={showRegPassword ? 'text' : 'password'}
+                  required
+                  autoComplete="new-password"
+                  enterKeyHint="done"
+                  value={regPassword}
+                  onChange={(e) => {
+                    setRegPassword(e.target.value);
+                    clearFieldError('password');
+                  }}
+                  error={fieldErrors.password}
+                  placeholder={t(language, 'atLeast6CharsPlaceholder')}
+                  endAdornment={
+                    <button
+                      type="button"
+                      onClick={() => setShowRegPassword((p) => !p)}
+                      aria-label={showRegPassword ? t(language, 'hidePassword') : t(language, 'showPassword')}
+                      className="w-10 h-10 rounded flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                    >
+                      {showRegPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  }
+                />
               </div>
 
               <div

@@ -369,6 +369,23 @@ test('i18n dictionaries maintain complete 6-language key parity, interpolation, 
     assert.ok(signedIn.includes('Nadia') && signedIn.includes('customer'));
     const dupMsg = t(opt.code, 'errDuplicateMsg', { email: 'user@example.com' });
     assert.ok(dupMsg.includes('user@example.com'));
+
+    // Verify Step 14 Phase 2 Shop, PDP, Checkout, Editorial, Compare, and Tracking keys
+    assert.ok(t(opt.code, 'step1Title').length > 0);
+    assert.ok(t(opt.code, 'payLabel_bkash').length > 0);
+    assert.ok(t(opt.code, 'contactValidationErr').length > 0);
+    assert.ok(t(opt.code, 'sizeGuideTitle').length > 0);
+
+    const showItems = t(opt.code, 'showItemsCount', { count: 42 });
+    assert.ok(showItems.includes('42') && !showItems.includes('{count}'));
+    const chipPrice = t(opt.code, 'chipUnderPrice', { price: '৳12,000' });
+    assert.ok(chipPrice.includes('৳12,000') && !chipPrice.includes('{price}'));
+    const codBtn = t(opt.code, 'placeCodOrderBtn', { amount: '৳5,500' });
+    assert.ok(codBtn.includes('৳5,500') && !codBtn.includes('{amount}'));
+    const aboutStat = t(opt.code, 'aboutStat1Title', { count: 10 });
+    assert.ok(aboutStat.includes('10') && !aboutStat.includes('{count}'));
+    const trackNotFound = t(opt.code, 'trackErrNotFound', { id: 'KS-99999' });
+    assert.ok(trackNotFound.includes('KS-99999') && !trackNotFound.includes('{id}'));
   }
 });
 

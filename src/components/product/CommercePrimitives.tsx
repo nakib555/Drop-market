@@ -1,7 +1,9 @@
 import React from 'react';
 import { Heart, Minus, Plus, Star } from 'lucide-react';
+import { useStore } from '../../context/StoreContext';
 import { CurrencyCode } from '../../types/commerce';
 import { formatCurrency, getDiscountPercent } from '../../utils/format';
+import { t } from '../../utils/i18n';
 
 interface PriceDisplayProps {
   price: number;
@@ -20,6 +22,7 @@ export const PriceDisplay: React.FC<PriceDisplayProps> = ({
   showSavings = false,
   className = '',
 }) => {
+  const { language } = useStore();
   const discount = getDiscountPercent(price, originalPrice);
   const hasDiscount = Boolean(originalPrice && originalPrice > price && discount > 0);
 
@@ -45,7 +48,7 @@ export const PriceDisplay: React.FC<PriceDisplayProps> = ({
           <span className={compareClass}>{formatCurrency(originalPrice, currency)}</span>
           {showSavings && (
             <span className="text-xs font-mono-num font-medium text-[var(--ks-accent)]">
-              Save {discount}%
+              {t(language, 'savePercent', { percent: discount })}
             </span>
           )}
         </>
@@ -73,6 +76,7 @@ export const RatingSummary: React.FC<RatingSummaryProps> = ({
   onClick,
   className = '',
 }) => {
+  const { language } = useStore();
   const hasVerifiedRatings =
     typeof rating === 'number' &&
     rating > 0 &&
@@ -109,7 +113,11 @@ export const RatingSummary: React.FC<RatingSummaryProps> = ({
       <span>{rating.toFixed(1)}</span>
       {showCount && (
         <span className="text-[var(--ks-text-secondary)]">
-          {compact ? `(${reviewCount})` : `(${reviewCount} ${reviewCount === 1 ? 'review' : 'reviews'})`}
+          {compact
+            ? `(${reviewCount})`
+            : t(language, reviewCount === 1 ? 'reviewCountSingle' : 'reviewCountPlural', {
+                count: reviewCount ?? 0,
+              })}
         </span>
       )}
     </>
@@ -162,8 +170,8 @@ export const QuantityStepper: React.FC<QuantityStepperProps> = ({
   const atMin = !allowRemoveAtMin && value <= min;
   const atMax = typeof max === 'number' && value >= Math.max(min, max);
 
-  const heightClass = size === 'lg' ? 'h-12' : size === 'sm' ? 'h-10' : 'h-11';
-  const btnWidthClass = size === 'lg' ? 'w-11 min-[430px]:w-10' : 'w-10';
+  const heightClass = size === 'lg' ? 'h-12' : size === 'sm' ? 'h-11 sm:h-10' : 'h-11';
+  const btnWidthClass = size === 'lg' ? 'w-11 min-[430px]:w-10' : 'w-11 sm:w-10';
 
   return (
     <div
@@ -217,6 +225,7 @@ export const WishlistButton: React.FC<WishlistButtonProps> = ({
   variant = 'icon',
   className = '',
 }) => {
+  const { language } = useStore();
   const label = active
     ? `Remove ${productName} from wishlist`
     : `Save ${productName} to wishlist`;
@@ -228,14 +237,14 @@ export const WishlistButton: React.FC<WishlistButtonProps> = ({
         onClick={onToggle}
         aria-pressed={active}
         aria-label={label}
-        className={`inline-flex items-center justify-center gap-2 min-h-[42px] px-4 py-2 rounded-[var(--ks-radius-md)] border text-xs font-medium tracking-wide transition-colors cursor-pointer ${
+        className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2 rounded-[var(--ks-radius-md)] border text-xs font-medium tracking-wide transition-colors cursor-pointer ${
           active
             ? 'border-[var(--ks-accent)] text-[var(--ks-accent)] bg-[var(--ks-surface-muted)]'
             : 'border-[var(--ks-border-strong)] bg-transparent text-[var(--ks-text-primary)] hover:bg-[var(--ks-surface-muted)]'
         } ${className}`}
       >
         <Heart className={`w-4 h-4 ${active ? 'fill-current text-[var(--ks-accent)]' : ''}`} />
-        <span>{active ? 'Saved' : 'Wishlist'}</span>
+        <span>{active ? t(language, 'saved') : t(language, 'wishlist')}</span>
       </button>
     );
   }
@@ -247,7 +256,7 @@ export const WishlistButton: React.FC<WishlistButtonProps> = ({
         onClick={onToggle}
         aria-pressed={active}
         aria-label={label}
-        className={`pointer-events-auto w-9 h-9 rounded-[var(--ks-radius-md)] flex items-center justify-center border transition-[color,background-color,transform] duration-[var(--ks-duration-fast)] active:scale-[0.88] cursor-pointer ${
+        className={`pointer-events-auto w-11 h-11 sm:w-9 sm:h-9 rounded-[var(--ks-radius-md)] flex items-center justify-center border transition-[color,background-color,transform] duration-[var(--ks-duration-fast)] active:scale-[0.88] cursor-pointer ${
           active
             ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)]'
             : 'bg-[var(--ks-surface)]/95 text-[var(--ks-text-primary)] border-[var(--ks-border)] hover:bg-[var(--ks-surface)]'
@@ -264,7 +273,7 @@ export const WishlistButton: React.FC<WishlistButtonProps> = ({
       onClick={onToggle}
       aria-pressed={active}
       aria-label={label}
-      className={`w-10 h-10 rounded-[var(--ks-radius-md)] border flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
+      className={`w-11 h-11 sm:w-10 sm:h-10 rounded-[var(--ks-radius-md)] border flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
         active
           ? 'border-[var(--ks-accent)] text-[var(--ks-accent)]'
           : 'border-[var(--ks-border-strong)] text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] hover:border-[var(--ks-action)]'

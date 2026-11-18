@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
@@ -121,6 +121,8 @@ export const AdminDashboard: React.FC = () => {
 
   // Shipping Rules State
   const [selectedZoneId, setSelectedZoneId] = useState<string>('dhaka_metro');
+  const selectedZoneIdRef = useRef<string>(selectedZoneId);
+  selectedZoneIdRef.current = selectedZoneId;
   const [zoneDraft, setZoneDraft] = useState<ShippingZoneRule | null>(null);
   const [restrictedKeywordsInput, setRestrictedKeywordsInput] = useState('');
 
@@ -145,7 +147,7 @@ export const AdminDashboard: React.FC = () => {
       setRestrictedKeywordsInput(res.shippingConfig.restrictedAreaKeywords.join(', '));
       setPlatformDraft(res.platformSettings);
       const initialZone =
-        res.shippingConfig.zones.find((z) => z.zoneId === selectedZoneId) ||
+        res.shippingConfig.zones.find((z) => z.zoneId === selectedZoneIdRef.current) ||
         res.shippingConfig.zones[0];
       if (initialZone) {
         setSelectedZoneId(initialZone.zoneId);
@@ -156,7 +158,7 @@ export const AdminDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedZoneId]);
+  }, []);
 
   useEffect(() => {
     loadAdmin();
@@ -427,7 +429,7 @@ export const AdminDashboard: React.FC = () => {
     setBusyKey(code);
     try {
       await updateAdminPromotionsApi({ code, active: !active });
-      await loadAdmin();
+      await Promise.all([loadAdmin(), refreshStorefrontSync()]);
       showToast(`Promo ${code}`, !active ? 'Activated' : 'Paused', 'info');
     } catch (err) {
       showToast('Promo update failed', err instanceof Error ? err.message : 'API error', 'error');
@@ -472,7 +474,7 @@ export const AdminDashboard: React.FC = () => {
         </p>
         <Button variant="outline" size="sm" onClick={loadAdmin}>
           <RefreshCw className="w-3.5 h-3.5" />
-          <span>Retry</span>
+          <span>{t(language, 'retryBtn')}</span>
         </Button>
       </div>
     );
@@ -500,15 +502,15 @@ export const AdminDashboard: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[var(--ks-border)]">
         <div>
           <p className="text-xs leading-snug uppercase tracking-wider text-[var(--ks-accent)] inline-flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 shrink-0" /> Platform Admin Console
+            <ShieldCheck className="w-3.5 h-3.5 shrink-0" /> {t(language, 'adminConsoleEyebrow')}
           </p>
           <h2 className="font-display text-2xl sm:text-3xl font-medium mt-0.5">
-            Marketplace Operations &amp; Governance
+            {t(language, 'adminConsoleTitle')}
           </h2>
         </div>
         <Button variant="outline" size="sm" onClick={loadAdmin}>
           <RefreshCw className="w-3.5 h-3.5" />
-          <span>Sync Metrics</span>
+          <span>{t(language, 'syncMetricsBtn')}</span>
         </Button>
       </div>
 
@@ -528,7 +530,10 @@ export const AdminDashboard: React.FC = () => {
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveTab(tab.id)}
+              onClick={(e) => {
+                setActiveTab(tab.id);
+                e.currentTarget.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+              }}
               className={`relative pb-3 text-xs sm:text-sm font-medium whitespace-nowrap cursor-pointer transition-colors shrink-0 ${
                 active
                   ? 'text-[var(--ks-text-primary)]'
@@ -807,7 +812,7 @@ export const AdminDashboard: React.FC = () => {
                     type="button"
                     disabled={busyKey === node.id}
                     onClick={() => handleToggleCategoryActive(node)}
-                    className={`px-2 py-1 rounded text-[11px] font-medium border cursor-pointer ${
+                    className={`min-h-[44px] sm:min-h-[30px] px-2.5 sm:px-2 py-1 rounded text-xs sm:text-[11px] font-medium border cursor-pointer ${
                       node.isActive
                         ? 'border-[var(--ks-success)]/40 text-[var(--ks-success)]'
                         : 'border-[var(--ks-border)] text-[var(--ks-text-muted)]'
@@ -820,7 +825,7 @@ export const AdminDashboard: React.FC = () => {
                     onClick={() => handleDeleteCategoryNode(node)}
                     disabled={busyKey === node.id}
                     aria-label={`Delete ${node.name}`}
-                    className="p-1.5 text-[var(--ks-error)] hover:opacity-80 cursor-pointer"
+                    className="min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center p-2 sm:p-1.5 text-[var(--ks-error)] hover:opacity-80 cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>

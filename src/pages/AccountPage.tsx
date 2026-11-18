@@ -22,7 +22,7 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { AdminDashboard } from '../components/account/AdminDashboard';
 import { SellerDashboard } from '../components/account/SellerDashboard';
 import { AuthPanel } from '../components/auth/AuthPanel';
@@ -136,6 +136,20 @@ export const AccountPage: React.FC = () => {
     setPhoneInput(profile.phone);
     setStudioInput(profile.studioName || '');
   }, [profile.fullName, profile.email, profile.phone, profile.studioName]);
+
+  useEffect(() => {
+    setSelectedOrder(null);
+    setShowAddrForm(false);
+    setConfirmDeleteAddrId(null);
+    setAddrError('');
+    setSupportSubject('');
+    setSupportMessage('');
+    setLastTicketRef('');
+    setPwdError('');
+    setCurrentPwd('');
+    setNewPwd('');
+    setConfirmPwd('');
+  }, [profile.id]);
 
   useEffect(() => {
     if (route.name === 'seller') {
@@ -406,7 +420,7 @@ export const AccountPage: React.FC = () => {
     <div className="ks-container py-5 sm:py-8 lg:py-12 space-y-5 lg:space-y-8">
       {/* Mobile Sticky Subpage Back Bar */}
       {section !== 'overview' && (
-        <div className="lg:hidden sticky top-14 z-30 -mx-4 px-4 py-2 bg-[var(--ks-bg)]/95 backdrop-blur-md border-b border-[var(--ks-border)] flex items-center justify-between gap-2">
+        <div className="lg:hidden sticky top-[var(--ks-sticky-header-h,3.5rem)] z-30 -mx-4 px-4 py-2 bg-[var(--ks-bg)]/95 backdrop-blur-md border-b border-[var(--ks-border)] flex items-center justify-between gap-2">
           <button
             type="button"
             onClick={() => switchSection('overview')}
@@ -545,24 +559,28 @@ export const AccountPage: React.FC = () => {
 
         {/* Active Section Content */}
         <div className="lg:col-span-9 p-4 sm:p-6 lg:p-8 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-6">
-          <motion.div
-            key={section}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={STUDIO_TRANSITION.fast}
-          >
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={section}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={STUDIO_TRANSITION.fast}
+            >
             {section === 'seller-hub' &&
               (profile.role === 'seller' || profile.role === 'admin' ? (
                 <SellerDashboard />
               ) : (
                 <div className="py-10 text-center space-y-4 max-w-md mx-auto">
                   <Store className="w-7 h-7 mx-auto text-[var(--ks-accent)]" />
-                  <h2 className="font-display text-2xl font-medium">Seller Authorization Required</h2>
+                  <h2 className="font-display text-2xl font-medium">
+                    {t(language, 'sellerAuthRequired')}
+                  </h2>
                   <p className="text-sm text-[var(--ks-text-secondary)]">
-                    This workspace is restricted to approved Seller Studio accounts and platform administrators.
+                    {t(language, 'sellerAuthRequiredDesc')}
                   </p>
                   <Button variant="primary" size="md" onClick={() => switchSection('overview')}>
-                    Return to Account Overview
+                    {t(language, 'returnToAccountOverview')}
                   </Button>
                 </div>
               ))}
@@ -573,12 +591,14 @@ export const AccountPage: React.FC = () => {
               ) : (
                 <div className="py-10 text-center space-y-4 max-w-md mx-auto">
                   <ShieldCheck className="w-7 h-7 mx-auto text-[var(--ks-accent)]" />
-                  <h2 className="font-display text-2xl font-medium">Administrator Access Required</h2>
+                  <h2 className="font-display text-2xl font-medium">
+                    {t(language, 'adminAuthRequired')}
+                  </h2>
                   <p className="text-sm text-[var(--ks-text-secondary)]">
-                    Platform Administration tools are restricted to authorized admin sessions.
+                    {t(language, 'adminAuthRequiredDesc')}
                   </p>
                   <Button variant="primary" size="md" onClick={() => switchSection('overview')}>
-                    Return to Account Overview
+                    {t(language, 'returnToAccountOverview')}
                   </Button>
                 </div>
               ))}
@@ -822,12 +842,20 @@ export const AccountPage: React.FC = () => {
                   </Button>
                 </div>
 
-                {showAddrForm && (
-                  <form
+                <AnimatePresence initial={false}>
+                  {showAddrForm && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={STUDIO_TRANSITION.accordion}
+                      className="overflow-hidden"
+                    >
+                      <form
                     onSubmit={(e) => {
                       e.preventDefault();
                       if (!addrLabel.trim() || !addrStreet.trim() || !addrCity.trim()) {
-                        setAddrError('Label, street address, and city/district are required.');
+                        setAddrError(t(language, 'errAddressRequired'));
                         return;
                       }
                       setAddrError('');
@@ -852,7 +880,7 @@ export const AccountPage: React.FC = () => {
                   >
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <Input
-                        label="Label (e.g., Home, Office)"
+                        label={t(language, 'addressLabelExample')}
                         required
                         value={addrLabel}
                         onChange={(e) => {
@@ -861,7 +889,7 @@ export const AccountPage: React.FC = () => {
                         }}
                       />
                       <Select
-                        label="Country / Region"
+                        label={t(language, 'countryRegionLabel')}
                         value={addrCountry}
                         onChange={(e) => {
                           const next = e.target.value;
@@ -902,7 +930,7 @@ export const AccountPage: React.FC = () => {
                           return (
                             <>
                               <Select
-                                label="Division"
+                                label={t(language, 'divisionLabel')}
                                 value={divObj.name}
                                 onChange={(e) => {
                                   const d =
@@ -923,7 +951,7 @@ export const AccountPage: React.FC = () => {
                                 }))}
                               />
                               <Select
-                                label="District"
+                                label={t(language, 'districtLabel')}
                                 value={distObj.name}
                                 onChange={(e) => {
                                   const dist =
@@ -942,7 +970,7 @@ export const AccountPage: React.FC = () => {
                                 }))}
                               />
                               <Select
-                                label="City / Upazila"
+                                label={t(language, 'upazilaCityLabel')}
                                 value={upaObj.name}
                                 onChange={(e) => {
                                   const upa =
@@ -959,7 +987,7 @@ export const AccountPage: React.FC = () => {
                                 }))}
                               />
                               <Select
-                                label="Area / Neighborhood"
+                                label={t(language, 'areaNeighborhoodLabel')}
                                 value={
                                   upaObj.areas.some((a) => a.name === addrArea)
                                     ? addrArea
@@ -981,12 +1009,12 @@ export const AccountPage: React.FC = () => {
                       ) : (
                         <>
                           <Input
-                            label="State / Province"
+                            label={t(language, 'stateProvinceLabel')}
                             value={addrState}
                             onChange={(e) => setAddrState(e.target.value)}
                           />
                           <Input
-                            label="City"
+                            label={t(language, 'cityLabel')}
                             required
                             value={addrCity}
                             onChange={(e) => {
@@ -999,7 +1027,7 @@ export const AccountPage: React.FC = () => {
                       )}
 
                       <Input
-                        label="Street / House / Road"
+                        label={t(language, 'streetHouseRoadLabel')}
                         required
                         value={addrStreet}
                         onChange={(e) => {
@@ -1008,7 +1036,7 @@ export const AccountPage: React.FC = () => {
                         }}
                       />
                       <Input
-                        label="Postal Code"
+                        label={t(language, 'postalCodeLabel')}
                         value={addrZip}
                         onChange={(e) => setAddrZip(e.target.value)}
                       />
@@ -1018,7 +1046,9 @@ export const AccountPage: React.FC = () => {
                       {t(language, 'saveAddress')}
                     </Button>
                   </form>
-                )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {addresses.length === 0 ? (
                   <EmptyState
@@ -1532,8 +1562,8 @@ export const AccountPage: React.FC = () => {
                     e.preventDefault();
                     if (!supportSubject.trim() || supportMessage.trim().length < 5) {
                       showToast(
-                        'Incomplete message',
-                        'Enter an order ID or topic and details (5+ characters).',
+                        t(language, 'incompleteMessageTitle'),
+                        t(language, 'incompleteMessageDesc'),
                         'error'
                       );
                       return;
@@ -1582,7 +1612,7 @@ export const AccountPage: React.FC = () => {
                     label={t(language, 'orderNumber')}
                     value={supportSubject}
                     onChange={(e) => setSupportSubject(e.target.value)}
-                    placeholder="e.g., Order #KS-10482 delivery schedule"
+                    placeholder={t(language, 'supportSubjectPlaceholder')}
                   />
                   <Textarea
                     label={t(language, 'support')}
@@ -1590,7 +1620,7 @@ export const AccountPage: React.FC = () => {
                     rows={3}
                     value={supportMessage}
                     onChange={(e) => setSupportMessage(e.target.value)}
-                    placeholder="Describe your question or shipment issue..."
+                    placeholder={t(language, 'supportMsgPlaceholder')}
                   />
                   <Button type="submit" variant="primary" size="sm" disabled={supportSubmitting}>
                     {supportSubmitting
@@ -1747,7 +1777,8 @@ export const AccountPage: React.FC = () => {
                 </div>
               </div>
             )}
-          </motion.div>
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
 

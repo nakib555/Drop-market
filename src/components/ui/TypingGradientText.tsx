@@ -90,14 +90,14 @@ export const TypingGradientText: React.FC<TypingGradientTextProps> = ({
 
   return (
     <span
-      className={`inline-flex items-baseline ${
-        singleLine ? 'whitespace-nowrap max-w-full' : 'flex-wrap'
+      className={`inline-flex items-baseline min-w-0 max-w-full ${
+        singleLine ? 'whitespace-nowrap' : 'flex-wrap'
       } ${className}`}
     >
       <span className="sr-only">{safePhrases[0]}</span>
       <span
         aria-hidden="true"
-        className={`inline-block pb-[0.06em] ${singleLine ? 'truncate' : ''} ${gradientClasses}`}
+        className={`inline-block pb-[0.14em] max-w-full ${singleLine ? 'truncate' : ''} ${gradientClasses}`}
       >
         {activePhrase || '\u00A0'}
       </span>

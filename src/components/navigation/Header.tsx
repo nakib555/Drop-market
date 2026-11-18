@@ -36,6 +36,7 @@ import {
   translateDepartmentShortName,
 } from '../../utils/i18n';
 import { STUDIO_TRANSITION } from '../../utils/motion';
+import { useOverlayLock } from '../../utils/scrollLock';
 import { PWAInstallButton } from '../pwa/PWAInstallButton';
 import { ResilientImage, useFocusTrap } from '../ui/Primitives';
 
@@ -102,9 +103,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
   const langContainerRef = useRef<HTMLDivElement | null>(null);
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
   const desktopSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const headerElRef = useRef<HTMLElement | null>(null);
   const mobileNavPanelRef = useRef<HTMLDivElement | null>(null);
 
   useFocusTrap(mobileMenuOpen, mobileNavPanelRef);
+  useOverlayLock(mobileMenuOpen, 'mobile-menu', () => setMobileMenuOpen(false));
 
   const dhakaFreeThresholdUsd = useMemo(
     () => shippingConfig.zones.find((z) => z.zoneId === 'dhaka_metro')?.freeThresholdUsd,
@@ -112,13 +115,39 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
   );
 
   useEffect(() => {
+    const syncChromeMetrics = () => {
+      const el = headerElRef.current;
+      if (!el || typeof document === 'undefined') return;
+      const rect = el.getBoundingClientRect();
+      const stickyH = Math.max(52, Math.round(rect.height));
+      const chromeBottom = Math.max(stickyH, Math.round(rect.bottom));
+      const rootStyle = document.documentElement.style;
+      rootStyle.setProperty('--ks-sticky-header-h', `${stickyH}px`);
+      rootStyle.setProperty('--ks-chrome-bottom', `${chromeBottom}px`);
+    };
+
     const onScroll = () => {
       setScrolled(window.scrollY > 36);
+      syncChromeMetrics();
     };
     window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', syncChromeMetrics, { passive: true });
+
+    let ro: ResizeObserver | undefined;
+    if (typeof ResizeObserver !== 'undefined' && headerElRef.current) {
+      ro = new ResizeObserver(syncChromeMetrics);
+      ro.observe(headerElRef.current);
+    }
+
     onScroll();
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+    const tId = window.setTimeout(syncChromeMetrics, 220);
+    return () => {
+      window.clearTimeout(tId);
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', syncChromeMetrics);
+      ro?.disconnect();
+    };
+  }, [announcementVisible]);
 
   useEffect(() => {
     if (!hoveredCatSlug && categories[0]?.slug) {
@@ -185,18 +214,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
     };
   }, [notifOpen, accountMenuOpen, currencyMenuOpen, langMenuOpen, searchDropdownOpen, megaMenuOpen]);
 
-  useEffect(() => {
-    if (!mobileMenuOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMobileMenuOpen(false);
-    };
-    window.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-    };
-  }, [mobileMenuOpen]);
+  // Mobile menu scroll lock & LIFO Escape are handled via useOverlayLock above.
 
   const matchingSearchCategories = useMemo(() => {
     const q = searchTerm.trim();
@@ -359,7 +377,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                   }
                 }}
                 aria-label={t(language, 'dismissAnnouncement')}
-                className="justify-self-end text-[#B4B2AC] hover:text-white min-w-[34px] min-h-[30px] flex items-center justify-center -me-1 cursor-pointer transition-colors shrink-0 rounded"
+                className="justify-self-end text-[#B4B2AC] hover:text-white min-w-[44px] min-h-[44px] sm:min-w-[34px] sm:min-h-[30px] -my-1.5 sm:my-0 flex items-center justify-center -me-2 sm:-me-1 cursor-pointer transition-colors shrink-0 rounded"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -370,6 +388,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
 
       {/* Main Sticky Header */}
       <header
+        ref={headerElRef}
         className={`print:hidden sticky top-0 z-40 backdrop-blur-md border-b transition-shadow duration-200 ${
           scrolled
             ? 'bg-[var(--ks-bg)]/98 border-[var(--ks-border-strong)] shadow-sm'
@@ -385,7 +404,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
       >
         {/* Tier 2: Logo, Prominent Search, Account, Wishlist & Bag */}
         <div
-          className={`max-w-[var(--ks-container-max)] mx-auto px-3 sm:px-6 lg:px-10 flex items-center justify-between gap-2 sm:gap-4 lg:gap-6 transition-[height] duration-200 ${
+          className={`max-w-[var(--ks-container-max)] mx-auto px-3 sm:px-4 lg:px-10 flex items-center justify-between gap-2 md:gap-3 lg:gap-6 transition-[height] duration-200 ${
             scrolled ? 'h-13 sm:h-14' : 'h-14 sm:h-16'
           }`}
         >
@@ -407,20 +426,20 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                 e.preventDefault();
                 go({ name: 'home' });
               }}
-              className="font-display text-base min-[380px]:text-lg sm:text-xl lg:text-2xl font-semibold tracking-[0.04em] sm:tracking-[0.07em] text-[var(--ks-text-primary)] whitespace-nowrap truncate"
+              className="font-display text-base min-[380px]:text-lg lg:text-2xl font-semibold tracking-[0.04em] lg:tracking-[0.07em] text-[var(--ks-text-primary)] whitespace-nowrap truncate"
             >
               KINTO STUDIO
             </a>
           </div>
 
           {/* Central Inline Search Bar (Tablet & Desktop) */}
-          <div ref={searchContainerRef} className="hidden md:block relative flex-1 max-w-2xl">
+          <div ref={searchContainerRef} className="hidden md:block relative flex-1 min-w-0 max-w-2xl">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 submitHeaderSearch(searchTerm);
               }}
-              className={`flex items-center gap-2.5 h-9 lg:h-10 px-3.5 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border transition-colors ${
+              className={`flex items-center min-w-0 gap-2 lg:gap-2.5 h-9 lg:h-10 px-2.5 lg:px-3.5 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border transition-colors ${
                 searchDropdownOpen
                   ? 'border-[var(--ks-accent)] ring-1 ring-[var(--ks-accent)]/20'
                   : 'border-[var(--ks-border)] hover:border-[var(--ks-border-strong)]'
@@ -635,7 +654,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
           </div>
 
           {/* Utility Controls (Balanced for Mobile & Desktop) */}
-          <div className="flex items-center gap-0.5 sm:gap-1.5 shrink-0">
+          <div className="flex items-center gap-0.5 md:gap-1 lg:gap-1.5 shrink-0">
             {/* Mobile Search Button */}
             <button
               type="button"
@@ -870,7 +889,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                     setAccountMenuOpen((p) => !p);
                     setNotifOpen(false);
                   }}
-                  aria-label="Open account menu"
+                  aria-label={t(language, 'openAccountMenu')}
                   aria-expanded={accountMenuOpen}
                   className="h-9 px-2 sm:px-3 rounded-[var(--ks-radius-md)] flex items-center gap-1.5 text-xs font-medium border border-[var(--ks-border)] bg-[var(--ks-surface)] text-[var(--ks-text-primary)] hover:border-[var(--ks-accent)] transition-colors cursor-pointer shrink-0"
                 >
@@ -1067,10 +1086,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
 
         {/* Tier 3: Desktop & Tablet Department Navigation Strip */}
         <div className="hidden md:block border-t border-[var(--ks-border)]/75 bg-[var(--ks-surface)]/85">
-          <div className="max-w-[var(--ks-container-max)] mx-auto px-6 lg:px-10 h-10 flex items-center justify-between gap-4">
+          <div className="max-w-[var(--ks-container-max)] mx-auto px-4 lg:px-10 h-10 flex items-center justify-between gap-4">
             <nav
-              aria-label="Department navigation"
-              className="flex items-center gap-4 lg:gap-5 overflow-x-auto no-scrollbar text-xs font-medium text-[var(--ks-text-secondary)]"
+              aria-label={t(language, 'departmentNavigation')}
+              className="flex items-center gap-3.5 lg:gap-5 overflow-x-auto no-scrollbar text-xs font-medium text-[var(--ks-text-secondary)]"
             >
               <button
                 type="button"
@@ -1530,26 +1549,36 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                                     </button>
                                   )}
                                 </div>
-                                {isOpen && cat.subcategories.length > 0 && (
-                                  <div className="ps-3 space-y-0.5 border-s border-[var(--ks-border)] ms-2">
-                                    {cat.subcategories.map((sub) => (
-                                      <button
-                                        key={sub.slug}
-                                        type="button"
-                                        onClick={() =>
-                                          go({
-                                            name: 'category',
-                                            category: cat.slug,
-                                            subcategory: sub.slug,
-                                          })
-                                        }
-                                        className="w-full min-h-[40px] px-2 rounded text-start leading-snug text-xs text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] hover:bg-[var(--ks-bg)] cursor-pointer flex items-center"
-                                      >
-                                        {sub.name}
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
+                                <AnimatePresence initial={false}>
+                                  {isOpen && cat.subcategories.length > 0 && (
+                                    <motion.div
+                                      initial={{ height: 0, opacity: 0 }}
+                                      animate={{ height: 'auto', opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }}
+                                      transition={STUDIO_TRANSITION.accordion}
+                                      className="overflow-hidden"
+                                    >
+                                      <div className="ps-3 space-y-0.5 border-s border-[var(--ks-border)] ms-2 py-0.5">
+                                        {cat.subcategories.map((sub) => (
+                                          <button
+                                            key={sub.slug}
+                                            type="button"
+                                            onClick={() =>
+                                              go({
+                                                name: 'category',
+                                                category: cat.slug,
+                                                subcategory: sub.slug,
+                                              })
+                                            }
+                                            className="w-full min-h-[44px] px-2 rounded text-start leading-snug text-xs text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] hover:bg-[var(--ks-bg)] cursor-pointer flex items-center"
+                                          >
+                                            {sub.name}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
                               </div>
                             );
                           })}
@@ -1713,7 +1742,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                   aria-label={t(language, 'languageLabel')}
                   value={language}
                   onChange={(e) => setLanguage(e.target.value as typeof language)}
-                  className="min-h-[40px] px-2.5 py-1.5 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] bg-[var(--ks-surface)] text-[var(--ks-text-primary)] text-xs font-medium cursor-pointer"
+                  className="min-h-[44px] px-2.5 py-1.5 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] bg-[var(--ks-surface)] text-[var(--ks-text-primary)] text-xs font-medium cursor-pointer"
                 >
                   {LANGUAGE_OPTIONS.map((opt) => (
                     <option key={opt.code} value={opt.code}>
@@ -1724,7 +1753,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                 <button
                   type="button"
                   onClick={toggleCurrency}
-                  className="inline-flex items-center gap-1.5 min-h-[40px] px-2.5 py-1.5 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] bg-[var(--ks-surface)] text-xs font-mono-num font-medium whitespace-nowrap cursor-pointer"
+                  className="inline-flex items-center gap-1.5 min-h-[44px] px-2.5 py-1.5 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] bg-[var(--ks-surface)] text-xs font-mono-num font-medium whitespace-nowrap cursor-pointer"
                 >
                   <Globe className="w-3.5 h-3.5" />
                   <span>{currency === 'USD' ? '$ USD' : '৳ BDT'}</span>
@@ -1732,7 +1761,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                 <button
                   type="button"
                   onClick={toggleTheme}
-                  className="inline-flex items-center gap-1.5 min-h-[40px] px-2.5 py-1.5 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] bg-[var(--ks-surface)] text-xs font-medium whitespace-nowrap cursor-pointer"
+                  className="inline-flex items-center gap-1.5 min-h-[44px] px-2.5 py-1.5 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] bg-[var(--ks-surface)] text-xs font-medium whitespace-nowrap cursor-pointer"
                 >
                   {theme === 'dark' ? (
                     <>

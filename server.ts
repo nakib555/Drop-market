@@ -15,6 +15,7 @@ import {
   buildVerifiedOrderFromSession,
   createPaymentSession,
   getGatewayConfigStatus,
+  resolveActivePromo,
   resolveAuthoritativeItems,
   type CheckoutItemRequest,
   type CheckoutQuoteRequest,
@@ -515,6 +516,7 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
       customCategories: db.customCategories,
       currencyConfig: db.currencyConfig,
       shippingConfig: db.shippingConfig,
+      promotions: db.promotions,
     });
   });
 
@@ -596,11 +598,15 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
           ? currency
           : db.currencyConfig.defaultCurrency;
 
+      const promoObj = resolveActivePromo(promoCode, db.promotions);
+      const promoApplied =
+        promoObj && subtotalUsd >= promoObj.minSubtotal ? promoObj.code : undefined;
+
       const quote = calculateShippingQuote({
         address: address || { country: 'Bangladesh' },
         subtotalUsd,
         items: shippingInputs,
-        promoCode,
+        promoCode: promoApplied,
         currency: activeCurrency,
         currencyState: db.currencyConfig,
         config: db.shippingConfig,
@@ -700,6 +706,7 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
         currencyState: db.currencyConfig,
         shippingConfig: db.shippingConfig,
         dynamicCatalogSkus,
+        promotions: db.promotions,
       });
       res.json({ quote });
     } catch (err) {
@@ -779,6 +786,7 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
         existingSessions: db.paymentSessions,
         policyAcceptance: body.acceptedPolicies,
         dynamicCatalogSkus,
+        promotions: db.promotions,
       });
 
       res.status(201).json({

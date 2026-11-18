@@ -70,11 +70,11 @@ export const ComparePage: React.FC = () => {
           {compared.length < 4 && addable.length > 0 && (
             <div className="flex flex-wrap items-center gap-3">
               <label htmlFor="compare-add-select" className="text-xs text-[var(--ks-text-muted)]">
-                Add another object:
+                {t(language, 'addAnotherObject')}
               </label>
               <select
                 id="compare-add-select"
-                aria-label="Add object to comparison"
+                aria-label={t(language, 'addAnotherObject')}
                 value=""
                 onChange={(e) => {
                   const p = products.find((item) => item.id === e.target.value);
@@ -82,7 +82,7 @@ export const ComparePage: React.FC = () => {
                 }}
                 className="min-h-[44px] px-3 text-base sm:text-xs rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)] max-w-full"
               >
-                <option value="">Select piece...</option>
+                <option value="">{t(language, 'selectPiecePlaceholder')}</option>
                 {addable.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name} ({formatCurrency(p.price, currency)})
@@ -107,7 +107,7 @@ export const ComparePage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => navigate({ name: 'product', slug: item.slug })}
-                      aria-label={`View ${item.name}`}
+                      aria-label={t(language, 'viewItemAria', { name: item.name })}
                       className="w-24 aspect-[4/3] rounded-[var(--ks-radius-md)] overflow-hidden shrink-0 cursor-pointer block"
                     >
                       <ResilientImage
@@ -140,7 +140,7 @@ export const ComparePage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => toggleCompare(item)}
-                      aria-label={`Remove ${item.name} from comparison`}
+                      aria-label={t(language, 'removeItemAria', { name: item.name })}
                       className="w-11 h-11 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-error)] cursor-pointer shrink-0"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -177,7 +177,13 @@ export const ComparePage: React.FC = () => {
                           outOfStock ? 'text-[var(--ks-error)] font-medium' : 'capitalize'
                         }`}
                       >
-                        {outOfStock ? t(language, 'outOfStock') : item.availability.replace('-', ' ')}
+                        {outOfStock
+                          ? t(language, 'outOfStock')
+                          : item.availability === 'low-stock'
+                          ? t(language, 'lowStockCount', { count: item.stockCount })
+                          : item.availability === 'made-to-order'
+                          ? t(language, 'madeToOrder')
+                          : t(language, 'inStock')}
                       </dd>
                     </div>
                     <div className="py-2 flex items-baseline justify-between gap-3">
@@ -240,7 +246,7 @@ export const ComparePage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => navigate({ name: 'product', slug: item.slug })}
-                            aria-label={`View ${item.name}`}
+                            aria-label={t(language, 'viewItemAria', { name: item.name })}
                             className="w-full h-full block cursor-pointer"
                           >
                             <ResilientImage
@@ -252,7 +258,7 @@ export const ComparePage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => toggleCompare(item)}
-                            aria-label={`Remove ${item.name} from comparison`}
+                            aria-label={t(language, 'removeItemAria', { name: item.name })}
                             className="absolute top-2 end-2 w-11 h-11 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)]/95 flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-error)] cursor-pointer"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -318,7 +324,13 @@ export const ComparePage: React.FC = () => {
                             outOfStock ? 'text-[var(--ks-error)] font-medium' : 'capitalize'
                           }
                         >
-                          {outOfStock ? t(language, 'outOfStock') : item.availability.replace('-', ' ')}
+                          {outOfStock
+                            ? t(language, 'outOfStock')
+                            : item.availability === 'low-stock'
+                            ? t(language, 'lowStockCount', { count: item.stockCount })
+                            : item.availability === 'made-to-order'
+                            ? t(language, 'madeToOrder')
+                            : t(language, 'inStock')}
                         </span>
                       </td>
                     );

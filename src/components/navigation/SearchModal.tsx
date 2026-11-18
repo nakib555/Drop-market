@@ -6,6 +6,7 @@ import { useStore } from '../../context/StoreContext';
 import { formatCurrency, fuzzyScoreText } from '../../utils/format';
 import { t, translateDepartmentName } from '../../utils/i18n';
 import { STUDIO_TRANSITION } from '../../utils/motion';
+import { useOverlayLock } from '../../utils/scrollLock';
 import { ResilientImage, useFocusTrap } from '../ui/Primitives';
 
 interface SearchModalProps {
@@ -39,6 +40,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
   const panelRef = useRef<HTMLDivElement>(null);
 
   useFocusTrap(open, panelRef);
+  useOverlayLock(open, 'search-modal', onClose);
 
   useEffect(() => {
     setActiveIndex(-1);
@@ -50,15 +52,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
       return;
     }
     const timer = window.setTimeout(() => inputRef.current?.focus(), 40);
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
     return () => {
       window.clearTimeout(timer);
-      window.removeEventListener('keydown', onKey);
     };
-  }, [open, onClose]);
+  }, [open]);
 
   const matchingCategories = useMemo(() => {
     const q = term.trim();
@@ -177,14 +174,14 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
                 onKeyDown={handleInputKeyDown}
                 placeholder={t(language, 'searchPlaceholder')}
                 aria-label={t(language, 'search')}
-                className="flex-1 bg-transparent text-sm text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)] focus:outline-none"
+                className="flex-1 bg-transparent text-base sm:text-sm text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)] focus:outline-none"
               />
               {term && (
                 <button
                   type="button"
                   onClick={() => setTerm('')}
                   aria-label={t(language, 'clear')}
-                  className="min-h-[36px] min-w-[44px] text-xs text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] px-2 py-1 cursor-pointer"
+                  className="min-h-[44px] sm:min-h-[36px] min-w-[44px] text-xs text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] px-2 py-1 cursor-pointer"
                 >
                   {t(language, 'clear')}
                 </button>
@@ -193,7 +190,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ open, onClose }) => {
                 type="button"
                 onClick={onClose}
                 aria-label={t(language, 'closeSearch')}
-                className="w-10 h-10 -me-1 rounded-md flex items-center justify-center text-[var(--ks-text-secondary)] hover:bg-[var(--ks-surface-muted)] cursor-pointer"
+                className="w-11 h-11 sm:w-10 sm:h-10 -me-1 rounded-md flex items-center justify-center text-[var(--ks-text-secondary)] hover:bg-[var(--ks-surface-muted)] cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>

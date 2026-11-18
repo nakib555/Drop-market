@@ -236,6 +236,7 @@ export async function fetchStorefrontSync(): Promise<{
   customCategories: DynamicCategoryRecord[];
   currencyConfig: CurrencyRateState;
   shippingConfig: ShippingRuleConfig;
+  promotions?: ManagedPromoRecord[];
 }> {
   return withStaticFallback(
     () => requestJson('/api/storefront/state'),

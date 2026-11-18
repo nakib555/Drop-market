@@ -17,6 +17,7 @@ import type {
   PaymentSession,
   PaymentStatus,
   ProductOverride,
+  PromoCode,
   ShippingRuleConfig,
 } from '../../src/types/commerce.ts';
 import {
@@ -250,6 +251,26 @@ export function resolveAuthoritativeItems(
   };
 }
 
+export type PromoCandidate = Pick<
+  PromoCode,
+  'code' | 'discountType' | 'value' | 'minSubtotal' | 'description'
+> & { active?: boolean };
+
+export function resolveActivePromo(rawCode: string | undefined): PromoCandidate | null;
+export function resolveActivePromo<T extends PromoCandidate>(
+  rawCode: string | undefined,
+  promotions: ReadonlyArray<T>
+): T | null;
+export function resolveActivePromo(
+  rawCode: string | undefined,
+  promotions: ReadonlyArray<PromoCandidate> = PROMO_CODES
+): PromoCandidate | null {
+  const promoRaw = (rawCode || '').trim().toUpperCase();
+  if (!promoRaw) return null;
+  const found = promotions.find((p) => p.code.toUpperCase() === promoRaw && p.active !== false);
+  return found ?? null;
+}
+
 export function buildAuthoritativeCheckoutQuote(params: {
   request: CheckoutQuoteRequest;
   sellerCreatedProducts: ApiSellerProductRecord[];
@@ -257,6 +278,7 @@ export function buildAuthoritativeCheckoutQuote(params: {
   currencyState: CurrencyRateState;
   shippingConfig: ShippingRuleConfig;
   dynamicCatalogSkus?: AuthoritativeCatalogSku[];
+  promotions?: PromoCandidate[];
 }): { quote: CheckoutQuoteResponse; resolvedItems: CartItem[] } {
   const {
     request,
@@ -265,6 +287,7 @@ export function buildAuthoritativeCheckoutQuote(params: {
     currencyState,
     shippingConfig,
     dynamicCatalogSkus = [],
+    promotions = PROMO_CODES.map((p) => ({ ...p, active: true })),
   } = params;
   if (!Array.isArray(request.items) || request.items.length === 0) {
     throw new Error('Shopping bag cannot be empty.');
@@ -283,8 +306,7 @@ export function buildAuthoritativeCheckoutQuote(params: {
     allowInternationalUsd: request.allowInternationalUsd,
   });
 
-  const promoRaw = (request.promoCode || '').trim().toUpperCase();
-  const promoObj = PROMO_CODES.find((p) => p.code === promoRaw);
+  const promoObj = resolveActivePromo(request.promoCode, promotions);
   const promoApplied = promoObj && subtotalUsd >= promoObj.minSubtotal ? promoObj.code : undefined;
 
   const shippingQuote = calculateShippingQuote({
@@ -410,6 +432,7 @@ export function createPaymentSession(params: {
   existingSessions: Map<string, PendingSessionContext>;
   policyAcceptance?: LegalAcceptanceRecord;
   dynamicCatalogSkus?: AuthoritativeCatalogSku[];
+  promotions?: PromoCandidate[];
 }): PendingSessionContext {
   const cleanKey = params.idempotencyKey.trim();
   for (const ctx of params.existingSessions.values()) {
@@ -428,6 +451,7 @@ export function createPaymentSession(params: {
     currencyState: params.currencyState,
     shippingConfig: params.shippingConfig,
     dynamicCatalogSkus: params.dynamicCatalogSkus,
+    promotions: params.promotions,
   });
 
   if (quote.shippingQuote.restricted) {

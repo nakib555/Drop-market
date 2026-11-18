@@ -93,7 +93,7 @@ export const CartDrawer: React.FC = () => {
                       setCartDrawerOpen(false);
                       navigate({ name: 'product', slug: item.slug });
                     }}
-                    aria-label={`View ${item.name}`}
+                    aria-label={t(language, 'viewItemAria', { name: item.name })}
                     className="w-20 h-16 rounded-md overflow-hidden bg-[var(--ks-surface-muted)] shrink-0 cursor-pointer block"
                   >
                     <ResilientImage
@@ -117,7 +117,7 @@ export const CartDrawer: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => removeFromCart(item.key)}
-                        aria-label={`Remove ${item.name}`}
+                        aria-label={t(language, 'removeItemAria', { name: item.name })}
                         className="w-10 h-10 -me-2 rounded-md flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-error)] cursor-pointer shrink-0"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -189,8 +189,8 @@ export const CartDrawer: React.FC = () => {
                       removePromoCode();
                       setPromoFeedback(null);
                     }}
-                    aria-label="Remove promo code"
-                    className="w-8 h-8 rounded flex items-center justify-center text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                    aria-label={t(language, 'remove')}
+                    className="w-11 h-11 sm:w-8 sm:h-8 rounded flex items-center justify-center text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>

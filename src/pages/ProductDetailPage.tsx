@@ -22,7 +22,12 @@ import {
   isProductOutOfStock,
 } from '../utils/format';
 import { t, translateDepartmentName } from '../utils/i18n';
-import { STUDIO_TRANSITION } from '../utils/motion';
+import {
+  getDirectionalSlideSign,
+  getSwipeNavigationDelta,
+  STUDIO_TRANSITION,
+  slideFadeVariants,
+} from '../utils/motion';
 import { ProductCard } from '../components/product/ProductCard';
 import {
   PriceDisplay,
@@ -66,7 +71,9 @@ export const ProductDetailPage: React.FC = () => {
   );
 
   const [activeImageIdx, setActiveImageIdx] = useState(0);
+  const [galleryDirection, setGalleryDirection] = useState(1);
   const [zoomed, setZoomed] = useState(false);
+  const [zoomOrigin, setZoomOrigin] = useState('50% 50%');
   const [selectedColorIdx, setSelectedColorIdx] = useState(0);
   const [selectedSizeIdx, setSelectedSizeIdx] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -95,12 +102,24 @@ export const ProductDetailPage: React.FC = () => {
   useEffect(() => {
     if (!product) return;
     setActiveImageIdx(0);
+    setGalleryDirection(1);
     setZoomed(false);
+    setZoomOrigin('50% 50%');
     setSelectedColorIdx(0);
     setSelectedSizeIdx(0);
     setQuantity(1);
     setActiveTab('specs');
+    setSizeGuideOpen(false);
+    setReviewAuthor('');
+    setReviewLocation('');
+    setReviewRating(5);
+    setReviewTitle('');
+    setReviewComment('');
+    setReviewError('');
     setReviewSubmitted(false);
+    setQaAuthor('');
+    setQaQuestion('');
+    setQaError('');
     setQaSubmitted(false);
     recordProductView(product.id);
   }, [product?.id, recordProductView]);
@@ -113,9 +132,14 @@ export const ProductDetailPage: React.FC = () => {
     const el = primaryCtaRef.current;
     if (!el) return;
 
+    const getHeaderThreshold = () => {
+      const headerEl = document.querySelector('header');
+      return headerEl ? Math.max(52, Math.round(headerEl.getBoundingClientRect().height)) : 64;
+    };
+
     const updateVisibility = () => {
       const rect = el.getBoundingClientRect();
-      setShowMobileStickyBar(rect.bottom < 64);
+      setShowMobileStickyBar(rect.bottom < getHeaderThreshold());
     };
 
     updateVisibility();
@@ -124,7 +148,9 @@ export const ProductDetailPage: React.FC = () => {
     if (typeof IntersectionObserver !== 'undefined') {
       observer = new IntersectionObserver(
         ([entry]) => {
-          setShowMobileStickyBar(!entry.isIntersecting && entry.boundingClientRect.top < 64);
+          setShowMobileStickyBar(
+            !entry.isIntersecting && entry.boundingClientRect.top < getHeaderThreshold()
+          );
         },
         { threshold: 0 }
       );
@@ -177,6 +203,16 @@ export const ProductDetailPage: React.FC = () => {
     .filter((p): p is NonNullable<typeof p> => Boolean(p))
     .slice(0, 3);
 
+  const isRtl = language === 'ar';
+
+  const stepGalleryImage = (delta: 1 | -1) => {
+    if (!product || product.images.length <= 1) return;
+    setGalleryDirection(delta);
+    setActiveImageIdx((i) => (i + delta + product.images.length) % product.images.length);
+    setZoomed(false);
+    setZoomOrigin('50% 50%');
+  };
+
   const handleGalleryTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0]?.clientX ?? null;
   };
@@ -184,14 +220,9 @@ export const ProductDetailPage: React.FC = () => {
   const handleGalleryTouchEnd = (e: React.TouchEvent) => {
     if (touchStartX.current === null || product.images.length <= 1) return;
     const endX = e.changedTouches[0]?.clientX ?? touchStartX.current;
-    const diff = touchStartX.current - endX;
-    if (Math.abs(diff) > 40) {
-      if (diff > 0) {
-        setActiveImageIdx((i) => (i + 1) % product.images.length);
-      } else {
-        setActiveImageIdx((i) => (i - 1 + product.images.length) % product.images.length);
-      }
-      setZoomed(false);
+    const delta = getSwipeNavigationDelta(touchStartX.current - endX, isRtl);
+    if (delta !== 0) {
+      stepGalleryImage(delta);
     }
     touchStartX.current = null;
   };
@@ -199,13 +230,13 @@ export const ProductDetailPage: React.FC = () => {
   const handleReviewSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!reviewAuthor.trim() || !reviewTitle.trim() || !reviewComment.trim()) {
-      setReviewError('Please complete your name, review headline, and feedback.');
+      setReviewError(t(language, 'reviewErrRequired'));
       return;
     }
     setReviewError('');
     submitProductReview(product.id, {
       author: reviewAuthor.trim(),
-      location: reviewLocation.trim() || 'Verified Shopper',
+      location: reviewLocation.trim() || t(language, 'verifiedOwnerBadge'),
       rating: reviewRating,
       title: reviewTitle.trim(),
       comment: reviewComment.trim(),
@@ -221,11 +252,11 @@ export const ProductDetailPage: React.FC = () => {
   const handleQuestionSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!qaQuestion.trim()) {
-      setQaError('Please enter your question before submitting.');
+      setQaError(t(language, 'qaErrRequired'));
       return;
     }
     setQaError('');
-    submitProductQuestion(product.id, qaAuthor || 'Guest Shopper', qaQuestion);
+    submitProductQuestion(product.id, qaAuthor || t(language, 'yourNameLabel'), qaQuestion);
     setQaQuestion('');
     setQaAuthor('');
     setQaSubmitted(true);
@@ -262,36 +293,63 @@ export const ProductDetailPage: React.FC = () => {
             onTouchEnd={handleGalleryTouchEnd}
             className="relative aspect-[4/3] rounded-lg overflow-hidden bg-[var(--ks-surface-muted)] border border-[var(--ks-border)]"
           >
-            <motion.div
-              key={`${product.id}-${activeImageIdx}`}
-              initial={{ opacity: 0.5 }}
-              animate={{ opacity: 1 }}
-              transition={STUDIO_TRANSITION.fast}
-              className="w-full h-full"
-            >
-              <button
-                type="button"
-                onClick={() => setZoomed((z) => !z)}
-                aria-label={zoomed ? 'Reset product image zoom' : 'Zoom product image'}
-                className={`w-full h-full block text-start ${
-                  zoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'
-                }`}
+            <AnimatePresence initial={false} mode="popLayout" custom={getDirectionalSlideSign(galleryDirection, isRtl)}>
+              <motion.div
+                key={`${product.id}-${activeImageIdx}`}
+                custom={getDirectionalSlideSign(galleryDirection, isRtl)}
+                variants={slideFadeVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="w-full h-full"
               >
-                <ResilientImage
-                  src={product.images[activeImageIdx]}
-                  alt={`${product.name} — view ${activeImageIdx + 1}`}
-                  loading={activeImageIdx === 0 ? 'eager' : 'lazy'}
-                  fetchPriority={activeImageIdx === 0 ? 'high' : 'auto'}
-                  className={`w-full h-full object-cover transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-                    zoomed ? 'scale-150' : 'scale-100'
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    if (!zoomed) {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      if (rect.width > 0 && rect.height > 0 && e.clientX > 0) {
+                        const xPct = Math.min(100, Math.max(0, Math.round(((e.clientX - rect.left) / rect.width) * 100)));
+                        const yPct = Math.min(100, Math.max(0, Math.round(((e.clientY - rect.top) / rect.height) * 100)));
+                        setZoomOrigin(`${xPct}% ${yPct}%`);
+                      }
+                    }
+                    setZoomed((z) => !z);
+                  }}
+                  onMouseMove={(e) => {
+                    if (!zoomed) return;
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    if (rect.width > 0 && rect.height > 0) {
+                      const xPct = Math.min(100, Math.max(0, Math.round(((e.clientX - rect.left) / rect.width) * 100)));
+                      const yPct = Math.min(100, Math.max(0, Math.round(((e.clientY - rect.top) / rect.height) * 100)));
+                      setZoomOrigin(`${xPct}% ${yPct}%`);
+                    }
+                  }}
+                  aria-label={zoomed ? 'Reset product image zoom' : 'Zoom product image'}
+                  className={`w-full h-full block text-start ${
+                    zoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'
                   }`}
-                />
-              </button>
-            </motion.div>
+                >
+                  <ResilientImage
+                    src={product.images[activeImageIdx]}
+                    alt={`${product.name} — view ${activeImageIdx + 1}`}
+                    loading={activeImageIdx === 0 ? 'eager' : 'lazy'}
+                    fetchPriority={activeImageIdx === 0 ? 'high' : 'auto'}
+                    style={zoomed ? { transformOrigin: zoomOrigin } : undefined}
+                    className={`w-full h-full object-cover transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                      zoomed ? 'scale-150' : 'scale-100'
+                    }`}
+                  />
+                </button>
+              </motion.div>
+            </AnimatePresence>
 
             <button
               type="button"
-              onClick={() => setZoomed((z) => !z)}
+              onClick={() => {
+                setZoomOrigin('50% 50%');
+                setZoomed((z) => !z);
+              }}
               aria-label={zoomed ? 'Reset zoom' : 'Zoom product image'}
               className="absolute top-3 end-3 w-11 h-11 rounded-md bg-[var(--ks-surface)]/92 text-[var(--ks-text-primary)] border border-[var(--ks-border)] flex items-center justify-center shadow-sm cursor-pointer"
             >
@@ -302,20 +360,16 @@ export const ProductDetailPage: React.FC = () => {
               <>
                 <button
                   type="button"
-                  onClick={() =>
-                    setActiveImageIdx(
-                      (i) => (i - 1 + product.images.length) % product.images.length
-                    )
-                  }
-                  aria-label="Previous image"
+                  onClick={() => stepGalleryImage(-1)}
+                  aria-label={t(language, 'previousImage')}
                   className="absolute start-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-[var(--ks-surface)]/92 text-[var(--ks-text-primary)] border border-[var(--ks-border)] flex items-center justify-center shadow-sm cursor-pointer"
                 >
                   <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
                 </button>
                 <button
                   type="button"
-                  onClick={() => setActiveImageIdx((i) => (i + 1) % product.images.length)}
-                  aria-label="Next image"
+                  onClick={() => stepGalleryImage(1)}
+                  aria-label={t(language, 'nextImage')}
                   className="absolute end-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-[var(--ks-surface)]/92 text-[var(--ks-text-primary)] border border-[var(--ks-border)] flex items-center justify-center shadow-sm cursor-pointer"
                 >
                   <ChevronRight className="w-4 h-4 rtl:rotate-180" />
@@ -331,8 +385,10 @@ export const ProductDetailPage: React.FC = () => {
                   key={`${img}-${idx}`}
                   type="button"
                   onClick={() => {
+                    setGalleryDirection(idx >= activeImageIdx ? 1 : -1);
                     setActiveImageIdx(idx);
                     setZoomed(false);
+                    setZoomOrigin('50% 50%');
                   }}
                   aria-label={`Select thumbnail ${idx + 1}`}
                   className={`aspect-[4/3] rounded-md overflow-hidden border-2 transition-all cursor-pointer bg-[var(--ks-surface-muted)] ${
@@ -457,7 +513,7 @@ export const ProductDetailPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSizeGuideOpen(true)}
-                  className="inline-flex items-center gap-1 min-h-[36px] text-xs font-medium text-[var(--ks-accent)] hover:underline cursor-pointer"
+                  className="inline-flex items-center gap-1 min-h-[44px] sm:min-h-[36px] text-xs font-medium text-[var(--ks-accent)] hover:underline cursor-pointer"
                 >
                   <Ruler className="w-3.5 h-3.5" />
                   <span>{t(language, 'sizeGuide')}</span>
@@ -566,18 +622,18 @@ export const ProductDetailPage: React.FC = () => {
                   <p className="text-[11px] leading-relaxed text-[var(--ks-text-secondary)]">
                     {safetyNotice.summary}
                   </p>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5 text-[11px]">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5 text-xs sm:text-[11px]">
                     <button
                       type="button"
                       onClick={() => navigate({ name: 'product-safety' })}
-                      className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                      className="min-h-[44px] sm:min-h-0 inline-flex items-center underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                     >
                       {t(language, 'safetyDisclaimers')}
                     </button>
                     <button
                       type="button"
                       onClick={() => navigate({ name: 'return-policy' })}
-                      className="underline text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                      className="min-h-[44px] sm:min-h-0 inline-flex items-center underline text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer"
                     >
                       {t(language, 'returnEligibility')}
                     </button>
@@ -612,7 +668,7 @@ export const ProductDetailPage: React.FC = () => {
                 role="tab"
                 aria-selected={isSelected}
                 onClick={() => setActiveTab(tab.id)}
-                className={`relative pb-3.5 text-sm font-medium whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                className={`relative min-h-[44px] py-2.5 pb-3.5 text-sm font-medium whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
                   isSelected
                     ? 'text-[var(--ks-text-primary)]'
                     : 'text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)]'
@@ -631,12 +687,14 @@ export const ProductDetailPage: React.FC = () => {
           })}
         </div>
 
-        <motion.div
-          key={activeTab}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={STUDIO_TRANSITION.fast}
-        >
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={STUDIO_TRANSITION.fast}
+          >
           {activeTab === 'specs' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-6">
@@ -673,11 +731,11 @@ export const ProductDetailPage: React.FC = () => {
                     })}
                   <div className="py-3.5 flex items-baseline justify-between gap-4 text-sm">
                     <dt className="text-[var(--ks-text-secondary)] min-w-0">
-                      Shipping Weight &amp; Tier
+                      {t(language, 'shippingWeightTier')}
                     </dt>
                     <dd className="font-medium text-end font-mono-num capitalize max-w-[60%] leading-snug">
                       {product.weightKg ? `${product.weightKg} kg · ` : ''}
-                      {product.sizeTier || 'medium'} parcel
+                      {t(language, 'parcelTierLabel', { tier: product.sizeTier || 'medium' })}
                     </dd>
                   </div>
                   <div className="py-3.5 flex items-baseline justify-between gap-4 text-sm">
@@ -696,17 +754,20 @@ export const ProductDetailPage: React.FC = () => {
               <div className="p-6 rounded-lg bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] space-y-4 h-fit">
                 <div className="space-y-2">
                   <h3 className="font-display text-2xl font-medium">
-                    Care, Handling &amp; Warranty
+                    {t(language, 'careHandlingWarranty')}
                   </h3>
                   <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
-                    Fulfilled from {product.brand} within our {product.categoryLabel} department.
-                    Coverage includes {product.warranty.toLowerCase()}.
+                    {t(language, 'fulfilledFromBrand', {
+                      brand: product.brand,
+                      dept: translateDepartmentName(language, product.category, product.categoryLabel),
+                      warranty: product.warranty.toLowerCase(),
+                    })}
                   </p>
                 </div>
                 {product.careNote && (
                   <div className="pt-3 border-t border-[var(--ks-divider)]">
                     <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)] mb-1">
-                      Handling &amp; Care Note
+                      {t(language, 'handlingCareNote')}
                     </p>
                     <p className="text-sm text-[var(--ks-text-primary)] leading-relaxed">
                       {product.careNote}
@@ -715,7 +776,7 @@ export const ProductDetailPage: React.FC = () => {
                 )}
                 <div className="pt-3 border-t border-[var(--ks-divider)] space-y-1">
                   <p className="text-xs uppercase tracking-wider text-[var(--ks-accent)] font-medium">
-                    Returns &amp; Dispatch Terms
+                    {t(language, 'returnsDispatchTerms')}
                   </p>
                   <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
                     {product.returnPolicy}. {product.deliveryEstimate}.
@@ -730,7 +791,7 @@ export const ProductDetailPage: React.FC = () => {
               <div className="lg:col-span-7 space-y-4">
                 {product.reviews.length === 0 ? (
                   <p className="text-sm text-[var(--ks-text-secondary)] py-4">
-                    No written reviews yet for this product. Share the first impression using the form.
+                    {t(language, 'noReviewsYet')}
                   </p>
                 ) : (
                   product.reviews.map((rev) => (
@@ -753,7 +814,8 @@ export const ProductDetailPage: React.FC = () => {
                         {rev.comment}
                       </p>
                       <p className="text-xs text-[var(--ks-text-muted)] pt-1">
-                        {rev.author} · {rev.location} {rev.verified ? '· Verified Owner' : ''}
+                        {rev.author} · {rev.location}{' '}
+                        {rev.verified ? `· ${t(language, 'verifiedOwnerBadge')}` : ''}
                       </p>
                     </article>
                   ))
@@ -762,9 +824,11 @@ export const ProductDetailPage: React.FC = () => {
 
               {!profile.isAuthenticated ? (
                 <div className="lg:col-span-5 p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-4 h-fit">
-                  <h3 className="font-display text-2xl font-medium">Write a Verified Review</h3>
+                  <h3 className="font-display text-2xl font-medium">
+                    {t(language, 'writeVerifiedReview')}
+                  </h3>
                   <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
-                    To keep ratings authentic, only signed-in marketplace members can publish verified product reviews.
+                    {t(language, 'reviewsAuthOnlyDesc')}
                   </p>
                   <Button
                     type="button"
@@ -773,7 +837,7 @@ export const ProductDetailPage: React.FC = () => {
                     fullWidth
                     onClick={() => navigate({ name: 'login' })}
                   >
-                    Sign In to Review
+                    {t(language, 'signInToReview')}
                   </Button>
                 </div>
               ) : (
@@ -781,10 +845,12 @@ export const ProductDetailPage: React.FC = () => {
                   onSubmit={handleReviewSubmit}
                   className="lg:col-span-5 p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-4 h-fit"
                 >
-                  <h3 className="font-display text-2xl font-medium">Write a Review</h3>
+                  <h3 className="font-display text-2xl font-medium">
+                    {t(language, 'writeReviewHeading')}
+                  </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Input
-                      label="Your Name"
+                      label={t(language, 'yourNameLabel')}
                       required
                       autoComplete="name"
                       value={reviewAuthor}
@@ -792,23 +858,23 @@ export const ProductDetailPage: React.FC = () => {
                         setReviewAuthor(e.target.value);
                         setReviewSubmitted(false);
                       }}
-                      placeholder="Your full name"
+                      placeholder={t(language, 'yourFullNamePlaceholder')}
                     />
                     <Input
-                      label="City / Country"
+                      label={t(language, 'cityCountryLabel')}
                       autoComplete="address-level2"
                       value={reviewLocation}
                       onChange={(e) => {
                         setReviewLocation(e.target.value);
                         setReviewSubmitted(false);
                       }}
-                      placeholder="Dhaka, Bangladesh"
+                      placeholder={t(language, 'cityCountryPlaceholder')}
                     />
                   </div>
 
                   <div className="space-y-1.5">
                     <span id="pdp-rating-label" className="text-xs font-medium block">
-                      Rating
+                      {t(language, 'ratingLabel')}
                     </span>
                     <div
                       role="radiogroup"
@@ -841,17 +907,17 @@ export const ProductDetailPage: React.FC = () => {
                   </div>
 
                   <Input
-                    label="Headline"
+                    label={t(language, 'reviewHeadlineLabel')}
                     required
                     value={reviewTitle}
                     onChange={(e) => {
                       setReviewTitle(e.target.value);
                       setReviewSubmitted(false);
                     }}
-                    placeholder="Summarize your impression"
+                    placeholder={t(language, 'reviewHeadlinePlaceholder')}
                   />
                   <Textarea
-                    label="Your Feedback"
+                    label={t(language, 'yourFeedbackLabel')}
                     required
                     rows={3}
                     value={reviewComment}
@@ -859,16 +925,16 @@ export const ProductDetailPage: React.FC = () => {
                       setReviewComment(e.target.value);
                       setReviewSubmitted(false);
                     }}
-                    placeholder="Share notes on finish, performance, sizing, or delivery..."
+                    placeholder={t(language, 'yourFeedbackPlaceholder')}
                   />
                   {reviewError && <p className="text-xs text-[var(--ks-error)]">{reviewError}</p>}
                   {reviewSubmitted && !reviewError && (
                     <p className="text-xs text-[var(--ks-success)]">
-                      Your verified review has been published on this product page.
+                      {t(language, 'reviewPublishedMsg')}
                     </p>
                   )}
                   <Button type="submit" variant="primary" size="md" fullWidth>
-                    Publish Verified Review
+                    {t(language, 'publishVerifiedReview')}
                   </Button>
                 </form>
               )}
@@ -880,7 +946,7 @@ export const ProductDetailPage: React.FC = () => {
               <div className="lg:col-span-7 space-y-4">
                 {questions.length === 0 ? (
                   <p className="text-sm text-[var(--ks-text-secondary)] py-4">
-                    No questions asked yet for this product. Ask our specialists anything using the form.
+                    {t(language, 'noQuestionsYet')}
                   </p>
                 ) : (
                   questions.map((qa) => (
@@ -890,14 +956,16 @@ export const ProductDetailPage: React.FC = () => {
                     >
                       <div className="space-y-1">
                         <div className="flex items-baseline justify-between gap-2 text-xs text-[var(--ks-text-muted)]">
-                          <span className="min-w-0 truncate">Question from {qa.author}</span>
+                          <span className="min-w-0 truncate">
+                            {t(language, 'questionFromAuthor', { author: qa.author })}
+                          </span>
                           <span className="font-mono-num shrink-0">{formatShortDate(qa.date)}</span>
                         </div>
                         <p className="text-sm font-semibold">{qa.question}</p>
                       </div>
                       <div className="pt-3 border-t border-[var(--ks-border)] space-y-1">
                         <p className="text-[11px] uppercase tracking-wider text-[var(--ks-accent)] font-medium">
-                          Answer · {qa.answeredBy}
+                          {t(language, 'answerByLabel', { author: qa.answeredBy })}
                         </p>
                         <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
                           {qa.answer}
@@ -914,23 +982,25 @@ export const ProductDetailPage: React.FC = () => {
               >
                 <div className="flex items-center gap-2">
                   <MessageSquarePlus className="w-4 h-4 text-[var(--ks-accent)]" />
-                  <h3 className="font-display text-2xl font-medium">Ask a Question</h3>
+                  <h3 className="font-display text-2xl font-medium">
+                    {t(language, 'askQuestionHeading')}
+                  </h3>
                 </div>
                 <p className="text-xs text-[var(--ks-text-secondary)]">
-                  Questions about sizing, compatibility, materials, or shipping? Post below.
+                  {t(language, 'askQuestionDesc')}
                 </p>
                 <Input
-                  label="Your Name"
+                  label={t(language, 'yourNameLabel')}
                   autoComplete="name"
                   value={qaAuthor}
                   onChange={(e) => {
                     setQaAuthor(e.target.value);
                     setQaSubmitted(false);
                   }}
-                  placeholder="Your full name"
+                  placeholder={t(language, 'yourFullNamePlaceholder')}
                 />
                 <Textarea
-                  label="Your Question"
+                  label={t(language, 'yourQuestionLabel')}
                   required
                   rows={3}
                   value={qaQuestion}
@@ -938,16 +1008,16 @@ export const ProductDetailPage: React.FC = () => {
                     setQaQuestion(e.target.value);
                     setQaSubmitted(false);
                   }}
-                  placeholder="Ask about compatibility, materials, sizing, or delivery..."
+                  placeholder={t(language, 'yourQuestionPlaceholder')}
                 />
                 {qaError && <p className="text-xs text-[var(--ks-error)]">{qaError}</p>}
                 {qaSubmitted && !qaError && (
                   <p className="text-xs text-[var(--ks-success)]">
-                    Question posted — specialist response is now visible in the Q&amp;A thread.
+                    {t(language, 'questionPostedMsg')}
                   </p>
                 )}
                 <Button type="submit" variant="primary" size="md" fullWidth>
-                  Post Question
+                  {t(language, 'postQuestionBtn')}
                 </Button>
               </form>
             </div>
@@ -958,29 +1028,31 @@ export const ProductDetailPage: React.FC = () => {
               <div className="p-5 rounded-lg border border-[var(--ks-border)] bg-[var(--ks-surface)] space-y-2">
                 <p className="font-medium">{t(language, 'dispatchCoverage')}</p>
                 <p className="text-[var(--ks-text-secondary)] leading-relaxed">
-                  {product.deliveryEstimate}. Dhaka Metro orders over{' '}
-                  {formatCurrency(
-                    shippingConfig.zones.find((z) => z.zoneId === 'dhaka_metro')?.freeThresholdUsd ?? 120,
-                    currency
-                  )}{' '}
-                  qualify for complimentary insured courier delivery.
+                  {t(language, 'dispatchCoverageDetail', {
+                    estimate: product.deliveryEstimate,
+                    amount: formatCurrency(
+                      shippingConfig.zones.find((z) => z.zoneId === 'dhaka_metro')?.freeThresholdUsd ?? 120,
+                      currency
+                    ),
+                  })}
                 </p>
               </div>
               <div className="p-5 rounded-lg border border-[var(--ks-border)] bg-[var(--ks-surface)] space-y-2">
                 <p className="font-medium">{t(language, 'returnsExchanges')}</p>
                 <p className="text-[var(--ks-text-secondary)] leading-relaxed">
-                  {product.returnPolicy}. Initiate returns or exchanges directly through your Customer Account.
+                  {t(language, 'returnsExchangesDetail', { policy: product.returnPolicy })}
                 </p>
               </div>
               <div className="p-5 rounded-lg border border-[var(--ks-border)] bg-[var(--ks-surface)] space-y-2">
                 <p className="font-medium">{t(language, 'warrantyCoverage')}</p>
                 <p className="text-[var(--ks-text-secondary)] leading-relaxed">
-                  {product.warranty}. Covers manufacturing defects and verified transit damage.
+                  {t(language, 'warrantyCoverageDetail', { warranty: product.warranty })}
                 </p>
               </div>
             </div>
           )}
-        </motion.div>
+          </motion.div>
+        </AnimatePresence>
       </section>
 
       {/* Related & Recently Viewed */}
@@ -1014,20 +1086,20 @@ export const ProductDetailPage: React.FC = () => {
       <Modal
         open={sizeGuideOpen}
         onClose={() => setSizeGuideOpen(false)}
-        title="Apparel & Fit Size Guide"
+        title={t(language, 'sizeGuideTitle')}
       >
         <div className="space-y-4 text-sm">
           <p className="text-xs text-[var(--ks-text-secondary)]">
-            Measurements reflect relaxed garment dimensions laid flat. Select your normal size for intended layering room.
+            {t(language, 'sizeGuideDesc')}
           </p>
           <div className="overflow-x-auto rounded-md border border-[var(--ks-border)]">
             <table className="w-full text-start text-xs font-mono-num tabular-nums">
               <thead className="bg-[var(--ks-surface-muted)] border-b border-[var(--ks-border)]">
                 <tr>
-                  <th className="p-3 font-medium text-start">Size</th>
-                  <th className="p-3 font-medium text-end">Chest (in)</th>
-                  <th className="p-3 font-medium text-end">Shoulder (in)</th>
-                  <th className="p-3 font-medium text-end">Length (in)</th>
+                  <th className="p-3 font-medium text-start">{t(language, 'sizeColHeader')}</th>
+                  <th className="p-3 font-medium text-end">{t(language, 'chestColHeader')}</th>
+                  <th className="p-3 font-medium text-end">{t(language, 'shoulderColHeader')}</th>
+                  <th className="p-3 font-medium text-end">{t(language, 'lengthColHeader')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--ks-border)]">

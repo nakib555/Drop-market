@@ -67,7 +67,7 @@ export const RegistrationErrorAlert: React.FC<RegistrationErrorAlertProps> = ({
           type="button"
           onClick={onDismiss}
           aria-label={t(language, 'dismissError')}
-          className="p-1.5 rounded text-[#991B1B] dark:text-[#FCA5A5] hover:bg-[#FEE2E2] dark:hover:bg-[#3F1A1D] transition-colors shrink-0 cursor-pointer"
+          className="min-w-[44px] min-h-[44px] sm:min-w-[34px] sm:min-h-[34px] -me-1.5 -mt-1.5 flex items-center justify-center rounded text-[#991B1B] dark:text-[#FCA5A5] hover:bg-[#FEE2E2] dark:hover:bg-[#3F1A1D] transition-colors shrink-0 cursor-pointer"
         >
           <X className="w-3.5 h-3.5" aria-hidden="true" />
         </button>
@@ -80,7 +80,7 @@ export const RegistrationErrorAlert: React.FC<RegistrationErrorAlertProps> = ({
             <button
               type="button"
               onClick={() => onSwitchToSignIn(error.email!)}
-              className="inline-flex items-center gap-1.5 min-h-[36px] px-2.5 py-1.5 rounded text-[11px] font-medium bg-[#171716] text-white hover:bg-[#2C2C2A] dark:bg-[#F4F3EF] dark:text-[#171716] dark:hover:bg-[#E5E3DD] transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded text-xs sm:text-[11px] font-medium bg-[#171716] text-white hover:bg-[#2C2C2A] dark:bg-[#F4F3EF] dark:text-[#171716] dark:hover:bg-[#E5E3DD] transition-colors cursor-pointer"
             >
               <span>{t(language, 'signInWithEmail', { email: error.email })}</span>
               <ArrowRight className="w-3 h-3 rtl:rotate-180" aria-hidden="true" />
@@ -90,7 +90,7 @@ export const RegistrationErrorAlert: React.FC<RegistrationErrorAlertProps> = ({
             <button
               type="button"
               onClick={onRetry}
-              className="inline-flex items-center gap-1.5 min-h-[36px] px-2.5 py-1.5 rounded text-[11px] font-medium border border-[#DC2626]/40 dark:border-[#F87171]/40 text-[#991B1B] dark:text-[#FCA5A5] hover:bg-[#FEE2E2] dark:hover:bg-[#3F1A1D] transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 py-1.5 rounded text-xs sm:text-[11px] font-medium border border-[#DC2626]/40 dark:border-[#F87171]/40 text-[#991B1B] dark:text-[#FCA5A5] hover:bg-[#FEE2E2] dark:hover:bg-[#3F1A1D] transition-colors cursor-pointer"
             >
               <RefreshCw className="w-3 h-3" aria-hidden="true" />
               <span>{t(language, 'tryAgain')}</span>

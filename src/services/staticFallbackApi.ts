@@ -8,6 +8,7 @@ import {
   buildVerifiedOrderFromSession,
   createPaymentSession,
   getGatewayConfigStatus,
+  resolveActivePromo,
   resolveAuthoritativeItems,
   type CheckoutItemRequest,
   type PendingSessionContext,
@@ -389,6 +390,7 @@ export function staticFetchStorefrontSync(): {
   customCategories: DynamicCategoryRecord[];
   currencyConfig: CurrencyRateState;
   shippingConfig: ShippingRuleConfig;
+  promotions: ManagedPromoRecord[];
 } {
   const db = getStaticDb();
   return {
@@ -398,6 +400,7 @@ export function staticFetchStorefrontSync(): {
     customCategories: db.customCategories,
     currencyConfig: db.currencyConfig,
     shippingConfig: db.shippingConfig,
+    promotions: db.promotions,
   };
 }
 
@@ -471,11 +474,15 @@ export async function staticQuoteShipping(payload: {
       ? payload.currency
       : db.currencyConfig.defaultCurrency;
 
+  const promoObj = resolveActivePromo(payload.promoCode, db.promotions);
+  const promoApplied =
+    promoObj && subtotalUsd >= promoObj.minSubtotal ? promoObj.code : undefined;
+
   return calculateShippingQuote({
     address: payload.address || { country: 'Bangladesh' },
     subtotalUsd,
     items: shippingInputs,
-    promoCode: payload.promoCode,
+    promoCode: promoApplied,
     currency: activeCurrency,
     currencyState: db.currencyConfig,
     config: db.shippingConfig,
@@ -583,6 +590,7 @@ export async function staticQuoteCheckout(payload: {
     currencyState: db.currencyConfig,
     shippingConfig: db.shippingConfig,
     dynamicCatalogSkus,
+    promotions: db.promotions,
   });
   return quote;
 }
@@ -666,6 +674,7 @@ export async function staticInitiatePayment(payload: {
     existingSessions: db.paymentSessions,
     policyAcceptance: payload.acceptedPolicies,
     dynamicCatalogSkus,
+    promotions: db.promotions,
   });
 
   persistStaticDb(db);

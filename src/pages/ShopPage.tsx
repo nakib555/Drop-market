@@ -179,7 +179,15 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
     {dynamicFacetOptions.length > 0 && (
       <div className="space-y-4 pt-5 border-t border-[var(--ks-border)]">
         <p className="text-xs uppercase tracking-wider text-[var(--ks-accent)] font-medium">
-          {activeCategoryMeta?.shortName} Specifications
+          {t(language, 'deptSpecifications', {
+            dept: activeCategoryMeta
+              ? translateDepartmentShortName(
+                  language,
+                  activeCategoryMeta.slug,
+                  activeCategoryMeta.shortName
+                )
+              : '',
+          })}
         </p>
         {dynamicFacetOptions.map((facet) => {
           const currentVal = selectedAttributes[facet.key] || '';
@@ -226,7 +234,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
                             : [...chosen, opt];
                           onAttributeChange(facet.key, next.length ? next.join('||') : 'all');
                         }}
-                        className={`px-2.5 py-1.5 rounded-md border text-[11px] font-medium cursor-pointer transition-colors ${
+                        className={`min-h-[44px] sm:min-h-0 px-3 sm:px-2.5 py-2 sm:py-1.5 rounded-md border text-xs sm:text-[11px] font-medium cursor-pointer transition-colors ${
                           active
                             ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)]'
                             : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:border-[var(--ks-action)]'
@@ -256,9 +264,11 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
                     type="number"
                     step="any"
                     inputMode="decimal"
-                    aria-label={`Minimum ${facet.label}`}
+                    aria-label={t(language, 'minimumLabel', { label: facet.label })}
                     placeholder={
-                      facet.minBound !== undefined ? `Min ${facet.minBound}` : 'Min'
+                      facet.minBound !== undefined
+                        ? t(language, 'minBoundPlaceholder', { val: facet.minBound })
+                        : t(language, 'minPlaceholder')
                     }
                     value={minStr}
                     onChange={(e) => {
@@ -274,9 +284,11 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
                     type="number"
                     step="any"
                     inputMode="decimal"
-                    aria-label={`Maximum ${facet.label}`}
+                    aria-label={t(language, 'maximumLabel', { label: facet.label })}
                     placeholder={
-                      facet.maxBound !== undefined ? `Max ${facet.maxBound}` : 'Max'
+                      facet.maxBound !== undefined
+                        ? t(language, 'maxBoundPlaceholder', { val: facet.maxBound })
+                        : t(language, 'maxPlaceholder')
                     }
                     value={maxStr}
                     onChange={(e) => {
@@ -300,7 +312,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
                   htmlFor={`${idPrefix}-facet-${facet.key}`}
                   className="text-xs text-[var(--ks-text-muted)] font-medium block"
                 >
-                  {facet.label} (On / After)
+                  {t(language, 'dateOnOrAfter', { label: facet.label })}
                 </label>
                 <input
                   id={`${idPrefix}-facet-${facet.key}`}
@@ -327,7 +339,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
                 onChange={(e) => onAttributeChange(facet.key, e.target.value)}
                 className="w-full min-h-[44px] px-3 text-base sm:text-xs rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border-strong)]"
               >
-                <option value="all">Any {facet.label}</option>
+                <option value="all">{t(language, 'anyFacetOption', { label: facet.label })}</option>
                 {facet.options.map((opt) => (
                   <option key={opt} value={opt}>
                     {opt}
@@ -443,7 +455,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
             { value: 'made-to-order', label: t(language, 'madeToOrder') },
           ] as const
         ).map((opt) => (
-          <label key={opt.value} className="flex items-center gap-2.5 cursor-pointer min-h-[40px] py-1">
+          <label key={opt.value} className="flex items-center gap-2.5 cursor-pointer min-h-[44px] sm:min-h-[40px] py-1">
             <input
               type="radio"
               name={`${idPrefix}-availability`}
@@ -468,7 +480,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
                 type="button"
                 aria-pressed={minRating === r}
                 onClick={() => onMinRatingChange(r)}
-                className={`min-h-[40px] px-3.5 py-2 rounded-[var(--ks-radius-md)] text-xs font-mono-num border cursor-pointer transition-colors ${
+                className={`min-h-[44px] sm:min-h-[40px] px-3.5 py-2 rounded-[var(--ks-radius-md)] text-xs font-mono-num border cursor-pointer transition-colors ${
                   minRating === r
                     ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)]'
                     : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)]'
@@ -508,7 +520,6 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
   const {
     language,
     categories,
-    categoryNodes,
     getDescendantSlugs,
     products,
     currency,
@@ -558,11 +569,18 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
     setSelectedCategory(route.category || 'all');
     setSelectedSubcategory(route.subcategory || 'all');
     setSelectedBrand(route.brand || 'all');
+    setSelectedColor('all');
+    setSelectedSize('all');
     setSelectedAttributes({});
+    setMinRating(0);
+    setAvailability('all');
+    setHasCustomMaxPrice(false);
+    setMaxPrice(catalogMaxPrice);
+    setSortBy('featured');
     setSearchInput(route.query || '');
     setOnSaleOnly(mode === 'offers' || route.collection === 'offers');
     setPage(1);
-  }, [route.category, route.subcategory, route.brand, route.query, route.collection, mode]);
+  }, [route.category, route.subcategory, route.brand, route.query, route.collection, mode, catalogMaxPrice]);
 
   const activeCategoryMeta = useMemo(
     () =>
@@ -905,9 +923,12 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
   // Active filter chips
   const activeFilterChips: { key: string; label: string; onClear: () => void }[] = [];
   if (selectedCategory !== 'all') {
+    const deptChipName = activeCategoryMeta
+      ? translateDepartmentShortName(language, activeCategoryMeta.slug, activeCategoryMeta.shortName)
+      : selectedCategory;
     activeFilterChips.push({
       key: 'cat',
-      label: `Dept: ${activeCategoryMeta?.shortName || selectedCategory}`,
+      label: t(language, 'chipDept', { val: deptChipName }),
       onClear: () => handleCategoryChange('all'),
     });
   }
@@ -915,7 +936,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
     const subNode = findSubcategoryNode(activeCategoryMeta.subcategories, selectedSubcategory);
     activeFilterChips.push({
       key: 'sub',
-      label: `Category: ${subNode?.name || selectedSubcategory}`,
+      label: t(language, 'chipCategory', { val: subNode?.name || selectedSubcategory }),
       onClear: () => {
         setSelectedSubcategory('all');
         setPage(1);
@@ -925,7 +946,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
   if (selectedBrand !== 'all') {
     activeFilterChips.push({
       key: 'brand',
-      label: `Brand: ${selectedBrand}`,
+      label: t(language, 'chipBrand', { val: selectedBrand }),
       onClear: () => {
         setSelectedBrand('all');
         setPage(1);
@@ -935,7 +956,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
   if (maxPrice < catalogMaxPrice) {
     activeFilterChips.push({
       key: 'price',
-      label: `Under ${formatCurrency(maxPrice, currency)}`,
+      label: t(language, 'chipUnderPrice', { price: formatCurrency(maxPrice, currency) }),
       onClear: () => {
         setHasCustomMaxPrice(false);
         setMaxPrice(catalogMaxPrice);
@@ -946,7 +967,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
   if (selectedColor !== 'all') {
     activeFilterChips.push({
       key: 'color',
-      label: `Finish: ${selectedColor}`,
+      label: t(language, 'chipFinish', { val: selectedColor }),
       onClear: () => {
         setSelectedColor('all');
         setPage(1);
@@ -956,7 +977,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
   if (selectedSize !== 'all') {
     activeFilterChips.push({
       key: 'size',
-      label: `Option: ${selectedSize}`,
+      label: t(language, 'chipOption', { val: selectedSize }),
       onClear: () => {
         setSelectedSize('all');
         setPage(1);
@@ -971,9 +992,9 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
         : val.includes('||')
         ? val.split('||').join(', ')
         : val === 'true'
-        ? 'Yes'
+        ? t(language, 'yesLabel')
         : val === 'false'
-        ? 'No'
+        ? t(language, 'noLabel')
         : val;
       activeFilterChips.push({
         key: `attr-${k}`,
@@ -1000,9 +1021,17 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
     });
   }
   if (availability !== 'all') {
+    const availLabel =
+      availability === 'in-stock'
+        ? t(language, 'inStock')
+        : availability === 'low-stock'
+        ? t(language, 'limitedQuantity')
+        : availability === 'made-to-order'
+        ? t(language, 'madeToOrder')
+        : t(language, 'outOfStock');
     activeFilterChips.push({
       key: 'avail',
-      label: `Status: ${availability.replace('-', ' ')}`,
+      label: t(language, 'chipStatus', { val: availLabel }),
       onClear: () => {
         setAvailability('all');
         setPage(1);
@@ -1012,7 +1041,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
   if (onSaleOnly) {
     activeFilterChips.push({
       key: 'sale',
-      label: 'On Sale Only',
+      label: t(language, 'onSaleOnly'),
       onClear: () => {
         setOnSaleOnly(false);
         setPage(1);
@@ -1022,7 +1051,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
   if (searchInput.trim()) {
     activeFilterChips.push({
       key: 'query',
-      label: `Search: “${searchInput.trim()}”`,
+      label: t(language, 'chipSearch', { query: searchInput.trim() }),
       onClear: () => {
         setSearchInput('');
         setPage(1);
@@ -1127,9 +1156,6 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
     onResetFilters: resetFilters,
   };
 
-  void categoryNodes;
-  void selectedSubcategoryNode;
-
   return (
     <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-8">
       <Breadcrumb
@@ -1183,7 +1209,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
                     setSelectedSubcategory('all');
                     setPage(1);
                   }}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium border cursor-pointer transition-colors ${
+                  className={`min-h-[44px] sm:min-h-[34px] px-3 py-1.5 rounded-md text-xs font-medium border cursor-pointer transition-colors inline-flex items-center ${
                     selectedSubcategory === 'all'
                       ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)]'
                       : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:border-[var(--ks-action)]'
@@ -1203,7 +1229,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
                         setSelectedSubcategory(sub.slug);
                         setPage(1);
                       }}
-                      className={`px-3 py-1.5 rounded-md text-xs font-medium border cursor-pointer transition-colors ${
+                      className={`min-h-[44px] sm:min-h-[34px] px-3 py-1.5 rounded-md text-xs font-medium border cursor-pointer transition-colors inline-flex items-center ${
                         isActiveSub
                           ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)]'
                           : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:border-[var(--ks-action)]'
@@ -1228,7 +1254,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
                         setSelectedSubcategory(child.slug);
                         setPage(1);
                       }}
-                      className={`px-2.5 py-1 rounded text-[11px] font-medium border cursor-pointer transition-colors ${
+                      className={`min-h-[44px] sm:min-h-[30px] px-2.5 py-1 rounded text-xs sm:text-[11px] font-medium border cursor-pointer transition-colors inline-flex items-center ${
                         selectedSubcategory === child.slug
                           ? 'border-[var(--ks-accent)] text-[var(--ks-accent)] bg-[var(--ks-surface)]'
                           : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:border-[var(--ks-action)]'
@@ -1249,7 +1275,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
                       setSelectedBrand((prev) => (prev === brand ? 'all' : brand));
                       setPage(1);
                     }}
-                    className={`px-2 py-0.5 rounded border whitespace-nowrap cursor-pointer transition-colors ${
+                    className={`min-h-[44px] sm:min-h-[28px] px-2.5 sm:px-2 py-1 sm:py-0.5 rounded border whitespace-nowrap cursor-pointer transition-colors inline-flex items-center ${
                       selectedBrand === brand
                         ? 'border-[var(--ks-accent)] text-[var(--ks-accent)] font-medium'
                         : 'border-[var(--ks-border)] hover:text-[var(--ks-text-primary)]'
@@ -1309,7 +1335,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
                   setPage(1);
                 }}
                 aria-label={t(language, 'clear')}
-                className="absolute end-1.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                className="absolute end-0.5 top-1/2 -translate-y-1/2 w-11 h-11 sm:w-9 sm:h-9 rounded flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -1446,7 +1472,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
               key={chip.key}
               type="button"
               onClick={chip.onClear}
-              className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1 rounded-md bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] text-xs hover:border-[var(--ks-action)] cursor-pointer transition-colors"
+              className="inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 py-1 rounded-md bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] text-xs hover:border-[var(--ks-action)] cursor-pointer transition-colors"
             >
               <span>{chip.label}</span>
               <X className="w-3 h-3 text-[var(--ks-text-muted)] shrink-0" />
@@ -1455,7 +1481,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
           <button
             type="button"
             onClick={resetFilters}
-            className="min-h-[36px] text-xs font-medium text-[var(--ks-accent)] hover:underline px-2 py-1 cursor-pointer"
+            className="min-h-[44px] sm:min-h-[36px] text-xs font-medium text-[var(--ks-accent)] hover:underline px-2 py-1 cursor-pointer"
           >
             {t(language, 'clearAll')}
           </button>
@@ -1475,7 +1501,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
             <ProductGridSkeleton
               count={viewLayout === 'grid' ? 9 : 4}
               layout={viewLayout}
-              label="Loading products"
+              label={t(language, 'loadingCatalog')}
             />
           ) : catalogError && products.length === 0 ? (
             <div className="rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)]">
@@ -1539,8 +1565,8 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
               onClick={() => setMobileFilterOpen(false)}
             >
               {filteredProducts.length === 1
-                ? t(language, 'productsCountSingle', { count: filteredProducts.length })
-                : t(language, 'productsCountPlural', { count: filteredProducts.length })}
+                ? t(language, 'showItemSingle')
+                : t(language, 'showItemsCount', { count: filteredProducts.length })}
             </Button>
           </div>
         </div>

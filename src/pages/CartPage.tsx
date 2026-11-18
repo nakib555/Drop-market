@@ -55,7 +55,7 @@ export const CartPage: React.FC = () => {
         <button
           type="button"
           onClick={() => navigate({ name: 'shop', category: 'all' })}
-          className="self-start sm:self-auto text-start text-sm font-medium text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer min-h-[36px]"
+          className="self-start sm:self-auto text-start text-sm font-medium text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer min-h-[44px] sm:min-h-[36px]"
         >
           {t(language, 'continueShopping')}
         </button>
@@ -83,7 +83,7 @@ export const CartPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => navigate({ name: 'product', slug: item.slug })}
-                      aria-label={`View ${item.name}`}
+                      aria-label={t(language, 'viewItemAria', { name: item.name })}
                       className="w-full sm:w-36 aspect-[4/3] rounded-md overflow-hidden bg-[var(--ks-surface-muted)] shrink-0 cursor-pointer block text-start"
                     >
                       <ResilientImage
@@ -144,7 +144,7 @@ export const CartPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => saveItemForLater(item.key)}
-                            className="inline-flex items-center gap-1.5 min-h-[36px] py-1.5 px-1 text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                            className="inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-[36px] py-1.5 px-1 text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer"
                           >
                             <Bookmark className="w-3.5 h-3.5" />
                             <span>{t(language, 'saveForLater')}</span>
@@ -152,7 +152,7 @@ export const CartPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => removeFromCart(item.key)}
-                            className="inline-flex items-center gap-1.5 min-h-[36px] py-1.5 px-1 text-[var(--ks-text-secondary)] hover:text-[var(--ks-error)] cursor-pointer"
+                            className="inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-[36px] py-1.5 px-1 text-[var(--ks-text-secondary)] hover:text-[var(--ks-error)] cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                             <span>{t(language, 'remove')}</span>
@@ -197,22 +197,32 @@ export const CartPage: React.FC = () => {
                 </p>
               )}
               {appliedPromo && (
-                <div className="flex items-center justify-between px-3 py-2 rounded-md bg-[var(--ks-surface-muted)] text-xs">
-                  <span className="inline-flex items-center gap-1.5 font-mono-num font-medium">
-                    <Tag className="w-3.5 h-3.5 text-[var(--ks-accent)]" />
-                    {appliedPromo.code}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      removePromoCode();
-                      setCouponMessage(null);
-                    }}
-                    aria-label="Remove promo code"
-                    className="w-8 h-8 rounded flex items-center justify-center text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between px-3 py-2 rounded-md bg-[var(--ks-surface-muted)] text-xs">
+                    <span className="inline-flex items-center gap-1.5 font-mono-num font-medium">
+                      <Tag className="w-3.5 h-3.5 text-[var(--ks-accent)]" />
+                      {appliedPromo.code}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        removePromoCode();
+                        setCouponMessage(null);
+                      }}
+                      aria-label={t(language, 'remove')}
+                      className="w-11 h-11 sm:w-8 sm:h-8 rounded flex items-center justify-center text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  {cartSubtotal < appliedPromo.minSubtotal && (
+                    <p className="text-xs text-[var(--ks-warning)]" role="status">
+                      {t(language, 'promoMinNotMet', {
+                        code: appliedPromo.code,
+                        amount: formatCurrency(appliedPromo.minSubtotal, currency),
+                      })}
+                    </p>
+                  )}
                 </div>
               )}
             </form>
@@ -301,7 +311,7 @@ export const CartPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => removeSavedItem(item.key)}
-                      className="min-h-[36px] px-1.5 text-xs text-[var(--ks-text-muted)] hover:text-[var(--ks-error)] cursor-pointer"
+                      className="min-h-[44px] sm:min-h-[36px] px-1.5 text-xs text-[var(--ks-text-muted)] hover:text-[var(--ks-error)] cursor-pointer"
                     >
                       {t(language, 'remove')}
                     </button>

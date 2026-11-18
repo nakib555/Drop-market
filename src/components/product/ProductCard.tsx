@@ -76,7 +76,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
           onMouseEnter={() => {
             if (secondaryImage && !hoverMounted) setHoverMounted(true);
           }}
-          aria-label={`View ${product.name}`}
+          aria-label={product.name}
           className="relative w-full sm:w-60 md:w-64 aspect-[4/3] rounded-[var(--ks-radius-md)] overflow-hidden bg-[var(--ks-surface-muted)] shrink-0 cursor-pointer block text-start"
         >
           <ResilientImage
@@ -161,11 +161,11 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
                 type="button"
                 disabled={outOfStock}
                 onClick={handlePrimaryAdd}
-                className={`px-4 h-10 rounded-[var(--ks-radius-md)] text-xs font-medium inline-flex items-center gap-1.5 transition-[color,background-color,transform] duration-[var(--ks-duration-fast)] whitespace-nowrap ${
+                className={`px-4 min-h-[44px] sm:min-h-0 sm:h-10 rounded-[var(--ks-radius-md)] text-xs font-medium inline-flex items-center gap-1.5 transition-[color,background-color,transform] duration-[var(--ks-duration-fast)] whitespace-nowrap ${
                   outOfStock
                     ? 'bg-[var(--ks-surface-muted)] text-[var(--ks-text-muted)] cursor-not-allowed'
                     : justAdded
-                    ? 'bg-[var(--ks-success)] text-white active:scale-[0.97] cursor-pointer'
+                    ? 'bg-[var(--ks-success)] text-[var(--ks-success-text)] active:scale-[0.97] cursor-pointer'
                     : 'bg-[var(--ks-action)] text-[var(--ks-action-text)] hover:bg-[var(--ks-action-hover)] active:scale-[0.97] cursor-pointer'
                 }`}
               >
@@ -201,7 +201,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
         <button
           type="button"
           onClick={() => navigate({ name: 'product', slug: product.slug })}
-          aria-label={`View ${product.name}`}
+          aria-label={product.name}
           className="block w-full h-full cursor-pointer text-start"
         >
           <ResilientImage
@@ -277,19 +277,22 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
               {highlights.length > 0 ? highlights.join(' · ') : product.categoryLabel}
             </p>
             {product.colors.length > 1 && (
-              <div className="flex items-center gap-0.5 shrink-0 -me-1" aria-label="Color options">
+              <div
+                className="flex flex-wrap items-center justify-end gap-0.5 shrink-0 -me-1"
+                aria-label={t(language, 'colorFinish')}
+              >
                 {product.colors.slice(0, 4).map((c, idx) => (
                   <button
                     key={c.name}
                     type="button"
                     title={c.name}
                     aria-pressed={idx === selectedColorIdx}
-                    aria-label={`Select ${c.name}`}
+                    aria-label={c.name}
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedColorIdx(idx);
                     }}
-                    className="p-1.5 rounded-full cursor-pointer flex items-center justify-center"
+                    className="min-w-[36px] min-h-[36px] sm:min-w-0 sm:min-h-0 sm:p-1.5 rounded-full cursor-pointer flex items-center justify-center"
                   >
                     <span
                       className={`block w-3 h-3 rounded-full border transition-transform ${
@@ -318,12 +321,12 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
             type="button"
             disabled={outOfStock}
             onClick={handlePrimaryAdd}
-            aria-label={outOfStock ? `${product.name} out of stock` : `Add ${product.name} to bag`}
-            className={`ms-auto px-3 sm:px-3.5 min-h-[40px] rounded-[var(--ks-radius-md)] text-xs font-medium inline-flex items-center gap-1 transition-[color,background-color,transform] duration-[var(--ks-duration-fast)] whitespace-nowrap shrink-0 ${
+            aria-label={outOfStock ? `${product.name} — ${t(language, 'outOfStock')}` : `${t(language, 'addToBag')}: ${product.name}`}
+            className={`ms-auto px-3 sm:px-3.5 min-h-[44px] sm:min-h-[40px] rounded-[var(--ks-radius-md)] text-xs font-medium inline-flex items-center gap-1 transition-[color,background-color,transform] duration-[var(--ks-duration-fast)] whitespace-nowrap shrink-0 ${
               outOfStock
                 ? 'bg-[var(--ks-surface-muted)] text-[var(--ks-text-muted)] cursor-not-allowed'
                 : justAdded
-                ? 'bg-[var(--ks-success)] text-white active:scale-[0.96] cursor-pointer'
+                ? 'bg-[var(--ks-success)] text-[var(--ks-success-text)] active:scale-[0.96] cursor-pointer'
                 : 'bg-[var(--ks-action)] text-[var(--ks-action-text)] hover:bg-[var(--ks-action-hover)] active:scale-[0.96] cursor-pointer'
             }`}
           >

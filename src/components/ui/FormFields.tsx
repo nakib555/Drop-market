@@ -8,13 +8,16 @@ interface BaseFieldProps {
   required?: boolean;
 }
 
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement>, BaseFieldProps {}
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement>, BaseFieldProps {
+  endAdornment?: React.ReactNode;
+}
 
 export const Input: React.FC<InputProps> = ({
   label,
   error,
   helperText,
   required,
+  endAdornment,
   id,
   className = '',
   ...rest
@@ -37,18 +40,27 @@ export const Input: React.FC<InputProps> = ({
           </span>
         )}
       </label>
-      <input
-        id={inputId}
-        required={required}
-        aria-invalid={Boolean(error)}
-        aria-describedby={error ? errorId : helperText ? helperId : undefined}
-        className={`w-full min-h-[44px] px-3.5 py-2.5 text-base sm:text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)] border scroll-mt-24 scroll-mb-36 transition-colors ${
-          error
-            ? 'border-[var(--ks-error)]'
-            : 'border-[var(--ks-border-strong)] focus:border-[var(--ks-action)]'
-        } ${className}`}
-        {...rest}
-      />
+      <div className="relative flex items-center">
+        <input
+          id={inputId}
+          required={required}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? errorId : helperText ? helperId : undefined}
+          className={`w-full min-h-[44px] px-3.5 py-2.5 text-base sm:text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)] border scroll-mt-24 scroll-mb-36 transition-colors ${
+            endAdornment ? 'pe-11' : ''
+          } ${
+            error
+              ? 'border-[var(--ks-error)]'
+              : 'border-[var(--ks-border-strong)] focus:border-[var(--ks-action)]'
+          } ${className}`}
+          {...rest}
+        />
+        {endAdornment && (
+          <div className="absolute end-1.5 inset-y-0 flex items-center">
+            {endAdornment}
+          </div>
+        )}
+      </div>
       {error && (
         <p id={errorId} role="alert" className="text-xs leading-snug text-[var(--ks-error)] flex items-start gap-1.5">
           <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-[2px]" aria-hidden="true" />

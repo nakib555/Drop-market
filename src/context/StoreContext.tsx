@@ -42,6 +42,7 @@ import {
   LanguageCode,
   LegalAcceptanceRecord,
   LegalDocumentId,
+  ManagedPromoRecord,
   NotificationPrefs,
   Order,
   PaymentMethodRecord,
@@ -269,6 +270,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
   const [currencyConfig, setCurrencyConfig] = useState<CurrencyRateState>(DEFAULT_CURRENCY_STATE);
   const [shippingConfig, setShippingConfig] = useState<ShippingRuleConfig>(DEFAULT_SHIPPING_CONFIG);
+  const [promotions, setPromotions] = useState<ManagedPromoRecord[]>(() =>
+    PROMO_CODES.map((p) => ({ ...p, active: true }))
+  );
 
   const [cart, setCart] = useState<CartItem[]>(() => readStorage('kinto-cart', []));
   const [savedForLater, setSavedForLater] = useState<CartItem[]>(() =>
@@ -414,6 +418,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       if (sync.shippingConfig && Array.isArray(sync.shippingConfig.zones)) {
         setShippingConfig(sync.shippingConfig);
+      }
+      if (Array.isArray(sync.promotions) && sync.promotions.length > 0) {
+        setPromotions(sync.promotions);
       }
     },
     []
@@ -915,8 +922,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const appliedPromo = useMemo(() => {
     if (!appliedPromoCode) return null;
-    return PROMO_CODES.find((p) => p.code === appliedPromoCode) || null;
-  }, [appliedPromoCode]);
+    return promotions.find((p) => p.code === appliedPromoCode && p.active !== false) || null;
+  }, [appliedPromoCode, promotions]);
 
   const cartSubtotal = useMemo(
     () => cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
@@ -932,9 +939,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     (rawCode: string): { ok: boolean; message: string } => {
       const code = rawCode.trim().toUpperCase();
       if (!code) return { ok: false, message: 'Enter a promo code.' };
-      const found = PROMO_CODES.find((p) => p.code === code);
+      const found = promotions.find((p) => p.code === code && p.active !== false);
       if (!found) {
-        return { ok: false, message: 'Invalid code. Try STUDIO15, WELCOME10, or FREESHIP.' };
+        const activeCodes = promotions
+          .filter((p) => p.active !== false)
+          .map((p) => p.code)
+          .join(', ');
+        return {
+          ok: false,
+          message: activeCodes
+            ? `Invalid or paused code. Active codes: ${activeCodes}.`
+            : 'No active promo codes are currently available.',
+        };
       }
       if (cartSubtotal < found.minSubtotal) {
         return {
@@ -950,7 +966,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       showToast('Promo code applied', found.description, 'success');
       return { ok: true, message: found.description };
     },
-    [cartSubtotal, currency, currencyConfig.rates.BDT, showToast]
+    [cartSubtotal, currency, currencyConfig.rates.BDT, promotions, showToast]
   );
 
   const removePromoCode = useCallback(() => {

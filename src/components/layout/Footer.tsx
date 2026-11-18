@@ -212,7 +212,7 @@ export const Footer: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={link.onClick}
-                                className={`w-full min-h-[40px] py-1.5 text-start leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer ${
+                                className={`w-full min-h-[44px] py-1.5 text-start leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer ${
                                   link.emphasize ? 'font-semibold text-[var(--ks-text-primary)]' : ''
                                 }`}
                               >
@@ -263,13 +263,13 @@ export const Footer: React.FC = () => {
             <span className="hidden lg:inline" aria-hidden="true">
               ·
             </span>
-            <label className="inline-flex items-center gap-1.5 whitespace-nowrap min-h-[36px]">
+            <label className="inline-flex items-center gap-1.5 whitespace-nowrap min-h-[44px] sm:min-h-[36px]">
               <span>{t(language, 'languageLabel')}:</span>
               <select
                 aria-label={t(language, 'languageLabel')}
                 value={language}
                 onChange={(e) => setLanguage(e.target.value as typeof language)}
-                className="bg-transparent font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer focus:outline-none min-h-[36px]"
+                className="bg-transparent font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer focus:outline-none min-h-[44px] sm:min-h-[36px]"
               >
                 {LANGUAGE_OPTIONS.map((opt) => (
                   <option
@@ -286,7 +286,7 @@ export const Footer: React.FC = () => {
             <button
               type="button"
               onClick={toggleCurrency}
-              className="font-mono-num text-start whitespace-nowrap min-h-[36px] hover:text-[var(--ks-text-primary)] cursor-pointer"
+              className="font-mono-num text-start whitespace-nowrap min-h-[44px] sm:min-h-[36px] hover:text-[var(--ks-text-primary)] cursor-pointer"
             >
               {t(language, 'currencyLabel')}: {currency === 'BDT' ? 'BDT (৳)' : 'USD ($)'}
             </button>
@@ -294,7 +294,7 @@ export const Footer: React.FC = () => {
             <button
               type="button"
               onClick={openCookiePreferences}
-              className="text-start whitespace-nowrap min-h-[36px] hover:text-[var(--ks-text-primary)] cursor-pointer"
+              className="text-start whitespace-nowrap min-h-[44px] sm:min-h-[36px] hover:text-[var(--ks-text-primary)] cursor-pointer"
             >
               {t(language, 'cookiePreferences')}
             </button>

@@ -291,7 +291,7 @@ export const SellerDashboard: React.FC = () => {
         </p>
         <Button variant="outline" size="sm" onClick={loadDashboard}>
           <RefreshCw className="w-3.5 h-3.5" />
-          <span>Retry Connection</span>
+          <span>{t(language, 'retryBtn')}</span>
         </Button>
       </div>
     );
@@ -318,7 +318,7 @@ export const SellerDashboard: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[var(--ks-border)]">
         <div>
           <p className="text-xs leading-snug uppercase tracking-wider text-[var(--ks-accent)] inline-flex items-center gap-1.5">
-            <Store className="w-3.5 h-3.5 shrink-0" /> Seller Dashboard
+            <Store className="w-3.5 h-3.5 shrink-0" /> {t(language, 'sellerDashboardEyebrow')}
           </p>
           <h2 className="font-display text-2xl sm:text-3xl font-medium mt-0.5">{data.studioName}</h2>
           <p className="text-xs text-[var(--ks-text-secondary)] mt-0.5">
@@ -329,11 +329,11 @@ export const SellerDashboard: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2.5">
           <Button variant="outline" size="sm" onClick={loadDashboard}>
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>Refresh</span>
+            <span>{t(language, 'refreshBtn')}</span>
           </Button>
           <Button variant="primary" size="sm" onClick={() => setAddModalOpen(true)}>
             <Plus className="w-3.5 h-3.5" />
-            <span>Add Product</span>
+            <span>{t(language, 'addProductBtn')}</span>
           </Button>
         </div>
       </div>
@@ -354,7 +354,10 @@ export const SellerDashboard: React.FC = () => {
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveTab(tab.id)}
+              onClick={(e) => {
+                setActiveTab(tab.id);
+                e.currentTarget.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+              }}
               className={`relative pb-3 text-xs sm:text-sm font-medium whitespace-nowrap shrink-0 cursor-pointer transition-colors ${
                 active
                   ? 'text-[var(--ks-text-primary)]'
@@ -461,7 +464,7 @@ export const SellerDashboard: React.FC = () => {
             </div>
             <Button variant="primary" size="sm" onClick={() => setAddModalOpen(true)}>
               <Plus className="w-3.5 h-3.5" />
-              <span>Add Product</span>
+              <span>{t(language, 'addProductBtn')}</span>
             </Button>
           </div>
 
@@ -505,10 +508,10 @@ export const SellerDashboard: React.FC = () => {
                         }`}
                       >
                         {item.stockCount <= 0
-                          ? 'Out of Stock'
+                          ? t(language, 'outOfStock')
                           : item.stockCount <= 8
-                          ? 'Low Stock'
-                          : 'In Stock'}
+                          ? t(language, 'lowStockBadge')
+                          : t(language, 'inStock')}
                       </span>
                     </div>
 
@@ -546,7 +549,7 @@ export const SellerDashboard: React.FC = () => {
                             size="sm"
                             onClick={() => setEditingId(null)}
                           >
-                            Cancel
+                            {t(language, 'cancelLabel')}
                           </Button>
                           <Button
                             variant="primary"
@@ -555,7 +558,7 @@ export const SellerDashboard: React.FC = () => {
                             onClick={() => handleSaveInline(item.id)}
                           >
                             <Check className="w-3.5 h-3.5" />
-                            <span>Save</span>
+                            <span>{t(language, 'saveBtn')}</span>
                           </Button>
                         </div>
                       </div>
@@ -576,9 +579,9 @@ export const SellerDashboard: React.FC = () => {
                             setEditPrice(String(item.price));
                             setEditStock(String(item.stockCount));
                           }}
-                          className="min-h-[40px] px-3 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] text-xs font-medium text-[var(--ks-accent)] hover:bg-[var(--ks-bg)] cursor-pointer"
+                          className="min-h-[44px] px-3 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] text-xs font-medium text-[var(--ks-accent)] hover:bg-[var(--ks-bg)] cursor-pointer"
                         >
-                          Edit Stock / Price
+                          {t(language, 'editStockPriceBtn')}
                         </button>
                       </div>
                     )}
@@ -669,10 +672,10 @@ export const SellerDashboard: React.FC = () => {
                             }`}
                           >
                             {item.stockCount <= 0
-                              ? 'Out of Stock'
+                              ? t(language, 'outOfStock')
                               : item.stockCount <= 8
-                              ? 'Low Stock'
-                              : 'In Stock'}
+                              ? t(language, 'lowStockBadge')
+                              : t(language, 'inStock')}
                           </span>
                         </td>
                         <td className="py-2.5 px-3 text-end whitespace-nowrap">
@@ -685,14 +688,14 @@ export const SellerDashboard: React.FC = () => {
                                 onClick={() => handleSaveInline(item.id)}
                               >
                                 <Check className="w-3 h-3" />
-                                <span>Save</span>
+                                <span>{t(language, 'saveBtn')}</span>
                               </Button>
                               <button
                                 type="button"
                                 onClick={() => setEditingId(null)}
-                                className="min-h-[32px] text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] px-2 cursor-pointer"
+                                className="min-h-[44px] sm:min-h-[32px] text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] px-2 cursor-pointer"
                               >
-                                Cancel
+                                {t(language, 'cancelLabel')}
                               </button>
                             </div>
                           ) : (
@@ -703,9 +706,9 @@ export const SellerDashboard: React.FC = () => {
                                 setEditPrice(String(item.price));
                                 setEditStock(String(item.stockCount));
                               }}
-                              className="min-h-[32px] text-xs font-medium text-[var(--ks-accent)] hover:underline cursor-pointer"
+                              className="min-h-[44px] sm:min-h-[32px] text-xs font-medium text-[var(--ks-accent)] hover:underline cursor-pointer"
                             >
-                              Edit Stock / Price
+                              {t(language, 'editStockPriceBtn')}
                             </button>
                           )}
                         </td>

@@ -15,9 +15,6 @@ export const PWAStatusBanners: React.FC = () => {
   const bottomOffsetClass =
     route.name === 'product' ? 'bottom-16 lg:bottom-5' : 'bottom-4 sm:bottom-5';
 
-  const hasBanner = !isOnline || justReconnected || updating || needRefresh;
-  if (!hasBanner) return null;
-
   return (
     <div
       aria-live="polite"
@@ -87,14 +84,14 @@ export const PWAStatusBanners: React.FC = () => {
                   <button
                     type="button"
                     onClick={applyUpdate}
-                    className="px-2.5 py-1 rounded bg-[var(--ks-action)] text-[var(--ks-action-text)] text-[11px] font-medium hover:bg-[var(--ks-action-hover)] cursor-pointer"
+                    className="min-h-[44px] sm:min-h-0 px-3 py-1.5 sm:px-2.5 sm:py-1 rounded bg-[var(--ks-action)] text-[var(--ks-action-text)] text-xs sm:text-[11px] font-medium hover:bg-[var(--ks-action-hover)] cursor-pointer"
                   >
                     {t(language, 'reloadApp')}
                   </button>
                   <button
                     type="button"
                     onClick={dismiss}
-                    className="text-[11px] text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] px-1.5 py-1 cursor-pointer"
+                    className="min-h-[44px] sm:min-h-0 text-xs sm:text-[11px] text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] px-2 py-1.5 sm:px-1.5 sm:py-1 cursor-pointer"
                   >
                     {t(language, 'laterLabel')}
                   </button>
@@ -106,7 +103,7 @@ export const PWAStatusBanners: React.FC = () => {
                 type="button"
                 onClick={dismiss}
                 aria-label={t(language, 'dismissUpdate')}
-                className="text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] p-1.5 cursor-pointer shrink-0"
+                className="min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 -me-2 -mt-2 sm:me-0 sm:mt-0 flex items-center justify-center text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] p-1.5 cursor-pointer shrink-0 rounded"
               >
                 <X className="w-3.5 h-3.5" />
               </button>

@@ -109,7 +109,7 @@ export const QuickViewModal: React.FC = () => {
                     aria-pressed={idx === selectedColorIdx}
                     onClick={() => setSelectedColorIdx(idx)}
                     aria-label={c.name}
-                    className={`flex items-center gap-2 px-3 min-h-[40px] py-2 rounded-md border text-xs cursor-pointer transition-colors ${
+                    className={`flex items-center gap-2 px-3 min-h-[44px] sm:min-h-[40px] py-2 rounded-md border text-xs cursor-pointer transition-colors ${
                       idx === selectedColorIdx
                         ? 'border-[var(--ks-action)] font-medium text-[var(--ks-text-primary)]'
                         : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)]'
@@ -137,7 +137,7 @@ export const QuickViewModal: React.FC = () => {
                     type="button"
                     aria-pressed={idx === selectedSizeIdx}
                     onClick={() => setSelectedSizeIdx(idx)}
-                    className={`px-3 min-h-[40px] py-2 rounded-md border text-xs cursor-pointer transition-colors ${
+                    className={`px-3 min-h-[44px] sm:min-h-[40px] py-2 rounded-md border text-xs cursor-pointer transition-colors ${
                       idx === selectedSizeIdx
                         ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)] font-medium'
                         : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)]'
@@ -193,7 +193,7 @@ export const QuickViewModal: React.FC = () => {
                 setQuickViewProduct(null);
                 navigate({ name: 'product', slug });
               }}
-              className="w-full py-2 text-xs font-medium text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] inline-flex items-center justify-center gap-1.5 cursor-pointer"
+              className="w-full min-h-[44px] sm:min-h-0 py-2 text-xs font-medium text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] inline-flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <span>{t(language, 'viewFullSpecs')}</span>
               <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />

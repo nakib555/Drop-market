@@ -54,7 +54,7 @@ export const WishlistPage: React.FC = () => {
         <ProductGridSkeleton
           count={3}
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
-          label="Loading saved wishlist"
+          label={t(language, 'loadingCatalog')}
         />
       ) : savedProducts.length === 0 ? (
         <div className="rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)]">
@@ -80,7 +80,7 @@ export const WishlistPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate({ name: 'product', slug: product.slug })}
-                  aria-label={`View ${product.name}`}
+                  aria-label={t(language, 'viewItemAria', { name: product.name })}
                   className="aspect-[4/3] w-full bg-[var(--ks-surface-muted)] overflow-hidden cursor-pointer block text-start"
                 >
                   <ResilientImage
@@ -153,7 +153,7 @@ export const WishlistPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => toggleWishlist(product)}
-                      aria-label={`Remove ${product.name} from wishlist`}
+                      aria-label={t(language, 'removeItemAria', { name: product.name })}
                       className="w-11 h-11 rounded-md border border-[var(--ks-border)] flex items-center justify-center text-[var(--ks-text-secondary)] hover:text-[var(--ks-error)] cursor-pointer shrink-0"
                     >
                       <Trash2 className="w-4 h-4" />

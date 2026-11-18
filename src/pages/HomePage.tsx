@@ -18,7 +18,7 @@ import {
   Truck,
   Wrench,
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { BRAND_STUDIOS, HERO_IMAGE } from '../data/catalog';
 import { useStore } from '../context/StoreContext';
 import { STUDIO15_MIN_USD, formatCurrency } from '../utils/format';
@@ -473,17 +473,20 @@ export const HomePage: React.FC = () => {
             label="Loading products"
           />
         ) : (
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={STUDIO_TRANSITION.fast}
-            className="grid grid-cols-1 min-[390px]:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 lg:gap-8"
-          >
-            {collectionProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </motion.div>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={STUDIO_TRANSITION.fast}
+              className="grid grid-cols-1 min-[390px]:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 lg:gap-8"
+            >
+              {collectionProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </motion.div>
+          </AnimatePresence>
         )}
 
         <div className="mt-10 text-center">

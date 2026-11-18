@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { ArrowUp } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useStore } from '../../context/StoreContext';
+import { t } from '../../utils/i18n';
 import { STUDIO_TRANSITION } from '../../utils/motion';
 
 export const BackToTopButton: React.FC = () => {
-  const { route } = useStore();
+  const { route, language } = useStore();
   const [visible, setVisible] = useState(false);
   const [nearFooterEnd, setNearFooterEnd] = useState(false);
 
@@ -42,7 +43,8 @@ export const BackToTopButton: React.FC = () => {
           whileHover={{ y: -2 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          aria-label="Scroll back to top"
+          data-scroll-top-btn="true"
+          aria-label={t(language, 'scrollBackToTop')}
           className={`print:hidden fixed ${bottomClass} end-4 sm:end-6 z-30 w-11 h-11 rounded-[var(--ks-radius-md)] bg-[var(--ks-action)]/92 text-[var(--ks-action-text)] border border-[var(--ks-border-strong)] shadow-lg backdrop-blur-sm flex items-center justify-center cursor-pointer transition-[bottom] duration-200`}
         >
           <ArrowUp className="w-4 h-4" />

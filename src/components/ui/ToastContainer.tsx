@@ -2,15 +2,14 @@ import React from 'react';
 import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useStore } from '../../context/StoreContext';
+import { t } from '../../utils/i18n';
 import { STUDIO_TRANSITION } from '../../utils/motion';
 
 export const ToastContainer: React.FC = () => {
-  const { toasts, dismissToast, route } = useStore();
+  const { toasts, dismissToast, language } = useStore();
 
   const positionClass =
-    route.name === 'product'
-      ? 'top-16 sm:top-auto sm:bottom-16 lg:bottom-5 inset-x-3 sm:inset-x-auto sm:end-5'
-      : 'top-16 sm:top-auto sm:bottom-5 inset-x-3 sm:inset-x-auto sm:end-5';
+    'top-[calc(var(--ks-chrome-bottom,64px)+0.75rem)] inset-x-3 sm:inset-x-auto sm:end-5';
 
   return (
     <div
@@ -55,8 +54,8 @@ export const ToastContainer: React.FC = () => {
               <button
                 type="button"
                 onClick={() => dismissToast(toast.id)}
-                aria-label="Dismiss notification"
-                className="text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] min-w-[36px] min-h-[36px] -me-1.5 -mt-1 flex items-center justify-center rounded cursor-pointer transition-colors"
+                aria-label={t(language, 'dismissNotification')}
+                className="text-[var(--ks-text-muted)] hover:text-[var(--ks-text-primary)] min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] -me-2 -mt-2 sm:-me-1.5 sm:-mt-1 flex items-center justify-center rounded cursor-pointer transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
               </button>

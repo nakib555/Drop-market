@@ -31,13 +31,29 @@ import {
 } from '../data/legalPolicies';
 import { useStore } from '../context/StoreContext';
 import { submitSupportInquiryApi } from '../services/api';
-import { JournalArticle, LegalDocumentId } from '../types/commerce';
+import { JournalArticle, LanguageCode, LegalDocumentId } from '../types/commerce';
 import { t } from '../utils/i18n';
 import { STUDIO_TRANSITION } from '../utils/motion';
 import { isValidContactPhone } from '../utils/validation';
 import { Button } from '../components/ui/Button';
 import { Input, Select, Textarea } from '../components/ui/FormFields';
 import { Accordion, Breadcrumb, Drawer, Modal, ResilientImage } from '../components/ui/Primitives';
+
+const translateLegalGroup = (
+  language: LanguageCode,
+  group: 'Core Agreements' | 'Commerce & Logistics' | 'Marketplace Governance' | 'Safety & Rights'
+) => {
+  switch (group) {
+    case 'Core Agreements':
+      return t(language, 'legalCatCore');
+    case 'Commerce & Logistics':
+      return t(language, 'legalCatCommerce');
+    case 'Marketplace Governance':
+      return t(language, 'legalCatGovernance');
+    case 'Safety & Rights':
+      return t(language, 'legalCatSafety');
+  }
+};
 
 export const BrandsPage: React.FC = () => {
   const { navigate, products, language } = useStore();
@@ -88,7 +104,7 @@ export const BrandsPage: React.FC = () => {
                 <span className="text-xs font-mono-num text-[var(--ks-text-muted)] min-w-0">
                   {t(language, 'productsInCatalogCount', {
                     count: studioProducts.length,
-                    label: studioProducts.length === 1 ? 'product' : 'products',
+                    label: t(language, studioProducts.length === 1 ? 'productSingular' : 'productPlural'),
                   })}
                 </span>
                 <button
@@ -177,13 +193,14 @@ export const JournalPage: React.FC = () => {
       <Modal
         open={Boolean(selectedArticle)}
         onClose={() => setSelectedArticle(null)}
-        title={selectedArticle?.category || 'Essay'}
+        title={selectedArticle?.category || t(language, 'essayFallbackTitle')}
       >
         {selectedArticle && (
           <div className="space-y-5">
             <h2 className="font-display text-3xl font-medium">{selectedArticle.title}</h2>
             <p className="text-xs text-[var(--ks-text-muted)]">
-              By {selectedArticle.author} · {selectedArticle.publishedAt}
+              {t(language, 'byAuthorLabel', { author: selectedArticle.author })} ·{' '}
+              {selectedArticle.publishedAt}
             </p>
             <ResilientImage
               src={selectedArticle.image}
@@ -221,10 +238,10 @@ export const AboutPage: React.FC = () => {
             {t(language, 'aboutHeadline')}
           </h1>
           <p className="text-base text-[var(--ks-text-secondary)] leading-relaxed">
-            Kinto Studio began as an industrial design studio committed to repairable, honest-material everyday objects. Today we operate as a {categories.length}-department marketplace across Bangladesh—spanning technology, tailored fashion, home furnishings, botanical skincare, specialty grocery, outdoor travel carry, books, precision tools, baby care, and wellness.
+            {t(language, 'aboutPara1', { count: categories.length })}
           </p>
           <p className="text-base text-[var(--ks-text-secondary)] leading-relaxed">
-            Every partner maker—from Copenhagen acoustic engineers and Kyoto textile mills to Nordic coffee roasters and local Dhaka studios—shares material provenance, repairability documentation, and transparent dual-currency pricing in BDT (৳) and USD ($).
+            {t(language, 'aboutPara2')}
           </p>
           <div className="pt-2 flex flex-wrap gap-3">
             <Button variant="primary" size="md" onClick={() => navigate({ name: 'shop', category: 'all' })}>
@@ -246,26 +263,26 @@ export const AboutPage: React.FC = () => {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-8 border-t border-[var(--ks-border)]">
         <div className="p-6 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-2">
-          <p className="font-display text-3xl font-medium">{categories.length} Departments</p>
-          <p className="text-sm font-medium">
-            Tech, Fashion, Home, Beauty, Grocery, Outdoors, Books, Tools, Baby Care &amp; Wellness
+          <p className="font-display text-3xl font-medium">
+            {t(language, 'aboutStat1Title', { count: categories.length })}
           </p>
+          <p className="text-sm font-medium">{t(language, 'aboutStat1Sub')}</p>
           <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
-            Every SKU is vetted for repairable construction, clean formulation, and everyday reliability.
-          </p>
-        </div>
-        <div className="p-6 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-2">
-          <p className="font-display text-3xl font-medium">6 Partner Studios</p>
-          <p className="text-sm font-medium">Direct Studio, Mill &amp; Roastery Partnerships</p>
-          <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
-            Small-batch production across Dhaka, Copenhagen, Kyoto, Providence, Zurich, and Grasse.
+            {t(language, 'aboutStat1Desc')}
           </p>
         </div>
         <div className="p-6 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-2">
-          <p className="font-display text-3xl font-medium">64 Districts</p>
-          <p className="text-sm font-medium">Bangladesh Fulfillment &amp; Warranty Support</p>
+          <p className="font-display text-3xl font-medium">{t(language, 'aboutStat2Title')}</p>
+          <p className="text-sm font-medium">{t(language, 'aboutStat2Sub')}</p>
           <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
-            Transparent metro &amp; nationwide courier slabs, BDT-settled checkout, and manufacturer warranty support.
+            {t(language, 'aboutStat2Desc')}
+          </p>
+        </div>
+        <div className="p-6 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-2">
+          <p className="font-display text-3xl font-medium">{t(language, 'aboutStat3Title')}</p>
+          <p className="text-sm font-medium">{t(language, 'aboutStat3Sub')}</p>
+          <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
+            {t(language, 'aboutStat3Desc')}
           </p>
         </div>
       </div>
@@ -287,11 +304,11 @@ export const ContactPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || message.trim().length < 5) {
-      setError('Please provide your name, a valid email address, and a message (at least 5 characters).');
+      setError(t(language, 'contactValidationErr'));
       return;
     }
     if (phone.trim() && !isValidContactPhone(phone, 'Bangladesh')) {
-      setError('Please enter a valid Bangladesh mobile number (e.g. +880 1711-000100) or leave it blank.');
+      setError(t(language, 'contactPhoneErr'));
       return;
     }
     setError('');
@@ -306,12 +323,12 @@ export const ContactPage: React.FC = () => {
       });
       setSubmittedTicketRef(inquiry.ticketRef);
       showToast(
-        `Ticket ${inquiry.ticketRef} logged`,
-        'Our customer care desk responds within 1 business day.',
+        t(language, 'ticketLoggedToast', { ref: inquiry.ticketRef }),
+        t(language, 'ticketCareResponseToast'),
         'success'
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to submit your inquiry right now.');
+      setError(err instanceof Error ? err.message : t(language, 'unableSubmitInquiry'));
     } finally {
       setSubmitting(false);
     }
@@ -332,16 +349,16 @@ export const ContactPage: React.FC = () => {
             {t(language, 'contactCustomerCareTitle')}
           </h1>
           <p className="text-sm sm:text-base text-[var(--ks-text-secondary)] leading-relaxed">
-            Speak with our Bangladesh marketplace specialists regarding order tracking, courier delivery scheduling across all 64 districts, warranty assistance, or Seller Studio onboarding.
+            {t(language, 'contactIntroDesc')}
           </p>
 
           <div className="space-y-4 pt-2 text-sm">
             <div className="flex items-start gap-3">
               <MapPin className="w-4 h-4 mt-[3px] text-[var(--ks-accent)] shrink-0" />
               <div>
-                <p className="font-medium leading-snug">Dhaka Operations &amp; Fulfillment Desk</p>
+                <p className="font-medium leading-snug">{t(language, 'dhakaDeskTitle')}</p>
                 <p className="text-xs text-[var(--ks-text-secondary)] leading-snug mt-0.5">
-                  Online-first retail desk serving Dhaka Metro &amp; all 8 divisions · Sat–Thu 9:00am–7:00pm BST
+                  {t(language, 'dhakaDeskDesc')}
                 </p>
               </div>
             </div>
@@ -351,12 +368,14 @@ export const ContactPage: React.FC = () => {
             </div>
             <div className="flex items-center gap-3">
               <Scale className="w-4 h-4 text-[var(--ks-accent)] shrink-0" />
-              <span className="text-xs font-mono-num">{LEGAL_ENTITY.legalEmail} (Legal &amp; Notices)</span>
+              <span className="text-xs font-mono-num">
+                {LEGAL_ENTITY.legalEmail} ({t(language, 'legalNoticesTag')})
+              </span>
             </div>
             <div className="flex items-start gap-3">
               <Phone className="w-4 h-4 mt-[3px] text-[var(--ks-accent)] shrink-0" />
               <p className="text-xs text-[var(--ks-text-secondary)] leading-snug">
-                Verified callback and courier coordination are scheduled automatically against submitted order &amp; support tickets.
+                {t(language, 'callbackNoticeDesc')}
               </p>
             </div>
           </div>
@@ -366,12 +385,14 @@ export const ContactPage: React.FC = () => {
           {submittedTicketRef ? (
             <div className="py-10 text-center space-y-4">
               <CheckCircle2 className="w-10 h-10 mx-auto text-[var(--ks-success)]" />
-              <h2 className="font-display text-3xl font-medium">Message Received</h2>
+              <h2 className="font-display text-3xl font-medium">
+                {t(language, 'messageReceivedTitle')}
+              </h2>
               <p className="text-xs font-mono-num uppercase tracking-wider text-[var(--ks-accent)]">
-                Reference: {submittedTicketRef}
+                {t(language, 'referencePrefix', { ref: submittedTicketRef })}
               </p>
               <p className="text-sm text-[var(--ks-text-secondary)] max-w-md mx-auto">
-                Thank you, {name}. Your support ticket has been recorded on the server. A customer care specialist will reply to {email} within one business day.
+                {t(language, 'ticketRecordedDesc', { name, email })}
               </p>
               <Button
                 variant="outline"
@@ -381,7 +402,7 @@ export const ContactPage: React.FC = () => {
                   setMessage('');
                 }}
               >
-                Send Another Inquiry
+                {t(language, 'sendAnotherInquiry')}
               </Button>
             </div>
           ) : (
@@ -391,15 +412,15 @@ export const ContactPage: React.FC = () => {
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
-                  label="Full Name"
+                  label={t(language, 'fullNameLabel')}
                   autoComplete="name"
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Your full name"
+                  placeholder={t(language, 'yourFullNamePlaceholder')}
                 />
                 <Input
-                  label="Email Address"
+                  label={t(language, 'emailLabel')}
                   type="email"
                   inputMode="email"
                   autoComplete="email"
@@ -411,7 +432,7 @@ export const ContactPage: React.FC = () => {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
-                  label="Bangladesh Mobile (Optional)"
+                  label={t(language, 'bdMobileOptionalLabel')}
                   type="tel"
                   inputMode="tel"
                   autoComplete="tel"
@@ -420,28 +441,28 @@ export const ContactPage: React.FC = () => {
                   placeholder="+880 1XXX-XXXXXX"
                 />
                 <Select
-                  label="Inquiry Topic"
+                  label={t(language, 'inquiryTopicLabel')}
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
                   options={[
-                    { value: 'client-care', label: 'Client Care & Product Specifications' },
-                    { value: 'delivery', label: 'Dhaka & Nationwide Courier Logistics' },
-                    { value: 'warranty', label: 'Returns, Refunds & Warranty Claims' },
-                    { value: 'seller', label: 'Seller Onboarding & Trade Program' },
+                    { value: 'client-care', label: t(language, 'topicClientCare') },
+                    { value: 'delivery', label: t(language, 'topicDelivery') },
+                    { value: 'warranty', label: t(language, 'topicWarranty') },
+                    { value: 'seller', label: t(language, 'topicSeller') },
                   ]}
                 />
               </div>
               <Textarea
-                label="Message"
+                label={t(language, 'messageFieldLabel')}
                 required
                 rows={4}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Share your order number, question, or delivery details..."
+                placeholder={t(language, 'contactMessagePlaceholder')}
               />
               {error && <p className="text-xs text-[var(--ks-error)]">{error}</p>}
               <p className="text-[11px] leading-snug text-[var(--ks-text-secondary)]">
-                By submitting this form, you acknowledge that your inquiry details are processed under our{' '}
+                {t(language, 'privacyAckPrefix')}{' '}
                 <button
                   type="button"
                   onClick={() => navigate({ name: 'privacy-policy' })}
@@ -693,7 +714,7 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
                 return (
                   <div key={group} className="space-y-1.5">
                     <p className="px-1 text-[11px] uppercase tracking-[0.12em] font-semibold text-[var(--ks-text-muted)]">
-                      {group} ({groupDocs.length})
+                      {translateLegalGroup(language, group)} ({groupDocs.length})
                     </p>
                     <div className="rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] divide-y divide-[var(--ks-border)] overflow-hidden">
                       {groupDocs.map((item) => {
@@ -980,7 +1001,7 @@ export const LegalCenterPage: React.FC = () => {
           return (
             <section key={group} className="space-y-4">
               <h2 className="font-display text-2xl font-medium border-b border-[var(--ks-border)] pb-2">
-                {group} ({groupDocs.length})
+                {translateLegalGroup(language, group)} ({groupDocs.length})
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {groupDocs.map((doc) => (
@@ -1028,7 +1049,9 @@ export const NotFoundPage: React.FC = () => {
   const { navigate, language } = useStore();
   return (
     <div className="max-w-xl mx-auto px-4 py-20 sm:py-24 text-center space-y-5">
-      <p className="font-mono-num text-xs uppercase tracking-widest text-[var(--ks-text-muted)]">Error 404</p>
+      <p className="font-mono-num text-xs uppercase tracking-widest text-[var(--ks-text-muted)]">
+        {t(language, 'error404Eyebrow')}
+      </p>
       <h1 className="font-display text-4xl sm:text-5xl font-medium">
         {t(language, 'pageNotFoundTitle')}
       </h1>

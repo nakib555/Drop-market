@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, Package, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { STUDIO_TRANSITION } from '../../utils/motion';
+import { useOverlayLock } from '../../utils/scrollLock';
 import { useStore } from '../../context/StoreContext';
 import { t } from '../../utils/i18n';
 import { Button } from './Button';
@@ -144,7 +145,7 @@ export const Pagination: React.FC<PaginationProps> = ({
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
         aria-label={t(language, 'previousPage')}
-        className="w-10 h-10 rounded-md border border-[var(--ks-border)] flex items-center justify-center text-[var(--ks-text-primary)] disabled:opacity-40 cursor-pointer hover:bg-[var(--ks-surface-muted)] transition-colors"
+        className="w-11 h-11 sm:w-10 sm:h-10 rounded-md border border-[var(--ks-border)] flex items-center justify-center text-[var(--ks-text-primary)] disabled:opacity-40 cursor-pointer hover:bg-[var(--ks-surface-muted)] transition-colors"
       >
         <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
       </button>
@@ -153,7 +154,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           <span
             key={`ellipsis-${idx}`}
             aria-hidden="true"
-            className="w-8 h-10 flex items-center justify-center text-sm text-[var(--ks-text-muted)] select-none"
+            className="w-8 h-11 sm:h-10 flex items-center justify-center text-sm text-[var(--ks-text-muted)] select-none"
           >
             &hellip;
           </span>
@@ -163,7 +164,7 @@ export const Pagination: React.FC<PaginationProps> = ({
             type="button"
             onClick={() => onPageChange(item)}
             aria-current={item === currentPage ? 'page' : undefined}
-            className={`min-w-10 h-10 px-2.5 rounded-md text-sm font-mono-num transition-colors cursor-pointer ${
+            className={`min-w-11 h-11 sm:min-w-10 sm:h-10 px-2.5 rounded-md text-sm font-mono-num transition-colors cursor-pointer ${
               item === currentPage
                 ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] font-medium'
                 : 'border border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)]'
@@ -178,7 +179,7 @@ export const Pagination: React.FC<PaginationProps> = ({
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
         aria-label={t(language, 'nextPage')}
-        className="w-10 h-10 rounded-md border border-[var(--ks-border)] flex items-center justify-center text-[var(--ks-text-primary)] disabled:opacity-40 cursor-pointer hover:bg-[var(--ks-surface-muted)] transition-colors"
+        className="w-11 h-11 sm:w-10 sm:h-10 rounded-md border border-[var(--ks-border)] flex items-center justify-center text-[var(--ks-text-primary)] disabled:opacity-40 cursor-pointer hover:bg-[var(--ks-surface-muted)] transition-colors"
       >
         <ChevronRight className="w-4 h-4 rtl:rotate-180" />
       </button>
@@ -262,19 +263,7 @@ export const Modal: React.FC<ModalProps> = ({
   const { language } = useStore();
   const panelRef = useRef<HTMLDivElement>(null);
   useFocusTrap(open, panelRef);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-    };
-  }, [open, onClose]);
+  useOverlayLock(open, 'modal', onClose);
 
   return (
     <AnimatePresence>
@@ -339,19 +328,7 @@ export const Drawer: React.FC<DrawerProps> = ({
   const { language } = useStore();
   const panelRef = useRef<HTMLDivElement>(null);
   useFocusTrap(open, panelRef);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-    };
-  }, [open, onClose]);
+  useOverlayLock(open, 'drawer', onClose);
 
   const panelDir = language === 'ar' ? 'rtl' : 'ltr';
 
@@ -393,7 +370,7 @@ export const Drawer: React.FC<DrawerProps> = ({
                 type="button"
                 onClick={onClose}
                 aria-label={t(language, 'closeItemAria', { title })}
-                className="w-10 h-10 -me-1 shrink-0 rounded-md flex items-center justify-center text-[var(--ks-text-secondary)] hover:bg-[var(--ks-surface-muted)] cursor-pointer transition-colors"
+                className="w-11 h-11 sm:w-10 sm:h-10 -me-1 shrink-0 rounded-md flex items-center justify-center text-[var(--ks-text-secondary)] hover:bg-[var(--ks-surface-muted)] cursor-pointer transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>

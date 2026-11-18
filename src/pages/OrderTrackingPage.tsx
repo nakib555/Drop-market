@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Check, PackageSearch, RotateCcw, Truck, X } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { trackOrderApi } from '../services/api';
@@ -13,6 +13,8 @@ export const OrderTrackingPage: React.FC = () => {
   const { language, currency, route, orders, navigate, profile } = useStore();
   const [orderIdInput, setOrderIdInput] = useState(route.orderId || orders[0]?.id || '');
   const [contactVerify, setContactVerify] = useState('');
+  const contactVerifyRef = useRef('');
+  contactVerifyRef.current = contactVerify;
   const [lookupError, setLookupError] = useState('');
   const [loadingLookup, setLoadingLookup] = useState(false);
   const [trackedOrder, setTrackedOrder] = useState<Order | null>(() => {
@@ -33,30 +35,30 @@ export const OrderTrackingPage: React.FC = () => {
         setTrackedOrder(localMatch);
       } else {
         setLoadingLookup(true);
-        trackOrderApi(route.orderId, contactVerify.trim() || undefined)
+        trackOrderApi(route.orderId, contactVerifyRef.current.trim() || undefined)
           .then((ord) => setTrackedOrder(ord))
           .catch((err) => {
             setTrackedOrder(null);
-            setLookupError(err instanceof Error ? err.message : 'Unable to locate this order.');
+            setLookupError(err instanceof Error ? err.message : t(language, 'trackErrLocate'));
           })
           .finally(() => setLoadingLookup(false));
       }
+    } else if (!trackedOrder && orders[0]) {
+      setTrackedOrder(orders[0]);
+      setOrderIdInput((prev) => prev || orders[0].id);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [route.orderId, orders]);
+  }, [route.orderId, orders, language, trackedOrder]);
 
   const handleTrackSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanId = orderIdInput.trim();
     const cleanContact = contactVerify.trim();
     if (!cleanId) {
-      setLookupError('Please enter an Order Number (e.g. KS-10482).');
+      setLookupError(t(language, 'trackErrEmptyId'));
       return;
     }
     if (!profile.isAuthenticated && !cleanContact) {
-      setLookupError(
-        'Please enter the order email address or phone number to verify ownership.'
-      );
+      setLookupError(t(language, 'trackErrNeedContact'));
       return;
     }
 
@@ -73,7 +75,7 @@ export const OrderTrackingPage: React.FC = () => {
           localFound.email.toLowerCase() !== cleanContact.toLowerCase() &&
           !localFound.phone.includes(cleanContact)
         ) {
-          setLookupError('Verification email or phone does not match this order record.');
+          setLookupError(t(language, 'trackErrMismatch'));
           setTrackedOrder(null);
         } else {
           setTrackedOrder(localFound);
@@ -83,7 +85,7 @@ export const OrderTrackingPage: React.FC = () => {
         setLookupError(
           err instanceof Error
             ? err.message
-            : `No order found matching "${cleanId}". Verify your Order Number and contact email/phone.`
+            : t(language, 'trackErrNotFound', { id: cleanId })
         );
       }
     } finally {
@@ -227,9 +229,9 @@ export const OrderTrackingPage: React.FC = () => {
                 const isCancelledEvent = event.stage === 'Cancelled';
                 const isReturnEvent = event.stage === 'Return Requested';
                 const markerClass = isCancelledEvent
-                  ? 'bg-[var(--ks-error)] border-[var(--ks-error)] text-white'
+                  ? 'bg-[var(--ks-error)] border-[var(--ks-error)] text-[var(--ks-error-text)]'
                   : isReturnEvent
-                  ? 'bg-[var(--ks-warning)] border-[var(--ks-warning)] text-white'
+                  ? 'bg-[var(--ks-warning)] border-[var(--ks-warning)] text-[var(--ks-warning-text)]'
                   : event.completed
                   ? 'bg-[var(--ks-action)] border-[var(--ks-action)] text-[var(--ks-action-text)]'
                   : 'bg-[var(--ks-bg)] border-[var(--ks-border-strong)] text-[var(--ks-text-muted)]';
@@ -315,7 +317,7 @@ export const OrderTrackingPage: React.FC = () => {
                 </p>
                 {trackedOrder.transactionRef && (
                   <p className="font-mono-num text-[11px] text-[var(--ks-text-muted)] mt-0.5">
-                    Ref: {trackedOrder.transactionRef}
+                    {t(language, 'refShortPrefix', { ref: trackedOrder.transactionRef })}
                   </p>
                 )}
               </div>

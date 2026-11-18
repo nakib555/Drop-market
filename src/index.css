@@ -21,8 +21,11 @@
   --ks-border-strong: #D3D0C8;
   --ks-divider: #EAE8E1;
   --ks-success: #1E6B43;
+  --ks-success-text: #FFFFFF;
   --ks-warning: #9A4306;
+  --ks-warning-text: #FFFFFF;
   --ks-error: #B91C1C;
+  --ks-error-text: #FFFFFF;
   --ks-info: #1D4ED8;
 
   /* Typography & Layout Tokens */
@@ -89,8 +92,11 @@
   --ks-border-strong: #3C3B35;
   --ks-divider: #262622;
   --ks-success: #4ADE80;
+  --ks-success-text: #171716;
   --ks-warning: #FBBF24;
+  --ks-warning-text: #171716;
   --ks-error: #F87171;
+  --ks-error-text: #171716;
   --ks-info: #60A5FA;
   --ks-shadow-card-hover: 0 10px 26px -12px rgb(0 0 0 / 0.45);
   --ks-shadow-overlay: 0 22px 48px -12px rgb(0 0 0 / 0.6);
@@ -298,6 +304,14 @@
   animation: kinto-page-enter-back 180ms var(--ks-ease-standard);
 }
 
+[dir="rtl"] .page-enter-forward {
+  animation: kinto-page-enter-back 180ms var(--ks-ease-standard);
+}
+
+[dir="rtl"] .page-enter-back {
+  animation: kinto-page-enter-forward 180ms var(--ks-ease-standard);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -325,6 +339,7 @@
   .ks-print-hide,
   [role="region"],
   [aria-live="polite"],
+  [data-scroll-top-btn="true"],
   [aria-label="Scroll back to top"] {
     display: none !important;
   }

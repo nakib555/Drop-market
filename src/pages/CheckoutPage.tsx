@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -36,7 +36,11 @@ import type {
 } from '../types/commerce';
 import { formatCurrency, formatDirectCurrency } from '../utils/format';
 import { t } from '../utils/i18n';
-import { STUDIO_TRANSITION } from '../utils/motion';
+import {
+  getDirectionalSlideSign,
+  slideFadeVariants,
+  STUDIO_TRANSITION,
+} from '../utils/motion';
 import { Button } from '../components/ui/Button';
 import { Input, Select, Textarea } from '../components/ui/FormFields';
 import { EmptyState, Modal, ResilientImage } from '../components/ui/Primitives';
@@ -52,58 +56,16 @@ const STEP_KEYS = [
 
 const PAYMENT_CHANNEL_META: Array<{
   id: PaymentMethodId;
-  label: string;
-  sub: string;
   group: 'mfs' | 'card' | 'other';
 }> = [
-  {
-    id: 'bkash',
-    label: 'bKash Mobile Wallet',
-    sub: 'Instant tokenized checkout via bKash Merchant PGW',
-    group: 'mfs',
-  },
-  {
-    id: 'nagad',
-    label: 'Nagad MFS Wallet',
-    sub: 'Server-verified Nagad e-commerce gateway',
-    group: 'mfs',
-  },
-  {
-    id: 'rocket',
-    label: 'Rocket (DBBL)',
-    sub: 'Dutch-Bangla Bank Rocket mobile account settlement',
-    group: 'mfs',
-  },
-  {
-    id: 'visa',
-    label: 'Visa Debit / Credit Card',
-    sub: 'Local BDT & Global 3DS Secure authorization',
-    group: 'card',
-  },
-  {
-    id: 'mastercard',
-    label: 'Mastercard',
-    sub: 'Mastercard Identity Check 3DS verification',
-    group: 'card',
-  },
-  {
-    id: 'sslcommerz',
-    label: 'SSLCommerz Unified Gateway',
-    sub: 'Cards, NetBanking & local wallets in one portal',
-    group: 'other',
-  },
-  {
-    id: 'bank-transfer',
-    label: 'Bank Transfer (NPSB / BEFTN)',
-    sub: 'Verified local interbank & wire settlement',
-    group: 'other',
-  },
-  {
-    id: 'cod',
-    label: 'Cash on Delivery (COD)',
-    sub: 'Pay courier in cash upon parcel inspection in Bangladesh',
-    group: 'other',
-  },
+  { id: 'bkash', group: 'mfs' },
+  { id: 'nagad', group: 'mfs' },
+  { id: 'rocket', group: 'mfs' },
+  { id: 'visa', group: 'card' },
+  { id: 'mastercard', group: 'card' },
+  { id: 'sslcommerz', group: 'other' },
+  { id: 'bank-transfer', group: 'other' },
+  { id: 'cod', group: 'other' },
 ];
 
 const BD_MOBILE_REGEX = /^(?:\+?88)?01[3-9]\d{8}$/;
@@ -225,6 +187,34 @@ export const CheckoutPage: React.FC = () => {
   const [checkoutConsentError, setCheckoutConsentError] = useState('');
   const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
 
+  const customerEditedRef = useRef(false);
+  const addressEditedRef = useRef(false);
+  const quoteSeqRef = useRef(0);
+  const prevStepRef = useRef(step);
+
+  const stepDirection = step >= prevStepRef.current ? 1 : -1;
+  useEffect(() => {
+    prevStepRef.current = step;
+  }, [step]);
+
+  useEffect(() => {
+    if (!profile.isAuthenticated || customerEditedRef.current) return;
+    if (profile.email && !email) setEmail(profile.email);
+    if (profile.fullName && !fullName) setFullName(profile.fullName);
+    if (profile.phone && !phone) setPhone(profile.phone);
+  }, [profile.isAuthenticated, profile.email, profile.fullName, profile.phone, email, fullName, phone]);
+
+  useEffect(() => {
+    if (!defaultAddr || addressEditedRef.current || streetAddress.trim()) return;
+    setCountry(defaultAddr.country);
+    setStateDiv(defaultAddr.state);
+    setCity(defaultAddr.city);
+    setUpazila(defaultAddr.upazila || '');
+    setArea(defaultAddr.area);
+    setStreetAddress(defaultAddr.streetAddress);
+    setPostalCode(defaultAddr.postalCode);
+  }, [defaultAddr, streetAddress]);
+
   const isBangladesh = country === 'Bangladesh';
 
   // Hierarchical Location Selectors for Bangladesh
@@ -244,6 +234,7 @@ export const CheckoutPage: React.FC = () => {
   const areaOptions = activeUpaEntry.areas;
 
   const handleCountryChange = (nextCountry: string) => {
+    addressEditedRef.current = true;
     setCountry(nextCountry);
     setPaymentBanner(null);
     if (nextCountry === 'Bangladesh') {
@@ -267,6 +258,7 @@ export const CheckoutPage: React.FC = () => {
   };
 
   const handleDivisionChange = (divName: string) => {
+    addressEditedRef.current = true;
     const div = geoTree.find((d) => d.name === divName) || geoTree[0];
     const dist = div.districts[0];
     const upa = dist.upazilas[0];
@@ -279,6 +271,7 @@ export const CheckoutPage: React.FC = () => {
   };
 
   const handleDistrictChange = (distName: string) => {
+    addressEditedRef.current = true;
     const dist =
       activeDivEntry.districts.find((d) => d.name === distName) || activeDivEntry.districts[0];
     const upa = dist.upazilas[0];
@@ -290,6 +283,7 @@ export const CheckoutPage: React.FC = () => {
   };
 
   const handleUpazilaChange = (upaName: string) => {
+    addressEditedRef.current = true;
     const upa =
       activeDistEntry.upazilas.find((u) => u.name === upaName) || activeDistEntry.upazilas[0];
     const ar = upa.areas[0];
@@ -299,6 +293,7 @@ export const CheckoutPage: React.FC = () => {
   };
 
   const handleAreaChange = (areaName: string) => {
+    addressEditedRef.current = true;
     setArea(areaName);
     const matched = areaOptions.find((a) => a.name === areaName);
     if (matched) {
@@ -310,6 +305,7 @@ export const CheckoutPage: React.FC = () => {
   useEffect(() => {
     if (cart.length === 0 || step >= 6) return;
     let cancelled = false;
+    const reqSeq = ++quoteSeqRef.current;
     const timer = window.setTimeout(async () => {
       setQuoteLoading(true);
       setQuoteError('');
@@ -334,25 +330,23 @@ export const CheckoutPage: React.FC = () => {
           requestedCurrency: currency,
           allowInternationalUsd,
         });
-        if (!cancelled) {
+        if (!cancelled && reqSeq === quoteSeqRef.current) {
           setQuote(res);
           const selectedOpt = res.shippingQuote.options.find((o) => o.id === deliveryMethod);
           if (selectedOpt && !selectedOpt.available) {
             const fallbackOpt = res.shippingQuote.options.find((o) => o.available);
             if (fallbackOpt) setDeliveryMethod(fallbackOpt.id);
           }
-          if (res.allowedPaymentMethods.length > 0 && !res.allowedPaymentMethods.includes(paymentMethod)) {
-            setPaymentMethod(res.allowedPaymentMethods[0]);
-          }
         }
       } catch (err) {
-        if (!cancelled) {
+        if (!cancelled && reqSeq === quoteSeqRef.current) {
+          setQuote(null);
           setQuoteError(
-            err instanceof Error ? err.message : 'Unable to fetch server shipping & tax quote.'
+            err instanceof Error ? err.message : t(language, 'unableResolveQuote')
           );
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && reqSeq === quoteSeqRef.current) {
           setQuoteLoading(false);
         }
       }
@@ -373,9 +367,16 @@ export const CheckoutPage: React.FC = () => {
     appliedPromo?.code,
     currency,
     allowInternationalUsd,
-    paymentMethod,
+    language,
     step,
   ]);
+
+  useEffect(() => {
+    const allowed = quote?.allowedPaymentMethods;
+    if (allowed && allowed.length > 0 && !allowed.includes(paymentMethod)) {
+      setPaymentMethod(allowed[0]);
+    }
+  }, [quote?.allowedPaymentMethods, paymentMethod]);
 
   if (cart.length === 0 && step < 6) {
     return (
@@ -383,9 +384,9 @@ export const CheckoutPage: React.FC = () => {
         <div className="rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)]">
           <EmptyState
             icon={<ShoppingBag className="w-6 h-6" />}
-            title="Your bag is empty"
-            description="Add items from any department before checking out."
-            actionLabel="Browse Products"
+            title={t(language, 'checkoutEmptyTitle')}
+            description={t(language, 'checkoutEmptyDesc')}
+            actionLabel={t(language, 'browseProducts')}
             onAction={() => navigate({ name: 'shop', category: 'all' })}
           />
         </div>
@@ -419,37 +420,35 @@ export const CheckoutPage: React.FC = () => {
     const nextErrors: Record<string, string> = {};
     if (targetStep === 1) {
       if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-        nextErrors.email = 'Enter a valid email address for order receipts.';
+        nextErrors.email = t(language, 'errValidEmailReceipt');
       }
-      if (!fullName.trim()) nextErrors.fullName = 'Full name is required.';
+      if (!fullName.trim()) nextErrors.fullName = t(language, 'errNameRequired');
       const compactPhone = normalizePhoneDigits(phone);
       if (isBangladesh) {
         if (!BD_MOBILE_REGEX.test(compactPhone)) {
-          nextErrors.phone =
-            'Enter a valid 11-digit Bangladesh mobile number (e.g. 017XXXXXXXX).';
+          nextErrors.phone = t(language, 'errBdMobileValid');
         }
       } else if (compactPhone.replace(/\D/g, '').length < 7) {
-        nextErrors.phone = 'Enter a valid contact phone number.';
+        nextErrors.phone = t(language, 'errContactPhoneValid');
       }
     }
     if (targetStep === 2) {
-      if (!country.trim()) nextErrors.country = 'Country is required.';
-      if (!stateDiv.trim()) nextErrors.stateDiv = 'Division / State is required.';
-      if (!city.trim()) nextErrors.city = 'District / City is required.';
-      if (isBangladesh && !upazila.trim()) nextErrors.upazila = 'City / Upazila is required.';
-      if (isBangladesh && !area.trim()) nextErrors.area = 'Area is required.';
-      if (!streetAddress.trim()) nextErrors.streetAddress = 'Street address is required.';
-      if (!postalCode.trim()) nextErrors.postalCode = 'Postal code is required.';
+      if (!country.trim()) nextErrors.country = t(language, 'errCountryRequired');
+      if (!stateDiv.trim()) nextErrors.stateDiv = t(language, 'errStateRequired');
+      if (!city.trim()) nextErrors.city = t(language, 'errCityRequired');
+      if (isBangladesh && !upazila.trim()) nextErrors.upazila = t(language, 'errUpazilaRequired');
+      if (isBangladesh && !area.trim()) nextErrors.area = t(language, 'errAreaRequired');
+      if (!streetAddress.trim()) nextErrors.streetAddress = t(language, 'errStreetRequired');
+      if (!postalCode.trim()) nextErrors.postalCode = t(language, 'errPostalRequired');
     }
     if (targetStep === 3) {
       if (!selectedDelivery || !selectedDelivery.available) {
-        nextErrors.delivery = 'Select an available courier option to continue.';
+        nextErrors.delivery = t(language, 'errSelectCourier');
       }
     }
     if (targetStep === 4) {
       if (!hasOperationalPayment) {
-        nextErrors.payment =
-          'No enabled payment channel is available for this shipping destination.';
+        nextErrors.payment = t(language, 'errNoPaymentChannel');
       }
       if (
         paymentMethod === 'bkash' ||
@@ -457,8 +456,7 @@ export const CheckoutPage: React.FC = () => {
         paymentMethod === 'rocket'
       ) {
         if (!BD_MOBILE_REGEX.test(normalizePhoneDigits(mobileWalletNumber))) {
-          nextErrors.mobileWallet =
-            'Enter a valid 11-digit Bangladesh mobile wallet number (e.g. 017XXXXXXXX).';
+          nextErrors.mobileWallet = t(language, 'errWalletDigits');
         }
       }
     }
@@ -470,8 +468,8 @@ export const CheckoutPage: React.FC = () => {
     if (!validateStep(step)) return;
     if (step === 2 && isRestrictedZone) {
       showToast(
-        'Delivery Area Restricted',
-        quote?.shippingQuote.restrictionReason || 'Select a serviceable area to proceed.',
+        t(language, 'deliveryAreaRestrictedTitle'),
+        quote?.shippingQuote.restrictionReason || t(language, 'selectServiceableArea'),
         'error'
       );
       return;
@@ -488,22 +486,25 @@ export const CheckoutPage: React.FC = () => {
 
   const handleInitiateCheckout = async () => {
     if (isRestrictedZone) {
-      showToast('Restricted delivery zone', 'Please choose a serviceable area first.', 'error');
+      showToast(
+        t(language, 'deliveryAreaRestrictedTitle'),
+        t(language, 'selectServiceableArea'),
+        'error'
+      );
       return;
     }
     if (!hasOperationalPayment) {
       showToast(
-        'Payment channel unavailable',
-        'Select an operational payment channel for your delivery zone.',
+        t(language, 'errNoPaymentChannel'),
+        t(language, 'reviewDeliveryPayment'),
         'error'
       );
       return;
     }
     if (!acceptedCheckoutTerms) {
-      const msg =
-        'Please confirm the Terms of Service, Returns Policy, Shipping Policy, and Product Safety Disclaimers before placing your order.';
+      const msg = t(language, 'errCheckoutConsent');
       setCheckoutConsentError(msg);
-      showToast('Agreement required', msg, 'error');
+      showToast(t(language, 'agreementRequiredTitle'), msg, 'error');
       return;
     }
     setCheckoutConsentError('');
@@ -562,15 +563,15 @@ export const CheckoutPage: React.FC = () => {
           setPlacedOrder(verified.order);
           setStep(6);
           showToast(
-            'Order Confirmed',
-            `Order #${verified.order.id} · Cash on Delivery`,
+            t(language, 'orderConfirmedTitle'),
+            `${t(language, 'orderNumberPrefix', { id: verified.order.id })} · ${t(language, 'cashOnDelivery')}`,
             'success'
           );
         } else {
           setIdempotencyKey(createIdempotencyKey());
           showToast(
-            'Unable to confirm order',
-            verified.session.failureReason || 'Please try again.',
+            t(language, 'unableConfirmOrder'),
+            verified.session.failureReason || t(language, 'pleaseTryAgain'),
             'error'
           );
         }
@@ -579,8 +580,8 @@ export const CheckoutPage: React.FC = () => {
       }
     } catch (err) {
       showToast(
-        'Unable to place order',
-        err instanceof Error ? err.message : 'Please review delivery and payment selection.',
+        t(language, 'unablePlaceOrder'),
+        err instanceof Error ? err.message : t(language, 'reviewDeliveryPayment'),
         'error'
       );
     } finally {
@@ -610,8 +611,10 @@ export const CheckoutPage: React.FC = () => {
         setPlacedOrder(res.order);
         setStep(6);
         showToast(
-          res.session.status === 'cod_pending' ? 'Order Confirmed' : 'Payment Verified',
-          `Order #${res.order.id} · Ref ${res.session.transactionRef}`,
+          res.session.status === 'cod_pending'
+            ? t(language, 'orderConfirmedTitle')
+            : t(language, 'paymentVerifiedTitle'),
+          `${t(language, 'orderNumberPrefix', { id: res.order.id })} · ${t(language, 'refShortPrefix', { ref: res.session.transactionRef })}`,
           'success'
         );
       } else {
@@ -623,13 +626,13 @@ export const CheckoutPage: React.FC = () => {
           message:
             res.session.failureReason ||
             (isCancelled
-              ? 'Payment cancelled before gateway settlement.'
-              : 'Payment gateway could not verify settlement. No order was placed.'),
+              ? t(language, 'paymentCancelledBeforeBanner')
+              : t(language, 'paymentDeclinedBanner')),
           ref: res.session.transactionRef,
         });
         showToast(
-          isCancelled ? 'Payment Cancelled' : 'Payment Failed',
-          'Your bag remains intact — retry or switch payment channel.',
+          isCancelled ? t(language, 'paymentCancelledTitle') : t(language, 'paymentFailedTitle'),
+          t(language, 'bagIntactRetry'),
           isCancelled ? 'info' : 'error'
         );
       }
@@ -637,8 +640,8 @@ export const CheckoutPage: React.FC = () => {
       setPaymentSession(null);
       setIdempotencyKey(createIdempotencyKey());
       showToast(
-        'Verification error',
-        err instanceof Error ? err.message : 'Gateway verification failed.',
+        t(language, 'verificationErrorTitle'),
+        err instanceof Error ? err.message : t(language, 'gatewayVerificationFailed'),
         'error'
       );
     } finally {
@@ -665,36 +668,44 @@ export const CheckoutPage: React.FC = () => {
           </div>
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-[0.14em] text-[var(--ks-text-muted)] font-mono-num">
-              Order #{placedOrder.id} ·{' '}
+              {t(language, 'orderNumberPrefix', { id: placedOrder.id })} ·{' '}
               {placedOrder.paymentStatus === 'cod_pending'
-                ? 'Cash on Delivery Confirmed'
-                : 'Payment Verified'}
+                ? t(language, 'codConfirmedTag')
+                : t(language, 'paymentVerifiedTitle')}
             </p>
             <h1 className="font-display text-3xl sm:text-5xl font-medium">
-              Thank you, {placedOrder.customerName.split(' ')[0]}.
+              {t(language, 'thankYouCustomer', {
+                name: placedOrder.customerName.split(' ')[0],
+              })}
             </h1>
             <p className="text-sm text-[var(--ks-text-secondary)] max-w-md mx-auto">
-              Your order receipt has been recorded. Follow live parcel updates anytime on Order Tracking.
+              {t(language, 'orderReceiptSavedDesc')}
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-start p-5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs">
             <div className="min-w-0">
-              <p className="text-[var(--ks-text-muted)] leading-snug">Delivery Estimate</p>
+              <p className="text-[var(--ks-text-muted)] leading-snug">
+                {t(language, 'deliveryEstimateLabel')}
+              </p>
               <p className="font-medium mt-1 text-sm leading-snug">{placedOrder.estimatedArrival}</p>
               <p className="text-[11px] text-[var(--ks-text-secondary)] mt-0.5 leading-snug">
                 {placedOrder.courierName}
               </p>
             </div>
             <div className="min-w-0">
-              <p className="text-[var(--ks-text-muted)] leading-snug">Payment &amp; Reference</p>
+              <p className="text-[var(--ks-text-muted)] leading-snug">
+                {t(language, 'paymentRefLabel')}
+              </p>
               <p className="font-medium mt-1 text-sm leading-snug">{placedOrder.paymentLabel}</p>
               <p className="text-[11px] font-mono-num text-[var(--ks-accent)] mt-0.5 leading-snug break-all">
                 {placedOrder.transactionRef || placedOrder.paymentStatus}
               </p>
             </div>
             <div className="min-w-0">
-              <p className="text-[var(--ks-text-muted)] leading-snug">Order Total</p>
+              <p className="text-[var(--ks-text-muted)] leading-snug">
+                {t(language, 'orderTotal')}
+              </p>
               <p className="font-mono-num font-semibold mt-1 text-sm leading-snug">
                 {settledDisplay}
               </p>
@@ -708,7 +719,7 @@ export const CheckoutPage: React.FC = () => {
 
           <div className="text-start space-y-3 pt-2">
             <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
-              Itemized Receipt
+              {t(language, 'itemizedReceiptLabel')}
             </p>
             <ul className="divide-y divide-[var(--ks-border)] border-y border-[var(--ks-border)]">
               {placedOrder.items.map((item) => (
@@ -761,7 +772,11 @@ export const CheckoutPage: React.FC = () => {
     return avail && !avail.enabled;
   });
 
-  const progressPercent = Math.round((step / STEP_KEYS.length) * 100);
+  const UI_TOTAL_STEPS = 5;
+  const progressPercent = Math.min(
+    100,
+    Math.round((Math.min(step, UI_TOTAL_STEPS) / UI_TOTAL_STEPS) * 100)
+  );
 
   const renderOrderSummaryContent = (listMaxHeightClass: string) => (
     <>
@@ -778,7 +793,7 @@ export const CheckoutPage: React.FC = () => {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{item.name}</p>
               <p className="text-xs text-[var(--ks-text-muted)]">
-                Qty {item.quantity} · {item.color}
+                {t(language, 'qtyShort', { count: item.quantity })} · {item.color}
               </p>
             </div>
             <span className="text-sm font-mono-num shrink-0 text-end tabular-nums">
@@ -815,22 +830,32 @@ export const CheckoutPage: React.FC = () => {
           </p>
         )}
         {appliedPromo && (
-          <div className="flex items-center justify-between px-2.5 py-1.5 rounded-md bg-[var(--ks-surface-muted)] text-xs">
-            <span className="inline-flex items-center gap-1.5 font-mono-num font-medium">
-              <Tag className="w-3.5 h-3.5 text-[var(--ks-accent)]" />
-              {appliedPromo.code}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                removePromoCode();
-                setPromoFeedback(null);
-              }}
-              aria-label={t(language, 'remove')}
-              className="w-9 h-9 rounded flex items-center justify-center text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between px-2.5 py-1.5 rounded-md bg-[var(--ks-surface-muted)] text-xs">
+              <span className="inline-flex items-center gap-1.5 font-mono-num font-medium">
+                <Tag className="w-3.5 h-3.5 text-[var(--ks-accent)]" />
+                {appliedPromo.code}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  removePromoCode();
+                  setPromoFeedback(null);
+                }}
+                aria-label={t(language, 'remove')}
+                className="w-11 h-11 sm:w-9 sm:h-9 rounded flex items-center justify-center text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            {summarySubtotalUsd < appliedPromo.minSubtotal && (
+              <p className="text-[11px] text-[var(--ks-warning)]" role="status">
+                {t(language, 'promoMinNotMet', {
+                  code: appliedPromo.code,
+                  amount: formatCurrency(appliedPromo.minSubtotal, currency),
+                })}
+              </p>
+            )}
           </div>
         )}
       </form>
@@ -864,7 +889,7 @@ export const CheckoutPage: React.FC = () => {
           </span>
           <span className="font-mono-num shrink-0 text-end tabular-nums">
             {isRestrictedZone
-              ? 'Restricted'
+              ? t(language, 'restrictedBadge')
               : !quote
               ? '...'
               : summaryShippingUsd === 0
@@ -882,7 +907,7 @@ export const CheckoutPage: React.FC = () => {
 
         {quote && quote.currency !== currency && (
           <div className="flex items-baseline justify-between gap-4 text-xs font-mono-num text-[var(--ks-accent)] pt-1">
-            <span className="min-w-0">Settlement ({quote.currency})</span>
+            <span className="min-w-0">{t(language, 'settlementLabel', { currency: quote.currency })}</span>
             <span className="shrink-0 text-end tabular-nums">
               {formatDirectCurrency(quote.totalCharged, quote.currency)}
             </span>
@@ -890,8 +915,10 @@ export const CheckoutPage: React.FC = () => {
         )}
 
         <p className="text-[11px] text-[var(--ks-text-muted)] pt-1 leading-snug">
-          FX Rate: 1 USD = ৳{currencyConfig.rates.BDT.toFixed(2)} ·{' '}
-          {quote?.shippingQuote.zoneLabel || 'Resolving zone...'}
+          {t(language, 'fxRateLine', {
+            rate: currencyConfig.rates.BDT.toFixed(2),
+            zone: quote?.shippingQuote.zoneLabel || t(language, 'resolvingZone'),
+          })}
         </p>
       </div>
     </>
@@ -902,7 +929,8 @@ export const CheckoutPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 sm:pb-6 border-b border-[var(--ks-border)]">
         <div>
           <p className="text-xs text-[var(--ks-text-muted)] uppercase tracking-wider">
-            {t(language, 'checkout')} · {isBangladesh ? 'Bangladesh (BDT)' : 'International'}
+            {t(language, 'checkout')} ·{' '}
+            {isBangladesh ? t(language, 'checkoutZoneBd') : t(language, 'checkoutZoneIntl')}
           </p>
           <h1 className="font-display text-3xl sm:text-4xl font-medium mt-1">
             {t(language, 'completeYourOrder')}
@@ -920,8 +948,8 @@ export const CheckoutPage: React.FC = () => {
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs font-mono-num font-semibold text-[var(--ks-accent)]">
               {t(language, 'stepOf', {
-                step,
-                total: STEP_KEYS.length,
+                step: Math.min(step, UI_TOTAL_STEPS),
+                total: UI_TOTAL_STEPS,
                 label: t(language, STEP_KEYS[step - 1]),
               })}
             </p>
@@ -931,9 +959,9 @@ export const CheckoutPage: React.FC = () => {
           </div>
           <div
             role="progressbar"
-            aria-valuenow={step}
+            aria-valuenow={Math.min(step, UI_TOTAL_STEPS)}
             aria-valuemin={1}
-            aria-valuemax={STEP_KEYS.length}
+            aria-valuemax={UI_TOTAL_STEPS}
             aria-label={t(language, 'checkout')}
             className="h-1.5 w-full rounded-full bg-[var(--ks-surface-muted)] overflow-hidden"
           >
@@ -949,7 +977,7 @@ export const CheckoutPage: React.FC = () => {
                   key={stepKey}
                   type="button"
                   onClick={() => setStep(idx + 1)}
-                  className="min-h-[32px] px-2.5 rounded-[var(--ks-radius-sm)] bg-[var(--ks-surface-muted)] text-[11px] font-medium text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer inline-flex items-center gap-1"
+                  className="min-h-[44px] sm:min-h-[36px] px-3 rounded-[var(--ks-radius-sm)] bg-[var(--ks-surface-muted)] text-xs font-medium text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer inline-flex items-center gap-1"
                 >
                   <span className="font-mono-num">{idx + 1}.</span>
                   <span>{t(language, stepKey)}</span>
@@ -1011,7 +1039,7 @@ export const CheckoutPage: React.FC = () => {
               </p>
               <p className="text-[11px] text-[var(--ks-text-muted)] truncate">
                 {quoteLoading
-                  ? 'Calculating...'
+                  ? t(language, 'calculatingQuote')
                   : quote?.shippingQuote.zoneLabel || t(language, 'verifiedServerPricing')}
               </p>
             </div>
@@ -1062,13 +1090,13 @@ export const CheckoutPage: React.FC = () => {
             <div className="text-xs space-y-0.5">
               <p className="font-semibold text-[var(--ks-error)]">
                 {paymentBanner.type === 'cancelled'
-                  ? 'Payment Cancelled Before Settlement'
-                  : 'Payment Gateway Declined Authorization'}
+                  ? t(language, 'paymentCancelledBeforeBanner')
+                  : t(language, 'paymentDeclinedBanner')}
               </p>
               <p className="text-[var(--ks-text-secondary)]">{paymentBanner.message}</p>
               {paymentBanner.ref && (
                 <p className="font-mono-num text-[11px] text-[var(--ks-text-muted)]">
-                  Gateway Ref: {paymentBanner.ref}
+                  {t(language, 'gatewayRefLabel', { ref: paymentBanner.ref })}
                 </p>
               )}
             </div>
@@ -1082,7 +1110,7 @@ export const CheckoutPage: React.FC = () => {
                 setStep(4);
               }}
             >
-              Switch Channel
+              {t(language, 'switchChannelBtn')}
             </Button>
             <Button
               variant="primary"
@@ -1091,7 +1119,7 @@ export const CheckoutPage: React.FC = () => {
               disabled={initiatingPayment}
             >
               <RefreshCw className="w-3 h-3" />
-              <span>Retry</span>
+              <span>{t(language, 'retryBtn')}</span>
             </Button>
           </div>
         </div>
@@ -1099,45 +1127,61 @@ export const CheckoutPage: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
         <div className="lg:col-span-7 p-5 sm:p-8 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-6">
-          <motion.div
-            key={step}
-            initial={{ opacity: 0, x: 8 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={STUDIO_TRANSITION.fast}
+          <AnimatePresence
+            mode="wait"
+            initial={false}
+            custom={getDirectionalSlideSign(stepDirection, language === 'ar')}
           >
+            <motion.div
+              key={step}
+              custom={getDirectionalSlideSign(stepDirection, language === 'ar')}
+              variants={slideFadeVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
             {step === 1 && (
               <div className="space-y-5">
-                <h2 className="font-display text-2xl font-medium">1. Customer Information</h2>
+                <h2 className="font-display text-2xl font-medium">{t(language, 'step1Title')}</h2>
                 <Input
-                  label="Email Address"
+                  label={t(language, 'emailLabel')}
                   type="email"
                   inputMode="email"
                   autoComplete="email"
                   required
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    customerEditedRef.current = true;
+                    setEmail(e.target.value);
+                  }}
                   error={errors.email}
-                  helperText="Order confirmation and dispatch notices are sent to this address."
+                  helperText={t(language, 'emailHelperText')}
                   placeholder="name@example.com"
                 />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Input
-                    label="Full Name"
+                    label={t(language, 'fullNameLabel')}
                     autoComplete="name"
                     required
                     value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
+                    onChange={(e) => {
+                      customerEditedRef.current = true;
+                      setFullName(e.target.value);
+                    }}
                     error={errors.fullName}
-                    placeholder="Enter recipient full name"
+                    placeholder={t(language, 'recipientNamePlaceholder')}
                   />
                   <Input
-                    label="Mobile / Phone Number"
+                    label={t(language, 'mobilePhoneLabel')}
                     type="tel"
                     inputMode="tel"
                     autoComplete="tel"
                     required
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => {
+                      customerEditedRef.current = true;
+                      setPhone(e.target.value);
+                    }}
                     error={errors.phone}
                     placeholder={isBangladesh ? '017XXXXXXXX' : '+1 555 0100'}
                   />
@@ -1149,17 +1193,20 @@ export const CheckoutPage: React.FC = () => {
               <div className="space-y-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h2 className="font-display text-2xl font-medium">2. Shipping Address</h2>
+                    <h2 className="font-display text-2xl font-medium">
+                      {t(language, 'step2Title')}
+                    </h2>
                     <p className="text-xs text-[var(--ks-text-secondary)] mt-0.5">
-                      Country → Division → District → City/Upazila → Delivery Area
+                      {t(language, 'addressHierarchyHint')}
                     </p>
                   </div>
                   {profile.isAuthenticated && addresses.length > 0 && (
                     <select
-                      aria-label="Fill from saved address"
+                      aria-label={t(language, 'fillFromSavedAddress')}
                       onChange={(e) => {
                         const found = addresses.find((a) => a.id === e.target.value);
                         if (found) {
+                          addressEditedRef.current = true;
                           setCountry(found.country);
                           setStateDiv(found.state);
                           setCity(found.city);
@@ -1171,7 +1218,7 @@ export const CheckoutPage: React.FC = () => {
                       }}
                       className="min-h-[44px] px-3 text-base sm:text-xs rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-[var(--ks-text-primary)] max-w-full"
                     >
-                      <option value="">Load saved address...</option>
+                      <option value="">{t(language, 'loadSavedAddress')}</option>
                       {addresses.map((a) => (
                         <option key={a.id} value={a.id}>
                           {a.label} — {a.area || a.city} ({a.country})
@@ -1183,12 +1230,12 @@ export const CheckoutPage: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Select
-                    label="1. Country / Region"
+                    label={t(language, 'countryRegionField')}
                     required
                     value={country}
                     onChange={(e) => handleCountryChange(e.target.value)}
                     options={[
-                      { value: 'Bangladesh', label: 'Bangladesh (BDT Settlement)' },
+                      { value: 'Bangladesh', label: t(language, 'bdSettlementOption') },
                       { value: 'United States', label: 'United States' },
                       { value: 'Canada', label: 'Canada' },
                       { value: 'United Kingdom', label: 'United Kingdom' },
@@ -1197,7 +1244,7 @@ export const CheckoutPage: React.FC = () => {
 
                   {isBangladesh ? (
                     <Select
-                      label="2. Division"
+                      label={t(language, 'divisionField')}
                       required
                       value={activeDivEntry.name}
                       onChange={(e) => handleDivisionChange(e.target.value)}
@@ -1205,12 +1252,12 @@ export const CheckoutPage: React.FC = () => {
                     />
                   ) : (
                     <Input
-                      label="2. State / Province"
+                      label={t(language, 'stateProvinceField')}
                       required
                       value={stateDiv}
                       onChange={(e) => setStateDiv(e.target.value)}
                       error={errors.stateDiv}
-                      placeholder="State or Province"
+                      placeholder={t(language, 'stateProvincePlaceholder')}
                     />
                   )}
                 </div>
@@ -1218,7 +1265,7 @@ export const CheckoutPage: React.FC = () => {
                 {isBangladesh ? (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <Select
-                      label="3. District"
+                      label={t(language, 'districtField')}
                       required
                       value={activeDistEntry.name}
                       onChange={(e) => handleDistrictChange(e.target.value)}
@@ -1228,7 +1275,7 @@ export const CheckoutPage: React.FC = () => {
                       }))}
                     />
                     <Select
-                      label="4. City / Upazila"
+                      label={t(language, 'upazilaField')}
                       required
                       value={activeUpaEntry.name}
                       onChange={(e) => handleUpazilaChange(e.target.value)}
@@ -1238,31 +1285,31 @@ export const CheckoutPage: React.FC = () => {
                       }))}
                     />
                     <Select
-                      label="5. Delivery Area"
+                      label={t(language, 'deliveryAreaField')}
                       required
                       value={areaOptions.some((a) => a.name === area) ? area : areaOptions[0]?.name || ''}
                       onChange={(e) => handleAreaChange(e.target.value)}
                       options={areaOptions.map((a) => ({
                         value: a.name,
-                        label: a.restricted ? `${a.name} (Restricted)` : a.name,
+                        label: a.restricted ? `${a.name} (${t(language, 'restrictedBadge')})` : a.name,
                       }))}
                     />
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Input
-                      label="3. City"
+                      label={t(language, 'cityField')}
                       required
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
                       error={errors.city}
-                      placeholder="City"
+                      placeholder={t(language, 'cityField')}
                     />
                     <Input
-                      label="4. Neighborhood / Area"
+                      label={t(language, 'neighborhoodAreaField')}
                       value={area}
                       onChange={(e) => setArea(e.target.value)}
-                      placeholder="District or neighborhood"
+                      placeholder={t(language, 'neighborhoodPlaceholder')}
                     />
                   </div>
                 )}
@@ -1275,63 +1322,67 @@ export const CheckoutPage: React.FC = () => {
                     <AlertTriangle className="w-4 h-4 text-[var(--ks-error)] shrink-0 mt-0.5" />
                     <div className="space-y-1">
                       <p className="font-semibold text-[var(--ks-error)]">
-                        Restricted Delivery Zone Detected
+                        {t(language, 'restrictedZoneDetected')}
                       </p>
                       <p className="text-[var(--ks-text-secondary)]">
                         {quote?.shippingQuote.restrictionReason ||
-                          'Selected area is currently restricted for parcel dispatch. Choose another City/Upazila or District to proceed.'}
+                          t(language, 'restrictedZoneDefaultDesc')}
                       </p>
                     </div>
                   </div>
                 )}
 
                 {!isBangladesh && (
-                  <label className="flex items-start gap-2.5 p-3 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs cursor-pointer">
+                  <label className="flex items-start gap-2.5 min-h-[44px] p-3 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs cursor-pointer">
                     <input
                       type="checkbox"
                       checked={allowInternationalUsd}
                       onChange={(e) => setAllowInternationalUsd(e.target.checked)}
-                      className="mt-[2px] shrink-0 accent-[var(--ks-action)]"
+                      className="mt-[2px] w-4 h-4 shrink-0 accent-[var(--ks-action)]"
                     />
-                    <span className="leading-snug">
-                      Quote international order in USD (uncheck for BDT equivalent)
-                    </span>
+                    <span className="leading-snug">{t(language, 'quoteIntlUsdLabel')}</span>
                   </label>
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="sm:col-span-2">
                     <Input
-                      label="Street Address / House & Road"
+                      label={t(language, 'streetHouseRoadField')}
                       autoComplete="street-address"
                       required
                       value={streetAddress}
-                      onChange={(e) => setStreetAddress(e.target.value)}
+                      onChange={(e) => {
+                        addressEditedRef.current = true;
+                        setStreetAddress(e.target.value);
+                      }}
                       error={errors.streetAddress}
                       placeholder={
                         isBangladesh
-                          ? 'House, road, sector, or flat number'
-                          : 'Street address, suite, or apartment'
+                          ? t(language, 'streetBdPlaceholder')
+                          : t(language, 'streetIntlPlaceholder')
                       }
                     />
                   </div>
                   <Input
-                    label="Postal Code"
+                    label={t(language, 'postalCodeField')}
                     autoComplete="postal-code"
                     required
                     value={postalCode}
-                    onChange={(e) => setPostalCode(e.target.value)}
+                    onChange={(e) => {
+                      addressEditedRef.current = true;
+                      setPostalCode(e.target.value);
+                    }}
                     error={errors.postalCode}
                     placeholder={isBangladesh ? '1213' : 'Postal / ZIP'}
                   />
                 </div>
 
                 <Textarea
-                  label="Delivery Instructions (Optional)"
+                  label={t(language, 'deliveryInstructionsField')}
                   rows={2}
                   value={instructions}
                   onChange={(e) => setInstructions(e.target.value)}
-                  placeholder="Gate security note, floor number, or preferred delivery window..."
+                  placeholder={t(language, 'deliveryInstructionsPlaceholder')}
                 />
               </div>
             )}
@@ -1339,11 +1390,16 @@ export const CheckoutPage: React.FC = () => {
             {step === 3 && (
               <div className="space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="font-display text-2xl font-medium">3. Delivery Method</h2>
+                  <h2 className="font-display text-2xl font-medium">{t(language, 'step3Title')}</h2>
                   {quote && (
                     <span className="text-xs font-mono-num text-[var(--ks-accent)]">
-                      Zone: {quote.shippingQuote.zoneLabel} · {quote.shippingQuote.totalWeightKg} kg
-                      {quote.shippingQuote.hasBulkyItems ? ' · Bulky Handling' : ''}
+                      {t(language, 'zoneWeightSummary', {
+                        zone: quote.shippingQuote.zoneLabel,
+                        weight: quote.shippingQuote.totalWeightKg,
+                      })}
+                      {quote.shippingQuote.hasBulkyItems
+                        ? ` · ${t(language, 'bulkyHandlingTag')}`
+                        : ''}
                     </span>
                   )}
                 </div>
@@ -1351,8 +1407,8 @@ export const CheckoutPage: React.FC = () => {
                 {shippingOptions.length === 0 ? (
                   <div className="p-6 rounded-lg border border-[var(--ks-border)] bg-[var(--ks-bg)] text-sm text-[var(--ks-text-secondary)]">
                     {quoteLoading
-                      ? 'Calculating delivery options and courier rates for your destination...'
-                      : 'Unable to resolve courier routes for this location yet.'}
+                      ? t(language, 'calculatingRoutes')
+                      : t(language, 'unableResolveRoutes')}
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -1381,10 +1437,12 @@ export const CheckoutPage: React.FC = () => {
                             <div className="min-w-0 flex-1">
                               <p className="text-sm font-semibold leading-snug">{opt.title}</p>
                               <p className="text-xs text-[var(--ks-text-secondary)] mt-0.5 leading-snug">
-                                Courier: {opt.courier}
+                                {t(language, 'courierPrefix', { name: opt.courier })}
                               </p>
                               <p className="text-xs font-medium text-[var(--ks-accent)] mt-1 leading-snug">
-                                {opt.available ? opt.eta : opt.reason || 'Unavailable for this route'}
+                                {opt.available
+                                  ? opt.eta
+                                  : opt.reason || t(language, 'unavailableRoute')}
                               </p>
                             </div>
                           </div>
@@ -1392,7 +1450,7 @@ export const CheckoutPage: React.FC = () => {
                             {!opt.available
                               ? 'N/A'
                               : opt.costUsd === 0
-                              ? 'Complimentary'
+                              ? t(language, 'complimentary')
                               : formatCurrency(opt.costUsd, currency)}
                           </span>
                         </label>
@@ -1408,15 +1466,15 @@ export const CheckoutPage: React.FC = () => {
             {step === 4 && (
               <div className="space-y-5">
                 <div>
-                  <h2 className="font-display text-2xl font-medium">4. Payment Method</h2>
+                  <h2 className="font-display text-2xl font-medium">{t(language, 'step4Title')}</h2>
                   <p className="text-xs text-[var(--ks-text-secondary)] mt-1">
-                    Only configured, server-verified payment channels are enabled for checkout. Bangladesh deliveries settle in BDT (৳).
+                    {t(language, 'paymentChannelsHint')}
                   </p>
                 </div>
 
                 {!quote?.shippingQuote.codEligible && quote?.shippingQuote.codReason && (
                   <div className="p-3 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs text-[var(--ks-warning)]">
-                    Cash on Delivery Notice: {quote.shippingQuote.codReason}
+                    {t(language, 'codNoticePrefix', { reason: quote.shippingQuote.codReason })}
                   </div>
                 )}
 
@@ -1426,17 +1484,19 @@ export const CheckoutPage: React.FC = () => {
                     className="p-4 rounded-md border border-[var(--ks-error)]/40 bg-[var(--ks-error)]/8 text-xs space-y-1.5"
                   >
                     <p className="font-semibold text-[var(--ks-error)]">
-                      No Online Payment Gateway Configured Yet
+                      {t(language, 'noGatewayConfigured')}
                     </p>
                     <p className="text-[var(--ks-text-secondary)] leading-relaxed">
                       {isBangladesh
-                        ? 'Cash on Delivery is unavailable for this item or order tier, and online merchant gateway credentials are not configured in this environment.'
-                        : 'Online card gateways are not currently configured for international orders. Select a serviceable Bangladesh shipping address for Cash on Delivery.'}
+                        ? t(language, 'noGatewayBdDesc')
+                        : t(language, 'noGatewayIntlDesc')}
                     </p>
                   </div>
                 ) : (
                   <div className="space-y-2.5">
-                    {operationalChannels.map(({ id, label, sub, group }) => {
+                    {operationalChannels.map(({ id, group }) => {
+                      const label = t(language, `payLabel_${id}` as Parameters<typeof t>[1]);
+                      const sub = t(language, `paySub_${id}` as Parameters<typeof t>[1]);
                       const Icon =
                         group === 'mfs'
                           ? Smartphone
@@ -1489,7 +1549,7 @@ export const CheckoutPage: React.FC = () => {
                   hasOperationalPayment && (
                     <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)]">
                       <Input
-                        label="Bangladesh Mobile Wallet Number"
+                        label={t(language, 'bdWalletNumberLabel')}
                         type="tel"
                         inputMode="tel"
                         autoComplete="tel"
@@ -1497,7 +1557,7 @@ export const CheckoutPage: React.FC = () => {
                         onChange={(e) => setMobileWalletNumber(e.target.value)}
                         error={errors.mobileWallet}
                         placeholder="017XXXXXXXX"
-                        helperText="Submitted to the merchant payment gateway during authorization."
+                        helperText={t(language, 'bdWalletHelper')}
                       />
                     </div>
                   )}
@@ -1505,12 +1565,14 @@ export const CheckoutPage: React.FC = () => {
                 {unconfiguredChannels.length > 0 && (
                   <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-1.5 text-xs">
                     <p className="font-medium text-[var(--ks-text-primary)]">
-                      Online Gateways Pending Merchant Credentials
+                      {t(language, 'pendingMerchantCreds')}
                     </p>
                     <p className="text-[var(--ks-text-secondary)] leading-relaxed">
-                      {unconfiguredChannels.map((c) => c.label.split(' ')[0]).join(', ')} are
-                      disabled until merchant API keys are added in server configuration. Unconfigured
-                      channels are never simulated.
+                      {t(language, 'pendingMerchantCredsDesc', {
+                        channels: unconfiguredChannels
+                          .map((c) => t(language, `payLabel_${c.id}` as Parameters<typeof t>[1]))
+                          .join(', '),
+                      })}
                     </p>
                   </div>
                 )}
@@ -1523,12 +1585,12 @@ export const CheckoutPage: React.FC = () => {
 
             {step === 5 && (
               <div className="space-y-6">
-                <h2 className="font-display text-2xl font-medium">5. Order Review</h2>
+                <h2 className="font-display text-2xl font-medium">{t(language, 'step5Title')}</h2>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-1">
                     <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
-                      Ship To
+                      {t(language, 'shipToHeading')}
                     </p>
                     <p className="font-medium">{fullName}</p>
                     <p className="text-xs text-[var(--ks-text-secondary)]">{streetAddress}</p>
@@ -1541,10 +1603,10 @@ export const CheckoutPage: React.FC = () => {
 
                   <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-1">
                     <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
-                      Delivery &amp; Payment
+                      {t(language, 'deliveryPaymentHeading')}
                     </p>
                     <p className="font-medium">
-                      {selectedDelivery ? selectedDelivery.title : 'Pending zone quote'}
+                      {selectedDelivery ? selectedDelivery.title : t(language, 'pendingZoneQuote')}
                     </p>
                     {selectedDelivery && (
                       <p className="text-xs text-[var(--ks-text-secondary)]">
@@ -1552,7 +1614,7 @@ export const CheckoutPage: React.FC = () => {
                       </p>
                     )}
                     <p className="text-xs text-[var(--ks-accent)] pt-1 font-medium">
-                      {PAYMENT_CHANNEL_META.find((p) => p.id === paymentMethod)?.label ||
+                      {t(language, `payLabel_${paymentMethod}` as Parameters<typeof t>[1]) ||
                         paymentMethod}
                     </p>
                   </div>
@@ -1563,7 +1625,9 @@ export const CheckoutPage: React.FC = () => {
                     <div className="flex items-baseline justify-between gap-3 font-medium">
                       <span className="inline-flex items-start gap-1.5 min-w-0 leading-snug">
                         <ShieldCheck className="w-3.5 h-3.5 mt-[2px] text-[var(--ks-success)] shrink-0" />
-                        <span>Authoritative Currency Settlement ({quote.currency})</span>
+                        <span>
+                          {t(language, 'authoritativeSettlement', { currency: quote.currency })}
+                        </span>
                       </span>
                       <span className="font-mono-num font-semibold shrink-0 text-end tabular-nums">
                         {formatDirectCurrency(quote.totalCharged, quote.currency)}
@@ -1587,7 +1651,7 @@ export const CheckoutPage: React.FC = () => {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{item.name}</p>
                         <p className="text-xs text-[var(--ks-text-secondary)]">
-                          {item.color} · {item.size} · Qty {item.quantity} ·{' '}
+                          {item.color} · {item.size} · {t(language, 'qtyShort', { count: item.quantity })} ·{' '}
                           {((item.weightKg || 1) * item.quantity).toFixed(1)} kg
                         </p>
                       </div>
@@ -1602,7 +1666,7 @@ export const CheckoutPage: React.FC = () => {
                 {Array.from(new Set(cart.map((c) => c.category))).length > 0 && (
                   <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-2">
                     <p className="text-xs font-semibold text-[var(--ks-text-primary)]">
-                      Applicable Product Safety &amp; Import Disclosures
+                      {t(language, 'applicableSafetyDisclosures')}
                     </p>
                     <ul className="space-y-1.5 text-xs text-[var(--ks-text-secondary)] leading-snug">
                       {Array.from(new Set(cart.map((c) => c.category)))
@@ -1642,13 +1706,13 @@ export const CheckoutPage: React.FC = () => {
                       className="mt-0.5 w-4 h-4 shrink-0 accent-[var(--ks-action)] cursor-pointer"
                     />
                     <span>
-                      I confirm I am 18+ and agree to Kinto Studio&apos;s{' '}
+                      {t(language, 'agePolicyConfirmPrefix')}{' '}
                       <button
                         type="button"
                         onClick={() => openPolicyPreview('terms')}
                         className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                       >
-                        Terms of Service
+                        {t(language, 'termsConditions')}
                       </button>
                       ,{' '}
                       <button
@@ -1656,7 +1720,7 @@ export const CheckoutPage: React.FC = () => {
                         onClick={() => openPolicyPreview('return-policy')}
                         className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                       >
-                        Returns &amp; Refunds
+                        {t(language, 'returnsRefunds')}
                       </button>
                       ,{' '}
                       <button
@@ -1664,7 +1728,7 @@ export const CheckoutPage: React.FC = () => {
                         onClick={() => openPolicyPreview('shipping-policy')}
                         className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                       >
-                        Shipping &amp; Customs Policy
+                        {t(language, 'shippingCustomsPolicy')}
                       </button>
                       ,{' '}
                       <button
@@ -1672,17 +1736,17 @@ export const CheckoutPage: React.FC = () => {
                         onClick={() => openPolicyPreview('product-safety')}
                         className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                       >
-                        Product Safety Disclaimers
+                        {t(language, 'productSafetyDisclaimers')}
                       </button>
-                      , and{' '}
+                      ,{' '}
                       <button
                         type="button"
                         onClick={() => openPolicyPreview('privacy-policy')}
                         className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
                       >
-                        Privacy Policy
+                        {t(language, 'privacyPolicy')}
                       </button>{' '}
-                      under Bangladesh law (Dhaka courts).
+                      {t(language, 'underBdLawCourts')}
                     </span>
                   </label>
                   {checkoutConsentError && (
@@ -1693,18 +1757,19 @@ export const CheckoutPage: React.FC = () => {
                 </div>
               </div>
             )}
-          </motion.div>
+            </motion.div>
+          </AnimatePresence>
 
           {/* Step Navigation Controls */}
           <div className="pt-4 border-t border-[var(--ks-border)] flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
             {step > 1 ? (
               <Button variant="outline" size="md" onClick={() => setStep((s) => s - 1)}>
                 <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
-                <span>Back</span>
+                <span>{t(language, 'backBtn')}</span>
               </Button>
             ) : (
               <Button variant="ghost" size="md" onClick={() => navigate({ name: 'cart' })}>
-                Return to Bag
+                {t(language, 'returnToBagBtn')}
               </Button>
             )}
 
@@ -1719,7 +1784,7 @@ export const CheckoutPage: React.FC = () => {
                   (step === 4 && !hasOperationalPayment)
                 }
               >
-                <span>Continue</span>
+                <span>{t(language, 'continueBtn')}</span>
                 <ArrowRight className="w-4 h-4 rtl:rotate-180" />
               </Button>
             ) : (
@@ -1738,19 +1803,19 @@ export const CheckoutPage: React.FC = () => {
                 <span>
                   {initiatingPayment
                     ? paymentMethod === 'cod'
-                      ? 'Confirming Order...'
-                      : 'Starting Gateway...'
+                      ? t(language, 'confirmingOrder')
+                      : t(language, 'startingGateway')
                     : paymentMethod === 'cod'
-                    ? `Place COD Order · ${
-                        quote
+                    ? t(language, 'placeCodOrderBtn', {
+                        amount: quote
                           ? formatDirectCurrency(quote.totalCharged, quote.currency)
-                          : formatCurrency(summaryTotalUsd, currency)
-                      }`
-                    : `Proceed to Payment · ${
-                        quote
+                          : formatCurrency(summaryTotalUsd, currency),
+                      })
+                    : t(language, 'proceedToPaymentBtn', {
+                        amount: quote
                           ? formatDirectCurrency(quote.totalCharged, quote.currency)
-                          : formatCurrency(summaryTotalUsd, currency)
-                      }`}
+                          : formatCurrency(summaryTotalUsd, currency),
+                      })}
                 </span>
               </Button>
             )}
@@ -1760,10 +1825,12 @@ export const CheckoutPage: React.FC = () => {
         {/* Sticky Desktop Bag Summary Sidebar */}
         <aside className="hidden lg:block lg:col-span-5 lg:sticky lg:top-28 p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-5">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="font-display text-2xl font-medium">In Your Bag ({cart.length})</h2>
+            <h2 className="font-display text-2xl font-medium">
+              {t(language, 'inYourBagCount', { count: cart.length })}
+            </h2>
             {quoteLoading && (
               <span className="text-[11px] font-mono-num text-[var(--ks-accent)]">
-                Calculating...
+                {t(language, 'calculatingQuote')}
               </span>
             )}
           </div>
@@ -1780,26 +1847,26 @@ export const CheckoutPage: React.FC = () => {
             handleVerifyGateway('cancelled');
           }
         }}
-        title={paymentSession ? paymentSession.provider : 'Gateway Verification'}
+        title={paymentSession ? paymentSession.provider : t(language, 'gatewayVerificationTitle')}
         maxWidthClass="max-w-lg"
       >
         {paymentSession && (
           <div className="space-y-5 text-sm">
             <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-2">
               <div className="flex items-baseline justify-between gap-4 text-xs text-[var(--ks-text-muted)]">
-                <span className="min-w-0">Transaction Reference</span>
+                <span className="min-w-0">{t(language, 'transactionRefLabel')}</span>
                 <span className="font-mono-num font-semibold text-[var(--ks-text-primary)] shrink-0 text-end">
                   {paymentSession.transactionRef}
                 </span>
               </div>
               <div className="flex items-baseline justify-between gap-4 text-xs text-[var(--ks-text-muted)]">
-                <span className="min-w-0">Settlement Amount</span>
+                <span className="min-w-0">{t(language, 'settlementAmountLabel')}</span>
                 <span className="font-mono-num text-base font-semibold text-[var(--ks-accent)] shrink-0 text-end tabular-nums">
                   {formatDirectCurrency(paymentSession.amount, paymentSession.currency)}
                 </span>
               </div>
               <div className="flex items-baseline justify-between gap-4 text-xs text-[var(--ks-text-muted)]">
-                <span className="min-w-0">Status</span>
+                <span className="min-w-0">{t(language, 'statusLabel')}</span>
                 <span className="font-mono-num uppercase shrink-0 text-end">
                   {paymentSession.status}
                 </span>
@@ -1819,11 +1886,13 @@ export const CheckoutPage: React.FC = () => {
                 onClick={() => handleVerifyGateway('paid')}
               >
                 {verifyingPayment
-                  ? 'Verifying with Server...'
-                  : `Verify Payment · ${formatDirectCurrency(
-                      paymentSession.amount,
-                      paymentSession.currency
-                    )}`}
+                  ? t(language, 'verifyingWithServer')
+                  : t(language, 'verifyPaymentBtn', {
+                      amount: formatDirectCurrency(
+                        paymentSession.amount,
+                        paymentSession.currency
+                      ),
+                    })}
               </Button>
 
               <Button
@@ -1833,7 +1902,7 @@ export const CheckoutPage: React.FC = () => {
                 disabled={verifyingPayment}
                 onClick={() => handleVerifyGateway('cancelled')}
               >
-                Cancel Payment
+                {t(language, 'cancelPaymentBtn')}
               </Button>
             </div>
           </div>
