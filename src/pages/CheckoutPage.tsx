@@ -389,7 +389,7 @@ export const CheckoutPage: React.FC = () => {
 
   if (cart.length === 0 && step < 6) {
     return (
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-16">
+      <div className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-16">
         <div className="rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)]">
           <EmptyState
             icon={<ShoppingBag className="w-6 h-6" />}
@@ -1029,7 +1029,7 @@ export const CheckoutPage: React.FC = () => {
   );
 
   return (
-    <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-12 space-y-6 lg:space-y-8">
+    <div className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-12 space-y-6 lg:space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 sm:pb-6 border-b border-[var(--ks-border)]">
         <div>
           <p className="text-xs text-[var(--ks-text-muted)] uppercase tracking-wider">

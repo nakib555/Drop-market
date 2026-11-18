@@ -32,20 +32,20 @@
   --ks-font-display: 'Cormorant Garamond', 'Noto Sans Bengali', 'Noto Sans Arabic', 'Noto Sans Devanagari', Georgia, serif;
   --ks-font-sans: 'Plus Jakarta Sans', 'Noto Sans Bengali', 'Noto Sans Arabic', 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, sans-serif;
   --ks-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
-  --ks-container-max: 1440px;
+  --ks-container-max: 90rem;
 
   /* Radii & Elevation Tokens */
-  --ks-radius-sm: 4px;
-  --ks-radius-md: 6px;
-  --ks-radius-lg: 8px;
+  --ks-radius-sm: 0.25rem;
+  --ks-radius-md: 0.375rem;
+  --ks-radius-lg: 0.5rem;
   --ks-shadow-card-hover: 0 10px 26px -12px rgb(24 24 22 / 0.12);
   --ks-shadow-overlay: 0 20px 44px -12px rgb(24 24 22 / 0.18);
 
   /* Control Dimension & Motion Tokens */
-  --ks-height-xs: 36px;
-  --ks-height-sm: 40px;
-  --ks-height-md: 42px;
-  --ks-height-lg: 48px;
+  --ks-height-xs: 2.25rem;
+  --ks-height-sm: 2.5rem;
+  --ks-height-md: 2.625rem;
+  --ks-height-lg: 3rem;
   --ks-duration-fast: 150ms;
   --ks-duration-base: 220ms;
   --ks-ease-standard: cubic-bezier(0.2, 0, 0, 1);
@@ -104,6 +104,7 @@
 
 @layer base {
   html {
+    font-size: 90%;
     font-family: var(--ks-font-sans);
     background-color: var(--ks-bg);
     color: var(--ks-text-primary);
@@ -217,7 +218,7 @@
 
   .ks-heading-hero {
     font-family: var(--ks-font-display);
-    font-size: clamp(2.125rem, 3.8vw, 3.5rem);
+    font-size: clamp(2.125rem, 3.42vw, 3.5rem);
     font-weight: 500;
     line-height: 1.06;
     letter-spacing: -0.015em;
@@ -226,7 +227,7 @@
 
   .ks-heading-section {
     font-family: var(--ks-font-display);
-    font-size: clamp(1.75rem, 2.5vw, 2.25rem);
+    font-size: clamp(1.75rem, 2.25vw, 2.25rem);
     font-weight: 500;
     line-height: 1.15;
     letter-spacing: -0.01em;

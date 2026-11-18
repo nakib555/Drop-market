@@ -117,7 +117,7 @@ export const ProductDetailSkeleton: React.FC = () => {
     role="status"
     aria-busy="true"
     aria-label={loadingText}
-    className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-12 pb-20 lg:pb-16 space-y-14"
+    className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-12 pb-20 lg:pb-16 space-y-14"
   >
     <span className="sr-only">{loadingText}...</span>
 
@@ -266,7 +266,7 @@ const RouteSkeletonShell: React.FC<RouteSkeletonShellProps> = ({ label, children
 };
 
 const HomeRouteSkeleton: React.FC = () => (
-  <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 pt-4 sm:pt-6 lg:pt-8 space-y-12 sm:space-y-16">
+  <div className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 pt-4 sm:pt-6 lg:pt-8 space-y-12 sm:space-y-16">
     {/* Split Hero Skeleton */}
     <div className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-10 items-stretch">
       <div className="md:col-span-6 lg:col-span-5 flex flex-col justify-between py-1 lg:py-4 space-y-6">
@@ -293,7 +293,7 @@ const HomeRouteSkeleton: React.FC = () => (
       </div>
 
       <div className="md:col-span-6 lg:col-span-7">
-        <SkeletonLoader className="w-full h-56 sm:h-80 md:h-full md:min-h-[380px] lg:h-[430px] xl:h-[500px] rounded-lg" />
+        <SkeletonLoader className="w-full h-56 sm:h-80 md:h-full md:min-h-[23.75rem] lg:h-[26.875rem] xl:h-[31.25rem] rounded-lg" />
       </div>
     </div>
 
@@ -326,7 +326,7 @@ const HomeRouteSkeleton: React.FC = () => (
 );
 
 const ShopRouteSkeleton: React.FC = () => (
-  <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-10 space-y-8">
+  <div className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-10 space-y-8">
     {/* Breadcrumb Skeleton */}
     <div className="flex items-center gap-2">
       <SkeletonLoader className="h-3.5 w-12" />
@@ -366,7 +366,7 @@ const ShopRouteSkeleton: React.FC = () => (
 );
 
 const WorkspaceRouteSkeleton: React.FC = () => (
-  <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-8">
+  <div className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-8">
     <div className="flex items-center gap-2">
       <SkeletonLoader className="h-3.5 w-12" />
       <SkeletonLoader className="h-3.5 w-28" />
@@ -401,7 +401,7 @@ const WorkspaceRouteSkeleton: React.FC = () => (
 );
 
 const EditorialRouteSkeleton: React.FC = () => (
-  <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-10">
+  <div className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-10">
     <div className="flex items-center gap-2">
       <SkeletonLoader className="h-3.5 w-12" />
       <SkeletonLoader className="h-3.5 w-28" />

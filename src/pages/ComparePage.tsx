@@ -13,7 +13,7 @@ export const ComparePage: React.FC = () => {
   const addable = products.filter((p) => !compareIds.includes(p.id));
 
   return (
-    <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-10">
+    <div className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-10">
       <Breadcrumb
         items={[
           { label: t(language, 'home'), onClick: () => navigate({ name: 'home' }) },

@@ -174,7 +174,7 @@ export const ProductDetailPage: React.FC = () => {
 
   if (!product) {
     return (
-      <div className="max-w-[1440px] mx-auto px-4 py-16">
+      <div className="max-w-[var(--ks-container-max)] mx-auto px-4 py-16">
         <EmptyState
           title={t(language, 'productNotFound')}
           description={t(language, 'productNotFoundDesc')}
@@ -266,7 +266,7 @@ export const ProductDetailPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-12 pb-20 lg:pb-16 space-y-14">
+    <div className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-12 pb-20 lg:pb-16 space-y-14">
       <Breadcrumb
         items={[
           { label: t(language, 'home'), onClick: () => navigate({ name: 'home' }) },

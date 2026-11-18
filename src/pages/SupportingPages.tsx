@@ -58,7 +58,7 @@ const translateLegalGroup = (
 export const BrandsPage: React.FC = () => {
   const { navigate, products, language } = useStore();
   return (
-    <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-8 sm:space-y-10">
+    <div className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-8 sm:space-y-10">
       <Breadcrumb
         items={[
           { label: t(language, 'home'), onClick: () => navigate({ name: 'home' }) },
@@ -135,7 +135,7 @@ export const JournalPage: React.FC = () => {
   const [selectedArticle, setSelectedArticle] = useState<JournalArticle | null>(null);
 
   return (
-    <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-8 sm:space-y-10">
+    <div className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-8 sm:space-y-10">
       <Breadcrumb
         items={[
           { label: t(language, 'home'), onClick: () => navigate({ name: 'home' }) },
@@ -562,7 +562,7 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
   };
 
   return (
-    <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-12 space-y-6 lg:space-y-8">
+    <div className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-12 space-y-6 lg:space-y-8">
       <Breadcrumb
         items={[
           { label: t(language, 'home'), onClick: () => navigate({ name: 'home' }) },
@@ -934,7 +934,7 @@ export const LegalCenterPage: React.FC = () => {
   ];
 
   return (
-    <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-10">
+    <div className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-10">
       <Breadcrumb
         items={[
           { label: t(language, 'home'), onClick: () => navigate({ name: 'home' }) },

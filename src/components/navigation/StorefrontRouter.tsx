@@ -58,7 +58,7 @@ interface RouteChunkErrorBoundaryState {
 const RouteErrorFallback: React.FC<{ onRetry: () => void }> = ({ onRetry }) => {
   const { language } = useStore();
   return (
-    <div className="min-h-[60vh] max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-16 flex items-center justify-center">
+    <div className="min-h-[60vh] max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-16 flex items-center justify-center">
       <div className="max-w-md w-full p-6 sm:p-8 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] text-center space-y-4">
         <h2 className="font-display text-2xl font-medium text-[var(--ks-text-primary)]">
           {t(language, 'unableToLoadView')}

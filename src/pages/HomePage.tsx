@@ -260,7 +260,7 @@ export const HomePage: React.FC = () => {
           </div>
 
           <div className="md:col-span-6 lg:col-span-7">
-            <div className="relative h-56 sm:h-80 md:h-full md:min-h-[380px] lg:h-[430px] xl:h-[500px] rounded-[var(--ks-radius-lg)] overflow-hidden bg-[var(--ks-surface-muted)]">
+            <div className="relative h-56 sm:h-80 md:h-full md:min-h-[23.75rem] lg:h-[26.875rem] xl:h-[31.25rem] rounded-[var(--ks-radius-lg)] overflow-hidden bg-[var(--ks-surface-muted)]">
               <ResilientImage
                 src={HERO_IMAGE}
                 alt="Living space arranged with oak seating, warm lighting, and wireless audio hardware"
@@ -367,7 +367,7 @@ export const HomePage: React.FC = () => {
                     <p className="text-[11px] text-[var(--ks-text-muted)] truncate">
                       {cat.countLabel}
                     </p>
-                    <p className="text-sm sm:text-[15px] font-medium mt-0.5 text-[var(--ks-text-primary)] group-hover:text-[var(--ks-accent)] transition-colors line-clamp-1">
+                    <p className="text-sm sm:text-[0.9375rem] font-medium mt-0.5 text-[var(--ks-text-primary)] group-hover:text-[var(--ks-accent)] transition-colors line-clamp-1">
                       {localizedName}
                     </p>
                   </div>
