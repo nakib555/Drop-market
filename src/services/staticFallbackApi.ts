@@ -485,8 +485,19 @@ export function staticFetchStorefrontSync(): {
   publishedPolicies: PolicyDocumentRecord[];
   policyFactsPublic: PolicyFactsPublicSummary;
   cookieInventory: CookieInventoryItem[];
+  enabledPaymentMethods: PaymentMethodId[];
 } {
   const db = getStaticDb();
+  const candidates: PaymentMethodId[] = [
+    'cod',
+    'bkash',
+    'nagad',
+    'rocket',
+    'visa',
+    'mastercard',
+    'sslcommerz',
+    'bank-transfer',
+  ];
   return {
     productOverrides: db.productOverrides,
     sellerProducts: db.sellerCreatedProducts,
@@ -498,6 +509,7 @@ export function staticFetchStorefrontSync(): {
     publishedPolicies: getPublicPublishedPolicies(db.policies),
     policyFactsPublic: buildPublicFactsSummary(db.policyFacts),
     cookieInventory: buildActiveCookieInventory(),
+    enabledPaymentMethods: candidates.filter((id) => getGatewayConfigStatus(id).enabled),
   };
 }
 

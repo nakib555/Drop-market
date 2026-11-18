@@ -319,6 +319,7 @@ export async function fetchStorefrontSync(): Promise<{
   publishedPolicies?: PolicyDocumentRecord[];
   policyFactsPublic?: PolicyFactsPublicSummary;
   cookieInventory?: CookieInventoryItem[];
+  enabledPaymentMethods?: import('../types/commerce').PaymentMethodId[];
 }> {
   return withStaticFallback(
     () => requestJson('/api/storefront/state'),

@@ -62,6 +62,7 @@ import {
   ManagedPromoRecord,
   NotificationPrefs,
   Order,
+  PaymentMethodId,
   PaymentMethodRecord,
   PendingAction,
   PolicyDocumentRecord,
@@ -408,6 +409,7 @@ interface StoreContextValue {
   publishedPolicies: PolicyDocumentRecord[];
   policyFactsPublic: PolicyFactsPublicSummary;
   cookieInventory: CookieInventoryItem[];
+  enabledPaymentMethods: PaymentMethodId[];
   refreshPublishedPolicies: () => Promise<void>;
   trackOptionalEvent: (name: string, meta?: { route?: string; category?: string }) => boolean;
 }
@@ -538,6 +540,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [cookieInventory, setCookieInventory] = useState<CookieInventoryItem[]>(() =>
     buildActiveCookieInventory()
   );
+  const [enabledPaymentMethods, setEnabledPaymentMethods] = useState<PaymentMethodId[]>(['cod']);
 
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
@@ -597,6 +600,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       if (Array.isArray(sync.cookieInventory) && sync.cookieInventory.length > 0) {
         setCookieInventory(sync.cookieInventory);
+      }
+      if (Array.isArray(sync.enabledPaymentMethods)) {
+        setEnabledPaymentMethods(sync.enabledPaymentMethods);
       }
     },
     []
@@ -2433,6 +2439,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       publishedPolicies,
       policyFactsPublic,
       cookieInventory,
+      enabledPaymentMethods,
       refreshPublishedPolicies,
       trackOptionalEvent,
     }),
@@ -2548,6 +2555,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       publishedPolicies,
       policyFactsPublic,
       cookieInventory,
+      enabledPaymentMethods,
       refreshPublishedPolicies,
       trackOptionalEvent,
     ]

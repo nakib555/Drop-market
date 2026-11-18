@@ -977,7 +977,7 @@ const EN_STRINGS = {
   checkoutGuestClaimDesc: 'Your guest order #{orderId} is confirmed. Create an account in seconds using your checkout details to track, manage returns, and reorder faster.',
   checkoutGuestClaimCta: 'Create account & save order',
   authOrderClaimedToast: 'Guest order linked to your account.',
-  footerShortSubtitle: 'Your trusted shopping destination',
+  footerShortSubtitle: 'Your trusted shopping destination.',
   footerCustomerServiceHeading: 'Customer Service',
   footerShoppingHeading: 'Shopping',
   footerForSellersHeading: 'For Sellers',
@@ -999,6 +999,19 @@ const EN_STRINGS = {
   authMarketingOptInLabel: 'Send me occasional restock alerts, studio dispatches, and promotional offers (optional)',
   authMarketingOptInHint: 'Optional — never required to create an account or place an order.',
   authPrivacyShortNotice: 'Account data handling is detailed in our',
+  newsletterSubtext: 'Get updates on new arrivals, exclusive offers and more.',
+  newsletterPrivacyPrefix: 'By subscribing, you agree to our',
+  followUsHeading: 'Follow Kinto Studio',
+  footerNavAria: 'Footer navigation',
+  shoppingPreferencesHeading: 'Shopping Preferences',
+  currencySettlementNote: 'Display currency only; Bangladesh orders settle in BDT.',
+  cookieStatusAccepted: 'All Accepted',
+  cookieStatusEssential: 'Essential Only',
+  cookieStatusCustom: 'Custom',
+  cookieStatusUnset: 'Action Needed',
+  acceptedPaymentsHeading: 'Checkout Payment',
+  paymentMarkCod: 'Cash on Delivery',
+  footerAllRightsReserved: '© {year} Kinto Studio. All rights reserved.',
 } as const;
 
 export type UiStringKey = keyof typeof EN_STRINGS;
@@ -1956,6 +1969,19 @@ const BN_STRINGS: Record<UiStringKey, string> = {
   authMarketingOptInLabel: 'রিস্টক সতর্কতা, স্টুডিও আপডেট এবং প্রোমোশনাল অফার পাঠান (ঐচ্ছিক)',
   authMarketingOptInHint: 'ঐচ্ছিক — অ্যাকাউন্ট তৈরি বা অর্ডার করার জন্য বাধ্যতামূলক নয়।',
   authPrivacyShortNotice: 'অ্যাকাউন্ট ডেটা ব্যবহারের বিবরণ রয়েছে আমাদের',
+  newsletterSubtext: 'নতুন পণ্য, বিশেষ অফার এবং আরও অনেক কিছুর আপডেট পান।',
+  newsletterPrivacyPrefix: 'সাবস্ক্রাইব করলে আপনি সম্মত হচ্ছেন আমাদের',
+  followUsHeading: 'কিন্টো স্টুডিও অনুসরণ করুন',
+  footerNavAria: 'ফুটার নেভিগেশন',
+  shoppingPreferencesHeading: 'শপিং পছন্দসমূহ',
+  currencySettlementNote: 'শুধুমাত্র প্রদর্শন মুদ্রা; বাংলাদেশের অর্ডার BDT-তে পরিশোধিত হয়।',
+  cookieStatusAccepted: 'সব গৃহীত',
+  cookieStatusEssential: 'শুধু প্রয়োজনীয়',
+  cookieStatusCustom: 'কাস্টম',
+  cookieStatusUnset: 'সিদ্ধান্ত বাকি',
+  acceptedPaymentsHeading: 'চেকআউট পেমেন্ট',
+  paymentMarkCod: 'ক্যাশ অন ডেলিভারি',
+  footerAllRightsReserved: '© {year} কিন্টো স্টুডিও। সর্বস্বত্ব সংরক্ষিত।',
 };
 
 const HI_STRINGS: Record<UiStringKey, string> = {
@@ -2911,6 +2937,19 @@ const HI_STRINGS: Record<UiStringKey, string> = {
   authMarketingOptInLabel: 'मुझे रीस्टॉक अलर्ट, स्टूडियो अपडेट और ऑफ़र ईमेल भेजें (वैकल्पिक)',
   authMarketingOptInHint: 'वैकल्पिक — खाता बनाने या ऑर्डर करने के लिए आवश्यक नहीं।',
   authPrivacyShortNotice: 'खाता डेटा उपयोग का विवरण हमारे यहाँ उपलब्ध है:',
+  newsletterSubtext: 'नए कलेक्शन, विशेष ऑफ़र और अपडेट की जानकारी पाएं।',
+  newsletterPrivacyPrefix: 'सदस्यता लेकर आप हमारी शर्तों से सहमत हैं:',
+  followUsHeading: 'किंटो स्टूडियो को फ़ॉलो करें',
+  footerNavAria: 'फ़ुटर नेविगेशन',
+  shoppingPreferencesHeading: 'शॉपिंग प्राथमिकताएं',
+  currencySettlementNote: 'केवल प्रदर्शन मुद्रा; बांग्लादेश के ऑर्डर BDT में सेटल होते हैं।',
+  cookieStatusAccepted: 'सभी स्वीकृत',
+  cookieStatusEssential: 'केवल आवश्यक',
+  cookieStatusCustom: 'कस्टम',
+  cookieStatusUnset: 'चयन बाकी',
+  acceptedPaymentsHeading: 'चेकआउट भुगतान',
+  paymentMarkCod: 'कैश ऑन डिलीवरी',
+  footerAllRightsReserved: '© {year} किंटो स्टूडियो। सर्वाधिकार सुरक्षित।',
 };
 
 const AR_STRINGS: Record<UiStringKey, string> = {
@@ -3866,6 +3905,19 @@ const AR_STRINGS: Record<UiStringKey, string> = {
   authMarketingOptInLabel: 'أرسل لي تنبيهات التوفر ونشرات المتجر والعروض الترويجية (اختياري)',
   authMarketingOptInHint: 'اختياري — غير مطلوب لإنشاء حساب أو إتمام الشراء.',
   authPrivacyShortNotice: 'توضح تفاصيل معالجة بيانات الحساب في',
+  newsletterSubtext: 'احصل على تحديثات المنتجات الجديدة والعروض الحصرية والمزيد.',
+  newsletterPrivacyPrefix: 'باشتراكك، فإنك توافق على',
+  followUsHeading: 'تابع كينتو ستوديو',
+  footerNavAria: 'تنقل التذييل',
+  shoppingPreferencesHeading: 'تفضيلات التسوق',
+  currencySettlementNote: 'عملة العرض فقط؛ تتم تسوية طلبات بنغلاديش بعملة BDT.',
+  cookieStatusAccepted: 'الكل مقبول',
+  cookieStatusEssential: 'الأساسية فقط',
+  cookieStatusCustom: 'مخصص',
+  cookieStatusUnset: 'بحاجة لاختيار',
+  acceptedPaymentsHeading: 'الدفع عند الإتمام',
+  paymentMarkCod: 'الدفع عند الاستلام',
+  footerAllRightsReserved: '© {year} كينتو ستوديو. جميع الحقوق محفوظة.',
 };
 
 const ES_STRINGS: Record<UiStringKey, string> = {
@@ -4821,6 +4873,19 @@ const ES_STRINGS: Record<UiStringKey, string> = {
   authMarketingOptInLabel: 'Enviarme alertas de reposición, novedades y ofertas promocionales (opcional)',
   authMarketingOptInHint: 'Opcional — nunca es obligatorio para crear una cuenta o comprar.',
   authPrivacyShortNotice: 'Consulta el tratamiento de tus datos en nuestra',
+  newsletterSubtext: 'Recibe novedades sobre lanzamientos, ofertas exclusivas y más.',
+  newsletterPrivacyPrefix: 'Al suscribirte, aceptas nuestra',
+  followUsHeading: 'Sigue a Kinto Studio',
+  footerNavAria: 'Navegación del pie de página',
+  shoppingPreferencesHeading: 'Preferencias de compra',
+  currencySettlementNote: 'Solo moneda visual; los pedidos en Bangladesh se liquidan en BDT.',
+  cookieStatusAccepted: 'Todas aceptadas',
+  cookieStatusEssential: 'Solo esenciales',
+  cookieStatusCustom: 'Personalizado',
+  cookieStatusUnset: 'Pendiente',
+  acceptedPaymentsHeading: 'Pago en checkout',
+  paymentMarkCod: 'Pago contra entrega',
+  footerAllRightsReserved: '© {year} Kinto Studio. Todos los derechos reservados.',
 };
 
 const FR_STRINGS: Record<UiStringKey, string> = {
@@ -5776,6 +5841,19 @@ const FR_STRINGS: Record<UiStringKey, string> = {
   authMarketingOptInLabel: 'Recevoir les alertes de réassort, actualités et offres promotionnelles (facultatif)',
   authMarketingOptInHint: 'Facultatif — jamais requis pour créer un compte ou commander.',
   authPrivacyShortNotice: 'Le traitement de vos données est détaillé dans notre',
+  newsletterSubtext: 'Recevez les nouveautés, offres exclusives et actualités du studio.',
+  newsletterPrivacyPrefix: 'En vous inscrivant, vous acceptez notre',
+  followUsHeading: 'Suivre Kinto Studio',
+  footerNavAria: 'Navigation pied de page',
+  shoppingPreferencesHeading: 'Préférences d’achat',
+  currencySettlementNote: 'Devise d’affichage uniquement ; les commandes au Bangladesh sont réglées en BDT.',
+  cookieStatusAccepted: 'Tout accepté',
+  cookieStatusEssential: 'Essentiels seuls',
+  cookieStatusCustom: 'Personnalisé',
+  cookieStatusUnset: 'À définir',
+  acceptedPaymentsHeading: 'Paiement disponible',
+  paymentMarkCod: 'Paiement à la livraison',
+  footerAllRightsReserved: '© {year} Kinto Studio. Tous droits réservés.',
 };
 
 export const UI_STRINGS: Record<LanguageCode, Record<UiStringKey, string>> = {

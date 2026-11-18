@@ -9,6 +9,7 @@ import {
 } from '../../utils/i18n';
 import { PWAInstallButton } from '../pwa/PWAInstallButton';
 import { Button } from '../ui/Button';
+import { MobileFooter } from './MobileFooter';
 
 type FooterGroupId = 'departments' | 'shop' | 'care' | 'legal';
 
@@ -135,71 +136,16 @@ export const Footer: React.FC = () => {
     },
   ];
 
-  // Mobile 2x2 Footer Grid matching screenshot structure:
-  // Top-Left: Customer Service | Top-Right: Shopping
-  // Bottom-Left: Policies & Legal | Bottom-Right: For Sellers
-  const mobileQuadrants: {
-    id: string;
-    title: string;
-    links: FooterLinkItem[];
-  }[] = [
-    {
-      id: 'customer-service',
-      title: t(language, 'footerCustomerServiceHeading'),
-      links: [
-        { label: t(language, 'contactUsLink'), onClick: () => navigate({ name: 'contact' }) },
-        { label: t(language, 'helpCenterLink'), onClick: () => navigate({ name: 'faq' }) },
-        { label: t(language, 'trackOrder'), onClick: () => navigate({ name: 'track-order' }) },
-        { label: t(language, 'returnsRefunds'), onClick: () => navigate({ name: 'return-policy' }) },
-      ],
-    },
-    {
-      id: 'shopping',
-      title: t(language, 'footerShoppingHeading'),
-      links: [
-        { label: t(language, 'allCategoriesLink'), onClick: () => navigate({ name: 'shop', category: 'all' }) },
-        {
-          label: t(language, 'newArrivals'),
-          onClick: () => navigate({ name: 'shop', collection: 'new-arrivals', category: 'all' }),
-        },
-        { label: t(language, 'offersLink'), onClick: () => navigate({ name: 'offers' }) },
-        { label: t(language, 'featuredBrands'), onClick: () => navigate({ name: 'brands' }) },
-      ],
-    },
-    {
-      id: 'policies-legal',
-      title: t(language, 'footerLegalHeading'),
-      links: [
-        {
-          label: t(language, 'policiesAndHelpCenter'),
-          onClick: () => navigate({ name: 'legal' }),
-          emphasize: true,
-        },
-        { label: t(language, 'termsConditions'), onClick: () => navigate({ name: 'terms' }) },
-        { label: t(language, 'privacyPolicy'), onClick: () => navigate({ name: 'privacy-policy' }) },
-        { label: t(language, 'cookiePolicy'), onClick: () => navigate({ name: 'cookie-policy' }) },
-        { label: t(language, 'shippingPolicyShort'), onClick: () => navigate({ name: 'shipping-policy' }) },
-        { label: t(language, 'returnPolicyShort'), onClick: () => navigate({ name: 'return-policy' }) },
-      ],
-    },
-    {
-      id: 'for-sellers',
-      title: t(language, 'footerForSellersHeading'),
-      links: [
-        {
-          label: t(language, 'becomeSellerLink'),
-          onClick: () => navigate({ name: 'login', accountTab: 'register' }),
-        },
-        { label: t(language, 'sellerAgreementLink'), onClick: () => navigate({ name: 'seller-agreement' }) },
-        { label: t(language, 'sellerPoliciesLink'), onClick: () => navigate({ name: 'marketplace-terms' }) },
-        { label: t(language, 'sellerSupportLink'), onClick: () => navigate({ name: 'contact' }) },
-      ],
-    },
-  ];
-
   return (
-    <footer className="print:hidden bg-[var(--ks-bg-secondary)] border-t border-[var(--ks-border)] text-[var(--ks-text-primary)] mt-16 sm:mt-20">
-      <div className="ks-container pt-10 pb-20 sm:py-14 lg:py-16">
+    <footer
+      id="site-footer"
+      className="print:hidden bg-[var(--ks-bg-secondary)] border-t border-[var(--ks-border)] text-[var(--ks-text-primary)] mt-16 sm:mt-20"
+    >
+      {/* Mobile-First Editorial Accordion Footer (< 768px) */}
+      <MobileFooter />
+
+      {/* Tablet & Desktop Multi-Column Architecture (>= 768px preserved) */}
+      <div className="hidden md:block ks-container py-14 lg:py-16">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 pb-8 lg:pb-12 border-b border-[var(--ks-border-strong)]">
           {/* Newsletter & Brand Overview */}
           <div className="lg:col-span-5 space-y-5">
@@ -207,10 +153,7 @@ export const Footer: React.FC = () => {
               <p className="font-display text-2xl font-semibold tracking-[0.07em]">
                 KINTO STUDIO
               </p>
-              <p className="md:hidden text-sm text-[var(--ks-text-secondary)] mt-1.5 leading-relaxed">
-                {t(language, 'footerShortSubtitle')}
-              </p>
-              <p className="hidden md:block text-sm text-[var(--ks-text-secondary)] mt-2 max-w-sm leading-relaxed">
+              <p className="text-sm text-[var(--ks-text-secondary)] mt-2 max-w-sm leading-relaxed">
                 {t(language, 'footerOverview')}
               </p>
             </div>
@@ -232,7 +175,7 @@ export const Footer: React.FC = () => {
                   }}
                   placeholder={t(language, 'newsletterPlaceholder')}
                   aria-invalid={Boolean(emailError)}
-                  className="flex-1 min-h-[44px] px-3.5 py-2 text-base sm:text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border-strong)] text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)] focus:outline-none focus:border-[var(--ks-action)]"
+                  className="flex-1 min-h-[44px] px-3.5 py-2 text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border-strong)] text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)] focus:outline-none focus:border-[var(--ks-action)]"
                 />
                 <Button type="submit" variant="primary" size="md" disabled={subscribing}>
                   <span>{subscribing ? t(language, 'subscribing') : t(language, 'subscribe')}</span>
@@ -246,42 +189,12 @@ export const Footer: React.FC = () => {
               )}
             </form>
 
-            <p className="hidden md:block text-xs text-[var(--ks-text-muted)]">
+            <p className="text-xs text-[var(--ks-text-muted)]">
               {t(language, 'footerSupportNote')}
             </p>
           </div>
 
-          {/* Mobile 2x2 Always-Visible Quadrant Grid */}
-          <nav
-            aria-label={t(language, 'policiesAndHelpCenter')}
-            className="md:hidden grid grid-cols-2 gap-x-5 gap-y-7 pt-1"
-          >
-            {mobileQuadrants.map((quad) => (
-              <div key={quad.id} className="min-w-0 space-y-2.5">
-                <p className="text-sm font-semibold text-[var(--ks-text-primary)] leading-snug">
-                  {quad.title}
-                </p>
-                <ul className="space-y-1 text-[13px] text-[var(--ks-text-secondary)]">
-                  {quad.links.map((link) => (
-                    <li key={link.label}>
-                      <button
-                        type="button"
-                        onClick={link.onClick}
-                        className={`w-full min-h-[40px] py-1 -my-0.5 flex items-center text-start leading-snug hover:text-[var(--ks-text-primary)] cursor-pointer ${
-                          link.emphasize ? 'font-medium text-[var(--ks-text-primary)]' : ''
-                        }`}
-                      >
-                        <span>{link.label}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </nav>
-
-          {/* Tablet & Desktop Multi-Column Architecture */}
-          <div className="hidden md:grid md:grid-cols-4 lg:col-span-7 gap-8 text-sm">
+          <div className="grid grid-cols-4 lg:col-span-7 gap-8 text-sm">
             {desktopColumns.map((col) => (
               <div key={col.id} className="space-y-3">
                 <p className="ks-eyebrow">{col.title}</p>
@@ -306,38 +219,8 @@ export const Footer: React.FC = () => {
         </div>
 
         {/* Bottom Legal & Preferences Bar */}
-        <div className="pt-6 sm:pt-8 space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between gap-4 text-xs text-[var(--ks-text-secondary)] pe-12 sm:pe-0">
-          {/* Mobile Compact Copyright + Quick Legal Links Row (matching screenshot) */}
-          <div className="flex md:hidden items-center justify-between gap-3 flex-wrap">
-            <p className="text-[var(--ks-text-secondary)]">{t(language, 'footerShortCopyright')}</p>
-            <div className="flex items-center gap-1.5 text-[var(--ks-text-secondary)]">
-              <button
-                type="button"
-                onClick={() => navigate({ name: 'privacy-policy' })}
-                className="min-h-[40px] inline-flex items-center px-1 hover:text-[var(--ks-text-primary)] cursor-pointer"
-              >
-                {t(language, 'footerShortPrivacy')}
-              </button>
-              <span aria-hidden="true">·</span>
-              <button
-                type="button"
-                onClick={() => navigate({ name: 'terms' })}
-                className="min-h-[40px] inline-flex items-center px-1 hover:text-[var(--ks-text-primary)] cursor-pointer"
-              >
-                {t(language, 'footerShortTerms')}
-              </button>
-              <span aria-hidden="true">·</span>
-              <button
-                type="button"
-                onClick={() => navigate({ name: 'cookie-policy' })}
-                className="min-h-[40px] inline-flex items-center px-1 hover:text-[var(--ks-text-primary)] cursor-pointer"
-              >
-                {t(language, 'footerShortCookies')}
-              </button>
-            </div>
-          </div>
-
-          <p className="hidden md:block">{t(language, 'footerCopyright')}</p>
+        <div className="pt-8 flex items-center justify-between gap-4 text-xs text-[var(--ks-text-secondary)]">
+          <p>{t(language, 'footerCopyright')}</p>
 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <span className="hidden lg:inline text-[var(--ks-text-muted)]">
@@ -346,13 +229,13 @@ export const Footer: React.FC = () => {
             <span className="hidden lg:inline" aria-hidden="true">
               ·
             </span>
-            <label className="inline-flex items-center gap-1.5 whitespace-nowrap min-h-[44px] sm:min-h-[36px]">
+            <label className="inline-flex items-center gap-1.5 whitespace-nowrap min-h-[36px]">
               <span>{t(language, 'languageLabel')}:</span>
               <select
                 aria-label={t(language, 'languageLabel')}
                 value={language}
                 onChange={(e) => setLanguage(e.target.value as typeof language)}
-                className="bg-transparent font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer focus:outline-none min-h-[44px] sm:min-h-[36px]"
+                className="bg-transparent font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer focus:outline-none min-h-[36px]"
               >
                 {LANGUAGE_OPTIONS.map((opt) => (
                   <option
@@ -369,7 +252,7 @@ export const Footer: React.FC = () => {
             <button
               type="button"
               onClick={toggleCurrency}
-              className="font-mono-num text-start whitespace-nowrap min-h-[44px] sm:min-h-[36px] hover:text-[var(--ks-text-primary)] cursor-pointer"
+              className="font-mono-num text-start whitespace-nowrap min-h-[36px] hover:text-[var(--ks-text-primary)] cursor-pointer"
             >
               {t(language, 'currencyLabel')}: {currency === 'BDT' ? 'BDT (৳)' : 'USD ($)'}
             </button>
@@ -377,7 +260,7 @@ export const Footer: React.FC = () => {
             <button
               type="button"
               onClick={openCookiePreferences}
-              className="text-start whitespace-nowrap min-h-[44px] sm:min-h-[36px] hover:text-[var(--ks-text-primary)] cursor-pointer"
+              className="text-start whitespace-nowrap min-h-[36px] hover:text-[var(--ks-text-primary)] cursor-pointer"
             >
               {t(language, 'cookiePreferences')}
             </button>

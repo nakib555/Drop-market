@@ -677,6 +677,16 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
 
   // Live Storefront Sync: Overrides, Seller Created Products, Dynamic Category Tree, Currency, Shipping & Published Policies
   app.get('/api/storefront/state', (_req, res) => {
+    const paymentCandidates: PaymentMethodId[] = [
+      'cod',
+      'bkash',
+      'nagad',
+      'rocket',
+      'visa',
+      'mastercard',
+      'sslcommerz',
+      'bank-transfer',
+    ];
     res.json({
       productOverrides: db.productOverrides,
       sellerProducts: db.sellerCreatedProducts,
@@ -688,6 +698,7 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
       publishedPolicies: getPublicPublishedPolicies(db.policies),
       policyFactsPublic: buildPublicFactsSummary(db.policyFacts),
       cookieInventory: buildActiveCookieInventory(),
+      enabledPaymentMethods: paymentCandidates.filter((id) => getGatewayConfigStatus(id).enabled),
     });
   });
 

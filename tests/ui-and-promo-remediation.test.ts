@@ -8,6 +8,13 @@ import {
 import { createInitialShippingConfig } from '../server/services/shippingService.ts';
 import { getDirectionalSlideSign, getSwipeNavigationDelta } from '../src/utils/motion.ts';
 import {
+  filterEnabledPaymentMethods,
+  getCookieConsentStatusKey,
+  getCopyrightYear,
+  scrollPageToTop,
+  VERIFIED_SOCIAL_LINKS,
+} from '../src/data/brandConfig.ts';
+import {
   acquireScrollLock,
   dispatchTopEscape,
   getActiveScrollLockCount,
@@ -188,3 +195,36 @@ test('RTL motion helpers invert horizontal swipe deltas and directional slide si
   assert.equal(getDirectionalSlideSign(1, true), -1);
   assert.equal(getDirectionalSlideSign(-1, true), 1);
 });
+
+test('mobile footer pure helpers enforce verified social links, active payments, consent labels, and reduced-motion scroll', () => {
+  assert.equal(Array.isArray(VERIFIED_SOCIAL_LINKS), true);
+  assert.equal(getCopyrightYear(new Date('2027-03-15T00:00:00Z')), 2027);
+
+  // Undefined falls back cleanly to COD; explicit array filters strictly to known candidates
+  assert.deepEqual(filterEnabledPaymentMethods(undefined), ['cod']);
+  assert.deepEqual(filterEnabledPaymentMethods(['cod', 'bkash']), ['cod', 'bkash']);
+  assert.deepEqual(filterEnabledPaymentMethods([]), []);
+
+  assert.equal(getCookieConsentStatusKey('all'), 'cookieStatusAccepted');
+  assert.equal(getCookieConsentStatusKey('essential-only'), 'cookieStatusEssential');
+  assert.equal(getCookieConsentStatusKey('custom'), 'cookieStatusCustom');
+  assert.equal(getCookieConsentStatusKey('unset'), 'cookieStatusUnset');
+
+  let lastScrollCall: ScrollToOptions | null = null;
+  scrollPageToTop({
+    scrollTo: (opts) => {
+      lastScrollCall = opts;
+    },
+    matchMedia: () => ({ matches: false }),
+  });
+  assert.deepEqual(lastScrollCall, { top: 0, behavior: 'smooth' });
+
+  scrollPageToTop({
+    scrollTo: (opts) => {
+      lastScrollCall = opts;
+    },
+    matchMedia: () => ({ matches: true }),
+  });
+  assert.deepEqual(lastScrollCall, { top: 0, behavior: 'auto' });
+});
+
