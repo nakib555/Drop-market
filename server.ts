@@ -28,6 +28,7 @@ import {
   buildAuthoritativeCheckoutQuote,
   buildVerifiedOrderFromSession,
   createPaymentSession,
+  getCheckoutChannelStatus,
   getGatewayConfigStatus,
   resolveActivePromo,
   resolveAuthoritativeItems,
@@ -698,7 +699,7 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
       publishedPolicies: getPublicPublishedPolicies(db.policies),
       policyFactsPublic: buildPublicFactsSummary(db.policyFacts),
       cookieInventory: buildActiveCookieInventory(),
-      enabledPaymentMethods: paymentCandidates.filter((id) => getGatewayConfigStatus(id).enabled),
+      enabledPaymentMethods: paymentCandidates.filter((id) => getCheckoutChannelStatus(id).enabled),
     });
   });
 
@@ -1023,10 +1024,11 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
   });
 
   app.post('/api/payments/verify', paymentRateLimiter, (req, res) => {
-    const { sessionId, outcome, walletNumber, failureReason } = (req.body || {}) as {
+    const { sessionId, outcome, walletNumber, cardLast4, failureReason } = (req.body || {}) as {
       sessionId?: string;
       outcome?: 'paid' | 'failed' | 'cancelled' | 'cod_confirmed';
       walletNumber?: string;
+      cardLast4?: string;
       failureReason?: string;
     };
 
@@ -1058,7 +1060,7 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
     }
 
     if (chosenOutcome === 'paid') {
-      const gatewayStatus = getGatewayConfigStatus(ctx.session.paymentMethod);
+      const gatewayStatus = getCheckoutChannelStatus(ctx.session.paymentMethod);
       if (!gatewayStatus.enabled) {
         res.status(400).json({
           error: gatewayStatus.reason || 'Payment gateway credentials are not configured.',
@@ -1069,6 +1071,7 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
 
     const { session, order } = buildVerifiedOrderFromSession(ctx, chosenOutcome, {
       walletNumber,
+      cardLast4,
       failureReason,
     });
 

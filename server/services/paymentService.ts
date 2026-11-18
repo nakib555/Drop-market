@@ -102,6 +102,32 @@ export function getGatewayConfigStatus(method: PaymentMethodId): {
   }
 }
 
+export function getCheckoutChannelStatus(method: PaymentMethodId): {
+  enabled: boolean;
+  sandbox?: boolean;
+  reason?: string;
+} {
+  const live = getGatewayConfigStatus(method);
+  if (live.enabled) {
+    return { enabled: true, sandbox: false };
+  }
+  if (env.STRICT_LIVE_GATEWAYS === 'true') {
+    return live;
+  }
+  if (
+    method === 'bkash' ||
+    method === 'nagad' ||
+    method === 'rocket' ||
+    method === 'visa' ||
+    method === 'mastercard' ||
+    method === 'sslcommerz' ||
+    method === 'bank-transfer'
+  ) {
+    return { enabled: true, sandbox: true, reason: live.reason };
+  }
+  return live;
+}
+
 const PROVIDER_ADAPTERS: Record<PaymentMethodId, ProviderAdapterMeta> = {
   bkash: {
     provider: 'bKash Merchant Checkout',
@@ -370,8 +396,8 @@ export function buildAuthoritativeCheckoutQuote(params: {
       continue;
     }
 
-    const status = getGatewayConfigStatus(methodId);
-    paymentMethodAvailability[methodId] = status;
+    const status = getCheckoutChannelStatus(methodId);
+    paymentMethodAvailability[methodId] = { enabled: status.enabled, reason: status.reason };
     if (status.enabled) {
       allowedPaymentMethods.push(methodId);
     }
@@ -476,7 +502,7 @@ export function createPaymentSession(params: {
     );
   }
 
-  const gatewayStatus = getGatewayConfigStatus(params.paymentMethod);
+  const gatewayStatus = getCheckoutChannelStatus(params.paymentMethod);
   if (!gatewayStatus.enabled) {
     throw new Error(
       gatewayStatus.reason || 'Selected online payment gateway is not configured.'
@@ -524,7 +550,7 @@ export function createPaymentSession(params: {
 export function buildVerifiedOrderFromSession(
   ctx: PendingSessionContext,
   outcome: 'paid' | 'failed' | 'cancelled' | 'cod_confirmed',
-  verificationDetail?: { failureReason?: string; walletNumber?: string }
+  verificationDetail?: { failureReason?: string; walletNumber?: string; cardLast4?: string }
 ): { session: PaymentSession; order?: Order } {
   const nowIso = new Date().toISOString();
 
@@ -572,9 +598,12 @@ export function buildVerifiedOrderFromSession(
     minute: '2-digit',
   }).format(new Date());
 
-  const walletSuffix = verificationDetail?.walletNumber
-    ? ` (${verificationDetail.walletNumber.slice(-4)})`
-    : '';
+  const rawSuffix =
+    verificationDetail?.walletNumber?.trim() ||
+    verificationDetail?.cardLast4?.trim() ||
+    '';
+  const cleanedSuffix = rawSuffix.replace(/\D/g, '').slice(-4);
+  const walletSuffix = cleanedSuffix ? ` (${cleanedSuffix})` : '';
 
   const order: Order = {
     id: orderId,

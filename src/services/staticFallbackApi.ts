@@ -7,6 +7,7 @@ import {
   buildAuthoritativeCheckoutQuote,
   buildVerifiedOrderFromSession,
   createPaymentSession,
+  getCheckoutChannelStatus,
   getGatewayConfigStatus,
   resolveActivePromo,
   resolveAuthoritativeItems,
@@ -509,7 +510,7 @@ export function staticFetchStorefrontSync(): {
     publishedPolicies: getPublicPublishedPolicies(db.policies),
     policyFactsPublic: buildPublicFactsSummary(db.policyFacts),
     cookieInventory: buildActiveCookieInventory(),
-    enabledPaymentMethods: candidates.filter((id) => getGatewayConfigStatus(id).enabled),
+    enabledPaymentMethods: candidates.filter((id) => getCheckoutChannelStatus(id).enabled),
   };
 }
 
@@ -842,6 +843,7 @@ export function staticVerifyPayment(payload: {
   sessionId: string;
   outcome: 'paid' | 'failed' | 'cancelled' | 'cod_confirmed';
   walletNumber?: string;
+  cardLast4?: string;
   failureReason?: string;
 }): { session: PaymentSession; order?: Order } {
   const db = getStaticDb();
@@ -867,7 +869,7 @@ export function staticVerifyPayment(payload: {
   }
 
   if (chosenOutcome === 'paid') {
-    const gatewayStatus = getGatewayConfigStatus(ctx.session.paymentMethod);
+    const gatewayStatus = getCheckoutChannelStatus(ctx.session.paymentMethod);
     if (!gatewayStatus.enabled) {
       throw new ApiError(
         gatewayStatus.reason || 'Payment gateway credentials are not configured.',
@@ -879,6 +881,7 @@ export function staticVerifyPayment(payload: {
 
   const { session, order } = buildVerifiedOrderFromSession(ctx, chosenOutcome, {
     walletNumber: payload.walletNumber,
+    cardLast4: payload.cardLast4,
     failureReason: payload.failureReason,
   });
 

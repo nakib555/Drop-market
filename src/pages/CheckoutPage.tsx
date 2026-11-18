@@ -4,8 +4,8 @@ import {
   ArrowLeft,
   ArrowRight,
   Building2,
+  Check,
   CheckCircle2,
-  ChevronDown,
   CreditCard,
   Globe,
   Lock,
@@ -54,6 +54,8 @@ const STEP_KEYS = [
   'stepConfirmation',
 ] as const;
 
+const TOTAL_CHECKOUT_STEPS = STEP_KEYS.length;
+
 const PAYMENT_CHANNEL_META: Array<{
   id: PaymentMethodId;
   group: 'mfs' | 'card' | 'other';
@@ -76,6 +78,12 @@ function normalizePhoneDigits(phone: string): string {
 
 function createIdempotencyKey(): string {
   return `ks-idem-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function formatCardExpiryInput(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 4);
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}/${digits.slice(2)}`;
 }
 
 export const CheckoutPage: React.FC = () => {
@@ -135,7 +143,7 @@ export const CheckoutPage: React.FC = () => {
   const [step, setStep] = useState<number>(1);
   const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
 
-  // Step 1: Customer Info — start clean for unauthenticated shoppers
+  // Step 1: Customer Info
   const [email, setEmail] = useState(() => (profile.isAuthenticated ? profile.email : ''));
   const [fullName, setFullName] = useState(() =>
     profile.isAuthenticated ? profile.fullName : ''
@@ -166,10 +174,12 @@ export const CheckoutPage: React.FC = () => {
   const [postalCode, setPostalCode] = useState(defaultAddr?.postalCode || defaultArea.postalCode);
   const [instructions, setInstructions] = useState('');
 
-  // Step 3 & 4: Delivery & Payment (default to operational COD)
+  // Step 3 & 4: Delivery & Payment
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethodId>('standard');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>('cod');
   const [mobileWalletNumber, setMobileWalletNumber] = useState('');
+  const [cardLast4, setCardLast4] = useState('4242');
+  const [cardExpiry, setCardExpiry] = useState('08/28');
   const [allowInternationalUsd, setAllowInternationalUsd] = useState(true);
 
   const [promoInput, setPromoInput] = useState('');
@@ -191,17 +201,25 @@ export const CheckoutPage: React.FC = () => {
   } | null>(null);
   const [acceptedCheckoutTerms, setAcceptedCheckoutTerms] = useState(false);
   const [checkoutConsentError, setCheckoutConsentError] = useState('');
-  const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
   const [saveAddressToAccount, setSaveAddressToAccount] = useState(false);
 
   const customerEditedRef = useRef(false);
   const addressEditedRef = useRef(false);
   const quoteSeqRef = useRef(0);
   const prevStepRef = useRef(step);
+  const stepPillRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const stepDirection = step >= prevStepRef.current ? 1 : -1;
   useEffect(() => {
     prevStepRef.current = step;
+    const activePill = stepPillRefs.current[step - 1];
+    if (activePill && typeof activePill.scrollIntoView === 'function') {
+      activePill.scrollIntoView({
+        behavior: 'smooth',
+        inline: 'center',
+        block: 'nearest',
+      });
+    }
   }, [step]);
 
   useEffect(() => {
@@ -482,6 +500,10 @@ export const CheckoutPage: React.FC = () => {
       )
     );
 
+  const isMfsMethod =
+    paymentMethod === 'bkash' || paymentMethod === 'nagad' || paymentMethod === 'rocket';
+  const isCardMethod = paymentMethod === 'visa' || paymentMethod === 'mastercard';
+
   const validateStep = (targetStep: number): boolean => {
     const nextErrors: Record<string, string> = {};
     if (targetStep === 1) {
@@ -516,13 +538,17 @@ export const CheckoutPage: React.FC = () => {
       if (!hasOperationalPayment) {
         nextErrors.payment = t(language, 'errNoPaymentChannel');
       }
-      if (
-        paymentMethod === 'bkash' ||
-        paymentMethod === 'nagad' ||
-        paymentMethod === 'rocket'
-      ) {
+      if (isMfsMethod) {
         if (!BD_MOBILE_REGEX.test(normalizePhoneDigits(mobileWalletNumber))) {
           nextErrors.mobileWallet = t(language, 'errWalletDigits');
+        }
+      }
+      if (isCardMethod) {
+        if (!/^\d{4}$/.test(cardLast4.trim())) {
+          nextErrors.cardLast4 = t(language, 'errCardLast4');
+        }
+        if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(cardExpiry.trim())) {
+          nextErrors.cardExpiry = t(language, 'errCardExpiry');
         }
       }
     }
@@ -672,17 +698,17 @@ export const CheckoutPage: React.FC = () => {
     }
   };
 
-  const handleVerifyGateway = async (outcome: 'paid' | 'cancelled' | 'cod_confirmed') => {
+  const handleVerifyGateway = async (
+    outcome: 'paid' | 'failed' | 'cancelled' | 'cod_confirmed'
+  ) => {
     if (!paymentSession) return;
     setVerifyingPayment(true);
     try {
       const res = await verifyPaymentApi({
         sessionId: paymentSession.id,
         outcome,
-        walletNumber:
-          paymentMethod === 'bkash' || paymentMethod === 'nagad' || paymentMethod === 'rocket'
-            ? mobileWalletNumber.trim()
-            : undefined,
+        walletNumber: isMfsMethod ? mobileWalletNumber.trim() : undefined,
+        cardLast4: isCardMethod ? cardLast4.trim() : undefined,
       });
 
       if (
@@ -733,6 +759,125 @@ export const CheckoutPage: React.FC = () => {
     }
   };
 
+  const activeStepClamped = Math.min(Math.max(step, 1), TOTAL_CHECKOUT_STEPS);
+  const progressPercent = Math.round((activeStepClamped / TOTAL_CHECKOUT_STEPS) * 100);
+  const activeStepLabel = t(language, STEP_KEYS[activeStepClamped - 1]);
+
+  const renderCheckoutHeaderAndStepper = () => (
+    <>
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-5 sm:pb-6 border-b border-[var(--ks-border)]">
+        <div>
+          <p className="text-[11px] font-medium text-[var(--ks-text-muted)] uppercase tracking-[0.14em]">
+            {t(language, 'checkoutFlowHeader')} ·{' '}
+            {isBangladesh ? t(language, 'checkoutZoneBd') : t(language, 'checkoutZoneIntl')}
+          </p>
+          <h1 className="font-display text-3xl sm:text-4xl font-medium mt-1">
+            {t(language, 'completeYourOrder')}
+          </h1>
+          <div className="inline-flex items-center gap-2 text-xs text-[var(--ks-text-secondary)] mt-2">
+            <Lock className="w-3.5 h-3.5 text-[var(--ks-accent)] shrink-0" />
+            <span>{t(language, 'checkoutSubtitleLock')}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Unified Progress Bar + 6-Step Horizontal Rail */}
+      <div className="rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] p-4 sm:p-5 space-y-3.5">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-mono-num font-semibold text-[var(--ks-accent)]">
+            {t(language, 'stepOf', {
+              step: activeStepClamped,
+              total: TOTAL_CHECKOUT_STEPS,
+              label: activeStepLabel,
+            })}
+          </p>
+          <span className="text-xs font-mono-num font-semibold text-[var(--ks-text-secondary)] tabular-nums">
+            {progressPercent}%
+          </span>
+        </div>
+
+        {/* Animated Segmented Progress Bar */}
+        <div
+          role="progressbar"
+          aria-valuenow={activeStepClamped}
+          aria-valuemin={1}
+          aria-valuemax={TOTAL_CHECKOUT_STEPS}
+          aria-label={`${t(language, 'checkout')}: ${activeStepLabel}`}
+          className="relative h-2 w-full rounded-full bg-[var(--ks-surface-muted)] border border-[var(--ks-border)]/70 overflow-hidden"
+        >
+          <motion.div
+            initial={false}
+            animate={{ scaleX: progressPercent / 100 }}
+            transition={STUDIO_TRANSITION.base}
+            className="h-full w-full origin-left rtl:origin-right rounded-full bg-gradient-to-r from-[var(--ks-action)] via-[var(--ks-action)] to-[var(--ks-accent)]"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 grid grid-cols-6 pointer-events-none"
+          >
+            {STEP_KEYS.map((key, idx) => (
+              <span
+                key={key}
+                className={
+                  idx < TOTAL_CHECKOUT_STEPS - 1
+                    ? 'border-e border-[var(--ks-surface)]/45'
+                    : ''
+                }
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* 6-Step Horizontal Stepper Rail */}
+        <nav aria-label={t(language, 'checkout')} className="overflow-x-auto no-scrollbar pt-0.5">
+          <ol className="flex items-center gap-2 min-w-max">
+            {STEP_KEYS.map((stepKey, idx) => {
+              const label = t(language, stepKey);
+              const num = idx + 1;
+              const active = num === activeStepClamped;
+              const completed = num < activeStepClamped;
+              const canJumpBack = completed && activeStepClamped < 6;
+
+              return (
+                <li key={stepKey} className="flex items-center gap-2">
+                  <button
+                    ref={(el) => {
+                      stepPillRefs.current[idx] = el;
+                    }}
+                    type="button"
+                    disabled={!canJumpBack && !active}
+                    aria-current={active ? 'step' : undefined}
+                    onClick={() => canJumpBack && setStep(num)}
+                    className={`inline-flex items-center gap-1.5 min-h-[38px] px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap shrink-0 transition-colors ${
+                      active
+                        ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] shadow-xs'
+                        : canJumpBack
+                        ? 'bg-[var(--ks-surface-muted)] text-[var(--ks-text-primary)] hover:bg-[var(--ks-border)]/70 cursor-pointer'
+                        : completed
+                        ? 'bg-[var(--ks-surface-muted)] text-[var(--ks-text-secondary)]'
+                        : 'text-[var(--ks-text-muted)] opacity-75'
+                    }`}
+                  >
+                    {completed && (
+                      <Check className="w-3 h-3 text-[var(--ks-success)] shrink-0" aria-hidden="true" />
+                    )}
+                    <span className="font-mono-num">{num}.</span>
+                    <span>{label}</span>
+                  </button>
+                  {idx < STEP_KEYS.length - 1 && (
+                    <span className="text-[var(--ks-border-strong)] select-none" aria-hidden="true">
+                      —
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </nav>
+      </div>
+    </>
+  );
+
   if (step === 6 && placedOrder) {
     const snap = placedOrder.currencySnapshot;
     const settledDisplay = snap
@@ -740,213 +885,234 @@ export const CheckoutPage: React.FC = () => {
       : formatCurrency(placedOrder.total, currency);
 
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={STUDIO_TRANSITION.base}
-        className="max-w-3xl mx-auto px-4 sm:px-6 py-12 lg:py-16 space-y-8"
-      >
-        <div className="p-6 sm:p-10 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] text-center space-y-5">
-          <div className="w-14 h-14 mx-auto rounded-full bg-[var(--ks-success)]/12 text-[var(--ks-success)] flex items-center justify-center">
-            <CheckCircle2 className="w-7 h-7" />
-          </div>
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.14em] text-[var(--ks-text-muted)] font-mono-num">
-              {t(language, 'orderNumberPrefix', { id: placedOrder.id })} ·{' '}
-              {placedOrder.paymentStatus === 'cod_pending'
-                ? t(language, 'codConfirmedTag')
-                : t(language, 'paymentVerifiedTitle')}
-            </p>
-            <h1 className="font-display text-3xl sm:text-5xl font-medium">
-              {t(language, 'thankYouCustomer', {
-                name: placedOrder.customerName.split(' ')[0],
-              })}
-            </h1>
-            <p className="text-sm text-[var(--ks-text-secondary)] max-w-md mx-auto">
-              {t(language, 'orderReceiptSavedDesc')}
-            </p>
-          </div>
+      <div className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-12 space-y-6 lg:space-y-8">
+        {renderCheckoutHeaderAndStepper()}
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-start p-5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs">
-            <div className="min-w-0">
-              <p className="text-[var(--ks-text-muted)] leading-snug">
-                {t(language, 'deliveryEstimateLabel')}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={STUDIO_TRANSITION.base}
+          className="max-w-3xl mx-auto"
+        >
+          <div className="p-6 sm:p-10 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] text-center space-y-5">
+            <div className="w-14 h-14 mx-auto rounded-full bg-[var(--ks-success)]/12 text-[var(--ks-success)] flex items-center justify-center">
+              <CheckCircle2 className="w-7 h-7" />
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs uppercase tracking-[0.14em] text-[var(--ks-text-muted)] font-mono-num">
+                {t(language, 'orderNumberPrefix', { id: placedOrder.id })} ·{' '}
+                {placedOrder.paymentStatus === 'cod_pending'
+                  ? t(language, 'codConfirmedTag')
+                  : t(language, 'paymentVerifiedTitle')}
               </p>
-              <p className="font-medium mt-1 text-sm leading-snug">{placedOrder.estimatedArrival}</p>
-              <p className="text-[11px] text-[var(--ks-text-secondary)] mt-0.5 leading-snug">
-                {placedOrder.courierName}
+              <h2 className="font-display text-3xl sm:text-5xl font-medium">
+                {t(language, 'thankYouCustomer', {
+                  name: placedOrder.customerName.split(' ')[0],
+                })}
+              </h2>
+              <p className="text-sm text-[var(--ks-text-secondary)] max-w-md mx-auto">
+                {t(language, 'orderReceiptSavedDesc')}
               </p>
             </div>
-            <div className="min-w-0">
-              <p className="text-[var(--ks-text-muted)] leading-snug">
-                {t(language, 'paymentRefLabel')}
-              </p>
-              <p className="font-medium mt-1 text-sm leading-snug">{placedOrder.paymentLabel}</p>
-              <p className="text-[11px] font-mono-num text-[var(--ks-accent)] mt-0.5 leading-snug break-all">
-                {placedOrder.transactionRef || placedOrder.paymentStatus}
-              </p>
-            </div>
-            <div className="min-w-0">
-              <p className="text-[var(--ks-text-muted)] leading-snug">
-                {t(language, 'orderTotal')}
-              </p>
-              <p className="font-mono-num font-semibold mt-1 text-sm leading-snug">
-                {settledDisplay}
-              </p>
-              {snap && (
-                <p className="text-[11px] font-mono-num text-[var(--ks-text-muted)] mt-0.5 leading-snug">
-                  Base ${snap.baseTotalUsd.toFixed(2)} USD · 1 USD = {snap.exchangeRate} BDT
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-start p-5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs">
+              <div className="min-w-0">
+                <p className="text-[var(--ks-text-muted)] leading-snug">
+                  {t(language, 'deliveryEstimateLabel')}
                 </p>
-              )}
-            </div>
-          </div>
-
-          <div className="text-start space-y-3 pt-2">
-            <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
-              {t(language, 'itemizedReceiptLabel')}
-            </p>
-            <ul className="divide-y divide-[var(--ks-border)] border-y border-[var(--ks-border)]">
-              {placedOrder.items.map((item) => (
-                <li key={item.key} className="py-3 flex items-baseline justify-between gap-4 text-sm">
-                  <span className="min-w-0">
-                    {item.name} × {item.quantity}{' '}
-                    <span className="text-xs text-[var(--ks-text-muted)]">({item.color})</span>
-                  </span>
-                  <span className="font-mono-num font-medium shrink-0 text-end tabular-nums">
-                    {snap
-                      ? formatDirectCurrency(
-                          snap.transactionCurrency === 'BDT'
-                            ? item.price * item.quantity * snap.exchangeRate
-                            : item.price * item.quantity,
-                          snap.transactionCurrency
-                        )
-                      : formatCurrency(item.price * item.quantity, currency)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-start space-y-2 text-xs">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="font-semibold text-[var(--ks-text-primary)]">
-                Order-Time Accepted Policy Snapshot
-              </span>
-              <span className="font-mono-num text-[11px] text-[var(--ks-accent)]">
-                Version {placedOrder.policyAcceptance?.version || '2026-11.1'}
-              </span>
-            </div>
-            <p className="text-[var(--ks-text-secondary)] leading-relaxed">
-              Your confirmation receipt and invoice reference the exact policy versions active when this order was placed:
-            </p>
-            <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-0.5">
-              {(
-                [
-                  { id: 'terms', label: 'Terms & Conditions' },
-                  { id: 'return-policy', label: 'Return & Refund Policy' },
-                  { id: 'shipping-policy', label: 'Shipping Policy' },
-                  { id: 'cancellation-policy', label: 'Cancellation Policy' },
-                  { id: 'privacy-policy', label: 'Privacy Policy' },
-                ] as const
-              ).map((pol) => {
-                const snapVer =
-                  placedOrder.policyAcceptance?.acceptedPolicyVersions?.[pol.id] ||
-                  placedOrder.policyAcceptance?.version;
-                return (
-                  <button
-                    key={pol.id}
-                    type="button"
-                    onClick={() =>
-                      navigate({
-                        name: pol.id,
-                        policyVersion: snapVer,
-                      })
-                    }
-                    className="underline text-[var(--ks-accent)] hover:text-[var(--ks-text-primary)] cursor-pointer"
-                  >
-                    {pol.label}
-                    {snapVer ? ` (v${snapVer})` : ''}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {!profile.isAuthenticated && (
-            <div className="p-5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-start flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <h2 className="text-sm font-semibold text-[var(--ks-text-primary)]">
-                  {t(language, 'checkoutGuestClaimTitle')}
-                </h2>
-                <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
-                  {t(language, 'checkoutGuestClaimDesc', { orderId: placedOrder.id })}
+                <p className="font-medium mt-1 text-sm leading-snug">{placedOrder.estimatedArrival}</p>
+                <p className="text-[11px] text-[var(--ks-text-secondary)] mt-0.5 leading-snug">
+                  {placedOrder.courierName}
                 </p>
               </div>
+              <div className="min-w-0">
+                <p className="text-[var(--ks-text-muted)] leading-snug">
+                  {t(language, 'paymentRefLabel')}
+                </p>
+                <p className="font-medium mt-1 text-sm leading-snug">{placedOrder.paymentLabel}</p>
+                <p className="text-[11px] font-mono-num text-[var(--ks-accent)] mt-0.5 leading-snug break-all">
+                  {placedOrder.transactionRef || placedOrder.paymentStatus}
+                </p>
+              </div>
+              <div className="min-w-0">
+                <p className="text-[var(--ks-text-muted)] leading-snug">
+                  {t(language, 'orderTotal')}
+                </p>
+                <p className="font-mono-num font-semibold mt-1 text-sm leading-snug tabular-nums">
+                  {settledDisplay}
+                </p>
+                {snap && (
+                  <p className="text-[11px] font-mono-num text-[var(--ks-text-muted)] mt-0.5 leading-snug tabular-nums">
+                    Base ${snap.baseTotalUsd.toFixed(2)} USD · 1 USD = {snap.exchangeRate} BDT
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="text-start space-y-3 pt-2">
+              <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
+                {t(language, 'itemizedReceiptLabel')}
+              </p>
+              <ul className="divide-y divide-[var(--ks-border)] border-y border-[var(--ks-border)]">
+                {placedOrder.items.map((item) => (
+                  <li key={item.key} className="py-3 flex items-baseline justify-between gap-4 text-sm">
+                    <span className="min-w-0">
+                      {item.name} × {item.quantity}{' '}
+                      <span className="text-xs text-[var(--ks-text-muted)]">({item.color})</span>
+                    </span>
+                    <span className="font-mono-num font-medium shrink-0 text-end tabular-nums">
+                      {snap
+                        ? formatDirectCurrency(
+                            snap.transactionCurrency === 'BDT'
+                              ? item.price * item.quantity * snap.exchangeRate
+                              : item.price * item.quantity,
+                            snap.transactionCurrency
+                          )
+                        : formatCurrency(item.price * item.quantity, currency)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-start space-y-2 text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-semibold text-[var(--ks-text-primary)]">
+                  Order-Time Accepted Policy Snapshot
+                </span>
+                <span className="font-mono-num text-[11px] text-[var(--ks-accent)]">
+                  Version {placedOrder.policyAcceptance?.version || '2026-11.1'}
+                </span>
+              </div>
+              <p className="text-[var(--ks-text-secondary)] leading-relaxed">
+                Your confirmation receipt and invoice reference the exact policy versions active when this order was placed:
+              </p>
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-0.5">
+                {(
+                  [
+                    { id: 'terms', label: 'Terms & Conditions' },
+                    { id: 'return-policy', label: 'Return & Refund Policy' },
+                    { id: 'shipping-policy', label: 'Shipping Policy' },
+                    { id: 'cancellation-policy', label: 'Cancellation Policy' },
+                    { id: 'privacy-policy', label: 'Privacy Policy' },
+                  ] as const
+                ).map((pol) => {
+                  const snapVer =
+                    placedOrder.policyAcceptance?.acceptedPolicyVersions?.[pol.id] ||
+                    placedOrder.policyAcceptance?.version;
+                  return (
+                    <button
+                      key={pol.id}
+                      type="button"
+                      onClick={() =>
+                        navigate({
+                          name: pol.id,
+                          policyVersion: snapVer,
+                        })
+                      }
+                      className="underline text-[var(--ks-accent)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                    >
+                      {pol.label}
+                      {snapVer ? ` (v${snapVer})` : ''}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {!profile.isAuthenticated && (
+              <div className="p-5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-start flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-semibold text-[var(--ks-text-primary)]">
+                    {t(language, 'checkoutGuestClaimTitle')}
+                  </h3>
+                  <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
+                    {t(language, 'checkoutGuestClaimDesc', { orderId: placedOrder.id })}
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => {
+                    void runProtectedAction(
+                      'order:claim',
+                      async () => {
+                        await claimOrders([placedOrder.id]);
+                      },
+                      {
+                        orderId: placedOrder.id,
+                        itemName: `#${placedOrder.id}`,
+                        preferredTab: 'register',
+                        prefill: {
+                          fullName: placedOrder.customerName,
+                          email: placedOrder.email,
+                          phone: placedOrder.phone,
+                        },
+                      }
+                    );
+                  }}
+                >
+                  {t(language, 'checkoutGuestClaimCta')}
+                </Button>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 pt-4">
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={() => navigate({ name: 'track-order', orderId: placedOrder.id })}
+              >
+                {t(language, 'trackOrder')} #{placedOrder.id}
+              </Button>
               <Button
                 variant="outline"
-                size="sm"
-                className="shrink-0"
-                onClick={() => {
-                  void runProtectedAction(
-                    'order:claim',
-                    async () => {
-                      await claimOrders([placedOrder.id]);
-                    },
-                    {
-                      orderId: placedOrder.id,
-                      itemName: `#${placedOrder.id}`,
-                      preferredTab: 'register',
-                      prefill: {
-                        fullName: placedOrder.customerName,
-                        email: placedOrder.email,
-                        phone: placedOrder.phone,
-                      },
-                    }
-                  );
-                }}
+                size="lg"
+                onClick={() => navigate({ name: 'shop', category: 'all' })}
               >
-                {t(language, 'checkoutGuestClaimCta')}
+                {t(language, 'continueShopping')}
               </Button>
             </div>
-          )}
-
-          <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 pt-4">
-            <Button
-              variant="primary"
-              size="lg"
-              onClick={() => navigate({ name: 'track-order', orderId: placedOrder.id })}
-            >
-              {t(language, 'trackOrder')} #{placedOrder.id}
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={() => navigate({ name: 'shop', category: 'all' })}
-            >
-              {t(language, 'continueShopping')}
-            </Button>
           </div>
-        </div>
-      </motion.div>
+        </motion.div>
+      </div>
     );
   }
 
   const operationalChannels = PAYMENT_CHANNEL_META.filter(({ id }) =>
-    quote ? quote.allowedPaymentMethods.includes(id) : id === 'cod'
+    quote ? quote.allowedPaymentMethods.includes(id) : true
   );
   const unconfiguredChannels = PAYMENT_CHANNEL_META.filter(({ id }) => {
     const avail = quote?.paymentMethodAvailability?.[id];
     return avail && !avail.enabled;
   });
 
-  const UI_TOTAL_STEPS = 5;
-  const progressPercent = Math.min(
-    100,
-    Math.round((Math.min(step, UI_TOTAL_STEPS) / UI_TOTAL_STEPS) * 100)
-  );
+  const selectedPaymentLabel =
+    t(language, `payLabel_${paymentMethod}` as Parameters<typeof t>[1]) || paymentMethod;
+  const activePaymentSuffix = isCardMethod && cardLast4.trim()
+    ? ` (•••• ${cardLast4.trim()})`
+    : isMfsMethod && mobileWalletNumber.trim().length >= 4
+    ? ` (${mobileWalletNumber.trim().slice(-4)})`
+    : '';
 
-  const renderOrderSummaryContent = (listMaxHeightClass: string) => (
-    <>
+  const renderOrderSummaryCard = (listMaxHeightClass: string, isSidebar: boolean) => (
+    <div
+      className={`${
+        isSidebar ? 'p-6' : 'p-5 sm:p-6'
+      } rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-5`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="font-display text-2xl font-medium">
+          {t(language, 'inYourBagCount', { count: cart.length })}
+        </h2>
+        {quoteLoading && (
+          <span className="text-[11px] font-mono-num text-[var(--ks-accent)]">
+            {t(language, 'calculatingQuote')}
+          </span>
+        )}
+      </div>
+
       {quoteError && <p className="text-xs text-[var(--ks-error)]">{quoteError}</p>}
 
       <ul className={`divide-y divide-[var(--ks-border)] ${listMaxHeightClass} overflow-y-auto`}>
@@ -1088,164 +1254,16 @@ export const CheckoutPage: React.FC = () => {
           })}
         </p>
       </div>
-    </>
+    </div>
   );
+
+  const primaryAmountLabel = quote
+    ? formatDirectCurrency(quote.totalCharged, quote.currency)
+    : formatCurrency(summaryTotalUsd, currency);
 
   return (
     <div className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-12 space-y-6 lg:space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 sm:pb-6 border-b border-[var(--ks-border)]">
-        <div>
-          <p className="text-xs text-[var(--ks-text-muted)] uppercase tracking-wider">
-            {t(language, 'checkout')} ·{' '}
-            {isBangladesh ? t(language, 'checkoutZoneBd') : t(language, 'checkoutZoneIntl')}
-          </p>
-          <h1 className="font-display text-3xl sm:text-4xl font-medium mt-1">
-            {t(language, 'completeYourOrder')}
-          </h1>
-        </div>
-        <div className="inline-flex items-center gap-2 text-xs text-[var(--ks-text-secondary)]">
-          <Lock className="w-3.5 h-3.5 text-[var(--ks-accent)] shrink-0" />
-          <span>{t(language, 'verifiedServerPricing')}</span>
-        </div>
-      </div>
-
-      {/* Stepper: Compact Progress Bar on Mobile, Full Horizontal Stepper on md+ */}
-      <div className="space-y-3">
-        <div className="md:hidden p-3.5 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-2.5">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-mono-num font-semibold text-[var(--ks-accent)]">
-              {t(language, 'stepOf', {
-                step: Math.min(step, UI_TOTAL_STEPS),
-                total: UI_TOTAL_STEPS,
-                label: t(language, STEP_KEYS[step - 1]),
-              })}
-            </p>
-            <span className="text-[11px] font-mono-num text-[var(--ks-text-muted)] tabular-nums">
-              {progressPercent}%
-            </span>
-          </div>
-          <div
-            role="progressbar"
-            aria-valuenow={Math.min(step, UI_TOTAL_STEPS)}
-            aria-valuemin={1}
-            aria-valuemax={UI_TOTAL_STEPS}
-            aria-label={t(language, 'checkout')}
-            className="h-1.5 w-full rounded-full bg-[var(--ks-surface-muted)] overflow-hidden"
-          >
-            <div
-              className="h-full rounded-full bg-[var(--ks-action)] transition-[width] duration-200"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-          {step > 1 && (
-            <div className="flex flex-wrap gap-1.5 pt-0.5">
-              {STEP_KEYS.slice(0, step - 1).map((stepKey, idx) => (
-                <button
-                  key={stepKey}
-                  type="button"
-                  onClick={() => setStep(idx + 1)}
-                  className="min-h-[44px] sm:min-h-[36px] px-3 rounded-[var(--ks-radius-sm)] bg-[var(--ks-surface-muted)] text-xs font-medium text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] cursor-pointer inline-flex items-center gap-1"
-                >
-                  <span className="font-mono-num">{idx + 1}.</span>
-                  <span>{t(language, stepKey)}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <nav aria-label={t(language, 'checkout')} className="hidden md:block overflow-x-auto pb-1">
-          <ol className="flex items-center gap-3 min-w-max">
-            {STEP_KEYS.map((stepKey, idx) => {
-              const label = t(language, stepKey);
-              const num = idx + 1;
-              const active = num === step;
-              const completed = num < step;
-              return (
-                <li key={stepKey} className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={num > step}
-                    onClick={() => num < step && setStep(num)}
-                    className={`inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                      active
-                        ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)]'
-                        : completed
-                        ? 'bg-[var(--ks-surface-muted)] text-[var(--ks-text-primary)] cursor-pointer'
-                        : 'text-[var(--ks-text-muted)]'
-                    }`}
-                  >
-                    <span className="font-mono-num">{num}.</span>
-                    <span>{label}</span>
-                  </button>
-                  {idx < STEP_KEYS.length - 1 && (
-                    <span className="text-[var(--ks-border-strong)]">—</span>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
-        </nav>
-      </div>
-
-      {/* Expandable Order Summary Accordion on Mobile & Tablet (< lg) */}
-      <div className="lg:hidden rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] overflow-hidden">
-        <button
-          type="button"
-          aria-expanded={mobileSummaryOpen}
-          onClick={() => setMobileSummaryOpen((o) => !o)}
-          className="w-full min-h-[60px] px-4 py-3 flex items-center justify-between gap-3 text-start cursor-pointer hover:bg-[var(--ks-bg)]/40 transition-colors"
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <span className="w-9 h-9 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface-muted)] flex items-center justify-center text-[var(--ks-accent)] shrink-0">
-              <ShoppingBag className="w-4 h-4" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-[var(--ks-text-primary)] truncate">
-                {t(language, 'orderSummary')} ({cart.length})
-              </p>
-              <p className="text-[11px] text-[var(--ks-text-muted)] truncate">
-                {quoteLoading
-                  ? t(language, 'calculatingQuote')
-                  : quote?.shippingQuote.zoneLabel || t(language, 'verifiedServerPricing')}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0 text-end">
-            <div>
-              <p className="text-sm font-mono-num font-semibold tabular-nums">
-                {formatCurrency(summaryTotalUsd, currency)}
-              </p>
-              {quote && quote.currency !== currency && (
-                <p className="text-[11px] font-mono-num text-[var(--ks-accent)] tabular-nums">
-                  {formatDirectCurrency(quote.totalCharged, quote.currency)}
-                </p>
-              )}
-            </div>
-            <ChevronDown
-              className={`w-4 h-4 text-[var(--ks-text-muted)] transition-transform duration-150 ${
-                mobileSummaryOpen ? 'rotate-180' : ''
-              }`}
-            />
-          </div>
-        </button>
-
-        <AnimatePresence initial={false}>
-          {mobileSummaryOpen && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={STUDIO_TRANSITION.accordion}
-              className="overflow-hidden border-t border-[var(--ks-border)]"
-            >
-              <div className="p-4 space-y-4">
-                {renderOrderSummaryContent('max-h-56')}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      {renderCheckoutHeaderAndStepper()}
 
       {paymentBanner && (
         <div
@@ -1292,7 +1310,7 @@ export const CheckoutPage: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12 items-start">
         <div className="lg:col-span-7 p-5 sm:p-8 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-6">
           <AnimatePresence
             mode="wait"
@@ -1307,66 +1325,66 @@ export const CheckoutPage: React.FC = () => {
               animate="animate"
               exit="exit"
             >
-            {step === 1 && (
-              <div className="space-y-5">
-                <h2 className="font-display text-2xl font-medium">{t(language, 'step1Title')}</h2>
-                <Input
-                  label={t(language, 'emailLabel')}
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => {
-                    customerEditedRef.current = true;
-                    setEmail(e.target.value);
-                  }}
-                  error={errors.email}
-                  helperText={t(language, 'emailHelperText')}
-                  placeholder="name@example.com"
-                />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {step === 1 && (
+                <div className="space-y-5">
+                  <h2 className="font-display text-2xl font-medium">{t(language, 'step1Title')}</h2>
                   <Input
-                    label={t(language, 'fullNameLabel')}
-                    autoComplete="name"
+                    label={t(language, 'emailLabel')}
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
                     required
-                    value={fullName}
+                    value={email}
                     onChange={(e) => {
                       customerEditedRef.current = true;
-                      setFullName(e.target.value);
+                      setEmail(e.target.value);
                     }}
-                    error={errors.fullName}
-                    placeholder={t(language, 'recipientNamePlaceholder')}
+                    error={errors.email}
+                    helperText={t(language, 'emailHelperText')}
+                    placeholder="name@example.com"
                   />
-                  <Input
-                    label={t(language, 'mobilePhoneLabel')}
-                    type="tel"
-                    inputMode="tel"
-                    autoComplete="tel"
-                    required
-                    value={phone}
-                    onChange={(e) => {
-                      customerEditedRef.current = true;
-                      setPhone(e.target.value);
-                    }}
-                    error={errors.phone}
-                    placeholder={isBangladesh ? '017XXXXXXXX' : '+1 555 0100'}
-                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input
+                      label={t(language, 'fullNameLabel')}
+                      autoComplete="name"
+                      required
+                      value={fullName}
+                      onChange={(e) => {
+                        customerEditedRef.current = true;
+                        setFullName(e.target.value);
+                      }}
+                      error={errors.fullName}
+                      placeholder={t(language, 'recipientNamePlaceholder')}
+                    />
+                    <Input
+                      label={t(language, 'mobilePhoneLabel')}
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      required
+                      value={phone}
+                      onChange={(e) => {
+                        customerEditedRef.current = true;
+                        setPhone(e.target.value);
+                      }}
+                      error={errors.phone}
+                      placeholder={isBangladesh ? '+880 1711-000194' : '+1 555 0100'}
+                    />
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {step === 2 && (
-              <div className="space-y-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
+              {step === 2 && (
+                <div className="space-y-4">
+                  <div className="space-y-1">
                     <h2 className="font-display text-2xl font-medium">
-                      {t(language, 'step2Title')}
+                      {t(language, 'step2HierarchicalHeading')}
                     </h2>
-                    <p className="text-xs text-[var(--ks-text-secondary)] mt-0.5">
+                    <p className="text-xs text-[var(--ks-text-secondary)]">
                       {t(language, 'addressHierarchyHint')}
                     </p>
                   </div>
+
                   {profile.isAuthenticated && addresses.length > 0 && (
                     <select
                       aria-label={t(language, 'fillFromSavedAddress')}
@@ -1383,7 +1401,7 @@ export const CheckoutPage: React.FC = () => {
                           setPostalCode(found.postalCode);
                         }
                       }}
-                      className="min-h-[44px] px-3 text-base sm:text-xs rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-[var(--ks-text-primary)] max-w-full"
+                      className="w-full min-h-[44px] px-3 text-base sm:text-xs rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-[var(--ks-text-primary)]"
                     >
                       <option value="">{t(language, 'loadSavedAddress')}</option>
                       {addresses.map((a) => (
@@ -1393,371 +1411,367 @@ export const CheckoutPage: React.FC = () => {
                       ))}
                     </select>
                   )}
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Select
-                    label={t(language, 'countryRegionField')}
-                    required
-                    value={country}
-                    onChange={(e) => handleCountryChange(e.target.value)}
-                    options={[
-                      { value: 'Bangladesh', label: t(language, 'bdSettlementOption') },
-                      { value: 'United States', label: 'United States' },
-                      { value: 'Canada', label: 'Canada' },
-                      { value: 'United Kingdom', label: 'United Kingdom' },
-                    ]}
-                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Select
+                      label={t(language, 'countryRegionField')}
+                      required
+                      value={country}
+                      onChange={(e) => handleCountryChange(e.target.value)}
+                      options={[
+                        { value: 'Bangladesh', label: t(language, 'bdSettlementOption') },
+                        { value: 'United States', label: 'United States' },
+                        { value: 'Canada', label: 'Canada' },
+                        { value: 'United Kingdom', label: 'United Kingdom' },
+                      ]}
+                    />
+
+                    {isBangladesh ? (
+                      <Select
+                        label={t(language, 'divisionField')}
+                        required
+                        value={activeDivEntry.name}
+                        onChange={(e) => handleDivisionChange(e.target.value)}
+                        options={geoTree.map((d) => ({ value: d.name, label: d.name }))}
+                      />
+                    ) : (
+                      <Input
+                        label={t(language, 'stateProvinceField')}
+                        required
+                        value={stateDiv}
+                        onChange={(e) => setStateDiv(e.target.value)}
+                        error={errors.stateDiv}
+                        placeholder={t(language, 'stateProvincePlaceholder')}
+                      />
+                    )}
+                  </div>
 
                   {isBangladesh ? (
-                    <Select
-                      label={t(language, 'divisionField')}
-                      required
-                      value={activeDivEntry.name}
-                      onChange={(e) => handleDivisionChange(e.target.value)}
-                      options={geoTree.map((d) => ({ value: d.name, label: d.name }))}
-                    />
-                  ) : (
-                    <Input
-                      label={t(language, 'stateProvinceField')}
-                      required
-                      value={stateDiv}
-                      onChange={(e) => setStateDiv(e.target.value)}
-                      error={errors.stateDiv}
-                      placeholder={t(language, 'stateProvincePlaceholder')}
-                    />
-                  )}
-                </div>
-
-                {isBangladesh ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <Select
-                      label={t(language, 'districtField')}
-                      required
-                      value={activeDistEntry.name}
-                      onChange={(e) => handleDistrictChange(e.target.value)}
-                      options={activeDivEntry.districts.map((d) => ({
-                        value: d.name,
-                        label: d.name,
-                      }))}
-                    />
-                    <Select
-                      label={t(language, 'upazilaField')}
-                      required
-                      value={activeUpaEntry.name}
-                      onChange={(e) => handleUpazilaChange(e.target.value)}
-                      options={activeDistEntry.upazilas.map((u) => ({
-                        value: u.name,
-                        label: u.name,
-                      }))}
-                    />
-                    <Select
-                      label={t(language, 'deliveryAreaField')}
-                      required
-                      value={areaOptions.some((a) => a.name === area) ? area : areaOptions[0]?.name || ''}
-                      onChange={(e) => handleAreaChange(e.target.value)}
-                      options={areaOptions.map((a) => ({
-                        value: a.name,
-                        label: a.restricted ? `${a.name} (${t(language, 'restrictedBadge')})` : a.name,
-                      }))}
-                    />
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Input
-                      label={t(language, 'cityField')}
-                      required
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      error={errors.city}
-                      placeholder={t(language, 'cityField')}
-                    />
-                    <Input
-                      label={t(language, 'neighborhoodAreaField')}
-                      value={area}
-                      onChange={(e) => setArea(e.target.value)}
-                      placeholder={t(language, 'neighborhoodPlaceholder')}
-                    />
-                  </div>
-                )}
-
-                {isRestrictedZone && (
-                  <div
-                    role="alert"
-                    className="p-4 rounded-md border border-[var(--ks-error)]/40 bg-[var(--ks-error)]/8 flex items-start gap-3 text-xs"
-                  >
-                    <AlertTriangle className="w-4 h-4 text-[var(--ks-error)] shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <p className="font-semibold text-[var(--ks-error)]">
-                        {t(language, 'restrictedZoneDetected')}
-                      </p>
-                      <p className="text-[var(--ks-text-secondary)]">
-                        {quote?.shippingQuote.restrictionReason ||
-                          t(language, 'restrictedZoneDefaultDesc')}
-                      </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <Select
+                        label={t(language, 'districtField')}
+                        required
+                        value={activeDistEntry.name}
+                        onChange={(e) => handleDistrictChange(e.target.value)}
+                        options={activeDivEntry.districts.map((d) => ({
+                          value: d.name,
+                          label: d.name,
+                        }))}
+                      />
+                      <Select
+                        label={t(language, 'upazilaField')}
+                        required
+                        value={activeUpaEntry.name}
+                        onChange={(e) => handleUpazilaChange(e.target.value)}
+                        options={activeDistEntry.upazilas.map((u) => ({
+                          value: u.name,
+                          label: u.name,
+                        }))}
+                      />
+                      <Select
+                        label={t(language, 'deliveryAreaField')}
+                        required
+                        value={areaOptions.some((a) => a.name === area) ? area : areaOptions[0]?.name || ''}
+                        onChange={(e) => handleAreaChange(e.target.value)}
+                        options={areaOptions.map((a) => ({
+                          value: a.name,
+                          label: a.restricted ? `${a.name} (${t(language, 'restrictedBadge')})` : a.name,
+                        }))}
+                      />
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Input
+                        label={t(language, 'cityField')}
+                        required
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        error={errors.city}
+                        placeholder={t(language, 'cityField')}
+                      />
+                      <Input
+                        label={t(language, 'neighborhoodAreaField')}
+                        value={area}
+                        onChange={(e) => setArea(e.target.value)}
+                        placeholder={t(language, 'neighborhoodPlaceholder')}
+                      />
+                    </div>
+                  )}
 
-                {!isBangladesh && (
-                  <div className="space-y-2.5">
+                  {isRestrictedZone && (
+                    <div
+                      role="alert"
+                      className="p-4 rounded-md border border-[var(--ks-error)]/40 bg-[var(--ks-error)]/8 flex items-start gap-3 text-xs"
+                    >
+                      <AlertTriangle className="w-4 h-4 text-[var(--ks-error)] shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <p className="font-semibold text-[var(--ks-error)]">
+                          {t(language, 'restrictedZoneDetected')}
+                        </p>
+                        <p className="text-[var(--ks-text-secondary)]">
+                          {quote?.shippingQuote.restrictionReason ||
+                            t(language, 'restrictedZoneDefaultDesc')}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {!isBangladesh && (
+                    <div className="space-y-2.5">
+                      <label className="flex items-start gap-2.5 min-h-[44px] p-3 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={allowInternationalUsd}
+                          onChange={(e) => setAllowInternationalUsd(e.target.checked)}
+                          className="mt-[2px] w-4 h-4 shrink-0 accent-[var(--ks-action)]"
+                        />
+                        <span className="leading-snug">{t(language, 'quoteIntlUsdLabel')}</span>
+                      </label>
+                      <div className="p-3 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs text-[var(--ks-text-secondary)] leading-relaxed">
+                        Cross-border dispatches settle in USD and may be subject to destination customs duties, VAT, and carrier clearance rules.{' '}
+                        <button
+                          type="button"
+                          onClick={() => openPolicyPreview('international-orders-policy')}
+                          className="underline font-medium text-[var(--ks-accent)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                        >
+                          Read International Orders &amp; Customs Policy
+                        </button>
+                        .
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="sm:col-span-2">
+                      <Input
+                        label={t(language, 'streetHouseRoadField')}
+                        autoComplete="street-address"
+                        required
+                        value={streetAddress}
+                        onChange={(e) => {
+                          addressEditedRef.current = true;
+                          setStreetAddress(e.target.value);
+                        }}
+                        error={errors.streetAddress}
+                        placeholder={
+                          isBangladesh
+                            ? t(language, 'streetBdPlaceholder')
+                            : t(language, 'streetIntlPlaceholder')
+                        }
+                      />
+                    </div>
+                    <Input
+                      label={t(language, 'postalCodeField')}
+                      autoComplete="postal-code"
+                      required
+                      value={postalCode}
+                      onChange={(e) => {
+                        addressEditedRef.current = true;
+                        setPostalCode(e.target.value);
+                      }}
+                      error={errors.postalCode}
+                      placeholder={isBangladesh ? '1213' : 'Postal / ZIP'}
+                    />
+                  </div>
+
+                  <Textarea
+                    label={t(language, 'deliveryInstructionsField')}
+                    rows={2}
+                    value={instructions}
+                    onChange={(e) => setInstructions(e.target.value)}
+                    placeholder={t(language, 'deliveryInstructionsPlaceholder')}
+                  />
+
+                  {profile.isAuthenticated && (
                     <label className="flex items-start gap-2.5 min-h-[44px] p-3 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={allowInternationalUsd}
-                        onChange={(e) => setAllowInternationalUsd(e.target.checked)}
+                        checked={saveAddressToAccount}
+                        onChange={(e) => setSaveAddressToAccount(e.target.checked)}
                         className="mt-[2px] w-4 h-4 shrink-0 accent-[var(--ks-action)]"
                       />
-                      <span className="leading-snug">{t(language, 'quoteIntlUsdLabel')}</span>
+                      <span className="leading-snug">{t(language, 'checkoutSaveAddressToggle')}</span>
                     </label>
-                    <div className="p-3 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs text-[var(--ks-text-secondary)] leading-relaxed">
-                      Cross-border dispatches settle in USD and may be subject to destination customs duties, VAT, and carrier clearance rules.{' '}
-                      <button
-                        type="button"
-                        onClick={() => openPolicyPreview('international-orders-policy')}
-                        className="underline font-medium text-[var(--ks-accent)] hover:text-[var(--ks-text-primary)] cursor-pointer"
-                      >
-                        Read International Orders &amp; Customs Policy
-                      </button>
-                      .
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="sm:col-span-2">
-                    <Input
-                      label={t(language, 'streetHouseRoadField')}
-                      autoComplete="street-address"
-                      required
-                      value={streetAddress}
-                      onChange={(e) => {
-                        addressEditedRef.current = true;
-                        setStreetAddress(e.target.value);
-                      }}
-                      error={errors.streetAddress}
-                      placeholder={
-                        isBangladesh
-                          ? t(language, 'streetBdPlaceholder')
-                          : t(language, 'streetIntlPlaceholder')
-                      }
-                    />
-                  </div>
-                  <Input
-                    label={t(language, 'postalCodeField')}
-                    autoComplete="postal-code"
-                    required
-                    value={postalCode}
-                    onChange={(e) => {
-                      addressEditedRef.current = true;
-                      setPostalCode(e.target.value);
-                    }}
-                    error={errors.postalCode}
-                    placeholder={isBangladesh ? '1213' : 'Postal / ZIP'}
-                  />
-                </div>
-
-                <Textarea
-                  label={t(language, 'deliveryInstructionsField')}
-                  rows={2}
-                  value={instructions}
-                  onChange={(e) => setInstructions(e.target.value)}
-                  placeholder={t(language, 'deliveryInstructionsPlaceholder')}
-                />
-
-                {profile.isAuthenticated && (
-                  <label className="flex items-start gap-2.5 min-h-[44px] p-3 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={saveAddressToAccount}
-                      onChange={(e) => setSaveAddressToAccount(e.target.checked)}
-                      className="mt-[2px] w-4 h-4 shrink-0 accent-[var(--ks-action)]"
-                    />
-                    <span className="leading-snug">{t(language, 'checkoutSaveAddressToggle')}</span>
-                  </label>
-                )}
-              </div>
-            )}
-
-            {step === 3 && (
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="font-display text-2xl font-medium">{t(language, 'step3Title')}</h2>
-                  {quote && (
-                    <span className="text-xs font-mono-num text-[var(--ks-accent)]">
-                      {t(language, 'zoneWeightSummary', {
-                        zone: quote.shippingQuote.zoneLabel,
-                        weight: quote.shippingQuote.totalWeightKg,
-                      })}
-                      {quote.shippingQuote.hasBulkyItems
-                        ? ` · ${t(language, 'bulkyHandlingTag')}`
-                        : ''}
-                    </span>
                   )}
                 </div>
+              )}
 
-                {shippingOptions.length === 0 ? (
-                  <div className="p-6 rounded-lg border border-[var(--ks-border)] bg-[var(--ks-bg)] text-sm text-[var(--ks-text-secondary)]">
-                    {quoteLoading
-                      ? t(language, 'calculatingRoutes')
-                      : t(language, 'unableResolveRoutes')}
+              {step === 3 && (
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <h2 className="font-display text-2xl font-medium">{t(language, 'step3Title')}</h2>
+                    {quote && (
+                      <p className="text-xs font-mono-num text-[var(--ks-accent)]">
+                        {t(language, 'zoneWeightSummary', {
+                          zone: quote.shippingQuote.zoneLabel,
+                          weight: quote.shippingQuote.totalWeightKg,
+                        })}
+                        {quote.shippingQuote.hasBulkyItems
+                          ? ` · ${t(language, 'bulkyHandlingTag')}`
+                          : ''}
+                      </p>
+                    )}
                   </div>
-                ) : (
-                  <div className="space-y-3">
-                    {shippingOptions.map((opt) => {
-                      const active = deliveryMethod === opt.id;
-                      return (
-                        <label
-                          key={opt.id}
-                          className={`flex items-start justify-between gap-4 min-h-[64px] p-4 rounded-lg border transition-colors ${
-                            !opt.available
-                              ? 'opacity-55 cursor-not-allowed border-[var(--ks-border)] bg-[var(--ks-bg)]'
-                              : active
-                              ? 'cursor-pointer border-[var(--ks-action)] bg-[var(--ks-surface-muted)]'
-                              : 'cursor-pointer border-[var(--ks-border)] hover:border-[var(--ks-border-strong)]'
-                          }`}
-                        >
-                          <div className="flex items-start gap-3 min-w-0 flex-1">
-                            <input
-                              type="radio"
-                              name="delivery-method"
-                              disabled={!opt.available}
-                              checked={active}
-                              onChange={() => opt.available && setDeliveryMethod(opt.id)}
-                              className="mt-[3px] shrink-0 accent-[var(--ks-action)]"
-                            />
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-semibold leading-snug">{opt.title}</p>
-                              <p className="text-xs text-[var(--ks-text-secondary)] mt-0.5 leading-snug">
-                                {t(language, 'courierPrefix', { name: opt.courier })}
-                              </p>
-                              <p className="text-xs font-medium text-[var(--ks-accent)] mt-1 leading-snug">
-                                {opt.available
-                                  ? opt.eta
-                                  : opt.reason || t(language, 'unavailableRoute')}
-                              </p>
+
+                  {shippingOptions.length === 0 ? (
+                    <div className="p-6 rounded-lg border border-[var(--ks-border)] bg-[var(--ks-bg)] text-sm text-[var(--ks-text-secondary)]">
+                      {quoteLoading
+                        ? t(language, 'calculatingRoutes')
+                        : t(language, 'unableResolveRoutes')}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {shippingOptions.map((opt) => {
+                        const active = deliveryMethod === opt.id;
+                        return (
+                          <label
+                            key={opt.id}
+                            className={`flex items-start justify-between gap-4 min-h-[64px] p-4 rounded-lg border transition-colors ${
+                              !opt.available
+                                ? 'opacity-55 cursor-not-allowed border-[var(--ks-border)] bg-[var(--ks-bg)]'
+                                : active
+                                ? 'cursor-pointer border-[var(--ks-action)] bg-[var(--ks-surface-muted)]'
+                                : 'cursor-pointer border-[var(--ks-border)] hover:border-[var(--ks-border-strong)]'
+                            }`}
+                          >
+                            <div className="flex items-start gap-3 min-w-0 flex-1">
+                              <input
+                                type="radio"
+                                name="delivery-method"
+                                disabled={!opt.available}
+                                checked={active}
+                                onChange={() => opt.available && setDeliveryMethod(opt.id)}
+                                className="mt-[3px] shrink-0 accent-[var(--ks-action)]"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-semibold leading-snug">{opt.title}</p>
+                                <p className="text-xs text-[var(--ks-text-secondary)] mt-0.5 leading-snug">
+                                  {t(language, 'courierPrefix', { name: opt.courier })}
+                                </p>
+                                <p className="text-xs font-medium text-[var(--ks-accent)] mt-1 leading-snug">
+                                  {opt.available
+                                    ? opt.eta
+                                    : opt.reason || t(language, 'unavailableRoute')}
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                          <span className="text-sm font-mono-num font-semibold shrink-0 text-end tabular-nums">
-                            {!opt.available
-                              ? 'N/A'
-                              : opt.costUsd === 0
-                              ? t(language, 'complimentary')
-                              : formatCurrency(opt.costUsd, currency)}
-                          </span>
-                        </label>
-                      );
-                    })}
+                            <span className="text-sm font-mono-num font-semibold shrink-0 text-end tabular-nums">
+                              {!opt.available
+                                ? 'N/A'
+                                : opt.costUsd === 0
+                                ? t(language, 'complimentary')
+                                : formatCurrency(opt.costUsd, currency)}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {errors.delivery && <p className="text-xs text-[var(--ks-error)]">{errors.delivery}</p>}
+
+                  <div className="p-3.5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs text-[var(--ks-text-secondary)] leading-relaxed">
+                    Orders remain eligible for self-service cancellation {policyFactsPublic.cancelPreDispatchCutoff.toLowerCase()}.{' '}
+                    <button
+                      type="button"
+                      onClick={() => openPolicyPreview('shipping-policy')}
+                      className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                    >
+                      Shipping Policy
+                    </button>
+                    {' · '}
+                    <button
+                      type="button"
+                      onClick={() => openPolicyPreview('cancellation-policy')}
+                      className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                    >
+                      Cancellation Policy
+                    </button>
                   </div>
-                )}
-
-                {errors.delivery && <p className="text-xs text-[var(--ks-error)]">{errors.delivery}</p>}
-
-                <div className="p-3.5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs text-[var(--ks-text-secondary)] leading-relaxed">
-                  Orders remain eligible for self-service cancellation {policyFactsPublic.cancelPreDispatchCutoff.toLowerCase()}.{' '}
-                  <button
-                    type="button"
-                    onClick={() => openPolicyPreview('shipping-policy')}
-                    className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
-                  >
-                    Shipping Policy
-                  </button>
-                  {' · '}
-                  <button
-                    type="button"
-                    onClick={() => openPolicyPreview('cancellation-policy')}
-                    className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
-                  >
-                    Cancellation Policy
-                  </button>
                 </div>
-              </div>
-            )}
+              )}
 
-            {step === 4 && (
-              <div className="space-y-5">
-                <div>
-                  <h2 className="font-display text-2xl font-medium">{t(language, 'step4Title')}</h2>
-                  <p className="text-xs text-[var(--ks-text-secondary)] mt-1">
-                    {t(language, 'paymentChannelsHint')}
-                  </p>
-                </div>
-
-                {!quote?.shippingQuote.codEligible && quote?.shippingQuote.codReason && (
-                  <div className="p-3 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs text-[var(--ks-warning)]">
-                    {t(language, 'codNoticePrefix', { reason: quote.shippingQuote.codReason })}
-                  </div>
-                )}
-
-                {quote && allowedPaymentIds.length === 0 ? (
-                  <div
-                    role="alert"
-                    className="p-4 rounded-md border border-[var(--ks-error)]/40 bg-[var(--ks-error)]/8 text-xs space-y-1.5"
-                  >
-                    <p className="font-semibold text-[var(--ks-error)]">
-                      {t(language, 'noGatewayConfigured')}
-                    </p>
-                    <p className="text-[var(--ks-text-secondary)] leading-relaxed">
-                      {isBangladesh
-                        ? t(language, 'noGatewayBdDesc')
-                        : t(language, 'noGatewayIntlDesc')}
+              {step === 4 && (
+                <div className="space-y-5">
+                  <div>
+                    <h2 className="font-display text-2xl font-medium">{t(language, 'step4Title')}</h2>
+                    <p className="text-xs text-[var(--ks-text-secondary)] mt-1">
+                      {t(language, 'paymentChannelsHintLive')}
                     </p>
                   </div>
-                ) : (
-                  <div className="space-y-2.5">
-                    {operationalChannels.map(({ id, group }) => {
-                      const label = t(language, `payLabel_${id}` as Parameters<typeof t>[1]);
-                      const sub = t(language, `paySub_${id}` as Parameters<typeof t>[1]);
-                      const Icon =
-                        group === 'mfs'
-                          ? Smartphone
-                          : group === 'card'
-                          ? CreditCard
-                          : id === 'cod'
-                          ? Truck
-                          : id === 'bank-transfer'
-                          ? Building2
-                          : Globe;
-                      const active = paymentMethod === id;
-                      return (
-                        <label
-                          key={id}
-                          className={`flex items-start justify-between gap-4 min-h-[56px] p-4 rounded-lg border transition-colors cursor-pointer ${
-                            active
-                              ? 'border-[var(--ks-action)] bg-[var(--ks-surface-muted)]'
-                              : 'border-[var(--ks-border)] hover:border-[var(--ks-border-strong)]'
-                          }`}
-                        >
-                          <div className="flex items-start gap-3 min-w-0 flex-1">
-                            <input
-                              type="radio"
-                              name="payment-method"
-                              checked={active}
-                              onChange={() => {
-                                setPaymentMethod(id);
-                                setPaymentBanner(null);
-                                setErrors({});
-                              }}
-                              className="mt-[3px] shrink-0 accent-[var(--ks-action)]"
-                            />
-                            <Icon className="w-4 h-4 mt-[2px] text-[var(--ks-accent)] shrink-0" />
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium leading-snug">{label}</p>
-                              <p className="text-xs text-[var(--ks-text-secondary)] leading-snug mt-0.5">
-                                {sub}
-                              </p>
-                            </div>
-                          </div>
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
 
-                {(paymentMethod === 'bkash' ||
-                  paymentMethod === 'nagad' ||
-                  paymentMethod === 'rocket') &&
-                  hasOperationalPayment && (
+                  {!quote?.shippingQuote.codEligible && quote?.shippingQuote.codReason && (
+                    <div className="p-3 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs text-[var(--ks-warning)]">
+                      {t(language, 'codNoticePrefix', { reason: quote.shippingQuote.codReason })}
+                    </div>
+                  )}
+
+                  {quote && allowedPaymentIds.length === 0 ? (
+                    <div
+                      role="alert"
+                      className="p-4 rounded-md border border-[var(--ks-error)]/40 bg-[var(--ks-error)]/8 text-xs space-y-1.5"
+                    >
+                      <p className="font-semibold text-[var(--ks-error)]">
+                        {t(language, 'noGatewayConfigured')}
+                      </p>
+                      <p className="text-[var(--ks-text-secondary)] leading-relaxed">
+                        {isBangladesh
+                          ? t(language, 'noGatewayBdDesc')
+                          : t(language, 'noGatewayIntlDesc')}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {operationalChannels.map(({ id, group }) => {
+                        const label = t(language, `payLabel_${id}` as Parameters<typeof t>[1]);
+                        const sub = t(language, `paySub_${id}` as Parameters<typeof t>[1]);
+                        const Icon =
+                          group === 'mfs'
+                            ? Smartphone
+                            : group === 'card'
+                            ? CreditCard
+                            : id === 'cod'
+                            ? Truck
+                            : id === 'bank-transfer'
+                            ? Building2
+                            : Globe;
+                        const active = paymentMethod === id;
+                        return (
+                          <label
+                            key={id}
+                            className={`flex items-start justify-between gap-4 min-h-[56px] p-4 rounded-lg border transition-colors cursor-pointer ${
+                              active
+                                ? 'border-[var(--ks-action)] bg-[var(--ks-surface-muted)]'
+                                : 'border-[var(--ks-border)] hover:border-[var(--ks-border-strong)]'
+                            }`}
+                          >
+                            <div className="flex items-start gap-3 min-w-0 flex-1">
+                              <input
+                                type="radio"
+                                name="payment-method"
+                                checked={active}
+                                onChange={() => {
+                                  setPaymentMethod(id);
+                                  setPaymentBanner(null);
+                                  setErrors({});
+                                }}
+                                className="mt-[3px] shrink-0 accent-[var(--ks-action)]"
+                              />
+                              <Icon className="w-4 h-4 mt-[2px] text-[var(--ks-accent)] shrink-0" />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium leading-snug">{label}</p>
+                                <p className="text-xs text-[var(--ks-text-secondary)] leading-snug mt-0.5">
+                                  {sub}
+                                </p>
+                              </div>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {isMfsMethod && hasOperationalPayment && (
                     <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)]">
                       <Input
                         label={t(language, 'bdWalletNumberLabel')}
@@ -1773,287 +1787,302 @@ export const CheckoutPage: React.FC = () => {
                     </div>
                   )}
 
-                {unconfiguredChannels.length > 0 && (
-                  <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-1.5 text-xs">
-                    <p className="font-medium text-[var(--ks-text-primary)]">
-                      {t(language, 'pendingMerchantCreds')}
-                    </p>
-                    <p className="text-[var(--ks-text-secondary)] leading-relaxed">
-                      {t(language, 'pendingMerchantCredsDesc', {
-                        channels: unconfiguredChannels
-                          .map((c) => t(language, `payLabel_${c.id}` as Parameters<typeof t>[1]))
-                          .join(', '),
-                      })}
-                    </p>
-                  </div>
-                )}
-
-                <div className="p-3.5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs text-[var(--ks-text-secondary)] leading-relaxed">
-                  Authorized payments settle strictly against server-verified order quotes. Active channels require live server credentials; unconfigured gateways remain visibly marked above.{' '}
-                  <button
-                    type="button"
-                    onClick={() => openPolicyPreview('payment-policy')}
-                    className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
-                  >
-                    Read Payment &amp; Billing Policy
-                  </button>
-                </div>
-
-                {errors.payment && (
-                  <p className="text-xs text-[var(--ks-error)]">{errors.payment}</p>
-                )}
-              </div>
-            )}
-
-            {step === 5 && (
-              <div className="space-y-6">
-                <h2 className="font-display text-2xl font-medium">{t(language, 'step5Title')}</h2>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                  <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-1">
-                    <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
-                      {t(language, 'shipToHeading')}
-                    </p>
-                    <p className="font-medium">{fullName}</p>
-                    <p className="text-xs text-[var(--ks-text-secondary)]">{streetAddress}</p>
-                    <p className="text-xs text-[var(--ks-text-secondary)]">
-                      {[area, upazila, city, stateDiv, postalCode].filter(Boolean).join(', ')} ·{' '}
-                      {country}
-                    </p>
-                    <p className="text-xs text-[var(--ks-text-secondary)]">{phone}</p>
-                  </div>
-
-                  <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-1">
-                    <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
-                      {t(language, 'deliveryPaymentHeading')}
-                    </p>
-                    <p className="font-medium">
-                      {selectedDelivery ? selectedDelivery.title : t(language, 'pendingZoneQuote')}
-                    </p>
-                    {selectedDelivery && (
-                      <p className="text-xs text-[var(--ks-text-secondary)]">
-                        {selectedDelivery.eta} · {selectedDelivery.courier}
-                      </p>
-                    )}
-                    <p className="text-xs text-[var(--ks-accent)] pt-1 font-medium">
-                      {t(language, `payLabel_${paymentMethod}` as Parameters<typeof t>[1]) ||
-                        paymentMethod}
-                    </p>
-                  </div>
-                </div>
-
-                {quote && (
-                  <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs space-y-1.5">
-                    <div className="flex items-baseline justify-between gap-3 font-medium">
-                      <span className="inline-flex items-start gap-1.5 min-w-0 leading-snug">
-                        <ShieldCheck className="w-3.5 h-3.5 mt-[2px] text-[var(--ks-success)] shrink-0" />
-                        <span>
-                          {t(language, 'authoritativeSettlement', { currency: quote.currency })}
-                        </span>
-                      </span>
-                      <span className="font-mono-num font-semibold shrink-0 text-end tabular-nums">
-                        {formatDirectCurrency(quote.totalCharged, quote.currency)}
-                      </span>
-                    </div>
-                    <p className="text-[var(--ks-text-secondary)] font-mono-num leading-snug">
-                      FX: 1 USD = ৳{quote.currencySnapshot.exchangeRate} (
-                      {quote.currencySnapshot.rateSource})
-                    </p>
-                  </div>
-                )}
-
-                <ul className="divide-y divide-[var(--ks-border)] border-y border-[var(--ks-border)]">
-                  {cart.map((item) => (
-                    <li key={item.key} className="py-3.5 flex items-center gap-4">
-                      <ResilientImage
-                        src={item.image}
-                        alt={item.name}
-                        className="w-16 h-12 rounded-sm object-cover bg-[var(--ks-surface-muted)] shrink-0"
+                  {isCardMethod && hasOperationalPayment && (
+                    <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Input
+                        label={t(language, 'cardEndingLabel')}
+                        inputMode="numeric"
+                        maxLength={4}
+                        value={cardLast4}
+                        onChange={(e) =>
+                          setCardLast4(e.target.value.replace(/\D/g, '').slice(0, 4))
+                        }
+                        error={errors.cardLast4}
+                        placeholder="4242"
                       />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{item.name}</p>
-                        <p className="text-xs text-[var(--ks-text-secondary)]">
-                          {item.color} · {item.size} · {t(language, 'qtyShort', { count: item.quantity })} ·{' '}
-                          {((item.weightKg || 1) * item.quantity).toFixed(1)} kg
-                        </p>
-                      </div>
-                      <span className="text-sm font-mono-num font-medium shrink-0 text-end tabular-nums">
-                        {formatCurrency(item.price * item.quantity, currency)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                      <Input
+                        label={t(language, 'cardExpiryLabel')}
+                        inputMode="numeric"
+                        maxLength={5}
+                        value={cardExpiry}
+                        onChange={(e) => setCardExpiry(formatCardExpiryInput(e.target.value))}
+                        error={errors.cardExpiry}
+                        placeholder="08/28"
+                      />
+                    </div>
+                  )}
 
-                {/* Department Safety Advisories for Cart Items */}
-                {Array.from(new Set(cart.map((c) => c.category))).length > 0 && (
-                  <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-2">
-                    <p className="text-xs font-semibold text-[var(--ks-text-primary)]">
-                      {t(language, 'applicableSafetyDisclosures')}
-                    </p>
-                    <ul className="space-y-1.5 text-xs text-[var(--ks-text-secondary)] leading-snug">
-                      {Array.from(new Set(cart.map((c) => c.category)))
-                        .slice(0, 3)
-                        .map((cat) => {
-                          const notice = getDepartmentSafetyNotice(cat);
-                          return (
-                            <li key={cat}>
-                              <span className="font-medium text-[var(--ks-text-primary)]">
-                                {notice.title}:
-                              </span>{' '}
-                              {notice.summary}
-                            </li>
-                          );
+                  {unconfiguredChannels.length > 0 && (
+                    <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-1.5 text-xs">
+                      <p className="font-medium text-[var(--ks-text-primary)]">
+                        {t(language, 'pendingMerchantCreds')}
+                      </p>
+                      <p className="text-[var(--ks-text-secondary)] leading-relaxed">
+                        {t(language, 'pendingMerchantCredsDesc', {
+                          channels: unconfiguredChannels
+                            .map((c) => t(language, `payLabel_${c.id}` as Parameters<typeof t>[1]))
+                            .join(', '),
                         })}
-                    </ul>
-                  </div>
-                )}
+                      </p>
+                    </div>
+                  )}
 
-                {/* Pre-Payment Policy Highlights */}
-                <div className="p-4 rounded-md bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] space-y-2.5 text-xs">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-semibold text-[var(--ks-text-primary)]">
-                      Key Order &amp; Buyer Protection Terms
-                    </p>
-                    <span className="text-[11px] font-mono-num text-[var(--ks-accent)]">
-                      {policyFactsPublic.marketplaceModelLabel}
-                    </span>
+                  <div className="p-3.5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs text-[var(--ks-text-secondary)] leading-relaxed">
+                    Authorized payments settle strictly against server-verified order quotes.{' '}
+                    <button
+                      type="button"
+                      onClick={() => openPolicyPreview('payment-policy')}
+                      className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                    >
+                      Read Payment &amp; Billing Policy
+                    </button>
                   </div>
-                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-[var(--ks-text-secondary)] leading-snug">
-                    <li>
-                      • <strong className="text-[var(--ks-text-primary)]">Returns:</strong>{' '}
-                      {policyFactsPublic.returnWindowDays}-day return window ({policyFactsPublic.defectReportHours}h defect reporting)
-                    </li>
-                    <li>
-                      • <strong className="text-[var(--ks-text-primary)]">Cancellation:</strong>{' '}
-                      {policyFactsPublic.cancelPreDispatchCutoff}
-                    </li>
-                    <li>
-                      • <strong className="text-[var(--ks-text-primary)]">Refund SLA:</strong>{' '}
-                      {policyFactsPublic.refundSlaBusinessDays} after QC inspection
-                    </li>
-                    <li>
-                      • <strong className="text-[var(--ks-text-primary)]">Statutory Rights:</strong>{' '}
-                      Non-waivable Bangladesh Consumer Rights Act 2009 protections apply
-                    </li>
-                  </ul>
-                </div>
 
-                {/* Mandatory Clickwrap Agreement */}
-                <div
-                  className={`p-4 rounded-md border space-y-2 ${
-                    checkoutConsentError
-                      ? 'bg-[var(--ks-error)]/6 border-[var(--ks-error)]'
-                      : 'bg-[var(--ks-bg)] border-[var(--ks-border)]'
-                  }`}
-                >
-                  <label className="flex items-start gap-2.5 cursor-pointer text-xs leading-relaxed text-[var(--ks-text-secondary)] select-none">
-                    <input
-                      type="checkbox"
-                      checked={acceptedCheckoutTerms}
-                      onChange={(e) => {
-                        setAcceptedCheckoutTerms(e.target.checked);
-                        if (e.target.checked) setCheckoutConsentError('');
-                      }}
-                      aria-describedby={checkoutConsentError ? 'checkout-consent-err' : undefined}
-                      className="mt-0.5 w-4 h-4 shrink-0 accent-[var(--ks-action)] cursor-pointer"
-                    />
-                    <span>
-                      {t(language, 'agePolicyConfirmPrefix')}{' '}
-                      <button
-                        type="button"
-                        onClick={() => openPolicyPreview('terms')}
-                        className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
-                      >
-                        {t(language, 'termsConditions')}
-                      </button>
-                      ,{' '}
-                      <button
-                        type="button"
-                        onClick={() => openPolicyPreview('return-policy')}
-                        className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
-                      >
-                        {t(language, 'returnsRefunds')}
-                      </button>
-                      ,{' '}
-                      <button
-                        type="button"
-                        onClick={() => openPolicyPreview('shipping-policy')}
-                        className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
-                      >
-                        {t(language, 'shippingCustomsPolicy')}
-                      </button>
-                      ,{' '}
-                      <button
-                        type="button"
-                        onClick={() => openPolicyPreview('cancellation-policy')}
-                        className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
-                      >
-                        {t(language, 'cancellationPolicy')}
-                      </button>
-                      ,{' '}
-                      <button
-                        type="button"
-                        onClick={() => openPolicyPreview('payment-policy')}
-                        className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
-                      >
-                        {t(language, 'paymentPolicy')}
-                      </button>
-                      ,{' '}
-                      <button
-                        type="button"
-                        onClick={() => openPolicyPreview('product-safety')}
-                        className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
-                      >
-                        {t(language, 'productSafetyDisclaimers')}
-                      </button>
-                      ,{' '}
-                      <button
-                        type="button"
-                        onClick={() => openPolicyPreview('marketplace-terms')}
-                        className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
-                      >
-                        {t(language, 'marketplaceTerms')}
-                      </button>
-                      ,{' '}
-                      <button
-                        type="button"
-                        onClick={() => openPolicyPreview('privacy-policy')}
-                        className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
-                      >
-                        {t(language, 'privacyPolicy')}
-                      </button>{' '}
-                      {t(language, 'underBdLawCourts')}
-                    </span>
-                  </label>
-                  {checkoutConsentError && (
-                    <p id="checkout-consent-err" className="text-xs text-[var(--ks-error)] ps-6">
-                      {checkoutConsentError}
-                    </p>
+                  {errors.payment && (
+                    <p className="text-xs text-[var(--ks-error)]">{errors.payment}</p>
                   )}
                 </div>
-              </div>
-            )}
+              )}
+
+              {step === 5 && (
+                <div className="space-y-6">
+                  <h2 className="font-display text-2xl font-medium">
+                    {t(language, 'step5ReviewHeading')}
+                  </h2>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                    <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-1">
+                      <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
+                        {t(language, 'shipToHeading')}
+                      </p>
+                      <p className="font-medium">{fullName}</p>
+                      <p className="text-xs text-[var(--ks-text-secondary)]">{streetAddress}</p>
+                      <p className="text-xs text-[var(--ks-text-secondary)]">
+                        {[area, upazila, city, stateDiv, postalCode].filter(Boolean).join(', ')} ·{' '}
+                        {country}
+                      </p>
+                      <p className="text-xs text-[var(--ks-text-secondary)]">{phone}</p>
+                    </div>
+
+                    <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-1">
+                      <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
+                        {t(language, 'deliveryGatewayChannelHeading')}
+                      </p>
+                      <p className="font-medium">
+                        {selectedDelivery ? selectedDelivery.title : t(language, 'pendingZoneQuote')}
+                      </p>
+                      {selectedDelivery && (
+                        <p className="text-xs text-[var(--ks-text-secondary)]">
+                          {selectedDelivery.eta} · {selectedDelivery.courier}
+                        </p>
+                      )}
+                      <p className="text-xs text-[var(--ks-accent)] pt-1 font-medium">
+                        {selectedPaymentLabel}
+                        {activePaymentSuffix}
+                      </p>
+                    </div>
+                  </div>
+
+                  {quote && (
+                    <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs space-y-1.5">
+                      <div className="flex items-baseline justify-between gap-3 font-medium">
+                        <span className="inline-flex items-start gap-1.5 min-w-0 leading-snug">
+                          <ShieldCheck className="w-3.5 h-3.5 mt-[2px] text-[var(--ks-success)] shrink-0" />
+                          <span>
+                            {t(language, 'authoritativeSettlement', { currency: quote.currency })}
+                          </span>
+                        </span>
+                        <span className="font-mono-num font-semibold shrink-0 text-end tabular-nums">
+                          {formatDirectCurrency(quote.totalCharged, quote.currency)}
+                        </span>
+                      </div>
+                      <p className="text-[var(--ks-text-secondary)] font-mono-num leading-snug">
+                        FX: 1 USD = ৳{quote.currencySnapshot.exchangeRate} (
+                        {quote.currencySnapshot.rateSource})
+                      </p>
+                    </div>
+                  )}
+
+                  <ul className="divide-y divide-[var(--ks-border)] border-y border-[var(--ks-border)]">
+                    {cart.map((item) => (
+                      <li key={item.key} className="py-3.5 flex items-center gap-4">
+                        <ResilientImage
+                          src={item.image}
+                          alt={item.name}
+                          className="w-16 h-12 rounded-sm object-cover bg-[var(--ks-surface-muted)] shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{item.name}</p>
+                          <p className="text-xs text-[var(--ks-text-secondary)]">
+                            {item.color} · {item.size} · {t(language, 'qtyShort', { count: item.quantity })} ·{' '}
+                            {((item.weightKg || 1) * item.quantity).toFixed(1)} kg
+                          </p>
+                        </div>
+                        <span className="text-sm font-mono-num font-medium shrink-0 text-end tabular-nums">
+                          {formatCurrency(item.price * item.quantity, currency)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {Array.from(new Set(cart.map((c) => c.category))).length > 0 && (
+                    <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-2">
+                      <p className="text-xs font-semibold text-[var(--ks-text-primary)]">
+                        {t(language, 'applicableSafetyDisclosures')}
+                      </p>
+                      <ul className="space-y-1.5 text-xs text-[var(--ks-text-secondary)] leading-snug">
+                        {Array.from(new Set(cart.map((c) => c.category)))
+                          .slice(0, 3)
+                          .map((cat) => {
+                            const notice = getDepartmentSafetyNotice(cat);
+                            return (
+                              <li key={cat}>
+                                <span className="font-medium text-[var(--ks-text-primary)]">
+                                  {notice.title}:
+                                </span>{' '}
+                                {notice.summary}
+                              </li>
+                            );
+                          })}
+                      </ul>
+                    </div>
+                  )}
+
+                  <div className="p-4 rounded-md bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] space-y-2.5 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-semibold text-[var(--ks-text-primary)]">
+                        Key Order &amp; Buyer Protection Terms
+                      </p>
+                      <span className="text-[11px] font-mono-num text-[var(--ks-accent)]">
+                        {policyFactsPublic.marketplaceModelLabel}
+                      </span>
+                    </div>
+                    <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-[var(--ks-text-secondary)] leading-snug">
+                      <li>
+                        • <strong className="text-[var(--ks-text-primary)]">Returns:</strong>{' '}
+                        {policyFactsPublic.returnWindowDays}-day return window ({policyFactsPublic.defectReportHours}h defect reporting)
+                      </li>
+                      <li>
+                        • <strong className="text-[var(--ks-text-primary)]">Cancellation:</strong>{' '}
+                        {policyFactsPublic.cancelPreDispatchCutoff}
+                      </li>
+                      <li>
+                        • <strong className="text-[var(--ks-text-primary)]">Refund SLA:</strong>{' '}
+                        {policyFactsPublic.refundSlaBusinessDays} after QC inspection
+                      </li>
+                      <li>
+                        • <strong className="text-[var(--ks-text-primary)]">Statutory Rights:</strong>{' '}
+                        Non-waivable Bangladesh Consumer Rights Act 2009 protections apply
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Mandatory Clickwrap Agreement */}
+                  <div
+                    className={`p-4 rounded-md border space-y-2 ${
+                      checkoutConsentError
+                        ? 'bg-[var(--ks-error)]/6 border-[var(--ks-error)]'
+                        : 'bg-[var(--ks-bg)] border-[var(--ks-border)]'
+                    }`}
+                  >
+                    <label className="flex items-start gap-2.5 cursor-pointer text-xs leading-relaxed text-[var(--ks-text-secondary)] select-none">
+                      <input
+                        type="checkbox"
+                        checked={acceptedCheckoutTerms}
+                        onChange={(e) => {
+                          setAcceptedCheckoutTerms(e.target.checked);
+                          if (e.target.checked) setCheckoutConsentError('');
+                        }}
+                        aria-describedby={checkoutConsentError ? 'checkout-consent-err' : undefined}
+                        className="mt-0.5 w-4 h-4 shrink-0 accent-[var(--ks-action)] cursor-pointer"
+                      />
+                      <span>
+                        {t(language, 'agePolicyConfirmPrefix')}{' '}
+                        <button
+                          type="button"
+                          onClick={() => openPolicyPreview('terms')}
+                          className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                        >
+                          {t(language, 'termsConditions')}
+                        </button>
+                        ,{' '}
+                        <button
+                          type="button"
+                          onClick={() => openPolicyPreview('return-policy')}
+                          className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                        >
+                          {t(language, 'returnsRefunds')}
+                        </button>
+                        ,{' '}
+                        <button
+                          type="button"
+                          onClick={() => openPolicyPreview('shipping-policy')}
+                          className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                        >
+                          {t(language, 'shippingCustomsPolicy')}
+                        </button>
+                        ,{' '}
+                        <button
+                          type="button"
+                          onClick={() => openPolicyPreview('cancellation-policy')}
+                          className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                        >
+                          {t(language, 'cancellationPolicy')}
+                        </button>
+                        ,{' '}
+                        <button
+                          type="button"
+                          onClick={() => openPolicyPreview('payment-policy')}
+                          className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                        >
+                          {t(language, 'paymentPolicy')}
+                        </button>
+                        ,{' '}
+                        <button
+                          type="button"
+                          onClick={() => openPolicyPreview('product-safety')}
+                          className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                        >
+                          {t(language, 'productSafetyDisclaimers')}
+                        </button>
+                        ,{' '}
+                        <button
+                          type="button"
+                          onClick={() => openPolicyPreview('marketplace-terms')}
+                          className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                        >
+                          {t(language, 'marketplaceTerms')}
+                        </button>
+                        ,{' '}
+                        <button
+                          type="button"
+                          onClick={() => openPolicyPreview('privacy-policy')}
+                          className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                        >
+                          {t(language, 'privacyPolicy')}
+                        </button>{' '}
+                        {t(language, 'underBdLawCourts')}
+                      </span>
+                    </label>
+                    {checkoutConsentError && (
+                      <p id="checkout-consent-err" className="text-xs text-[var(--ks-error)] ps-6">
+                        {checkoutConsentError}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
             </motion.div>
           </AnimatePresence>
 
-          {/* Step Navigation Controls */}
-          <div className="pt-4 border-t border-[var(--ks-border)] flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
-            {step > 1 ? (
-              <Button variant="outline" size="md" onClick={() => setStep((s) => s - 1)}>
-                <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
-                <span>{t(language, 'backBtn')}</span>
-              </Button>
-            ) : (
-              <Button variant="ghost" size="md" onClick={() => navigate({ name: 'cart' })}>
-                {t(language, 'returnToBagBtn')}
-              </Button>
-            )}
-
+          {/* Step Navigation Controls: Primary CTA on top on mobile, right-aligned on desktop */}
+          <div className="pt-4 border-t border-[var(--ks-border)] flex flex-col sm:flex-row-reverse sm:items-center sm:justify-between gap-3">
             {step < 5 ? (
               <Button
                 variant="primary"
-                size="md"
+                size="lg"
                 onClick={handleNext}
+                className="w-full sm:w-auto"
                 disabled={
                   (step === 2 && isRestrictedZone) ||
                   (step === 3 && (!selectedDelivery || !selectedDelivery.available || quoteLoading)) ||
@@ -2074,7 +2103,7 @@ export const CheckoutPage: React.FC = () => {
                   quoteLoading ||
                   !hasOperationalPayment
                 }
-                className="whitespace-normal text-center leading-snug"
+                className="w-full sm:w-auto whitespace-normal text-center leading-snug"
               >
                 <span>
                   {initiatingPayment
@@ -2082,40 +2111,45 @@ export const CheckoutPage: React.FC = () => {
                       ? t(language, 'confirmingOrder')
                       : t(language, 'startingGateway')
                     : paymentMethod === 'cod'
-                    ? t(language, 'placeCodOrderBtn', {
-                        amount: quote
-                          ? formatDirectCurrency(quote.totalCharged, quote.currency)
-                          : formatCurrency(summaryTotalUsd, currency),
-                      })
-                    : t(language, 'proceedToPaymentBtn', {
-                        amount: quote
-                          ? formatDirectCurrency(quote.totalCharged, quote.currency)
-                          : formatCurrency(summaryTotalUsd, currency),
-                      })}
+                    ? t(language, 'placeCodOrderBtn', { amount: primaryAmountLabel })
+                    : t(language, 'proceedToGatewayBtn', { amount: primaryAmountLabel })}
                 </span>
+              </Button>
+            )}
+
+            {step > 1 ? (
+              <Button
+                variant="outline"
+                size="md"
+                onClick={() => setStep((s) => s - 1)}
+                className="w-full sm:w-auto"
+              >
+                <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
+                <span>{t(language, 'backBtn')}</span>
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="md"
+                onClick={() => navigate({ name: 'cart' })}
+                className="w-full sm:w-auto"
+              >
+                {t(language, 'returnToBagBtn')}
               </Button>
             )}
           </div>
         </div>
 
-        {/* Sticky Desktop Bag Summary Sidebar */}
-        <aside className="hidden lg:block lg:col-span-5 lg:sticky lg:top-28 p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-5">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="font-display text-2xl font-medium">
-              {t(language, 'inYourBagCount', { count: cart.length })}
-            </h2>
-            {quoteLoading && (
-              <span className="text-[11px] font-mono-num text-[var(--ks-accent)]">
-                {t(language, 'calculatingQuote')}
-              </span>
-            )}
-          </div>
+        {/* Mobile & Tablet Inline Bag Summary Below Step Card */}
+        <div className="lg:hidden">{renderOrderSummaryCard('max-h-64', false)}</div>
 
-          {renderOrderSummaryContent('max-h-64')}
+        {/* Sticky Desktop Bag Summary Sidebar */}
+        <aside className="hidden lg:block lg:col-span-5 lg:sticky lg:top-28">
+          {renderOrderSummaryCard('max-h-72', true)}
         </aside>
       </div>
 
-      {/* Server-Side Gateway Verification Modal (for configured online gateways) */}
+      {/* Server-Side Gateway Verification Modal */}
       <Modal
         open={Boolean(paymentSession)}
         onClose={() => {
@@ -2128,7 +2162,7 @@ export const CheckoutPage: React.FC = () => {
       >
         {paymentSession && (
           <div className="space-y-5 text-sm">
-            <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-2">
+            <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-2.5">
               <div className="flex items-baseline justify-between gap-4 text-xs text-[var(--ks-text-muted)]">
                 <span className="min-w-0">{t(language, 'transactionRefLabel')}</span>
                 <span className="font-mono-num font-semibold text-[var(--ks-text-primary)] shrink-0 text-end">
@@ -2143,7 +2177,7 @@ export const CheckoutPage: React.FC = () => {
               </div>
               <div className="flex items-baseline justify-between gap-4 text-xs text-[var(--ks-text-muted)]">
                 <span className="min-w-0">{t(language, 'statusLabel')}</span>
-                <span className="font-mono-num uppercase shrink-0 text-end">
+                <span className="font-mono-num uppercase font-medium shrink-0 text-end">
                   {paymentSession.status}
                 </span>
               </div>
@@ -2163,7 +2197,7 @@ export const CheckoutPage: React.FC = () => {
               >
                 {verifyingPayment
                   ? t(language, 'verifyingWithServer')
-                  : t(language, 'verifyPaymentBtn', {
+                  : t(language, 'authorizeVerifyBtn', {
                       amount: formatDirectCurrency(
                         paymentSession.amount,
                         paymentSession.currency
@@ -2171,15 +2205,26 @@ export const CheckoutPage: React.FC = () => {
                     })}
               </Button>
 
-              <Button
-                variant="outline"
-                size="sm"
-                fullWidth
-                disabled={verifyingPayment}
-                onClick={() => handleVerifyGateway('cancelled')}
-              >
-                {t(language, 'cancelPaymentBtn')}
-              </Button>
+              <div className="grid grid-cols-2 gap-2.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  fullWidth
+                  disabled={verifyingPayment}
+                  onClick={() => handleVerifyGateway('failed')}
+                >
+                  {t(language, 'simulateFailedBtn')}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  fullWidth
+                  disabled={verifyingPayment}
+                  onClick={() => handleVerifyGateway('cancelled')}
+                >
+                  {t(language, 'cancelPaymentBtn')}
+                </Button>
+              </div>
             </div>
           </div>
         )}

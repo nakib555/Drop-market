@@ -507,6 +507,7 @@ export async function verifyPaymentApi(payload: {
   sessionId: string;
   outcome: 'paid' | 'failed' | 'cancelled' | 'cod_confirmed';
   walletNumber?: string;
+  cardLast4?: string;
   failureReason?: string;
 }): Promise<{ session: PaymentSession; order?: Order }> {
   return withStaticFallback(
