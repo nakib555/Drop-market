@@ -364,14 +364,14 @@ export const HomePage: React.FC = () => {
                 </div>
                 <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between gap-1">
                   <div>
-                    <p className="text-[11px] text-[var(--ks-text-muted)] truncate">
+                    <p className="text-xs text-[var(--ks-text-muted)] truncate">
                       {cat.countLabel}
                     </p>
                     <p className="text-sm sm:text-[0.9375rem] font-medium mt-0.5 text-[var(--ks-text-primary)] group-hover:text-[var(--ks-accent)] transition-colors line-clamp-1">
                       {localizedName}
                     </p>
                   </div>
-                  <p className="text-[11px] text-[var(--ks-text-muted)] font-mono-num">
+                  <p className="text-xs text-[var(--ks-text-muted)] font-mono-num">
                     {cat.subcategories.length > 0
                       ? t(language, 'categoriesCount', { count: cat.subcategories.length })
                       : t(language, 'viewDepartment')}
@@ -564,7 +564,7 @@ export const HomePage: React.FC = () => {
               }
               className="text-start p-5 ks-surface-card hover:border-[var(--ks-accent)] transition-colors cursor-pointer space-y-1.5"
             >
-              <div className="flex items-baseline justify-between gap-2 text-[11px] uppercase tracking-wider text-[var(--ks-text-muted)]">
+              <div className="flex items-baseline justify-between gap-2 text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
                 <span className="truncate">
                   {t(language, 'deptCountLabel', { count: brand.categories.length })}
                 </span>

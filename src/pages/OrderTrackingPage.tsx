@@ -249,7 +249,7 @@ export const OrderTrackingPage: React.FC = () => {
                         ) : event.completed ? (
                           <Check className="w-3.5 h-3.5" />
                         ) : (
-                          <span className="text-[11px] font-mono-num">{index + 1}</span>
+                          <span className="text-xs font-mono-num">{index + 1}</span>
                         )}
                       </span>
                       {index < trackedOrder.timeline.length - 1 && (
@@ -316,7 +316,7 @@ export const OrderTrackingPage: React.FC = () => {
                   </span>
                 </p>
                 {trackedOrder.transactionRef && (
-                  <p className="font-mono-num text-[11px] text-[var(--ks-text-muted)] mt-0.5">
+                  <p className="font-mono-num text-xs text-[var(--ks-text-muted)] mt-0.5">
                     {t(language, 'refShortPrefix', { ref: trackedOrder.transactionRef })}
                   </p>
                 )}
@@ -365,7 +365,7 @@ export const OrderTrackingPage: React.FC = () => {
                 </span>
               </div>
               {trackedOrder.currencySnapshot && (
-                <p className="text-[11px] font-mono-num text-[var(--ks-text-muted)]">
+                <p className="text-xs font-mono-num text-[var(--ks-text-muted)]">
                   FX Snapshot: 1 USD = ৳{trackedOrder.currencySnapshot.exchangeRate} ·{' '}
                   {trackedOrder.currencySnapshot.rateSource}
                 </p>
@@ -435,7 +435,7 @@ export const OrderTrackingPage: React.FC = () => {
                   <span className="font-medium text-[var(--ks-text-primary)]">
                     Order-Time Policy Snapshot
                   </span>
-                  <span className="font-mono-num text-[11px] text-[var(--ks-accent)]">
+                  <span className="font-mono-num text-xs text-[var(--ks-accent)]">
                     v{trackedOrder.policyAcceptance?.version || '2026-11.1'}
                   </span>
                 </div>
@@ -455,7 +455,7 @@ export const OrderTrackingPage: React.FC = () => {
                               policyVersion: ver,
                             })
                           }
-                          className="underline text-[11px] text-[var(--ks-text-secondary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                          className="underline text-xs text-[var(--ks-text-secondary)] hover:text-[var(--ks-accent)] cursor-pointer"
                         >
                           {pid.replace('-policy', '').replace('-', ' ')}
                         </button>

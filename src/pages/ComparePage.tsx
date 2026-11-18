@@ -117,7 +117,7 @@ export const ComparePage: React.FC = () => {
                       />
                     </button>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[11px] uppercase tracking-wider text-[var(--ks-text-muted)]">
+                      <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
                         {item.brand}
                       </p>
                       <h2 className="text-base font-semibold truncate">
@@ -264,7 +264,7 @@ export const ComparePage: React.FC = () => {
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
-                        <p className="text-[11px] uppercase tracking-wider text-[var(--ks-text-muted)]">
+                        <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
                           {item.brand}
                         </p>
                         <button

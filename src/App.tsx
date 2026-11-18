@@ -143,7 +143,7 @@ class RootErrorBoundary extends React.Component<
       return (
         <div className="min-h-screen flex items-center justify-center bg-[var(--ks-bg)] text-[var(--ks-text-primary)] px-4 py-12">
           <div className="max-w-md w-full rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] p-6 sm:p-8 text-center space-y-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--ks-accent)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ks-accent)]">
               KINTO STUDIO
             </p>
             <h1 className="font-display text-2xl sm:text-3xl font-medium">

@@ -234,7 +234,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
                             : [...chosen, opt];
                           onAttributeChange(facet.key, next.length ? next.join('||') : 'all');
                         }}
-                        className={`min-h-[44px] sm:min-h-0 px-3 sm:px-2.5 py-2 sm:py-1.5 rounded-md border text-xs sm:text-[11px] font-medium cursor-pointer transition-colors ${
+                        className={`min-h-[44px] sm:min-h-0 px-3 sm:px-2.5 py-2 sm:py-1.5 rounded-md border text-xs font-medium cursor-pointer transition-colors ${
                           active
                             ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)]'
                             : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:border-[var(--ks-action)]'
@@ -395,7 +395,7 @@ const ShopFilterPanel: React.FC<ShopFilterPanelProps> = ({
         onChange={(e) => onMaxPriceChange(Number(e.target.value))}
         className="w-full h-8 accent-[var(--ks-accent)] cursor-pointer"
       />
-      <div className="flex justify-between text-[11px] font-mono-num text-[var(--ks-text-muted)]">
+      <div className="flex justify-between text-xs font-mono-num text-[var(--ks-text-muted)]">
         <span>{formatCurrency(0, currency)}</span>
         <span>{formatCurrency(catalogMaxPrice, currency)}</span>
       </div>
@@ -1243,7 +1243,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
 
               {activeLevel1Node?.children && activeLevel1Node.children.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5 p-2.5 rounded-md bg-[var(--ks-surface-muted)] border border-[var(--ks-border)]">
-                  <span className="text-[11px] uppercase tracking-wider text-[var(--ks-text-muted)] me-1">
+                  <span className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)] me-1">
                     {activeLevel1Node.name}:
                   </span>
                   {activeLevel1Node.children.map((child) => (
@@ -1254,7 +1254,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ mode }) => {
                         setSelectedSubcategory(child.slug);
                         setPage(1);
                       }}
-                      className={`min-h-[44px] sm:min-h-[30px] px-2.5 py-1 rounded text-xs sm:text-[11px] font-medium border cursor-pointer transition-colors inline-flex items-center ${
+                      className={`min-h-[44px] sm:min-h-[30px] px-2.5 py-1 rounded text-xs font-medium border cursor-pointer transition-colors inline-flex items-center ${
                         selectedSubcategory === child.slug
                           ? 'border-[var(--ks-accent)] text-[var(--ks-accent)] bg-[var(--ks-surface)]'
                           : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:border-[var(--ks-action)]'

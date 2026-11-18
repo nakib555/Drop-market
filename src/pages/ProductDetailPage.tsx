@@ -434,7 +434,7 @@ export const ProductDetailPage: React.FC = () => {
             {product.subtitle && (
               <p className="text-xs font-medium text-[var(--ks-accent)]">{product.subtitle}</p>
             )}
-            <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--ks-text-secondary)]">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--ks-text-secondary)]">
               <span>
                 {product.brand === 'Kinto Studio'
                   ? 'Sold & fulfilled by Kinto Studio (1P)'

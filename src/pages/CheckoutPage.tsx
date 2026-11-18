@@ -10,7 +10,6 @@ import {
   Globe,
   Lock,
   RefreshCw,
-  ShieldCheck,
   ShoppingBag,
   Smartphone,
   Tag,
@@ -764,68 +763,53 @@ export const CheckoutPage: React.FC = () => {
   const activeStepLabel = t(language, STEP_KEYS[activeStepClamped - 1]);
 
   const renderCheckoutHeaderAndStepper = () => (
-    <>
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-5 sm:pb-6 border-b border-[var(--ks-border)]">
+    <div className="space-y-5 pb-5 border-b border-[var(--ks-border)]">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
         <div>
-          <p className="text-[11px] font-medium text-[var(--ks-text-muted)] uppercase tracking-[0.14em]">
+          <p className="text-xs font-medium text-[var(--ks-text-muted)] uppercase tracking-[0.14em]">
             {t(language, 'checkoutFlowHeader')} ·{' '}
             {isBangladesh ? t(language, 'checkoutZoneBd') : t(language, 'checkoutZoneIntl')}
           </p>
-          <h1 className="font-display text-3xl sm:text-4xl font-medium mt-1">
+          <h1 className="ks-heading-page mt-1">
             {t(language, 'completeYourOrder')}
           </h1>
-          <div className="inline-flex items-center gap-2 text-xs text-[var(--ks-text-secondary)] mt-2">
-            <Lock className="w-3.5 h-3.5 text-[var(--ks-accent)] shrink-0" />
-            <span>{t(language, 'checkoutSubtitleLock')}</span>
-          </div>
+        </div>
+        <div className="inline-flex items-center gap-1.5 text-xs text-[var(--ks-text-muted)] shrink-0">
+          <Lock className="w-3.5 h-3.5 text-[var(--ks-accent)] shrink-0" />
+          <span>{t(language, 'checkoutSubtitleLock')}</span>
         </div>
       </div>
 
       {/* Unified Progress Bar + 6-Step Horizontal Rail */}
-      <div className="rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] p-4 sm:p-5 space-y-3.5">
+      <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs font-mono-num font-semibold text-[var(--ks-accent)]">
+          <p className="text-xs font-mono-num font-medium text-[var(--ks-text-secondary)]">
             {t(language, 'stepOf', {
               step: activeStepClamped,
               total: TOTAL_CHECKOUT_STEPS,
               label: activeStepLabel,
             })}
           </p>
-          <span className="text-xs font-mono-num font-semibold text-[var(--ks-text-secondary)] tabular-nums">
+          <span className="text-xs font-mono-num font-semibold text-[var(--ks-accent)] tabular-nums">
             {progressPercent}%
           </span>
         </div>
 
-        {/* Animated Segmented Progress Bar */}
+        {/* Continuous Animated Progress Bar */}
         <div
           role="progressbar"
           aria-valuenow={activeStepClamped}
           aria-valuemin={1}
           aria-valuemax={TOTAL_CHECKOUT_STEPS}
           aria-label={`${t(language, 'checkout')}: ${activeStepLabel}`}
-          className="relative h-2 w-full rounded-full bg-[var(--ks-surface-muted)] border border-[var(--ks-border)]/70 overflow-hidden"
+          className="relative h-1.5 w-full rounded-full bg-[var(--ks-surface-muted)] overflow-hidden"
         >
           <motion.div
             initial={false}
             animate={{ scaleX: progressPercent / 100 }}
             transition={STUDIO_TRANSITION.base}
-            className="h-full w-full origin-left rtl:origin-right rounded-full bg-gradient-to-r from-[var(--ks-action)] via-[var(--ks-action)] to-[var(--ks-accent)]"
+            className="h-full w-full origin-left rtl:origin-right rounded-full bg-[var(--ks-action)]"
           />
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 grid grid-cols-6 pointer-events-none"
-          >
-            {STEP_KEYS.map((key, idx) => (
-              <span
-                key={key}
-                className={
-                  idx < TOTAL_CHECKOUT_STEPS - 1
-                    ? 'border-e border-[var(--ks-surface)]/45'
-                    : ''
-                }
-              />
-            ))}
-          </div>
         </div>
 
         {/* 6-Step Horizontal Stepper Rail */}
@@ -839,7 +823,7 @@ export const CheckoutPage: React.FC = () => {
               const canJumpBack = completed && activeStepClamped < 6;
 
               return (
-                <li key={stepKey} className="flex items-center gap-2">
+                <li key={stepKey}>
                   <button
                     ref={(el) => {
                       stepPillRefs.current[idx] = el;
@@ -850,32 +834,27 @@ export const CheckoutPage: React.FC = () => {
                     onClick={() => canJumpBack && setStep(num)}
                     className={`inline-flex items-center gap-1.5 min-h-[38px] px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap shrink-0 transition-colors ${
                       active
-                        ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] shadow-xs'
+                        ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)]'
                         : canJumpBack
-                        ? 'bg-[var(--ks-surface-muted)] text-[var(--ks-text-primary)] hover:bg-[var(--ks-border)]/70 cursor-pointer'
+                        ? 'bg-[var(--ks-surface)] text-[var(--ks-text-primary)] hover:bg-[var(--ks-surface-muted)] cursor-pointer'
                         : completed
-                        ? 'bg-[var(--ks-surface-muted)] text-[var(--ks-text-secondary)]'
-                        : 'text-[var(--ks-text-muted)] opacity-75'
+                        ? 'bg-[var(--ks-surface)]/70 text-[var(--ks-text-secondary)]'
+                        : 'text-[var(--ks-text-muted)]'
                     }`}
                   >
                     {completed && (
-                      <Check className="w-3 h-3 text-[var(--ks-success)] shrink-0" aria-hidden="true" />
+                      <Check className="w-3.5 h-3.5 text-[var(--ks-success)] shrink-0" aria-hidden="true" />
                     )}
                     <span className="font-mono-num">{num}.</span>
                     <span>{label}</span>
                   </button>
-                  {idx < STEP_KEYS.length - 1 && (
-                    <span className="text-[var(--ks-border-strong)] select-none" aria-hidden="true">
-                      —
-                    </span>
-                  )}
                 </li>
               );
             })}
           </ol>
         </nav>
       </div>
-    </>
+    </div>
   );
 
   if (step === 6 && placedOrder) {
@@ -894,9 +873,9 @@ export const CheckoutPage: React.FC = () => {
           transition={STUDIO_TRANSITION.base}
           className="max-w-3xl mx-auto"
         >
-          <div className="p-6 sm:p-10 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] text-center space-y-5">
-            <div className="w-14 h-14 mx-auto rounded-full bg-[var(--ks-success)]/12 text-[var(--ks-success)] flex items-center justify-center">
-              <CheckCircle2 className="w-7 h-7" />
+          <div className="p-6 sm:p-10 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] text-center space-y-6">
+            <div className="w-12 h-12 mx-auto rounded-full bg-[var(--ks-success)]/12 text-[var(--ks-success)] flex items-center justify-center">
+              <CheckCircle2 className="w-6 h-6" />
             </div>
             <div className="space-y-2">
               <p className="text-xs uppercase tracking-[0.14em] text-[var(--ks-text-muted)] font-mono-num">
@@ -905,23 +884,23 @@ export const CheckoutPage: React.FC = () => {
                   ? t(language, 'codConfirmedTag')
                   : t(language, 'paymentVerifiedTitle')}
               </p>
-              <h2 className="font-display text-3xl sm:text-5xl font-medium">
+              <h2 className="ks-heading-page">
                 {t(language, 'thankYouCustomer', {
                   name: placedOrder.customerName.split(' ')[0],
                 })}
               </h2>
-              <p className="text-sm text-[var(--ks-text-secondary)] max-w-md mx-auto">
+              <p className="text-sm sm:text-base text-[var(--ks-text-secondary)] max-w-md mx-auto">
                 {t(language, 'orderReceiptSavedDesc')}
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-start p-5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-start p-5 rounded-md bg-[var(--ks-bg)]/70 text-xs">
               <div className="min-w-0">
                 <p className="text-[var(--ks-text-muted)] leading-snug">
                   {t(language, 'deliveryEstimateLabel')}
                 </p>
                 <p className="font-medium mt-1 text-sm leading-snug">{placedOrder.estimatedArrival}</p>
-                <p className="text-[11px] text-[var(--ks-text-secondary)] mt-0.5 leading-snug">
+                <p className="text-xs text-[var(--ks-text-secondary)] mt-0.5 leading-snug">
                   {placedOrder.courierName}
                 </p>
               </div>
@@ -930,7 +909,7 @@ export const CheckoutPage: React.FC = () => {
                   {t(language, 'paymentRefLabel')}
                 </p>
                 <p className="font-medium mt-1 text-sm leading-snug">{placedOrder.paymentLabel}</p>
-                <p className="text-[11px] font-mono-num text-[var(--ks-accent)] mt-0.5 leading-snug break-all">
+                <p className="text-xs font-mono-num text-[var(--ks-accent)] mt-0.5 leading-snug break-all">
                   {placedOrder.transactionRef || placedOrder.paymentStatus}
                 </p>
               </div>
@@ -941,15 +920,15 @@ export const CheckoutPage: React.FC = () => {
                 <p className="font-mono-num font-semibold mt-1 text-sm leading-snug tabular-nums">
                   {settledDisplay}
                 </p>
-                {snap && (
-                  <p className="text-[11px] font-mono-num text-[var(--ks-text-muted)] mt-0.5 leading-snug tabular-nums">
-                    Base ${snap.baseTotalUsd.toFixed(2)} USD · 1 USD = {snap.exchangeRate} BDT
+                {snap && snap.transactionCurrency !== 'USD' && (
+                  <p className="text-xs font-mono-num text-[var(--ks-text-muted)] mt-0.5 leading-snug tabular-nums">
+                    ${snap.baseTotalUsd.toFixed(2)} USD · 1 USD = ৳{snap.exchangeRate}
                   </p>
                 )}
               </div>
             </div>
 
-            <div className="text-start space-y-3 pt-2">
+            <div className="text-start space-y-3 pt-1">
               <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
                 {t(language, 'itemizedReceiptLabel')}
               </p>
@@ -975,53 +954,8 @@ export const CheckoutPage: React.FC = () => {
               </ul>
             </div>
 
-            <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-start space-y-2 text-xs">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="font-semibold text-[var(--ks-text-primary)]">
-                  Order-Time Accepted Policy Snapshot
-                </span>
-                <span className="font-mono-num text-[11px] text-[var(--ks-accent)]">
-                  Version {placedOrder.policyAcceptance?.version || '2026-11.1'}
-                </span>
-              </div>
-              <p className="text-[var(--ks-text-secondary)] leading-relaxed">
-                Your confirmation receipt and invoice reference the exact policy versions active when this order was placed:
-              </p>
-              <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-0.5">
-                {(
-                  [
-                    { id: 'terms', label: 'Terms & Conditions' },
-                    { id: 'return-policy', label: 'Return & Refund Policy' },
-                    { id: 'shipping-policy', label: 'Shipping Policy' },
-                    { id: 'cancellation-policy', label: 'Cancellation Policy' },
-                    { id: 'privacy-policy', label: 'Privacy Policy' },
-                  ] as const
-                ).map((pol) => {
-                  const snapVer =
-                    placedOrder.policyAcceptance?.acceptedPolicyVersions?.[pol.id] ||
-                    placedOrder.policyAcceptance?.version;
-                  return (
-                    <button
-                      key={pol.id}
-                      type="button"
-                      onClick={() =>
-                        navigate({
-                          name: pol.id,
-                          policyVersion: snapVer,
-                        })
-                      }
-                      className="underline text-[var(--ks-accent)] hover:text-[var(--ks-text-primary)] cursor-pointer"
-                    >
-                      {pol.label}
-                      {snapVer ? ` (v${snapVer})` : ''}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
             {!profile.isAuthenticated && (
-              <div className="p-5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-start flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="p-4 rounded-md bg-[var(--ks-bg)]/70 text-start flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="space-y-1">
                   <h3 className="text-sm font-semibold text-[var(--ks-text-primary)]">
                     {t(language, 'checkoutGuestClaimTitle')}
@@ -1058,7 +992,7 @@ export const CheckoutPage: React.FC = () => {
               </div>
             )}
 
-            <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 pt-4">
+            <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 pt-2">
               <Button
                 variant="primary"
                 size="lg"
@@ -1073,6 +1007,38 @@ export const CheckoutPage: React.FC = () => {
               >
                 {t(language, 'continueShopping')}
               </Button>
+            </div>
+
+            <div className="pt-4 border-t border-[var(--ks-border)] text-xs text-[var(--ks-text-muted)] flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+              <span>Order Policies:</span>
+              {(
+                [
+                  { id: 'terms', label: 'Terms' },
+                  { id: 'return-policy', label: 'Returns' },
+                  { id: 'shipping-policy', label: 'Shipping' },
+                  { id: 'cancellation-policy', label: 'Cancellation' },
+                  { id: 'privacy-policy', label: 'Privacy' },
+                ] as const
+              ).map((pol) => {
+                const snapVer =
+                  placedOrder.policyAcceptance?.acceptedPolicyVersions?.[pol.id] ||
+                  placedOrder.policyAcceptance?.version;
+                return (
+                  <button
+                    key={pol.id}
+                    type="button"
+                    onClick={() =>
+                      navigate({
+                        name: pol.id,
+                        policyVersion: snapVer,
+                      })
+                    }
+                    className="underline text-[var(--ks-text-secondary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                  >
+                    {pol.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </motion.div>
@@ -1103,11 +1069,11 @@ export const CheckoutPage: React.FC = () => {
       } rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-5`}
     >
       <div className="flex items-center justify-between gap-2">
-        <h2 className="font-display text-2xl font-medium">
+        <h2 className="font-display text-[clamp(1.375rem,1.15rem+0.8vw,1.65rem)] font-medium">
           {t(language, 'inYourBagCount', { count: cart.length })}
         </h2>
         {quoteLoading && (
-          <span className="text-[11px] font-mono-num text-[var(--ks-accent)]">
+          <span className="text-xs font-mono-num text-[var(--ks-accent)]">
             {t(language, 'calculatingQuote')}
           </span>
         )}
@@ -1155,7 +1121,7 @@ export const CheckoutPage: React.FC = () => {
         </div>
         {promoFeedback && (
           <p
-            className={`text-[11px] ${
+            className={`text-xs ${
               promoFeedback.ok ? 'text-[var(--ks-success)]' : 'text-[var(--ks-error)]'
             }`}
           >
@@ -1182,7 +1148,7 @@ export const CheckoutPage: React.FC = () => {
               </button>
             </div>
             {summarySubtotalUsd < appliedPromo.minSubtotal && (
-              <p className="text-[11px] text-[var(--ks-warning)]" role="status">
+              <p className="text-xs text-[var(--ks-warning)]" role="status">
                 {t(language, 'promoMinNotMet', {
                   code: appliedPromo.code,
                   amount: formatCurrency(appliedPromo.minSubtotal, currency),
@@ -1247,7 +1213,7 @@ export const CheckoutPage: React.FC = () => {
           </div>
         )}
 
-        <p className="text-[11px] text-[var(--ks-text-muted)] pt-1 leading-snug">
+        <p className="text-xs text-[var(--ks-text-muted)] pt-1 leading-snug">
           {t(language, 'fxRateLine', {
             rate: currencyConfig.rates.BDT.toFixed(2),
             zone: quote?.shippingQuote.zoneLabel || t(language, 'resolvingZone'),
@@ -1280,7 +1246,7 @@ export const CheckoutPage: React.FC = () => {
               </p>
               <p className="text-[var(--ks-text-secondary)]">{paymentBanner.message}</p>
               {paymentBanner.ref && (
-                <p className="font-mono-num text-[11px] text-[var(--ks-text-muted)]">
+                <p className="font-mono-num text-xs text-[var(--ks-text-muted)]">
                   {t(language, 'gatewayRefLabel', { ref: paymentBanner.ref })}
                 </p>
               )}
@@ -1327,7 +1293,7 @@ export const CheckoutPage: React.FC = () => {
             >
               {step === 1 && (
                 <div className="space-y-5">
-                  <h2 className="font-display text-2xl font-medium">{t(language, 'step1Title')}</h2>
+                  <h2 className="font-display text-[clamp(1.4rem,1.15rem+0.9vw,1.75rem)] font-medium">{t(language, 'step1Title')}</h2>
                   <Input
                     label={t(language, 'emailLabel')}
                     type="email"
@@ -1376,14 +1342,9 @@ export const CheckoutPage: React.FC = () => {
 
               {step === 2 && (
                 <div className="space-y-4">
-                  <div className="space-y-1">
-                    <h2 className="font-display text-2xl font-medium">
-                      {t(language, 'step2HierarchicalHeading')}
-                    </h2>
-                    <p className="text-xs text-[var(--ks-text-secondary)]">
-                      {t(language, 'addressHierarchyHint')}
-                    </p>
-                  </div>
+                  <h2 className="font-display text-[clamp(1.4rem,1.15rem+0.9vw,1.75rem)] font-medium">
+                    {t(language, 'step2HierarchicalHeading')}
+                  </h2>
 
                   {profile.isAuthenticated && addresses.length > 0 && (
                     <select
@@ -1517,8 +1478,8 @@ export const CheckoutPage: React.FC = () => {
                   )}
 
                   {!isBangladesh && (
-                    <div className="space-y-2.5">
-                      <label className="flex items-start gap-2.5 min-h-[44px] p-3 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs cursor-pointer">
+                    <div className="space-y-2 pt-1">
+                      <label className="flex items-start gap-2.5 min-h-[40px] py-1 text-xs cursor-pointer">
                         <input
                           type="checkbox"
                           checked={allowInternationalUsd}
@@ -1527,17 +1488,16 @@ export const CheckoutPage: React.FC = () => {
                         />
                         <span className="leading-snug">{t(language, 'quoteIntlUsdLabel')}</span>
                       </label>
-                      <div className="p-3 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs text-[var(--ks-text-secondary)] leading-relaxed">
-                        Cross-border dispatches settle in USD and may be subject to destination customs duties, VAT, and carrier clearance rules.{' '}
+                      <p className="text-xs text-[var(--ks-text-muted)] leading-relaxed">
+                        Cross-border dispatches settle in USD and may incur destination customs duties.{' '}
                         <button
                           type="button"
                           onClick={() => openPolicyPreview('international-orders-policy')}
-                          className="underline font-medium text-[var(--ks-accent)] hover:text-[var(--ks-text-primary)] cursor-pointer"
+                          className="underline font-medium text-[var(--ks-text-secondary)] hover:text-[var(--ks-accent)] cursor-pointer"
                         >
-                          Read International Orders &amp; Customs Policy
+                          International &amp; Customs Policy
                         </button>
-                        .
-                      </div>
+                      </p>
                     </div>
                   )}
 
@@ -1583,14 +1543,16 @@ export const CheckoutPage: React.FC = () => {
                   />
 
                   {profile.isAuthenticated && (
-                    <label className="flex items-start gap-2.5 min-h-[44px] p-3 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs cursor-pointer">
+                    <label className="flex items-center gap-2.5 min-h-[40px] py-1 text-xs cursor-pointer">
                       <input
                         type="checkbox"
                         checked={saveAddressToAccount}
                         onChange={(e) => setSaveAddressToAccount(e.target.checked)}
-                        className="mt-[2px] w-4 h-4 shrink-0 accent-[var(--ks-action)]"
+                        className="w-4 h-4 shrink-0 accent-[var(--ks-action)]"
                       />
-                      <span className="leading-snug">{t(language, 'checkoutSaveAddressToggle')}</span>
+                      <span className="leading-snug text-[var(--ks-text-secondary)]">
+                        {t(language, 'checkoutSaveAddressToggle')}
+                      </span>
                     </label>
                   )}
                 </div>
@@ -1599,7 +1561,7 @@ export const CheckoutPage: React.FC = () => {
               {step === 3 && (
                 <div className="space-y-4">
                   <div className="space-y-1">
-                    <h2 className="font-display text-2xl font-medium">{t(language, 'step3Title')}</h2>
+                    <h2 className="font-display text-[clamp(1.4rem,1.15rem+0.9vw,1.75rem)] font-medium">{t(language, 'step3Title')}</h2>
                     {quote && (
                       <p className="text-xs font-mono-num text-[var(--ks-accent)]">
                         {t(language, 'zoneWeightSummary', {
@@ -1670,12 +1632,12 @@ export const CheckoutPage: React.FC = () => {
 
                   {errors.delivery && <p className="text-xs text-[var(--ks-error)]">{errors.delivery}</p>}
 
-                  <div className="p-3.5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs text-[var(--ks-text-secondary)] leading-relaxed">
-                    Orders remain eligible for self-service cancellation {policyFactsPublic.cancelPreDispatchCutoff.toLowerCase()}.{' '}
+                  <p className="pt-1 text-xs text-[var(--ks-text-muted)] leading-relaxed">
+                    Free pre-dispatch cancellation ({policyFactsPublic.cancelPreDispatchCutoff.toLowerCase()}).{' '}
                     <button
                       type="button"
                       onClick={() => openPolicyPreview('shipping-policy')}
-                      className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                      className="underline text-[var(--ks-text-secondary)] hover:text-[var(--ks-accent)] cursor-pointer"
                     >
                       Shipping Policy
                     </button>
@@ -1683,18 +1645,18 @@ export const CheckoutPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => openPolicyPreview('cancellation-policy')}
-                      className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                      className="underline text-[var(--ks-text-secondary)] hover:text-[var(--ks-accent)] cursor-pointer"
                     >
                       Cancellation Policy
                     </button>
-                  </div>
+                  </p>
                 </div>
               )}
 
               {step === 4 && (
                 <div className="space-y-5">
                   <div>
-                    <h2 className="font-display text-2xl font-medium">{t(language, 'step4Title')}</h2>
+                    <h2 className="font-display text-[clamp(1.4rem,1.15rem+0.9vw,1.75rem)] font-medium">{t(language, 'step4Title')}</h2>
                     <p className="text-xs text-[var(--ks-text-secondary)] mt-1">
                       {t(language, 'paymentChannelsHintLive')}
                     </p>
@@ -1772,7 +1734,7 @@ export const CheckoutPage: React.FC = () => {
                   )}
 
                   {isMfsMethod && hasOperationalPayment && (
-                    <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)]">
+                    <div className="p-4 rounded-md bg-[var(--ks-bg)]/70">
                       <Input
                         label={t(language, 'bdWalletNumberLabel')}
                         type="tel"
@@ -1788,7 +1750,7 @@ export const CheckoutPage: React.FC = () => {
                   )}
 
                   {isCardMethod && hasOperationalPayment && (
-                    <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="p-4 rounded-md bg-[var(--ks-bg)]/70 grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <Input
                         label={t(language, 'cardEndingLabel')}
                         inputMode="numeric"
@@ -1813,30 +1775,25 @@ export const CheckoutPage: React.FC = () => {
                   )}
 
                   {unconfiguredChannels.length > 0 && (
-                    <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-1.5 text-xs">
-                      <p className="font-medium text-[var(--ks-text-primary)]">
-                        {t(language, 'pendingMerchantCreds')}
-                      </p>
-                      <p className="text-[var(--ks-text-secondary)] leading-relaxed">
-                        {t(language, 'pendingMerchantCredsDesc', {
-                          channels: unconfiguredChannels
-                            .map((c) => t(language, `payLabel_${c.id}` as Parameters<typeof t>[1]))
-                            .join(', '),
-                        })}
-                      </p>
-                    </div>
+                    <p className="text-xs text-[var(--ks-text-muted)] leading-relaxed">
+                      {t(language, 'pendingMerchantCredsDesc', {
+                        channels: unconfiguredChannels
+                          .map((c) => t(language, `payLabel_${c.id}` as Parameters<typeof t>[1]))
+                          .join(', '),
+                      })}
+                    </p>
                   )}
 
-                  <div className="p-3.5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs text-[var(--ks-text-secondary)] leading-relaxed">
-                    Authorized payments settle strictly against server-verified order quotes.{' '}
+                  <p className="pt-1 text-xs text-[var(--ks-text-muted)] leading-relaxed">
+                    Payments settle securely against verified order quotes.{' '}
                     <button
                       type="button"
                       onClick={() => openPolicyPreview('payment-policy')}
-                      className="underline font-medium text-[var(--ks-text-primary)] hover:text-[var(--ks-accent)] cursor-pointer"
+                      className="underline text-[var(--ks-text-secondary)] hover:text-[var(--ks-accent)] cursor-pointer"
                     >
-                      Read Payment &amp; Billing Policy
+                      Payment &amp; Billing Policy
                     </button>
-                  </div>
+                  </p>
 
                   {errors.payment && (
                     <p className="text-xs text-[var(--ks-error)]">{errors.payment}</p>
@@ -1846,12 +1803,12 @@ export const CheckoutPage: React.FC = () => {
 
               {step === 5 && (
                 <div className="space-y-6">
-                  <h2 className="font-display text-2xl font-medium">
+                  <h2 className="font-display text-[clamp(1.4rem,1.15rem+0.9vw,1.75rem)] font-medium">
                     {t(language, 'step5ReviewHeading')}
                   </h2>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                    <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 p-4 rounded-md bg-[var(--ks-bg)]/70 text-sm">
+                    <div className="space-y-1">
                       <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
                         {t(language, 'shipToHeading')}
                       </p>
@@ -1864,7 +1821,7 @@ export const CheckoutPage: React.FC = () => {
                       <p className="text-xs text-[var(--ks-text-secondary)]">{phone}</p>
                     </div>
 
-                    <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-1">
+                    <div className="space-y-1">
                       <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
                         {t(language, 'deliveryGatewayChannelHeading')}
                       </p>
@@ -1882,26 +1839,6 @@ export const CheckoutPage: React.FC = () => {
                       </p>
                     </div>
                   </div>
-
-                  {quote && (
-                    <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs space-y-1.5">
-                      <div className="flex items-baseline justify-between gap-3 font-medium">
-                        <span className="inline-flex items-start gap-1.5 min-w-0 leading-snug">
-                          <ShieldCheck className="w-3.5 h-3.5 mt-[2px] text-[var(--ks-success)] shrink-0" />
-                          <span>
-                            {t(language, 'authoritativeSettlement', { currency: quote.currency })}
-                          </span>
-                        </span>
-                        <span className="font-mono-num font-semibold shrink-0 text-end tabular-nums">
-                          {formatDirectCurrency(quote.totalCharged, quote.currency)}
-                        </span>
-                      </div>
-                      <p className="text-[var(--ks-text-secondary)] font-mono-num leading-snug">
-                        FX: 1 USD = ৳{quote.currencySnapshot.exchangeRate} (
-                        {quote.currencySnapshot.rateSource})
-                      </p>
-                    </div>
-                  )}
 
                   <ul className="divide-y divide-[var(--ks-border)] border-y border-[var(--ks-border)]">
                     {cart.map((item) => (
@@ -1925,64 +1862,69 @@ export const CheckoutPage: React.FC = () => {
                     ))}
                   </ul>
 
-                  {Array.from(new Set(cart.map((c) => c.category))).length > 0 && (
-                    <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-2">
-                      <p className="text-xs font-semibold text-[var(--ks-text-primary)]">
-                        {t(language, 'applicableSafetyDisclosures')}
-                      </p>
-                      <ul className="space-y-1.5 text-xs text-[var(--ks-text-secondary)] leading-snug">
-                        {Array.from(new Set(cart.map((c) => c.category)))
-                          .slice(0, 3)
-                          .map((cat) => {
-                            const notice = getDepartmentSafetyNotice(cat);
-                            return (
-                              <li key={cat}>
-                                <span className="font-medium text-[var(--ks-text-primary)]">
-                                  {notice.title}:
-                                </span>{' '}
-                                {notice.summary}
-                              </li>
-                            );
-                          })}
-                      </ul>
+                  {quote && (
+                    <div className="flex flex-wrap items-baseline justify-between gap-3 text-sm">
+                      <span className="font-medium text-[var(--ks-text-primary)]">
+                        {t(language, 'authoritativeSettlement', { currency: quote.currency })}
+                      </span>
+                      <div className="text-end">
+                        <span className="font-mono-num font-semibold text-[var(--ks-accent)] tabular-nums">
+                          {formatDirectCurrency(quote.totalCharged, quote.currency)}
+                        </span>
+                        <p className="text-xs font-mono-num text-[var(--ks-text-muted)] tabular-nums">
+                          1 USD = ৳{quote.currencySnapshot.exchangeRate}
+                        </p>
+                      </div>
                     </div>
                   )}
 
-                  <div className="p-4 rounded-md bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] space-y-2.5 text-xs">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="font-semibold text-[var(--ks-text-primary)]">
-                        Key Order &amp; Buyer Protection Terms
-                      </p>
-                      <span className="text-[11px] font-mono-num text-[var(--ks-accent)]">
-                        {policyFactsPublic.marketplaceModelLabel}
-                      </span>
-                    </div>
-                    <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-[var(--ks-text-secondary)] leading-snug">
+                  <div className="pt-4 border-t border-[var(--ks-border)] space-y-2.5 text-xs text-[var(--ks-text-secondary)]">
+                    <p className="font-medium text-[var(--ks-text-primary)]">
+                      Order &amp; Buyer Protection Summary
+                    </p>
+                    <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 leading-snug">
                       <li>
-                        • <strong className="text-[var(--ks-text-primary)]">Returns:</strong>{' '}
-                        {policyFactsPublic.returnWindowDays}-day return window ({policyFactsPublic.defectReportHours}h defect reporting)
+                        <span className="font-medium text-[var(--ks-text-primary)]">Returns:</span>{' '}
+                        {policyFactsPublic.returnWindowDays}-day return ({policyFactsPublic.defectReportHours}h defect notice)
                       </li>
                       <li>
-                        • <strong className="text-[var(--ks-text-primary)]">Cancellation:</strong>{' '}
+                        <span className="font-medium text-[var(--ks-text-primary)]">Cancellation:</span>{' '}
                         {policyFactsPublic.cancelPreDispatchCutoff}
                       </li>
                       <li>
-                        • <strong className="text-[var(--ks-text-primary)]">Refund SLA:</strong>{' '}
-                        {policyFactsPublic.refundSlaBusinessDays} after QC inspection
+                        <span className="font-medium text-[var(--ks-text-primary)]">Refunds:</span>{' '}
+                        {policyFactsPublic.refundSlaBusinessDays}
                       </li>
                       <li>
-                        • <strong className="text-[var(--ks-text-primary)]">Statutory Rights:</strong>{' '}
-                        Non-waivable Bangladesh Consumer Rights Act 2009 protections apply
+                        <span className="font-medium text-[var(--ks-text-primary)]">Consumer Rights:</span>{' '}
+                        Protected under Bangladesh Consumer Rights Act 2009
                       </li>
                     </ul>
+                    {Array.from(new Set(cart.map((c) => c.category))).length > 0 && (
+                      <div className="pt-1 text-xs text-[var(--ks-text-muted)] space-y-1">
+                        {Array.from(new Set(cart.map((c) => c.category)))
+                          .slice(0, 2)
+                          .map((cat) => {
+                            const notice = getDepartmentSafetyNotice(cat);
+                            return (
+                              <p key={cat}>
+                                <span className="font-medium text-[var(--ks-text-secondary)]">
+                                  {notice.title}:
+                                </span>{' '}
+                                {notice.summary}
+                              </p>
+                            );
+                          })}
+                      </div>
+                    )}
                   </div>
 
                   {/* Mandatory Clickwrap Agreement */}
                   <div
-                    className={`p-4 rounded-md border space-y-2 ${
+                    className={`space-y-2 pt-2 ${
                       checkoutConsentError
-                        ? 'bg-[var(--ks-error)]/6 border-[var(--ks-error)]'
-                        : 'bg-[var(--ks-bg)] border-[var(--ks-border)]'
+                        ? 'p-3.5 rounded-md bg-[var(--ks-error)]/6 border border-[var(--ks-error)]'
+                        : ''
                     }`}
                   >
                     <label className="flex items-start gap-2.5 cursor-pointer text-xs leading-relaxed text-[var(--ks-text-secondary)] select-none">
@@ -2162,10 +2104,10 @@ export const CheckoutPage: React.FC = () => {
       >
         {paymentSession && (
           <div className="space-y-5 text-sm">
-            <div className="p-4 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-2.5">
+            <div className="pb-4 border-b border-[var(--ks-border)] space-y-2.5">
               <div className="flex items-baseline justify-between gap-4 text-xs text-[var(--ks-text-muted)]">
                 <span className="min-w-0">{t(language, 'transactionRefLabel')}</span>
-                <span className="font-mono-num font-semibold text-[var(--ks-text-primary)] shrink-0 text-end">
+                <span className="font-mono-num font-medium text-[var(--ks-text-primary)] shrink-0 text-end">
                   {paymentSession.transactionRef}
                 </span>
               </div>
@@ -2175,19 +2117,13 @@ export const CheckoutPage: React.FC = () => {
                   {formatDirectCurrency(paymentSession.amount, paymentSession.currency)}
                 </span>
               </div>
-              <div className="flex items-baseline justify-between gap-4 text-xs text-[var(--ks-text-muted)]">
-                <span className="min-w-0">{t(language, 'statusLabel')}</span>
-                <span className="font-mono-num uppercase font-medium shrink-0 text-end">
-                  {paymentSession.status}
-                </span>
-              </div>
             </div>
 
             <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
               {paymentSession.gatewayInstructions}
             </p>
 
-            <div className="space-y-2.5 pt-2">
+            <div className="space-y-2.5 pt-1">
               <Button
                 variant="primary"
                 size="lg"
@@ -2205,26 +2141,15 @@ export const CheckoutPage: React.FC = () => {
                     })}
               </Button>
 
-              <div className="grid grid-cols-2 gap-2.5">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  fullWidth
-                  disabled={verifyingPayment}
-                  onClick={() => handleVerifyGateway('failed')}
-                >
-                  {t(language, 'simulateFailedBtn')}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  fullWidth
-                  disabled={verifyingPayment}
-                  onClick={() => handleVerifyGateway('cancelled')}
-                >
-                  {t(language, 'cancelPaymentBtn')}
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                fullWidth
+                disabled={verifyingPayment}
+                onClick={() => handleVerifyGateway('cancelled')}
+              >
+                {t(language, 'cancelPaymentBtn')}
+              </Button>
             </div>
           </div>
         )}

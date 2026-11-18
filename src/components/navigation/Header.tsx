@@ -355,9 +355,9 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
             transition={STUDIO_TRANSITION.fast}
             className="ks-announcement-bar print:hidden overflow-hidden bg-[#222220] dark:bg-[#191917] text-[#FAF9F6] text-[11px] sm:text-xs border-b border-white/10"
           >
-            <div className="py-1.5 sm:py-2 px-3 sm:px-6 lg:px-10 max-w-[var(--ks-container-max)] mx-auto grid grid-cols-[2rem_1fr_auto] lg:grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4">
+            <div className="py-1.5 sm:py-2 px-3 sm:px-6 lg:px-10 max-w-[var(--ks-container-max)] mx-auto grid grid-cols-[2rem_minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-4">
               <span className="lg:hidden w-8" aria-hidden="true" />
-              <span className="hidden lg:inline text-[#B4B2AC] whitespace-nowrap justify-self-start truncate">
+              <span className="hidden lg:block min-w-0 max-w-full text-[#B4B2AC] whitespace-nowrap justify-self-start truncate">
                 {t(language, 'deliveryNotice')}
               </span>
 

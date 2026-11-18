@@ -51,7 +51,7 @@ export const WishlistPage: React.FC = () => {
                   ? t(language, 'productsCountSingle', { count: savedProducts.length })
                   : t(language, 'productsCountPlural', { count: savedProducts.length })}
               </p>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-[var(--ks-radius-sm)] border border-[var(--ks-border)] bg-[var(--ks-surface)] text-[11px] font-medium text-[var(--ks-text-secondary)]">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-[var(--ks-radius-sm)] border border-[var(--ks-border)] bg-[var(--ks-surface)] text-xs font-medium text-[var(--ks-text-secondary)]">
                 {profile.isAuthenticated
                   ? t(language, 'wishlistSyncedBadge')
                   : t(language, 'wishlistLocalSavedBadge')}

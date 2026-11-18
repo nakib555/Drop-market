@@ -325,34 +325,53 @@ export function buildDefaultPolicyRecords(params: {
           id: 'operator-eligibility',
           heading: '1. Platform Operator, Eligibility & Accounts',
           paragraphs: [
-            `This website and storefront are operated by ${operatorDisplay}. By browsing, creating an account, or placing an order, you agree to these Terms & Conditions and the linked policies referenced during checkout.`,
-            'You confirm that you are legally competent to enter into a binding contract under the Contract Act 1872 and the Majority Act 1875 of Bangladesh (at least 18 years of age). Both guest checkout and registered accounts are supported; account holders are responsible for keeping login credentials confidential and contact details accurate.',
+            `This storefront is operated by ${operatorDisplay} under the laws of Bangladesh.`,
           ],
-          bullets: entityBullets,
+          bullets: [
+            ...entityBullets,
+            'Contractual Age & Capacity: Buyers confirm they are at least 18 years old and legally competent under the Contract Act 1872 and Majority Act 1875.',
+            'Account Security: Registered users are responsible for safeguarding credentials and maintaining accurate delivery and contact information; guest checkout remains supported.',
+          ],
         },
         {
           id: 'marketplace-model-listings',
           heading: '2. Marketplace Role (Direct & Partner Seller Listings)',
           paragraphs: [
-            'Kinto Studio operates as a multi-category marketplace featuring both Kinto Studio house editions and verified independent third-party Seller Studios. Each product detail page identifies whether an item is fulfilled directly by Kinto Studio or by an independent Partner Seller Studio.',
-            'Product descriptions, imagery, pricing, stock availability, and specifications are reviewed for accuracy, but manifest typographical errors, technical pricing mistakes, or sudden stock depletion may occur. Where a manifest listing error prevents fulfillment, Kinto Studio may cancel the affected order prior to dispatch and issue a full refund.',
+            'Kinto Studio operates both direct studio editions and curated third-party Partner Seller Studio listings.',
+          ],
+          bullets: [
+            'Clear Attribution: Every product page explicitly identifies whether an item is fulfilled directly by Kinto Studio or by an independent Partner Seller Studio.',
+            'Accuracy & Manifest Errors: Listings are reviewed for precision; if a typographical pricing error or sudden stock loss prevents dispatch, affected orders are cancelled pre-dispatch with a full refund.',
           ],
         },
         {
           id: 'orders-pricing-payment',
-          heading: '3. Order Acceptance, BDT/USD Pricing & Policies by Reference',
+          heading: '3. Order Acceptance & Currency Settlement',
           paragraphs: [
-            'Submitting an order request at checkout constitutes an offer to purchase; an order is accepted upon server verification of stock, pricing, delivery zone eligibility, and payment confirmation (or Cash on Delivery verification).',
-            'Domestic orders inside Bangladesh settle authoritatively in Bangladesh Taka (BDT). International deliveries settle in USD using a rate snapshot captured at checkout quote confirmation. Delivery, returns, cancellations, warranties, product safety, and reviews are governed by their dedicated policies integrated by reference.',
+            'Checkout submission constitutes an offer to purchase that is confirmed upon server validation.',
+          ],
+          bullets: [
+            'Verification Trigger: Orders are accepted once live stock, pricing, delivery zone eligibility, and payment authorization (or COD verification) are confirmed.',
+            'Domestic BDT Settlement: All deliveries inside Bangladesh settle authoritatively in Bangladesh Taka (BDT).',
+            'International USD Settlement: Cross-border deliveries settle in USD using the locked exchange-rate snapshot displayed at checkout.',
+            'Linked Policies: Shipping, returns, cancellations, warranties, product safety, and review rules apply by reference.',
           ],
         },
         {
           id: 'rights-liability-disputes',
-          heading: '4. Non-Waivable Consumer Rights, Force Majeure & Governing Law',
+          heading: '4. Non-Waivable Consumer Rights & Governing Law',
           paragraphs: [
-            'Nothing in these Terms waives or limits mandatory consumer rights protected under the Consumer Rights Protection Act 2009, the Sale of Goods Act 1930, or applicable Digital Commerce regulations in Bangladesh. Where applicable law provides stronger protections, statutory law prevails.',
-            'Neither party is liable for delays caused by events beyond reasonable control (natural disasters, severe transport disruption, regulatory holds, or utility failures). For domestic transactions, these Terms are governed by the laws of Bangladesh with courts in Dhaka holding jurisdiction following a good-faith resolution period via Customer Care.',
+            'Statutory consumer protections prevail over any conflicting storefront term.',
           ],
+          bullets: [
+            'Force Majeure: Neither party is liable for courier delays caused by severe weather, transport blockades, regulatory holds, or utility failures.',
+            'Dispute Venue: Domestic transactions are governed by Bangladesh law with competent courts in Dhaka following good-faith review via Customer Care.',
+          ],
+          notice: {
+            tone: 'statutory',
+            label: 'Statutory Consumer Protection',
+            body: 'Nothing in these Terms waives mandatory rights under the Consumer Rights Protection Act 2009, Sale of Goods Act 1930, or Digital Commerce guidelines.',
+          },
         },
       ],
     },
@@ -373,9 +392,9 @@ export function buildDefaultPolicyRecords(params: {
       sections: [
         {
           id: 'data-sources',
-          heading: '1. Personal Data We Collect & How It Is Collected',
+          heading: '1. Personal Data We Collect',
           paragraphs: [
-            'We collect only the personal data reasonably needed to operate the storefront, fulfill orders, prevent fraud, and support customer inquiries. Optional marketing communications and optional browser tracking remain opt-in and are never required to purchase.',
+            'We collect only the information necessary to process orders, arrange courier delivery, prevent fraud, and answer inquiries.',
           ],
           table: {
             headers: ['Interaction', 'Data Collected', 'Required vs Optional'],
@@ -389,18 +408,26 @@ export function buildDefaultPolicyRecords(params: {
         },
         {
           id: 'sharing-fulfillment',
-          heading: '2. When Data Is Shared With Sellers, Couriers & Gateways',
+          heading: '2. Sharing With Sellers, Couriers & Payment Gateways',
           paragraphs: [
-            'We do not sell personal data. Fulfilling an order requires controlled sharing with necessary processors: Partner Seller Studios receive order line items and delivery area details needed to pack and dispatch items; authorized courier partners receive recipient name, street address, and phone for parcel delivery; active payment providers process payment authorization tokens.',
-            'Kinto Studio never stores raw credit/debit card CVV codes or Mobile Financial Service PINs on storefront servers. All payment sessions operate via tokenized transaction references.',
+            'We never sell personal data and share order details strictly with fulfillment partners.',
+          ],
+          bullets: [
+            'Partner Seller Studios: Receive only line items and delivery area details required to pack and hand off parcels.',
+            'Courier Partners: Receive recipient name, street address, delivery notes, and reachable phone number for parcel delivery.',
+            'Payment Processors: Process tokenized payment authorization references; Kinto Studio never stores raw card CVV codes or MFS PINs.',
           ],
         },
         {
           id: 'transfers-security-rights',
-          heading: '3. Safeguards, Cross-Border Transfers & Privacy Requests',
+          heading: '3. Security Safeguards, Transfers & Your Privacy Rights',
           paragraphs: [
-            'Role-based access controls, signed session tokens, and input validation protect dashboard and customer records; however, no internet system can guarantee absolute security. Cross-border international orders involve sharing delivery data with international air carriers and customs authorities as required to clear parcels.',
-            `To request access, correction, marketing withdrawal, or account data erasure (subject to mandatory statutory tax/invoice retention), write to ${pubFacts.legalEmail} or manage privacy toggles inside My Account.`,
+            'Access controls protect customer records while giving you direct control over preferences and erasure requests.',
+          ],
+          bullets: [
+            'Technical Safeguards: Signed session tokens, role-based access controls, and input validation protect storefront and account records.',
+            'Cross-Border Customs: International orders require sharing recipient delivery data with air carriers and destination customs authorities.',
+            `Your Requests: Manage privacy toggles in My Account or email ${pubFacts.legalEmail} for access, correction, or account erasure (subject to statutory VAT/invoice retention).`,
           ],
         },
       ],
@@ -422,16 +449,22 @@ export function buildDefaultPolicyRecords(params: {
       sections: [
         {
           id: 'consent-enforcement',
-          heading: '1. Essential Storage vs Consent-Gated Technologies',
+          heading: '1. Essential Storage vs Consent-Gated Preferences',
           paragraphs: [
-            'Essential cookies and browser storage are strictly necessary for sign-in security, shopping bag retention, language, currency, and recording your privacy choice. Disabling essential browser storage may prevent sign-in or cart checkout from functioning.',
-            'Optional preferences—Save Search History, Personalized Catalog (Recently Viewed), and Analytics Opt-In—remain off until explicitly enabled via Cookie Preferences. Withdrawing consent immediately clears stored search/view history and halts optional telemetry.',
+            'Browser storage separates core shopping functionality from optional personalization controls.',
+          ],
+          bullets: [
+            'Strictly Necessary Storage: Powers sign-in security, shopping bag retention, language, currency, and recording your consent selection.',
+            'Optional Preferences: Save Search History, Personalized Catalog (Recently Viewed), and Analytics Opt-In remain off until explicitly enabled.',
+            'Instant Withdrawal: Turning off any optional toggle in Cookie Preferences immediately clears stored local history and halts optional telemetry.',
           ],
         },
         {
           id: 'cookie-inventory-table',
           heading: '2. Active Technology Inventory',
-          paragraphs: ['No third-party advertising trackers or retargeting pixels are active on this storefront. Current storage technologies:'],
+          paragraphs: [
+            'No third-party advertising trackers or retargeting pixels are active on this storefront.',
+          ],
           table: {
             headers: ['Key / Technology', 'Category', 'Duration & Purpose'],
             rows: cookieInventory.map((item) => [
@@ -460,10 +493,13 @@ export function buildDefaultPolicyRecords(params: {
       sections: [
         {
           id: 'coverage-estimates',
-          heading: '1. Service Coverage, Processing & Delivery Estimates',
+          heading: '1. Delivery Zones & Estimated Transit Windows',
           paragraphs: [
-            `Orders dispatch from Dhaka hubs or verified Partner Seller Studios across all 64 Districts of Bangladesh and supported international corridors. Standard free-shipping eligibility in Dhaka Metro starts at $${dhakaThresholdUsd} USD (approx. ${dhakaThresholdBdt.toLocaleString()} BDT at current reference rate) for qualifying non-freight items.`,
-            'All displayed delivery windows in checkout (such as Dhaka 24–48 hours or district 3–5 business days) are good-faith operational estimates—not guaranteed deadlines—and begin once payment authorization or COD verification clears and items pass dispatch check.',
+            `Orders dispatch from Dhaka hubs or verified Partner Seller Studios across all 64 districts of Bangladesh and supported international corridors.`,
+          ],
+          bullets: [
+            `Dhaka Complimentary Threshold: Standard shipping is waived in Dhaka Metro starting at $${dhakaThresholdUsd} USD (approx. ${dhakaThresholdBdt.toLocaleString()} BDT) for qualifying non-freight items.`,
+            'Transit Estimates: Displayed windows begin after payment authorization or COD confirmation and serve as operational estimates rather than guaranteed deadlines.',
           ],
           table: {
             headers: ['Configured Delivery Zone', 'Estimated Window (Estimate Only)', 'Cash on Delivery Eligibility'],
@@ -472,17 +508,26 @@ export function buildDefaultPolicyRecords(params: {
         },
         {
           id: 'address-delays-claims',
-          heading: '2. Restricted Areas, Address Accuracy, Split Orders & Delays',
+          heading: '2. Restricted Areas, Address Accuracy & Split Dispatches',
           paragraphs: [
-            'Remote offshore marine zones (such as offshore island routes flagged during address selection) may be temporarily suspended or restricted from COD. Customers must supply complete street addresses and reachable phone numbers; failed delivery attempts caused by unreachable contacts or incorrect addresses may require rescheduling or re-delivery charges.',
-            'Orders containing both direct studio items and Partner Seller Studio items may arrive in separate tracked parcels without extra customer shipping charges beyond the checkout quote. Delays caused by weather, hartals/blockades, public holidays, or courier disruption are communicated proactively via order tracking.',
+            'Accurate contact details and serviceable areas help couriers complete first-attempt delivery.',
+          ],
+          bullets: [
+            'Restricted Corridors: Remote offshore marine routes flagged during address selection may be temporarily suspended or prepaid-only.',
+            'Address & Phone Accuracy: Unreachable recipients or incomplete addresses may result in rescheduled delivery or carrier re-dispatch fees.',
+            'Multi-Vendor Parcels: Orders mixing direct studio and Partner Seller items may ship in separate tracked parcels at no extra checkout fee.',
+            'Force Majeure Delays: Weather, hartals/blockades, or public holidays may extend transit times and are updated on Order Tracking.',
           ],
         },
         {
           id: 'lost-damaged-parcels',
           heading: '3. Lost, Delayed or Transit-Damaged Parcels',
           paragraphs: [
-            `Inspect outer parcel seals upon delivery. Report missing items, courier damage, or non-delivery beyond the estimated window within ${pubFacts.defectReportHours} hours via Track Order or ${pubFacts.supportEmail} so our logistics desk can investigate with the carrier and arrange replacement or refund.`,
+            'Always inspect outer packaging seals at handover before signing.',
+          ],
+          bullets: [
+            `Reporting Window: Report missing items, tampered seals, or transit damage within ${pubFacts.defectReportHours} hours via Track Order or ${pubFacts.supportEmail}.`,
+            'Resolution: Include your Order ID and clear parcel photographs so logistics care can arrange priority replacement or refund.',
           ],
         },
       ],
@@ -504,10 +549,13 @@ export function buildDefaultPolicyRecords(params: {
       sections: [
         {
           id: 'return-windows-eligibility',
-          heading: '1. Return Eligibility & Category Conditions',
+          heading: '1. Return Eligibility & Category Matrix',
           paragraphs: [
-            `Defective, transit-damaged, expired, or wrong-item deliveries should be reported within ${pubFacts.defectReportHours} hours of delivery with order ID and photos for priority replacement or refund at zero return-shipping cost to you.`,
-            `Eligible change-of-mind returns may be requested within ${pubFacts.returnWindowDays} days of delivery provided the item is unused, unwashed, with original tags, seals, manuals, and manufacturer packaging intact. Statutory consumer rights always prevail over voluntary policy limits.`,
+            'Clear timelines distinguish defective deliveries from voluntary change-of-mind returns.',
+          ],
+          bullets: [
+            `Defective or Wrong Items: Report within ${pubFacts.defectReportHours} hours of delivery with photos for free pickup, replacement, or full refund.`,
+            `Change-of-Mind Window: Eligible unused items may be returned within ${pubFacts.returnWindowDays} days with original tags, seals, manuals, and packaging intact.`,
           ],
           table: {
             headers: ['Category / Condition', 'Return / Remedy Scope', 'Return Shipping & Proof'],
@@ -522,10 +570,15 @@ export function buildDefaultPolicyRecords(params: {
         },
         {
           id: 'refund-processing-exchanges',
-          heading: '2. Return Initiation, Inspection & Refund Processing',
+          heading: '2. Return Initiation, Inspection & Refund Timelines',
           paragraphs: [
-            'Signed-in buyers can submit return requests directly from My Account → Orders. Guest buyers can initiate returns by linking/claiming their order in Track Order or contacting Customer Care with their Order ID and email.',
-            `Returned items undergo verification to confirm condition and completeness. Approved refunds return strictly to your original payment method (or verified bank account/MFS for settled Cash on Delivery orders) within ${pubFacts.refundSlaBusinessDays}. Promotional coupon values apply proportionally and are not refunded as cash; direct exchanges depend on live replacement stock.`,
+            'Both registered shoppers and guest buyers can initiate return inspections easily.',
+          ],
+          bullets: [
+            'How to Request: Signed-in buyers submit requests via My Account → Orders; guests use Track Order or contact Customer Care.',
+            'Quality Inspection: Returned goods are verified for completeness, serial match, and condition upon arrival.',
+            `Refund Method & SLA: Approved refunds return to your original payment method (or verified MFS/bank for COD) within ${pubFacts.refundSlaBusinessDays}.`,
+            'Promo Adjustments & Exchanges: Coupon discounts apply proportionally and are non-refundable as cash; direct exchanges depend on live stock.',
           ],
         },
       ],
@@ -547,18 +600,25 @@ export function buildDefaultPolicyRecords(params: {
       sections: [
         {
           id: 'pre-dispatch-cancellation',
-          heading: '1. Customer Pre-Dispatch Cancellation Cutoff',
+          heading: '1. Pre-Dispatch Self-Service Cancellation',
           paragraphs: [
-            `Orders in "Confirmed" or "Processing" stage may be cancelled directly (${pubFacts.cancelPreDispatchCutoff}) via My Account → Orders or Track Order with zero cancellation fee.`,
-            'Guest shoppers may use Track Order with their Order ID + checkout email to request pre-dispatch cancellation or submit an urgent cancellation ticket to Support. Custom/made-to-order pieces cannot be cancelled once workshop production begins.',
+            'Orders may be cancelled with zero penalty prior to warehouse packing or courier handover.',
+          ],
+          bullets: [
+            `Cutoff Eligibility: ${pubFacts.cancelPreDispatchCutoff} (Confirmed or Processing stages) via My Account → Orders or Track Order.`,
+            'Guest Cancellations: Use Track Order with your Order ID and checkout email, or open an urgent Support ticket.',
+            'Custom Orders: Made-to-order pieces cannot be cancelled once workshop production begins.',
           ],
         },
         {
           id: 'after-dispatch-seller-cancel',
-          heading: '2. Already Packed/Shipped Orders & Seller Cancellations',
+          heading: '2. Post-Dispatch Orders & Seller Cancellations',
           paragraphs: [
-            'Once an order advances to "Packed", "Shipped", or "Out for Delivery" and enters courier custody, automated cancellation is unavailable; please allow delivery or follow the Return & Refund Policy once delivered.',
-            `If Kinto Studio or a Partner Seller Studio cannot fulfill an order due to verified stock loss or pre-dispatch QC failure, we notify you immediately and process a full refund to your original payment method within ${pubFacts.refundSlaBusinessDays}.`,
+            'Once parcels enter courier custody, cancellation shifts to standard return processing.',
+          ],
+          bullets: [
+            'Packed or Shipped Parcels: Automated cancellation closes once packed or shipped; follow the Return Policy after delivery.',
+            `Unfulfillable Orders: If Kinto Studio or a Partner Seller cannot dispatch due to stock loss or QC failure, a full refund is issued within ${pubFacts.refundSlaBusinessDays}.`,
           ],
         },
       ],
@@ -580,9 +640,9 @@ export function buildDefaultPolicyRecords(params: {
       sections: [
         {
           id: 'active-methods',
-          heading: '1. Supported Payment Channels & Gateway Readiness',
+          heading: '1. Supported Payment Channels',
           paragraphs: [
-            `Only payment methods actively verified and enabled on server configuration are selectable at checkout. Currently active checkout channel(s): ${gateways.activeLabels.join(', ')}. Additional gateways appear at checkout only once merchant credentials are verified and enabled.`,
+            `Currently active checkout channel(s): ${gateways.activeLabels.join(', ')}.`,
           ],
           table: {
             headers: ['Payment Channel', 'Current Status', 'Operating Scope'],
@@ -591,17 +651,25 @@ export function buildDefaultPolicyRecords(params: {
         },
         {
           id: 'currency-fx-cod',
-          heading: '2. BDT Domestic Settlement, International USD & Cash on Delivery',
+          heading: '2. Currency Settlement & Cash on Delivery',
           paragraphs: [
-            'Orders shipping within Bangladesh are billed in Bangladesh Taka (BDT). International deliveries outside Bangladesh are quoted and billed in USD using the locked reference exchange rate displayed on your checkout summary (currently configured reference rate snapshot is saved on every order receipt).',
-            'Cash on Delivery orders remain in "COD Pending" status until physical courier cash settlement. Heavy freight items, restricted zones, and orders exceeding zone COD limits require prepaid verification when online gateways are enabled.',
+            'Settlement currency and COD eligibility follow destination geography and order limits.',
+          ],
+          bullets: [
+            'Domestic BDT Billing: All orders delivered inside Bangladesh settle in Bangladesh Taka (BDT).',
+            'International USD Billing: Deliveries outside Bangladesh settle in USD using the locked checkout exchange-rate snapshot recorded on your receipt.',
+            'COD Settlement Rules: Cash on Delivery remains in COD Pending status until courier cash collection; freight orders, restricted zones, or orders above zone caps require prepaid verification.',
           ],
         },
         {
           id: 'failed-duplicate-deductions',
-          heading: '3. Pending, Failed or Duplicate Payment Deductions',
+          heading: '3. Failed Authorizations & Duplicate Debits',
           paragraphs: [
-            `Each checkout session uses an idempotency key to prevent duplicate orders. If funds are debited by an external bank or wallet without an order confirmation screen, do not reorder immediately—contact ${pubFacts.supportEmail} with your transaction reference and timestamp so we can verify settlement or trigger reversal with the gateway.`,
+            'Idempotency safeguards protect shoppers from duplicate charges during gateway retries.',
+          ],
+          bullets: [
+            'Session Protection: Every checkout quote carries a unique idempotency key so interrupted retries never create duplicate orders.',
+            `Reconciliation Support: If a bank or wallet debits funds without confirmation, email ${pubFacts.supportEmail} with your transaction reference rather than placing a second order immediately.`,
           ],
         },
       ],
@@ -623,18 +691,26 @@ export function buildDefaultPolicyRecords(params: {
       sections: [
         {
           id: 'warranty-scope',
-          heading: '1. Verified Product-Level Warranty Coverage',
+          heading: '1. Product-Level Warranty Scope',
           paragraphs: [
-            'Not all categories carry an identical warranty. Each Product Detail Page explicitly states the applicable warranty term (for example, manufacturer/partner hardware warranty on studio audio or tools, or no extended warranty beyond statutory defect remedies for consumables and apparel).',
-            'Warranty periods begin on the recorded delivery date unless a manufacturer warranty card specifies activation upon serial registration. Remedies (repair, component replacement, or refund) follow the stated maker or seller warranty alongside non-excludable Bangladesh consumer rights.',
+            'Applicable warranty periods vary by department and are displayed on each Product Detail Page.',
+          ],
+          bullets: [
+            'Coverage Start Date: Warranty coverage starts on the recorded delivery date unless serial registration specifies otherwise.',
+            'Remedy Options: Covered faults are resolved via authorized repair, component replacement, or refund without limiting statutory Bangladesh consumer rights.',
+            'Consumables & Apparel: Unless explicitly stated, apparel and perishable consumables rely on statutory defect and transit-damage remedies.',
           ],
         },
         {
           id: 'claims-authenticity',
-          heading: '2. Authenticity Commitment, Exclusions & How to Claim',
+          heading: '2. Authenticity Guarantee, Exclusions & Claims',
           paragraphs: [
-            'Kinto Studio prohibits replica or counterfeit listings. Any suspected authenticity discrepancy is investigated immediately with invoice/supply-chain verification from the Partner Seller Studio, with a full refund issued if authenticity cannot be substantiated.',
-            `Warranty does not cover physical impact damage, liquid damage on non-waterproof hardware, unauthorized repair modifications, normal battery/consumable wear, or mains surge damage on 220–240V electronics used without surge protection. Email ${pubFacts.supportEmail} with your Order ID and serial/photo evidence to initiate a claim.`,
+            'All direct and Partner Seller goods are subject to strict authenticity verification.',
+          ],
+          bullets: [
+            'Anti-Counterfeit Rule: Replicas are prohibited; unverified supply-chain claims result in listing removal and a full customer refund.',
+            'Standard Exclusions: Physical impact, liquid ingress on non-waterproof units, unauthorized repairs, normal battery wear, and unprotected 220–240V mains surge damage are excluded.',
+            `How to Claim: Email ${pubFacts.supportEmail} with your Order ID, serial number, and issue photos to open a warranty ticket.`,
           ],
         },
       ],
@@ -656,9 +732,9 @@ export function buildDefaultPolicyRecords(params: {
       sections: [
         {
           id: 'active-promo-rules',
-          heading: '1. Active Promotions & Eligibility Requirements',
+          heading: '1. Active Promotions & Eligibility',
           paragraphs: [
-            'Promotional codes apply automatically during cart and checkout calculation when minimum subtotal thresholds and eligibility conditions are satisfied. Only one promotional code may be applied per order unless expressly stated otherwise.',
+            'One promotional code may be applied per order when minimum subtotal requirements are met.',
           ],
           table: activePromosRows.length > 0
             ? {
@@ -669,10 +745,14 @@ export function buildDefaultPolicyRecords(params: {
         },
         {
           id: 'promo-returns-modifications',
-          heading: '2. Returns, Cancellations & Abuse Safeguards',
+          heading: '2. Returns, Shipping Waivers & Fair Use',
           paragraphs: [
-            'If an order using a percentage discount is cancelled or returned for refund, only the net cash amount actually paid after discount is refunded; coupon face value cannot be redeemed for cash. Free-shipping promo codes waive standard base courier fees while heavy overweight surcharges may still apply per shipping rules.',
-            'Kinto Studio reserves the right to cancel orders or revoke coupon privileges in cases of automated scraping, duplicate-account coupon farming, or unauthorized code manipulation.',
+            'Promotional adjustments follow net paid amounts and standard courier rules.',
+          ],
+          bullets: [
+            'Refund Calculation: Cancelled or returned orders refund strictly the net cash amount paid after discount; coupon value is not redeemable as cash.',
+            'Shipping Promos: Free-shipping codes waive base standard courier charges; heavy or overweight surcharges may still apply.',
+            'Abuse Prevention: Automated scraping or multi-account coupon farming may result in order cancellation.',
           ],
         },
       ],
@@ -694,18 +774,25 @@ export function buildDefaultPolicyRecords(params: {
       sections: [
         {
           id: 'fx-billing',
-          heading: '1. USD Settlement & Exchange-Rate Snapshot',
+          heading: '1. USD Billing & Payment Eligibility',
           paragraphs: [
-            'While orders inside Bangladesh are settled strictly in Bangladesh Taka (BDT), orders shipping to international addresses outside Bangladesh are quoted and billed in US Dollars (USD) with an immutable exchange rate snapshot stored on the order receipt.',
-            'Cash on Delivery (COD) is not available for international deliveries; orders shipped outside Bangladesh require an active online card or gateway channel.',
+            'Deliveries outside Bangladesh settle in US Dollars with a locked rate snapshot.',
+          ],
+          bullets: [
+            'Immutable FX Snapshot: Checkout locks the USD quote and exchange-rate snapshot directly onto your order receipt.',
+            'Prepaid Requirement: Cash on Delivery is unavailable outside Bangladesh; an active card or online gateway channel is required.',
           ],
         },
         {
           id: 'customs-duties-restrictions',
-          heading: '2. Import Duties, Customs Clearance & Restricted Items',
+          heading: '2. Customs Duties, VAT & Export Restrictions',
           paragraphs: [
-            'International air-freight prices at checkout cover international transit only unless explicitly labeled Duty Paid. Recipient import duties, VAT/GST, brokerage fees, and local customs inspection charges are the buyer’s responsibility under Delivered At Place (DAP) terms.',
-            'High-capacity lithium battery items, pressurized aerosols, or region-restricted botanical/food goods may be ineligible for international air export. Mandatory consumer protection laws in the buyer’s delivery country remain unaffected.',
+            'International shipments operate on Delivered At Place (DAP) terms unless stated otherwise.',
+          ],
+          bullets: [
+            'Import Duties & Taxes: Checkout freight covers air transit only; destination import duties, VAT/GST, and brokerage fees are the recipient’s responsibility.',
+            'Air Export Exclusions: High-capacity lithium cells, pressurized aerosols, and restricted botanicals or foods may be ineligible for international dispatch.',
+            'Mandatory Local Laws: Consumer protection rights required under the buyer’s destination country law remain unaffected.',
           ],
         },
       ],
@@ -727,18 +814,24 @@ export function buildDefaultPolicyRecords(params: {
       sections: [
         {
           id: 'review-authenticity',
-          heading: '1. Review Eligibility, Authenticity & Disclosure',
+          heading: '1. Authenticity & Verified Purchase Badges',
           paragraphs: [
-            'Signed-in customers may post product reviews and questions. Badges indicating verified purchase status reflect server-confirmed order records; unverified reviews never display a Verified Purchase label.',
-            'Paid, incentivized without clear disclosure, competitor-sabotage, or seller self-written reviews are strictly prohibited and will be removed with potential seller or buyer account suspension.',
+            'Signed-in customers can share honest product reviews and ask catalog questions.',
+          ],
+          bullets: [
+            'Verified Badge: Displayed strictly when server records confirm a fulfilled order for the reviewed item.',
+            'Zero Manipulation: Paid reviews, undisclosed incentives, seller self-reviews, and competitor sabotage are prohibited and removed.',
           ],
         },
         {
           id: 'moderation-license',
-          heading: '2. Prohibited Content, Moderation & Content License',
+          heading: '2. Content Guidelines & Moderation',
           paragraphs: [
-            'Reviews must focus on the product’s genuine quality, sizing, performance, or delivery experience. Harassment, profanity, hate speech, personal phone numbers/addresses, medical claims, external spam links, or off-topic content will be rejected or removed.',
-            `By submitting a review or question, you grant Kinto Studio a non-exclusive license to publish and display that feedback in connection with the listed product. To report suspicious reviews or appeal a moderation decision, contact ${pubFacts.supportEmail}.`,
+            'Submitted reviews must stay focused on genuine product quality, sizing, and delivery experience.',
+          ],
+          bullets: [
+            'Prohibited Content: Harassment, hate speech, personal phone numbers or addresses, unverified medical claims, and spam links are rejected.',
+            `Publication License & Appeals: Submitting feedback grants Kinto Studio a non-exclusive license to display it alongside listings; report concerns to ${pubFacts.supportEmail}.`,
           ],
         },
       ],
@@ -760,17 +853,24 @@ export function buildDefaultPolicyRecords(params: {
       sections: [
         {
           id: 'platform-role',
-          heading: '1. Direct Studio Listings vs Independent Seller Studios',
+          heading: '1. Direct Studio Editions vs Partner Seller Studios',
           paragraphs: [
-            'Every product listing clearly displays its brand and fulfilling Seller Studio. When an item is sold by an independent third-party Seller Studio, that Seller Studio is responsible for inventory accuracy, authentic sourcing, packaging, and honoring stated warranties.',
-            'Kinto Studio facilitates unified discovery, BDT/USD quote calculation, courier tracking coordination, and structured post-purchase dispute handling across both first-party and partner listings.',
+            'Product detail pages clearly distinguish house items from third-party partner listings.',
+          ],
+          bullets: [
+            'Seller Responsibility: Independent Partner Seller Studios remain responsible for inventory accuracy, authentic sourcing, packaging, and stated warranties.',
+            'Platform Coordination: Kinto Studio manages unified discovery, authoritative BDT/USD quotes, courier tracking, and post-purchase dispute triage.',
           ],
         },
         {
           id: 'dispute-settlement-protection',
-          heading: '2. Buyer Protection & Settlement Safeguards',
+          heading: '2. Escrow Holds & Buyer Protection',
           paragraphs: [
-            'To protect buyers, platform settlement policies allow temporary holds on seller funds when a parcel is overdue, undelivered, defective, or flagged for authenticity review. Confirmed non-delivery or wrong-item claims are resolved via full refund to the customer.',
+            'Settlement holds protect buyers when delivery or quality issues arise.',
+          ],
+          bullets: [
+            'Reserve Safeguards: Seller disbursements may be held temporarily if a parcel is overdue, defective, or under authenticity review.',
+            'Confirmed Claims: Verified non-delivery or wrong-item claims are resolved via full refund to the customer.',
           ],
         },
       ],
@@ -792,18 +892,25 @@ export function buildDefaultPolicyRecords(params: {
       sections: [
         {
           id: 'seller-eligibility-tax',
-          heading: '1. Independent Merchant Status, KYC & Bangladesh Tax Compliance',
+          heading: '1. Merchant Eligibility, KYC & Tax Compliance',
           paragraphs: [
-            'Approved Partner Seller Studios operate as independent merchants—not employees or agents of Kinto Studio. Sellers must supply accurate business contact details, maintain valid Trade License / e-TIN / VAT/BIN documentation where legally required, and certify BSTI or sector approvals for regulated goods.',
-            'Sellers warrant that every listed SKU is genuine, safe, accurately priced, weighed accurately for shipping tiers, and free from third-party trademark or copyright infringement.',
+            'Approved Partner Seller Studios operate as independent merchants rather than employees or agents of Kinto Studio.',
+          ],
+          bullets: [
+            'Statutory Documentation: Sellers must maintain valid Trade License, e-TIN, VAT/BIN records, and applicable sector approvals (such as BSTI).',
+            'Catalog Warranties: Sellers warrant that every listed SKU is genuine, safe, accurately priced, weighed accurately for shipping, and IP-compliant.',
           ],
         },
         {
           id: 'fulfillment-payouts-data',
-          heading: '2. Fulfillment SLAs, Fees, Customer Data & Enforcement',
+          heading: '2. Fulfillment SLAs, Payouts & Data Limits',
           paragraphs: [
-            `Sellers must confirm and pack orders within stated dispatch lead times, honor approved customer return/warranty remedies, and strictly use masked customer delivery data solely to fulfill Kinto Studio orders (never for off-platform solicitation).`,
-            `Commercial commission rates (${isPlaceholderValue(facts.sellerCommissionSummary) ? 'as confirmed in your onboarding schedule' : facts.sellerCommissionSummary}) and payout settlement timing (${isPlaceholderValue(facts.sellerPayoutCycle) ? 'published in Seller Store Settings upon commercial sign-off' : facts.sellerPayoutCycle}) govern seller disbursements, subject to chargeback/refund reserves and termination/appeal review via ${pubFacts.legalEmail}.`,
+            'Sellers must uphold dispatch service levels and handle customer delivery data strictly for order fulfillment.',
+          ],
+          bullets: [
+            'Dispatch & Remedies: Pack orders within stated lead times and honor approved return or warranty remedies.',
+            'Strict Data Restriction: Customer delivery data may never be exported or used for off-platform solicitation.',
+            `Commercial Schedule: Commission rates (${isPlaceholderValue(facts.sellerCommissionSummary) ? 'as confirmed in onboarding' : facts.sellerCommissionSummary}) and payouts (${isPlaceholderValue(facts.sellerPayoutCycle) ? 'published in Seller Settings upon sign-off' : facts.sellerPayoutCycle}) remain subject to refund reserves; appeals go to ${pubFacts.legalEmail}.`,
           ],
         },
       ],
@@ -827,21 +934,25 @@ export function buildDefaultPolicyRecords(params: {
           id: 'banned-goods',
           heading: '1. Strictly Prohibited Product Categories',
           paragraphs: [
-            'Listings in violation of local law, transport safety rules, or payment-provider restrictions are removed immediately and may result in permanent seller suspension:',
+            'Listings violating local statutes, carrier safety laws, or payment-provider rules are removed immediately:',
           ],
           bullets: [
-            'Counterfeit branded merchandise, unauthorized replicas, and tampered serial electronics.',
-            'Narcotics, prescription pharmaceuticals, controlled substances, and unsubstantiated medical cure claims.',
-            'Firearms, ammunition, explosives, and prohibited weapons under applicable Bangladesh law.',
-            'Recalled infant products, unsafe uncertified electrical hardware, or toxic cosmetic adulterants (e.g. banned mercury formulations).',
-            'Pirated digital/print media, surveillance malware hardware, or stolen goods.',
+            'Counterfeits & Replicas: Unauthorized replicas, counterfeit branded goods, and tampered serial electronics.',
+            'Controlled Substances: Narcotics, prescription pharmaceuticals, and unsubstantiated medical cure claims.',
+            'Weapons & Explosives: Firearms, ammunition, explosives, and prohibited weapons under Bangladesh law.',
+            'Unsafe Consumer Goods: Recalled infant items, uncertified hazardous electricals, or toxic cosmetic adulterants.',
+            'Illicit Goods: Pirated media, surveillance malware hardware, or stolen merchandise.',
           ],
         },
         {
           id: 'reporting-enforcement',
-          heading: '2. Restricted Goods & Reporting Violations',
+          heading: '2. Regulated Goods & Violation Reporting',
           paragraphs: [
-            `Regulated items (e.g., high-capacity lithium batteries or sharp workshop tools) require explicit safety disclosures and carrier-compliant ground routing. Report suspected prohibited listings immediately to ${pubFacts.legalEmail} with the product URL or SKU.`,
+            'Specialized items require safety disclosures and compliant carrier routing.',
+          ],
+          bullets: [
+            'Ground Routing: High-capacity lithium batteries and sharp tools require safety labeling and ground-only courier transit.',
+            `Takedown Reports: Report suspected prohibited listings immediately to ${pubFacts.legalEmail} with the product URL or SKU.`,
           ],
         },
       ],
@@ -865,7 +976,7 @@ export function buildDefaultPolicyRecords(params: {
           id: 'safety-matrix',
           heading: '1. Department-Specific Safety & Usage Precautions',
           paragraphs: [
-            'Editorial descriptions and Q&A answers do not replace licensed medical, veterinary, nutritional, or electrical engineering advice. Review all enclosed manufacturer manuals prior to use:',
+            'Catalog descriptions do not replace licensed medical, veterinary, nutritional, or electrical engineering advice.',
           ],
           table: {
             headers: ['Department', 'Required Customer Precaution'],
@@ -899,11 +1010,11 @@ export function buildDefaultPolicyRecords(params: {
         {
           id: 'prohibited-activity',
           heading: '1. Prohibited Platform & Account Conduct',
-          paragraphs: ['To protect marketplace reliability for genuine shoppers and sellers, users must not:'],
+          paragraphs: ['To keep marketplace operations reliable for shoppers and sellers, users must not:'],
           bullets: [
-            'Run automated scrapers, bots, credential-stuffing attacks, or bypass rate limits and CSRF/session controls.',
-            'Submit false delivery addresses, repeatedly refuse Cash on Delivery parcels in bad faith, or file fraudulent payment chargebacks.',
-            'Upload malicious scripts, phishing payloads, or manipulate search, reviews, or coupon eligibility.',
+            'Security & Automation Abuse: Run automated scrapers, bots, credential-stuffing attacks, or bypass rate limits and session controls.',
+            'Fulfillment & Payment Abuse: Submit false delivery addresses, repeatedly refuse COD parcels in bad faith, or file fraudulent chargebacks.',
+            'Content & Promo Manipulation: Upload malicious scripts or manipulate search rankings, reviews, or coupon eligibility.',
           ],
         },
       ],
@@ -925,10 +1036,14 @@ export function buildDefaultPolicyRecords(params: {
       sections: [
         {
           id: 'takedown-notices',
-          heading: '1. Ownership & Submitting an Infringement Notice',
+          heading: '1. Intellectual Property Rights & Takedown Notices',
           paragraphs: [
-            'Kinto Studio respects third-party intellectual property rights and protects its own storefront branding, code, and photography under applicable Bangladesh copyright and trademark statutes.',
-            `Rights owners who believe a seller listing infringes a valid trademark or copyright may email ${pubFacts.legalEmail} identifying the mark/registration, affected product URL/SKU, proof of authority, and a good-faith declaration. Substantiated notices result in prompt listing suspension pending seller verification.`,
+            'Kinto Studio respects third-party trademarks and copyrights under the Copyright Act 2023 and Trademarks Act 2009.',
+          ],
+          bullets: [
+            'Platform Assets: Storefront branding, editorial photography, and codebase remain protected intellectual property.',
+            `Submitting a Notice: Rights owners may email ${pubFacts.legalEmail} with mark/registration proof, affected SKU/URL, proof of authority, and a good-faith declaration.`,
+            'Enforcement Action: Substantiated notices trigger prompt listing suspension pending seller verification.',
           ],
         },
       ],
@@ -950,18 +1065,25 @@ export function buildDefaultPolicyRecords(params: {
       sections: [
         {
           id: 'support-channels-contact',
-          heading: '1. Verified Support Channels & Ticket Submission',
+          heading: '1. Support Channels & Ticket Submission',
           paragraphs: [
-            `Reach Kinto Studio Customer Care via the online Contact & Support form (/contact), inside My Account / Track Order, or by emailing ${pubFacts.supportEmail}. Service hours: ${pubFacts.supportHours}.`,
-            'Always include your Order ID (for example KS-10512) and relevant photos if reporting transit damage, missing items, or payment reconciliation questions.',
+            'Multiple direct channels connect you with Kinto Studio Customer Care.',
+          ],
+          bullets: [
+            `Primary Channels: Submit tickets via the Contact page (/contact), My Account / Track Order, or email ${pubFacts.supportEmail}.`,
+            `Service Schedule: ${pubFacts.supportHours}.`,
+            'Faster Resolution: Always include your Order ID (e.g., KS-10512) and photos when reporting transit damage, missing items, or payment discrepancies.',
           ],
         },
         {
           id: 'complaint-escalation-route',
-          heading: '2. Complaint Escalation & Statutory Consumer Remedies',
+          heading: '2. Grievance Escalation & Statutory Remedies',
           paragraphs: [
-            `If an initial support ticket regarding an undelivered order, disputed return, or pending refund is not resolved satisfactorily, request formal Compliance Desk review by emailing ${pubFacts.legalEmail} with your Support Ticket Reference.`,
-            'Nothing in this policy restricts a customer’s right to lodge a complaint with the Directorate of National Consumer Rights Protection (DNCRP) or pursue remedies available before competent courts in Bangladesh.',
+            'Unresolved complaints follow a clear compliance escalation route.',
+          ],
+          bullets: [
+            `Compliance Desk Review: Escalate unresolved delivery, return, or refund tickets to ${pubFacts.legalEmail} with your Support Ticket Reference.`,
+            'External Statutory Rights: Nothing restricts your right to file a complaint with the Directorate of National Consumer Rights Protection (DNCRP) or competent Bangladesh courts.',
           ],
         },
       ],
@@ -983,9 +1105,9 @@ export function buildDefaultPolicyRecords(params: {
       sections: [
         {
           id: 'retention-criteria',
-          heading: '1. Retention Criteria & Erasure Workflow',
+          heading: '1. Record Retention & Deletion Rules',
           paragraphs: [
-            'Kinto Studio retains personal records only for as long as needed to deliver orders, honor warranties, audit policy consent acceptances, and satisfy statutory Bangladesh accounting and tax recordkeeping obligations:',
+            'Personal records are retained strictly as needed for fulfillment, warranties, and Bangladesh statutory tax/audit compliance:',
           ],
           table: {
             headers: ['Record Category', 'Retention Standard', 'Deletion / Withdrawal Rule'],
@@ -1016,18 +1138,24 @@ export function buildDefaultPolicyRecords(params: {
       sections: [
         {
           id: 'accessibility-practices',
-          heading: '1. Accessibility Practices & Assistive Technology Support',
+          heading: '1. Assistive Technology & Inclusive Design',
           paragraphs: [
-            'Kinto Studio works continuously to improve usability across desktop and mobile screen readers, keyboard-only navigation, reduced-motion preferences, high-contrast light/dark themes, and multilingual scripts (English, বাংলা, हिन्दी, العربية, Español, Français).',
-            'Important transparency note: While we actively test focus order, semantic landmarks, and contrast during engineering updates, the storefront has not yet undergone an independent third-party WCAG certification audit.',
+            'We continually refine storefront usability across assistive technologies and reading preferences.',
+          ],
+          bullets: [
+            'Built-In Support: Keyboard navigation, semantic landmarks, reduced-motion preferences, high-contrast light/dark modes, and six storefront languages (EN, বাংলা, हिन्दी, العربية, ES, FR).',
+            'Transparency Note: Focus order and contrast are tested during updates, though an independent third-party WCAG certification audit has not yet been completed.',
           ],
         },
         {
           id: 'known-limits-feedback',
-          heading: '2. Known Limitations & Reporting Accessibility Barriers',
+          heading: '2. Known Limitations & Barrier Support',
           paragraphs: [
-            'Third-party Seller Studio product images or external documents may occasionally lack complete alternative descriptions. We actively work with sellers to improve catalog media accessibility.',
-            `If you encounter a barrier while browsing, searching, or checking out, email ${pubFacts.supportEmail} with the page URL and assistive tool used so our team can assist you or complete your order over alternative support channels.`,
+            'Our care team assists directly if any storefront media or control presents an accessibility obstacle.',
+          ],
+          bullets: [
+            'Partner Media: Some third-party Partner Seller product images or spec sheets may lack complete alternative text while catalog audits continue.',
+            `Report a Barrier: Email ${pubFacts.supportEmail} with the page URL and assistive tool used so our team can remediate the issue or help complete your order.`,
           ],
         },
       ],

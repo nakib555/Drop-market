@@ -43,6 +43,7 @@ import { isValidContactPhone } from '../utils/validation';
 import { Button } from '../components/ui/Button';
 import { Input, Select, Textarea } from '../components/ui/FormFields';
 import { Accordion, Breadcrumb, Drawer, Modal, ResilientImage } from '../components/ui/Primitives';
+import { PolicySectionContent } from '../components/legal/PolicySectionContent';
 
 const POLICY_CATEGORY_ORDER: PolicyCategory[] = [
   'Shopping',
@@ -67,10 +68,10 @@ export const BrandsPage: React.FC = () => {
         <p className="text-xs uppercase tracking-wider text-[var(--ks-accent)]">
           {t(language, 'makerDirectoryEyebrow')}
         </p>
-        <h1 className="font-display text-3xl sm:text-5xl font-medium">
+        <h1 className="ks-heading-page">
           {t(language, 'partnerMakersTitle')}
         </h1>
-        <p className="text-sm sm:text-base text-[var(--ks-text-secondary)]">
+        <p className="ks-body-reading text-[var(--ks-text-secondary)]">
           {t(language, 'brandsSubtitle')}
         </p>
       </div>
@@ -144,10 +145,10 @@ export const JournalPage: React.FC = () => {
         <p className="text-xs uppercase tracking-wider text-[var(--ks-accent)]">
           {t(language, 'journalEyebrow')}
         </p>
-        <h1 className="font-display text-3xl sm:text-5xl font-medium">
+        <h1 className="ks-heading-page">
           {t(language, 'studioJournalTitle')}
         </h1>
-        <p className="text-sm sm:text-base text-[var(--ks-text-secondary)]">
+        <p className="ks-body-reading text-[var(--ks-text-secondary)]">
           {t(language, 'journalSubtitle')}
         </p>
       </div>
@@ -459,7 +460,7 @@ export const ContactPage: React.FC = () => {
                 placeholder={t(language, 'contactMessagePlaceholder')}
               />
               {error && <p className="text-xs text-[var(--ks-error)]">{error}</p>}
-              <p className="text-[11px] leading-snug text-[var(--ks-text-secondary)]">
+              <p className="text-xs leading-snug text-[var(--ks-text-secondary)]">
                 {t(language, 'privacyAckPrefix')}{' '}
                 <button
                   type="button"
@@ -495,7 +496,7 @@ export const FaqPage: React.FC = () => {
         <p className="text-xs uppercase tracking-wider text-[var(--ks-accent)]">
           {t(language, 'support')}
         </p>
-        <h1 className="font-display text-3xl sm:text-5xl font-medium">
+        <h1 className="ks-heading-page">
           {t(language, 'faqTitle')}
         </h1>
       </div>
@@ -649,10 +650,10 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
           <p className="text-xs uppercase tracking-[0.14em] text-[var(--ks-accent)] font-medium">
             {doc.policyCategory} · v{doc.version} · Effective {doc.effectiveDate}
           </p>
-          <h1 className="font-display text-3xl sm:text-5xl font-medium text-balance">
+          <h1 className="ks-heading-page text-balance">
             {doc.title}
           </h1>
-          <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
+          <p className="ks-body-reading text-[var(--ks-text-secondary)]">
             {doc.subtitle}
           </p>
         </div>
@@ -687,7 +688,7 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
               <FileText className="w-4 h-4" />
             </span>
             <div className="min-w-0">
-              <p className="text-[11px] uppercase tracking-wider text-[var(--ks-text-muted)]">
+              <p className="text-xs uppercase tracking-wider text-[var(--ks-text-muted)]">
                 {t(language, 'switchLegalDocument', { count: docs.length })}
               </p>
               <p className="text-sm font-medium text-[var(--ks-text-primary)] truncate">
@@ -785,7 +786,7 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
                 if (groupDocs.length === 0) return null;
                 return (
                   <div key={group} className="space-y-1.5">
-                    <p className="px-1 text-[11px] uppercase tracking-[0.12em] font-semibold text-[var(--ks-text-muted)]">
+                    <p className="px-1 text-xs uppercase tracking-[0.12em] font-semibold text-[var(--ks-text-muted)]">
                       {group} ({groupDocs.length})
                     </p>
                     <div className="rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] divide-y divide-[var(--ks-border)] overflow-hidden">
@@ -814,7 +815,7 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
                               >
                                 {item.title}
                               </p>
-                              <p className="text-[11px] text-[var(--ks-text-secondary)] mt-0.5 truncate">
+                              <p className="text-xs text-[var(--ks-text-secondary)] mt-0.5 truncate">
                                 {t(language, 'clausesCount', { count: item.sections.length })} · v{item.version}
                               </p>
                             </div>
@@ -882,97 +883,45 @@ export const PolicyPage: React.FC<PolicyPageProps> = ({ policyId }) => {
         </aside>
 
         {/* Main Policy Clauses */}
-        <article className="lg:col-span-8 space-y-7 ks-reading-measure">
-          <div className="p-4 rounded-md bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] space-y-1.5 text-xs">
-            <p className="font-semibold text-[var(--ks-text-primary)] inline-flex items-center gap-1.5">
-              <Scale className="w-3.5 h-3.5 text-[var(--ks-accent)] shrink-0" />
-              <span>
-                {policyFactsPublic.tradingName} · {policyFactsPublic.governingLaw} · {policyFactsPublic.competentCourts}
-              </span>
-            </p>
-            <p className="text-[var(--ks-text-secondary)] leading-relaxed">
+        <article className="lg:col-span-8 space-y-6 ks-reading-measure">
+          <div className="pb-5 border-b border-[var(--ks-border)] space-y-3">
+            <p className="ks-body-reading text-[var(--ks-text-secondary)]">
               {doc.summary}
             </p>
+            <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs">
+              <div>
+                <dt className="text-[var(--ks-text-muted)]">Operator</dt>
+                <dd className="font-medium text-[var(--ks-text-primary)] mt-0.5">
+                  {policyFactsPublic.tradingName}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[var(--ks-text-muted)]">Governing Law</dt>
+                <dd className="font-medium text-[var(--ks-text-primary)] mt-0.5">
+                  {policyFactsPublic.governingLaw}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[var(--ks-text-muted)]">Jurisdiction</dt>
+                <dd className="font-medium text-[var(--ks-text-primary)] mt-0.5">
+                  {policyFactsPublic.competentCourts}
+                </dd>
+              </div>
+            </dl>
           </div>
 
-          <div className="space-y-7">
-            {doc.sections.map((sec) => (
-              <section
-                key={sec.id}
-                id={`legal-sec-${sec.id}`}
-                className="scroll-mt-28 space-y-3 pb-6 border-b border-[var(--ks-border)] last:border-b-0"
-              >
-                <h2 className="text-lg sm:text-xl font-semibold text-[var(--ks-text-primary)]">
-                  {sec.heading}
-                </h2>
-                {sec.paragraphs.map((para, idx) => (
-                  <p
-                    key={idx}
-                    className="text-sm leading-[1.7] text-[var(--ks-text-secondary)]"
-                  >
-                    {para}
-                  </p>
-                ))}
-                {sec.bullets && (
-                  <ul className="list-disc ps-5 space-y-2 text-sm leading-[1.7] text-[var(--ks-text-secondary)]">
-                    {sec.bullets.map((bullet, idx) => (
-                      <li key={idx}>{bullet}</li>
-                    ))}
-                  </ul>
-                )}
-                {sec.notice && (
-                  <div
-                    className={`p-3.5 rounded-md border text-xs space-y-1 ${
-                      sec.notice.tone === 'warning'
-                        ? 'bg-[var(--ks-surface-muted)] border-[var(--ks-accent)]/40 text-[var(--ks-text-primary)]'
-                        : 'bg-[var(--ks-surface)] border-[var(--ks-border-strong)] text-[var(--ks-text-secondary)]'
-                    }`}
-                  >
-                    <p className="font-semibold text-[var(--ks-text-primary)]">{sec.notice.label}</p>
-                    <p className="leading-relaxed">{sec.notice.body}</p>
-                  </div>
-                )}
-                {sec.table && (
-                  <div className="overflow-x-auto border border-[var(--ks-border)] rounded-md mt-3">
-                    <table className="w-full text-start text-xs sm:text-sm border-collapse">
-                      <thead>
-                        <tr className="bg-[var(--ks-bg)] border-b border-[var(--ks-border)]">
-                          {sec.table.headers.map((head) => (
-                            <th key={head} className="px-4 py-2.5 font-semibold">
-                              {head}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[var(--ks-border)]">
-                        {sec.table.rows.map((row, rIdx) => (
-                          <tr key={rIdx}>
-                            {row.map((cell, cIdx) => (
-                              <td
-                                key={cIdx}
-                                className="px-4 py-2.5 text-[var(--ks-text-secondary)] align-top"
-                              >
-                                {cell}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </section>
-            ))}
-          </div>
+          <PolicySectionContent sections={doc.sections} variant="page" />
 
           {/* Entity & Related Agreements Footer */}
-          <div className="p-5 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-4">
+          <div className="pt-6 border-t border-[var(--ks-border)] space-y-4">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="space-y-1 text-xs text-[var(--ks-text-secondary)]">
                 <p className="font-semibold text-[var(--ks-text-primary)]">
                   {t(language, 'officialLegalNotices')}
                 </p>
-                <p>{policyFactsPublic.tradingName} · {policyFactsPublic.operatingCountry}</p>
+                <p>
+                  {policyFactsPublic.tradingName} · {policyFactsPublic.operatingCountry}
+                </p>
                 <p className="font-mono-num">
                   Support: {policyFactsPublic.supportEmail} · Legal: {policyFactsPublic.legalEmail}
                 </p>
@@ -1084,10 +1033,10 @@ export const LegalCenterPage: React.FC = () => {
         <p className="text-xs uppercase tracking-[0.14em] text-[var(--ks-accent)] font-medium">
           {t(language, 'legalCenter')} · {docs.length} Published Policies · Effective {policyFactsPublic.effectiveDate}
         </p>
-        <h1 className="font-display text-3xl sm:text-5xl font-medium text-balance">
+        <h1 className="ks-heading-page text-balance">
           {t(language, 'legalCenterHeadline')}
         </h1>
-        <p className="text-sm sm:text-base text-[var(--ks-text-secondary)] leading-relaxed">
+        <p className="ks-body-reading text-[var(--ks-text-secondary)]">
           {t(language, 'legalCenterSubtitle', { name: policyFactsPublic.tradingName })}
         </p>
       </div>

@@ -434,4 +434,16 @@ test('global stylesheet isolates legal documents cleanly in @media print', () =>
   assert.ok(css.includes('display: none !important'), 'Expected shell suppression in print CSS');
 });
 
+test('global typography uses fluid clamp() viewport scaling and removes unused video assets', () => {
+  const css = fs.readFileSync(path.resolve(process.cwd(), 'src/index.css'), 'utf8');
+  assert.ok(!css.includes('font-size: 90%;'), 'Root html font-size should not be hard-locked to 90%');
+  assert.ok(
+    css.includes('font-size: clamp(93.75%, calc(88.5% + 0.25vw), 106.25%);'),
+    'Expected fluid viewport-responsive root font-size clamp() in src/index.css'
+  );
+  assert.ok(css.includes('.ks-body-reading'), 'Expected fluid .ks-body-reading utility in src/index.css');
+  assert.ok(css.includes('.ks-heading-page'), 'Expected fluid .ks-heading-page utility in src/index.css');
 
+  const videoFolder = path.resolve(process.cwd(), 'public/assets');
+  assert.equal(fs.existsSync(videoFolder), false, 'Expected public/assets video directory to be removed');
+});
