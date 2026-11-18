@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, ShoppingBag, Trash2 } from 'lucide-react';
+import { Heart, Loader2, Lock, ShoppingBag, Trash2 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { isProductOutOfStock } from '../utils/format';
 import { t } from '../utils/i18n';
@@ -18,12 +18,17 @@ export const WishlistPage: React.FC = () => {
     currency,
     products,
     wishlistIds,
+    wishlistPendingIds,
     toggleWishlist,
     addToCart,
     navigate,
     storefrontLoading,
+    profile,
+    storePolicy,
+    runProtectedAction,
   } = useStore();
   const savedProducts = products.filter((p) => wishlistIds.includes(p.id));
+  const requiresAuthToView = storePolicy.wishlistAuthRequired && !profile.isAuthenticated;
 
   return (
     <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 lg:py-12 space-y-10">
@@ -39,11 +44,20 @@ export const WishlistPage: React.FC = () => {
           <h1 className="font-display text-3xl sm:text-5xl font-medium">
             {t(language, 'savedWishlist')}
           </h1>
-          <p className="text-sm text-[var(--ks-text-secondary)] mt-1 font-mono-num">
-            {savedProducts.length === 1
-              ? t(language, 'productsCountSingle', { count: savedProducts.length })
-              : t(language, 'productsCountPlural', { count: savedProducts.length })}
-          </p>
+          {!requiresAuthToView && (
+            <div className="flex flex-wrap items-center gap-2.5 mt-1.5">
+              <p className="text-sm text-[var(--ks-text-secondary)] font-mono-num">
+                {savedProducts.length === 1
+                  ? t(language, 'productsCountSingle', { count: savedProducts.length })
+                  : t(language, 'productsCountPlural', { count: savedProducts.length })}
+              </p>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-[var(--ks-radius-sm)] border border-[var(--ks-border)] bg-[var(--ks-surface)] text-[11px] font-medium text-[var(--ks-text-secondary)]">
+                {profile.isAuthenticated
+                  ? t(language, 'wishlistSyncedBadge')
+                  : t(language, 'wishlistLocalSavedBadge')}
+              </span>
+            </div>
+          )}
         </div>
         <Button variant="outline" size="sm" onClick={() => navigate({ name: 'shop', category: 'all' })}>
           {t(language, 'browseMoreProducts')}
@@ -56,6 +70,38 @@ export const WishlistPage: React.FC = () => {
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
           label={t(language, 'loadingCatalog')}
         />
+      ) : requiresAuthToView ? (
+        <div className="rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] px-6 py-14 sm:py-16 text-center max-w-2xl mx-auto space-y-5">
+          <div className="w-12 h-12 mx-auto rounded-full bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] flex items-center justify-center text-[var(--ks-accent)]">
+            <Lock className="w-5 h-5" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="font-display text-2xl sm:text-3xl font-medium">
+              {t(language, 'wishlistGuestGateTitle')}
+            </h2>
+            <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed max-w-md mx-auto">
+              {t(language, 'wishlistGuestGateDesc')}
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-1">
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => {
+                void runProtectedAction('wishlist:view', () => {}, { preferredTab: 'signin' });
+              }}
+            >
+              {t(language, 'wishlistSignInCta')}
+            </Button>
+            <Button
+              variant="outline"
+              size="md"
+              onClick={() => navigate({ name: 'shop', category: 'all' })}
+            >
+              {t(language, 'exploreCatalog')}
+            </Button>
+          </div>
+        </div>
       ) : savedProducts.length === 0 ? (
         <div className="rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)]">
           <EmptyState
@@ -70,6 +116,7 @@ export const WishlistPage: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {savedProducts.map((product) => {
             const outOfStock = isProductOutOfStock(product);
+            const isPending = wishlistPendingIds.includes(product.id);
             const primaryColor = product.colors[0] || { name: 'Standard', hex: '#84827B' };
             const primarySize = product.sizes[0] || 'Standard';
             return (
@@ -152,11 +199,17 @@ export const WishlistPage: React.FC = () => {
                     </Button>
                     <button
                       type="button"
+                      disabled={isPending}
+                      aria-busy={isPending}
                       onClick={() => toggleWishlist(product)}
                       aria-label={t(language, 'removeItemAria', { name: product.name })}
-                      className="w-11 h-11 rounded-md border border-[var(--ks-border)] flex items-center justify-center text-[var(--ks-text-secondary)] hover:text-[var(--ks-error)] cursor-pointer shrink-0"
+                      className="w-11 h-11 rounded-md border border-[var(--ks-border)] flex items-center justify-center text-[var(--ks-text-secondary)] hover:text-[var(--ks-error)] disabled:opacity-50 cursor-pointer shrink-0"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      {isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
                     </button>
                   </div>
                 </div>

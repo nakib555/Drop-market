@@ -15,6 +15,7 @@ export const QuickViewModal: React.FC = () => {
     setQuickViewProduct,
     addToCart,
     wishlistIds,
+    wishlistPendingIds,
     toggleWishlist,
     navigate,
   } = useStore();
@@ -36,6 +37,7 @@ export const QuickViewModal: React.FC = () => {
     quickViewProduct.colors[0] || { name: 'Standard', hex: '#84827B' };
   const size = quickViewProduct.sizes[selectedSizeIdx] || quickViewProduct.sizes[0] || 'Standard';
   const isWishlisted = wishlistIds.includes(quickViewProduct.id);
+  const isWishlistPending = wishlistPendingIds.includes(quickViewProduct.id);
   const hasVerifiedRating =
     quickViewProduct.rating > 0 && quickViewProduct.reviewCount > 0;
 
@@ -179,6 +181,7 @@ export const QuickViewModal: React.FC = () => {
 
               <WishlistButton
                 active={isWishlisted}
+                pending={isWishlistPending}
                 onToggle={() => toggleWishlist(quickViewProduct)}
                 productName={quickViewProduct.name}
                 variant="icon"

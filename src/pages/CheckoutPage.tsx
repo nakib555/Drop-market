@@ -92,6 +92,10 @@ export const CheckoutPage: React.FC = () => {
     removePromoCode,
     profile,
     addresses,
+    saveAddress,
+    storePolicy,
+    runProtectedAction,
+    claimOrders,
     commitVerifiedOrder,
     showToast,
     navigate,
@@ -186,6 +190,7 @@ export const CheckoutPage: React.FC = () => {
   const [acceptedCheckoutTerms, setAcceptedCheckoutTerms] = useState(false);
   const [checkoutConsentError, setCheckoutConsentError] = useState('');
   const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
+  const [saveAddressToAccount, setSaveAddressToAccount] = useState(false);
 
   const customerEditedRef = useRef(false);
   const addressEditedRef = useRef(false);
@@ -378,6 +383,10 @@ export const CheckoutPage: React.FC = () => {
     }
   }, [quote?.allowedPaymentMethods, paymentMethod]);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [step, placedOrder]);
+
   if (cart.length === 0 && step < 6) {
     return (
       <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-16">
@@ -393,6 +402,61 @@ export const CheckoutPage: React.FC = () => {
       </div>
     );
   }
+
+  if (storePolicy.checkoutAuthRequired && !profile.isAuthenticated && step < 6) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-16">
+        <div className="rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] p-8 text-center space-y-5">
+          <div className="w-12 h-12 mx-auto rounded-full bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] flex items-center justify-center text-[var(--ks-accent)]">
+            <Lock className="w-5 h-5" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="font-display text-3xl font-medium">
+              {t(language, 'authCtxCheckoutTitle')}
+            </h1>
+            <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
+              {t(language, 'authCtxCheckoutDesc')}
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row justify-center gap-3 pt-1">
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => void runProtectedAction('checkout:proceed', () => {})}
+            >
+              {t(language, 'signIn')} / {t(language, 'createAccount')}
+            </Button>
+            <Button variant="outline" size="md" onClick={() => navigate({ name: 'cart' })}>
+              {t(language, 'returnToBagBtn')}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const persistCheckoutAddressIfRequested = () => {
+    if (!saveAddressToAccount || !profile.isAuthenticated) return;
+    const alreadyExists = addresses.some(
+      (a) =>
+        a.streetAddress.trim().toLowerCase() === streetAddress.trim().toLowerCase() &&
+        a.postalCode.trim().toLowerCase() === postalCode.trim().toLowerCase()
+    );
+    if (alreadyExists) return;
+    saveAddress({
+      label: area.trim() || city.trim() || 'Delivery',
+      fullName: fullName.trim() || profile.fullName || 'Customer',
+      phone: phone.trim() || profile.phone,
+      country: country.trim(),
+      state: stateDiv.trim(),
+      city: city.trim(),
+      upazila: upazila.trim() || undefined,
+      area: area.trim() || city.trim(),
+      streetAddress: streetAddress.trim(),
+      postalCode: postalCode.trim(),
+      isDefault: addresses.length === 0,
+    });
+  };
 
   const shippingOptions = quote?.shippingQuote.options ?? [];
   const selectedDelivery =
@@ -558,6 +622,7 @@ export const CheckoutPage: React.FC = () => {
           outcome: 'cod_confirmed',
         });
         if (verified.order && verified.session.status === 'cod_pending') {
+          persistCheckoutAddressIfRequested();
           commitVerifiedOrder(verified.order);
           setPaymentSession(null);
           setPlacedOrder(verified.order);
@@ -606,6 +671,7 @@ export const CheckoutPage: React.FC = () => {
         res.order &&
         (res.session.status === 'paid' || res.session.status === 'cod_pending')
       ) {
+        persistCheckoutAddressIfRequested();
         commitVerifiedOrder(res.order);
         setPaymentSession(null);
         setPlacedOrder(res.order);
@@ -742,6 +808,44 @@ export const CheckoutPage: React.FC = () => {
               ))}
             </ul>
           </div>
+
+          {!profile.isAuthenticated && (
+            <div className="p-5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-start flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <h2 className="text-sm font-semibold text-[var(--ks-text-primary)]">
+                  {t(language, 'checkoutGuestClaimTitle')}
+                </h2>
+                <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
+                  {t(language, 'checkoutGuestClaimDesc', { orderId: placedOrder.id })}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                onClick={() => {
+                  void runProtectedAction(
+                    'order:claim',
+                    async () => {
+                      await claimOrders([placedOrder.id]);
+                    },
+                    {
+                      orderId: placedOrder.id,
+                      itemName: `#${placedOrder.id}`,
+                      preferredTab: 'register',
+                      prefill: {
+                        fullName: placedOrder.customerName,
+                        email: placedOrder.email,
+                        phone: placedOrder.phone,
+                      },
+                    }
+                  );
+                }}
+              >
+                {t(language, 'checkoutGuestClaimCta')}
+              </Button>
+            </div>
+          )}
 
           <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-3 pt-4">
             <Button
@@ -1384,6 +1488,18 @@ export const CheckoutPage: React.FC = () => {
                   onChange={(e) => setInstructions(e.target.value)}
                   placeholder={t(language, 'deliveryInstructionsPlaceholder')}
                 />
+
+                {profile.isAuthenticated && (
+                  <label className="flex items-start gap-2.5 min-h-[44px] p-3 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] text-xs cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={saveAddressToAccount}
+                      onChange={(e) => setSaveAddressToAccount(e.target.checked)}
+                      className="mt-[2px] w-4 h-4 shrink-0 accent-[var(--ks-action)]"
+                    />
+                    <span className="leading-snug">{t(language, 'checkoutSaveAddressToggle')}</span>
+                  </label>
+                )}
               </div>
             )}
 

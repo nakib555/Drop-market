@@ -5,9 +5,13 @@ import { createServer as createViteServer } from 'vite';
 import { db } from './server/mockDb.ts';
 import {
   fetchLiveDummyJsonCatalog,
+  getCachedDummyJsonProductsSync,
   getDummyJsonAuthoritativeSkus,
 } from './server/shared/dummyJsonCatalog.ts';
-import { BANGLADESH_GEO_TREE } from './server/shared/marketplaceSchema.ts';
+import {
+  AUTHORITATIVE_CATALOG_SKUS,
+  BANGLADESH_GEO_TREE,
+} from './server/shared/marketplaceSchema.ts';
 import { updateCurrencyState } from './server/services/currencyService.ts';
 import { calculateShippingQuote, type ShippingQuoteItemInput } from './server/services/shippingService.ts';
 import {
@@ -21,8 +25,10 @@ import {
   type CheckoutQuoteRequest,
 } from './server/services/paymentService.ts';
 import type {
+  Address,
   ApiSellerProductRecord,
   AvailabilityStatus,
+  CartItem,
   CategoryFacetConfig,
   CategoryNode,
   CurrencyCode,
@@ -32,20 +38,87 @@ import type {
   Order,
   OrderStage,
   PaymentMethodId,
+  PaymentMethodRecord,
+  ProductReview,
   SellerStoreSettings,
   ShippingZoneId,
   ShippingZoneRule,
   UserRole,
 } from './src/types/commerce.ts';
 import type { ServerUserRecord } from './server/mockDb.ts';
+import { buildCartMergeProducts, mergeGuestAndServerCarts } from './src/utils/cartMerge.ts';
 
 const PORT = Number(process.env.PORT) || 3000;
+export const SESSION_COOKIE_NAME = 'ks_session';
+
+function parseCookies(req: express.Request): Record<string, string> {
+  const rawCookie = req.headers.cookie;
+  if (!rawCookie || typeof rawCookie !== 'string') return {};
+  const result: Record<string, string> = {};
+  for (const part of rawCookie.split(';')) {
+    const idx = part.indexOf('=');
+    if (idx === -1) continue;
+    const key = part.slice(0, idx).trim();
+    const val = part.slice(idx + 1).trim();
+    if (!key) continue;
+    try {
+      result[key] = decodeURIComponent(val);
+    } catch {
+      result[key] = val;
+    }
+  }
+  return result;
+}
+
+function getRequestSessionToken(req: express.Request): string | undefined {
+  const authHeader = req.headers.authorization;
+  if (authHeader && /^Bearer\s+.+/i.test(authHeader)) {
+    return authHeader;
+  }
+  const cookies = parseCookies(req);
+  return cookies[SESSION_COOKIE_NAME];
+}
+
+function isSecureRequest(req: express.Request): boolean {
+  const protoHeader = req.headers['x-forwarded-proto'];
+  const proto = (Array.isArray(protoHeader) ? protoHeader[0] : protoHeader)?.split(',')[0]?.trim();
+  return req.secure || proto === 'https';
+}
+
+function setSessionCookie(res: express.Response, req: express.Request, token: string): void {
+  const maxAgeSec = Math.max(60, Math.floor(db.storePolicy.sessionTtlMs / 1000));
+  const parts = [
+    `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax',
+    `Max-Age=${maxAgeSec}`,
+  ];
+  if (isSecureRequest(req)) {
+    parts.push('Secure');
+  }
+  res.setHeader('Set-Cookie', parts.join('; '));
+}
+
+function clearSessionCookie(res: express.Response, req: express.Request): void {
+  const parts = [
+    `${SESSION_COOKIE_NAME}=`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax',
+    'Max-Age=0',
+  ];
+  if (isSecureRequest(req)) {
+    parts.push('Secure');
+  }
+  res.setHeader('Set-Cookie', parts.join('; '));
+}
 
 function requireAuth(
   req: express.Request,
   res: express.Response
 ): ServerUserRecord | null {
-  const token = req.headers.authorization;
+  const token = getRequestSessionToken(req);
   const user = db.getUserByToken(token);
   if (!user) {
     res.status(401).json({ error: 'Authentication required. Please sign in.' });
@@ -150,6 +223,47 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
     next();
   });
 
+  // CSRF defense-in-depth for cookie-authenticated unsafe API requests
+  app.use('/api', (req, res, next) => {
+    const method = req.method.toUpperCase();
+    if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
+      next();
+      return;
+    }
+    // Bearer-authenticated API/test clients or gateway callbacks bypass cookie CSRF check
+    const hasBearer = Boolean(req.headers.authorization && /^Bearer\s+.+/i.test(req.headers.authorization));
+    if (hasBearer || req.path.startsWith('/payments/callback/')) {
+      next();
+      return;
+    }
+    const cookies = parseCookies(req);
+    const hasSessionCookie = Boolean(cookies[SESSION_COOKIE_NAME]);
+    if (hasSessionCookie) {
+      const csrfHeader = String(req.headers['x-kinto-request'] || '');
+      if (csrfHeader !== '1') {
+        res.status(403).json({
+          error: 'CSRF verification failed: missing X-Kinto-Request header on cookie-authenticated mutation.',
+        });
+        return;
+      }
+      const originHeader = req.headers.origin;
+      const host = req.get('host');
+      if (originHeader && host) {
+        try {
+          const parsedOrigin = new URL(originHeader);
+          if (parsedOrigin.host !== host) {
+            res.status(403).json({ error: 'CSRF verification failed: cross-origin request rejected.' });
+            return;
+          }
+        } catch {
+          res.status(403).json({ error: 'CSRF verification failed: malformed Origin header.' });
+          return;
+        }
+      }
+    }
+    next();
+  });
+
   const loginRateLimiter = createRateLimiter(60_000, 20, 'sign-in');
   const registerRateLimiter = createRateLimiter(60_000, 15, 'registration');
   const passwordRateLimiter = createRateLimiter(60_000, 15, 'password-update');
@@ -197,6 +311,7 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
     }
 
     const token = db.issueSession(user.id);
+    setSessionCookie(res, req, token);
     res.json({
       token,
       user: db.toPublicAccount(user),
@@ -276,10 +391,38 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
     }
 
     const token = db.issueSession(newUser.id);
+    setSessionCookie(res, req, token);
     res.status(201).json({
       token,
       user: db.toPublicAccount(newUser),
     });
+  });
+
+  app.get('/api/auth/session', (req, res) => {
+    const token = getRequestSessionToken(req);
+    const user = db.getUserByToken(token);
+    if (!user || user.status === 'suspended') {
+      res.json({
+        authenticated: false,
+        user: null,
+        policy: db.storePolicy,
+      });
+      return;
+    }
+    res.json({
+      authenticated: true,
+      user: db.toPublicAccount(user),
+      policy: db.storePolicy,
+    });
+  });
+
+  app.post('/api/auth/logout', (req, res) => {
+    const token = getRequestSessionToken(req);
+    if (token) {
+      db.revokeSession(token);
+    }
+    clearSessionCookie(res, req);
+    res.json({ ok: true });
   });
 
   app.get('/api/auth/me', (req, res) => {
@@ -425,7 +568,7 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
       return;
     }
 
-    const actor = db.getUserByToken(req.headers.authorization);
+    const actor = db.getUserByToken(getRequestSessionToken(req));
     const ticketRef = `KS-TKT-${Math.floor(10000 + Math.random() * 89999)}`;
     const inquiry = {
       id: `inq-${Date.now().toString(36)}`,
@@ -851,6 +994,10 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
     });
 
     if (order) {
+      const authActor = db.getUserByToken(getRequestSessionToken(req));
+      if (authActor && !order.userId) {
+        order.userId = authActor.id;
+      }
       // Server-side inventory deduction & authoritative order persistence
       for (const line of order.items) {
         const inv = db.sellerInventory.find((i) => i.id === line.productId);
@@ -898,9 +1045,9 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
     res.json({ provider: req.params.provider, ...result });
   });
 
-  // Notifications (role strictly derived from authenticated bearer session)
+  // Notifications (role strictly derived from authenticated cookie/bearer session)
   app.get('/api/notifications', (req, res) => {
-    const authUser = db.getUserByToken(req.headers.authorization);
+    const authUser = db.getUserByToken(getRequestSessionToken(req));
     const role: UserRole = authUser?.role || 'customer';
     const filtered = db.notifications.filter(
       (n) => n.roleScope === 'all' || n.roleScope === role || (role === 'admin' && n.roleScope !== 'customer')
@@ -914,21 +1061,244 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
     res.json({ ok: true, id: req.params.id });
   });
 
+  // Protected Account Resources (Cart Sync, Wishlist, Addresses, Payment Methods, Reviews, Order Claiming)
+  app.get('/api/account/cart', (req, res) => {
+    const user = requireAuth(req, res);
+    if (!user) return;
+    res.json({ items: db.getUserCart(user.id) });
+  });
+
+  app.put('/api/account/cart', (req, res) => {
+    const user = requireAuth(req, res);
+    if (!user) return;
+    const { items } = (req.body || {}) as { items?: CartItem[] };
+    const saved = db.setUserCart(user.id, Array.isArray(items) ? items : []);
+    res.json({ items: saved });
+  });
+
+  app.post('/api/account/cart/merge', async (req, res) => {
+    const user = requireAuth(req, res);
+    if (!user) return;
+    const { guestItems } = (req.body || {}) as { guestItems?: CartItem[] };
+    const products = buildCartMergeProducts({
+      cachedProducts: getCachedDummyJsonProductsSync(),
+      authoritativeSkus: AUTHORITATIVE_CATALOG_SKUS,
+      sellerInventory: db.sellerInventory,
+      sellerCreatedProducts: db.sellerCreatedProducts,
+    });
+    const { mergedCart, report } = mergeGuestAndServerCarts({
+      guestCart: Array.isArray(guestItems) ? guestItems : [],
+      serverCart: db.getUserCart(user.id),
+      products,
+      productOverrides: db.productOverrides,
+    });
+    const saved = db.setUserCart(user.id, mergedCart);
+    res.json({ items: saved, report });
+  });
+
+  app.get('/api/account/wishlist', (req, res) => {
+    const user = requireAuth(req, res);
+    if (!user) return;
+    res.json({ wishlistIds: db.getWishlist(user.id) });
+  });
+
+  app.post('/api/account/wishlist/toggle', (req, res) => {
+    const user = requireAuth(req, res);
+    if (!user) return;
+    const { productId } = (req.body || {}) as { productId?: string };
+    if (!productId || !productId.trim()) {
+      res.status(400).json({ error: 'Product ID is required.' });
+      return;
+    }
+    const result = db.toggleWishlistItem(user.id, productId.trim());
+    res.json(result);
+  });
+
+  app.post('/api/account/wishlist/merge', (req, res) => {
+    const user = requireAuth(req, res);
+    if (!user) return;
+    const { productIds } = (req.body || {}) as { productIds?: string[] };
+    const merged = db.mergeWishlistItems(user.id, Array.isArray(productIds) ? productIds : []);
+    res.json({ wishlistIds: merged });
+  });
+
+  app.get('/api/account/addresses', (req, res) => {
+    const user = requireAuth(req, res);
+    if (!user) return;
+    res.json({ addresses: db.getAddresses(user.id) });
+  });
+
+  app.post('/api/account/addresses', (req, res) => {
+    const user = requireAuth(req, res);
+    if (!user) return;
+    const body = (req.body || {}) as Partial<Address>;
+    if (!body.fullName?.trim() || !body.phone?.trim() || !body.streetAddress?.trim() || !body.city?.trim()) {
+      res.status(400).json({ error: 'Full name, phone, city, and street address are required.' });
+      return;
+    }
+    const addresses = db.saveAddress(user.id, {
+      id: body.id,
+      label: body.label || 'Delivery Address',
+      fullName: body.fullName,
+      phone: body.phone,
+      country: body.country || 'Bangladesh',
+      state: body.state || body.city,
+      city: body.city,
+      upazila: body.upazila,
+      area: body.area || body.city,
+      streetAddress: body.streetAddress,
+      postalCode: body.postalCode || '',
+      isDefault: Boolean(body.isDefault),
+    });
+    res.status(201).json({ addresses });
+  });
+
+  app.patch('/api/account/addresses/:id/default', (req, res) => {
+    const user = requireAuth(req, res);
+    if (!user) return;
+    const existing = db.getAddresses(user.id);
+    if (!existing.some((a) => a.id === req.params.id)) {
+      res.status(404).json({ error: 'Address not found.' });
+      return;
+    }
+    const addresses = db.setDefaultAddress(user.id, req.params.id);
+    res.json({ addresses });
+  });
+
+  app.delete('/api/account/addresses/:id', (req, res) => {
+    const user = requireAuth(req, res);
+    if (!user) return;
+    const existing = db.getAddresses(user.id);
+    if (!existing.some((a) => a.id === req.params.id)) {
+      res.status(404).json({ error: 'Address not found.' });
+      return;
+    }
+    const addresses = db.deleteAddress(user.id, req.params.id);
+    res.json({ addresses });
+  });
+
+  app.get('/api/account/payment-methods', (req, res) => {
+    const user = requireAuth(req, res);
+    if (!user) return;
+    res.json({ paymentMethods: db.getPaymentMethods(user.id) });
+  });
+
+  app.post('/api/account/payment-methods', (req, res) => {
+    const user = requireAuth(req, res);
+    if (!user) return;
+    const body = (req.body || {}) as Partial<PaymentMethodRecord>;
+    if (!body.provider?.trim() || !body.referenceMasked?.trim() || !body.holderName?.trim()) {
+      res.status(400).json({ error: 'Provider, masked account reference, and holder name are required.' });
+      return;
+    }
+    const paymentMethods = db.savePaymentMethod(user.id, {
+      provider: body.provider,
+      brand: body.brand || body.provider,
+      referenceMasked: body.referenceMasked,
+      tokenId: body.tokenId,
+      holderName: body.holderName,
+      isDefault: Boolean(body.isDefault),
+    });
+    res.status(201).json({ paymentMethods });
+  });
+
+  app.patch('/api/account/payment-methods/:id/default', (req, res) => {
+    const user = requireAuth(req, res);
+    if (!user) return;
+    const existing = db.getPaymentMethods(user.id);
+    if (!existing.some((pm) => pm.id === req.params.id)) {
+      res.status(404).json({ error: 'Payment method not found.' });
+      return;
+    }
+    const paymentMethods = db.setDefaultPaymentMethod(user.id, req.params.id);
+    res.json({ paymentMethods });
+  });
+
+  app.delete('/api/account/payment-methods/:id', (req, res) => {
+    const user = requireAuth(req, res);
+    if (!user) return;
+    const existing = db.getPaymentMethods(user.id);
+    if (!existing.some((pm) => pm.id === req.params.id)) {
+      res.status(404).json({ error: 'Payment method not found.' });
+      return;
+    }
+    const paymentMethods = db.deletePaymentMethod(user.id, req.params.id);
+    res.json({ paymentMethods });
+  });
+
+  app.post('/api/account/claim-orders', (req, res) => {
+    const user = requireAuth(req, res);
+    if (!user) return;
+    const { orderIds } = (req.body || {}) as { orderIds?: string[] };
+    const claimedCount = db.claimOrdersForUser(
+      user,
+      Array.isArray(orderIds) ? orderIds : undefined
+    );
+    res.json({ claimedCount, orders: db.getUserOrders(user) });
+  });
+
+  app.get('/api/products/:id/reviews', (req, res) => {
+    res.json({ reviews: db.getProductReviews(req.params.id) });
+  });
+
+  app.post('/api/products/:id/reviews', (req, res) => {
+    const user = requireAuth(req, res);
+    if (!user) return;
+    const { rating, title, comment } = (req.body || {}) as {
+      rating?: number;
+      title?: string;
+      comment?: string;
+    };
+    const numericRating = Number(rating);
+    if (!Number.isFinite(numericRating) || numericRating < 1 || numericRating > 5) {
+      res.status(400).json({ error: 'Rating must be between 1 and 5.' });
+      return;
+    }
+    if (!comment?.trim() || comment.trim().length < 4) {
+      res.status(400).json({ error: 'Review comment must be at least 4 characters.' });
+      return;
+    }
+
+    const userOrders = db.getUserOrders(user);
+    const hasDeliveredPurchase = userOrders.some(
+      (order) =>
+        order.currentStage === 'Delivered' &&
+        order.items.some((item) => item.productId === req.params.id)
+    );
+
+    if (db.storePolicy.reviewsRequireDeliveredPurchase && !hasDeliveredPurchase) {
+      res.status(403).json({
+        error: 'Verified delivery is required to publish a review for this item.',
+      });
+      return;
+    }
+
+    const review: ProductReview = {
+      id: `rev-${Date.now().toString(36)}`,
+      author: user.fullName,
+      location: user.location || 'Dhaka, Bangladesh',
+      rating: Math.round(numericRating),
+      title: title?.trim() || 'Verified Customer Review',
+      comment: comment.trim(),
+      date: new Date().toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+      verified: hasDeliveredPurchase || user.role !== 'customer',
+    };
+    const reviews = db.addProductReview(req.params.id, review);
+    res.status(201).json({ review, reviews });
+  });
+
   // Orders API (scoped by authenticated role)
   app.get('/api/orders', (req, res) => {
-    const user = db.getUserByToken(req.headers.authorization);
+    const user = db.getUserByToken(getRequestSessionToken(req));
     if (!user) {
       res.json({ orders: [] });
       return;
     }
-    if (user.role === 'admin' || user.role === 'seller') {
-      res.json({ orders: db.orders });
-      return;
-    }
-    const customerOrders = db.orders.filter(
-      (o) => o.email.toLowerCase() === user.email.toLowerCase()
-    );
-    res.json({ orders: customerOrders });
+    res.json({ orders: db.getUserOrders(user) });
   });
 
   // Public/guest order tracking lookup by Order ID + mandatory email/phone verification when unauthenticated
@@ -944,9 +1314,12 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
       res.status(404).json({ error: `No order found matching reference ${String(req.query.id || '').toUpperCase()}.` });
       return;
     }
-    const authUser = db.getUserByToken(req.headers.authorization);
+    const authUser = db.getUserByToken(getRequestSessionToken(req));
     const isStaff = authUser?.role === 'admin' || authUser?.role === 'seller';
-    const isOwner = Boolean(authUser && authUser.email.toLowerCase() === found.email.toLowerCase());
+    const isOwner = Boolean(
+      authUser &&
+        (found.userId === authUser.id || found.email.toLowerCase() === authUser.email.toLowerCase())
+    );
     if (!isStaff && !isOwner) {
       if (!contactQuery) {
         res.status(401).json({
@@ -1018,6 +1391,7 @@ export async function createMarketplaceApp(options?: { enableVite?: boolean }) {
     }
     if (
       user.role === 'customer' &&
+      found.userId !== user.id &&
       found.email.toLowerCase() !== user.email.toLowerCase()
     ) {
       res.status(403).json({ error: 'You may only modify your own orders.' });

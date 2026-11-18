@@ -4,6 +4,7 @@ import { RouteState } from '../../context/navigationController';
 import { t } from '../../utils/i18n';
 import { RouteSuspenseFallback } from '../ui/SkeletonLoaders';
 import { Button } from '../ui/Button';
+import { AccountPage } from '../../pages/AccountPage';
 
 function lazyNamed<TModule, TKey extends keyof TModule>(
   loader: () => Promise<TModule>,
@@ -27,7 +28,7 @@ const ProductDetailPage = lazyNamed(
 const CartPage = lazyNamed(() => import('../../pages/CartPage'), 'CartPage');
 const WishlistPage = lazyNamed(() => import('../../pages/WishlistPage'), 'WishlistPage');
 const CheckoutPage = lazyNamed(() => import('../../pages/CheckoutPage'), 'CheckoutPage');
-const AccountPage = lazyNamed(() => import('../../pages/AccountPage'), 'AccountPage');
+export const preloadAccountPage = () => {};
 const OrderTrackingPage = lazyNamed(
   () => import('../../pages/OrderTrackingPage'),
   'OrderTrackingPage'

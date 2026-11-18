@@ -26,6 +26,8 @@ export const CartDrawer: React.FC = () => {
     cartDiscount,
     cartTotal,
     navigate,
+    profile,
+    openAuthModal,
   } = useStore();
 
   const [promoInput, setPromoInput] = useState('');
@@ -263,6 +265,22 @@ export const CartDrawer: React.FC = () => {
                 <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
               </Button>
             </div>
+
+            {!profile.isAuthenticated && (
+              <div className="pt-2 border-t border-[var(--ks-border)] text-[11px] text-[var(--ks-text-muted)] leading-snug flex flex-wrap items-center justify-between gap-2">
+                <span>{t(language, 'cartGuestSyncHint')}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCartDrawerOpen(false);
+                    openAuthModal('signin', { stayOnPage: true });
+                  }}
+                  className="font-medium text-[var(--ks-accent)] hover:underline cursor-pointer shrink-0"
+                >
+                  {t(language, 'signIn')}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -27,6 +27,8 @@ export const CartPage: React.FC = () => {
     estimatedShipping,
     cartTotal,
     navigate,
+    profile,
+    openAuthModal,
   } = useStore();
 
   const [couponInput, setCouponInput] = useState('');
@@ -278,6 +280,19 @@ export const CartPage: React.FC = () => {
               <span>{t(language, 'proceedToCheckout')}</span>
               <ArrowRight className="w-4 h-4 rtl:rotate-180" />
             </Button>
+
+            {!profile.isAuthenticated && (
+              <div className="pt-2 border-t border-[var(--ks-border)] text-xs text-[var(--ks-text-muted)] leading-relaxed flex flex-wrap items-center justify-between gap-2">
+                <span>{t(language, 'cartGuestSyncHint')}</span>
+                <button
+                  type="button"
+                  onClick={() => openAuthModal('signin', { stayOnPage: true })}
+                  className="font-medium text-[var(--ks-accent)] hover:underline cursor-pointer shrink-0"
+                >
+                  {t(language, 'signIn')}
+                </button>
+              </div>
+            )}
           </aside>
         </div>
       )}

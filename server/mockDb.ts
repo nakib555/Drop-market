@@ -1,8 +1,10 @@
 import type {
   AccountDirectoryEntry,
+  Address,
   AdminSystemReadiness,
   ApiSellerProductRecord,
   AvailabilityStatus,
+  CartItem,
   CategoryNode,
   CurrencyRateState,
   DynamicCategoryRecord,
@@ -11,20 +13,24 @@ import type {
   Order,
   OrderStage,
   PaymentMethodId,
+  PaymentMethodRecord,
   PlatformSettingsState,
   ProductOverride,
+  ProductReview,
   SellerApplicationRecord,
   SellerAuthorizedCustomerSummary,
   SellerInventoryItem,
   SellerStoreSettings,
   ShippingRuleConfig,
   StoreNotification,
+  StorePolicyConfig,
   SupportInquiryRecord,
   UserRole,
 } from '../src/types/commerce.ts';
 import { INITIAL_CATEGORY_TREE, PROMO_CODES } from './shared/marketplaceSchema.ts';
 import { createInitialCurrencyState } from './services/currencyService.ts';
 import { createInitialShippingConfig } from './services/shippingService.ts';
+import { DEFAULT_STORE_POLICY } from '../src/policy/authPolicy.ts';
 import type { PendingSessionContext } from './services/paymentService.ts';
 
 export interface ServerUserRecord extends AccountDirectoryEntry {
@@ -675,6 +681,35 @@ export class MockMarketplaceDb {
   promotions: ManagedPromoRecord[] = PROMO_CODES.map((p) => ({ ...p, active: true }));
   platformSettings: PlatformSettingsState = { ...INITIAL_PLATFORM_SETTINGS };
   sessions: Map<string, string> = new Map();
+  sessionExpiry: Map<string, number> = new Map();
+  storePolicy: StorePolicyConfig = { ...DEFAULT_STORE_POLICY };
+  userCarts: Map<string, CartItem[]> = new Map();
+  wishlists: Map<string, Set<string>> = new Map([
+    ['usr-customer-rafiq', new Set<string>()],
+  ]);
+  userAddresses: Map<string, Address[]> = new Map([
+    [
+      'usr-customer-rafiq',
+      [
+        {
+          id: 'addr-rafiq-gulshan',
+          label: 'Home Studio',
+          fullName: 'Rafiqul Islam',
+          phone: '+880 1711-240914',
+          country: 'Bangladesh',
+          state: 'Dhaka',
+          city: 'Dhaka',
+          upazila: 'Dhaka North City Corporation',
+          area: 'Gulshan 1 & 2',
+          streetAddress: 'House 18, Road 71, Gulshan 2',
+          postalCode: '1212',
+          isDefault: true,
+        },
+      ],
+    ],
+  ]);
+  userPaymentMethods: Map<string, PaymentMethodRecord[]> = new Map();
+  productReviews: Map<string, ProductReview[]> = new Map();
   supportInquiries: SupportInquiryRecord[] = [];
   newsletterSubscribers: NewsletterSubscriptionRecord[] = [];
   passwordResetTokens: Map<
@@ -701,23 +736,217 @@ export class MockMarketplaceDb {
   getUserByToken(token?: string): ServerUserRecord | null {
     if (!token) return null;
     const clean = token.replace(/^Bearer\s+/i, '').trim();
+    if (!clean) return null;
     const userId = this.sessions.get(clean);
     if (!userId) return null;
+    const expiresAt = this.sessionExpiry.get(clean);
+    if (typeof expiresAt === 'number' && Date.now() > expiresAt) {
+      this.sessions.delete(clean);
+      this.sessionExpiry.delete(clean);
+      return null;
+    }
     return this.users.find((u) => u.id === userId) || null;
   }
 
-  issueSession(userId: string): string {
-    const token = `ks-tok-${userId}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  issueSession(userId: string, ttlMs: number = this.storePolicy.sessionTtlMs): string {
+    const token = `ks-tok-${userId}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     this.sessions.set(token, userId);
+    this.sessionExpiry.set(token, Date.now() + ttlMs);
     return token;
+  }
+
+  revokeSession(token?: string): void {
+    if (!token) return;
+    const clean = token.replace(/^Bearer\s+/i, '').trim();
+    if (!clean) return;
+    this.sessions.delete(clean);
+    this.sessionExpiry.delete(clean);
   }
 
   invalidateUserSessions(userId: string): void {
     for (const [tok, uid] of this.sessions.entries()) {
       if (uid === userId) {
         this.sessions.delete(tok);
+        this.sessionExpiry.delete(tok);
       }
     }
+  }
+
+  getUserCart(userId: string): CartItem[] {
+    return (this.userCarts.get(userId) || []).map((item) => ({ ...item }));
+  }
+
+  setUserCart(userId: string, items: CartItem[]): CartItem[] {
+    const cleaned = items
+      .filter((item) => item && item.productId && item.quantity > 0)
+      .map((item) => ({ ...item, quantity: Math.max(1, Math.round(item.quantity)) }));
+    this.userCarts.set(userId, cleaned);
+    return this.getUserCart(userId);
+  }
+
+  getWishlist(userId: string): string[] {
+    return Array.from(this.wishlists.get(userId) || []);
+  }
+
+  toggleWishlistItem(userId: string, productId: string): { wishlistIds: string[]; added: boolean } {
+    let set = this.wishlists.get(userId);
+    if (!set) {
+      set = new Set<string>();
+      this.wishlists.set(userId, set);
+    }
+    let added = false;
+    if (set.has(productId)) {
+      set.delete(productId);
+    } else {
+      set.add(productId);
+      added = true;
+    }
+    return { wishlistIds: Array.from(set), added };
+  }
+
+  mergeWishlistItems(userId: string, productIds: string[]): string[] {
+    let set = this.wishlists.get(userId);
+    if (!set) {
+      set = new Set<string>();
+      this.wishlists.set(userId, set);
+    }
+    for (const pid of productIds) {
+      if (typeof pid === 'string' && pid.trim()) {
+        set.add(pid.trim());
+      }
+    }
+    return Array.from(set);
+  }
+
+  getAddresses(userId: string): Address[] {
+    return (this.userAddresses.get(userId) || []).map((a) => ({ ...a }));
+  }
+
+  saveAddress(userId: string, input: Omit<Address, 'id'> & { id?: string }): Address[] {
+    const existing = this.getAddresses(userId);
+    const id = input.id && input.id.trim() ? input.id.trim() : `addr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`;
+    const shouldBeDefault = input.isDefault || existing.length === 0;
+    const record: Address = {
+      id,
+      label: input.label.trim() || 'Primary Address',
+      fullName: input.fullName.trim(),
+      phone: input.phone.trim(),
+      country: input.country.trim() || 'Bangladesh',
+      state: input.state.trim(),
+      city: input.city.trim(),
+      upazila: input.upazila?.trim() || undefined,
+      area: input.area.trim(),
+      streetAddress: input.streetAddress.trim(),
+      postalCode: input.postalCode.trim(),
+      isDefault: shouldBeDefault,
+    };
+
+    const filtered = existing.filter((a) => a.id !== id);
+    const updated = [
+      record,
+      ...filtered.map((a) => (shouldBeDefault ? { ...a, isDefault: false } : a)),
+    ];
+    this.userAddresses.set(userId, updated);
+    return this.getAddresses(userId);
+  }
+
+  deleteAddress(userId: string, addressId: string): Address[] {
+    const remaining = this.getAddresses(userId).filter((a) => a.id !== addressId);
+    if (remaining.length > 0 && !remaining.some((a) => a.isDefault)) {
+      remaining[0] = { ...remaining[0], isDefault: true };
+    }
+    this.userAddresses.set(userId, remaining);
+    return this.getAddresses(userId);
+  }
+
+  setDefaultAddress(userId: string, addressId: string): Address[] {
+    const existing = this.getAddresses(userId);
+    const hasTarget = existing.some((a) => a.id === addressId);
+    if (!hasTarget) return existing;
+    const updated = existing.map((a) => ({ ...a, isDefault: a.id === addressId }));
+    this.userAddresses.set(userId, updated);
+    return this.getAddresses(userId);
+  }
+
+  getPaymentMethods(userId: string): PaymentMethodRecord[] {
+    return (this.userPaymentMethods.get(userId) || []).map((pm) => ({ ...pm }));
+  }
+
+  savePaymentMethod(userId: string, input: Omit<PaymentMethodRecord, 'id'>): PaymentMethodRecord[] {
+    const existing = this.getPaymentMethods(userId);
+    const id = `pm-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`;
+    const isDefault = input.isDefault || existing.length === 0;
+    const record: PaymentMethodRecord = {
+      id,
+      provider: input.provider.trim(),
+      brand: input.brand.trim(),
+      referenceMasked: input.referenceMasked.trim(),
+      tokenId: input.tokenId,
+      holderName: input.holderName.trim(),
+      isDefault,
+    };
+    const updated = [
+      record,
+      ...existing.map((pm) => (isDefault ? { ...pm, isDefault: false } : pm)),
+    ];
+    this.userPaymentMethods.set(userId, updated);
+    return this.getPaymentMethods(userId);
+  }
+
+  deletePaymentMethod(userId: string, methodId: string): PaymentMethodRecord[] {
+    const remaining = this.getPaymentMethods(userId).filter((pm) => pm.id !== methodId);
+    if (remaining.length > 0 && !remaining.some((pm) => pm.isDefault)) {
+      remaining[0] = { ...remaining[0], isDefault: true };
+    }
+    this.userPaymentMethods.set(userId, remaining);
+    return this.getPaymentMethods(userId);
+  }
+
+  setDefaultPaymentMethod(userId: string, methodId: string): PaymentMethodRecord[] {
+    const existing = this.getPaymentMethods(userId);
+    if (!existing.some((pm) => pm.id === methodId)) return existing;
+    const updated = existing.map((pm) => ({ ...pm, isDefault: pm.id === methodId }));
+    this.userPaymentMethods.set(userId, updated);
+    return this.getPaymentMethods(userId);
+  }
+
+  getProductReviews(productId: string): ProductReview[] {
+    return (this.productReviews.get(productId) || []).map((r) => ({ ...r }));
+  }
+
+  addProductReview(productId: string, review: ProductReview): ProductReview[] {
+    const current = this.getProductReviews(productId);
+    const next = [review, ...current];
+    this.productReviews.set(productId, next);
+    return next.map((r) => ({ ...r }));
+  }
+
+  claimOrdersForUser(user: ServerUserRecord, explicitOrderIds?: string[]): number {
+    const cleanEmail = user.email.toLowerCase();
+    const idSet = new Set(
+      (explicitOrderIds || []).map((id) => id.trim().toLowerCase()).filter(Boolean)
+    );
+    let claimed = 0;
+    this.orders = this.orders.map((order) => {
+      const emailMatches = order.email.toLowerCase() === cleanEmail;
+      const explicitMatch = idSet.has(order.id.toLowerCase());
+      if ((emailMatches || explicitMatch) && !order.userId) {
+        claimed += 1;
+        return { ...order, userId: user.id };
+      }
+      return order;
+    });
+    return claimed;
+  }
+
+  getUserOrders(user: ServerUserRecord): Order[] {
+    if (user.role === 'admin' || user.role === 'seller') {
+      return this.orders;
+    }
+    const cleanEmail = user.email.toLowerCase();
+    return this.orders.filter(
+      (o) => o.userId === user.id || o.email.toLowerCase() === cleanEmail
+    );
   }
 
   buildSystemReadiness(

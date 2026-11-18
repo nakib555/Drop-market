@@ -19,6 +19,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
     navigate,
     addToCart,
     wishlistIds,
+    wishlistPendingIds,
     toggleWishlist,
   } = useStore();
 
@@ -40,6 +41,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
   }, [product.id]);
 
   const isWishlisted = wishlistIds.includes(product.id);
+  const isWishlistPending = wishlistPendingIds.includes(product.id);
   const discount = getDiscountPercent(product.price, product.originalPrice);
   const hasVerifiedDiscount =
     discount > 0 &&
@@ -153,6 +155,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
             <div className="flex flex-wrap items-center gap-2">
               <WishlistButton
                 active={isWishlisted}
+                pending={isWishlistPending}
                 onToggle={() => toggleWishlist(product)}
                 productName={product.name}
                 variant="icon"
@@ -236,6 +239,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
 
           <WishlistButton
             active={isWishlisted}
+            pending={isWishlistPending}
             onToggle={(e) => {
               e.stopPropagation();
               toggleWishlist(product);

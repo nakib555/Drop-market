@@ -19,18 +19,23 @@ import {
 } from '../../server/services/shippingService';
 import {
   fetchLiveDummyJsonCatalog,
+  getCachedDummyJsonProductsSync,
   getDummyJsonAuthoritativeSkus,
 } from '../../server/shared/dummyJsonCatalog';
 import {
+  AUTHORITATIVE_CATALOG_SKUS,
   BANGLADESH_GEO_TREE,
   type BangladeshDivisionEntry,
 } from '../../server/shared/marketplaceSchema';
 import type {
   AccountDirectoryEntry,
+  Address,
   AdminDashboardData,
   AdminSystemReadiness,
   ApiSellerProductRecord,
   AvailabilityStatus,
+  CartItem,
+  CartMergeReport,
   CategoryFacetConfig,
   CategoryNode,
   CheckoutQuoteResponse,
@@ -46,10 +51,12 @@ import type {
   OrderStage,
   PasswordResetRequestResult,
   PaymentMethodId,
+  PaymentMethodRecord,
   PaymentSession,
   PlatformSettingsState,
   Product,
   ProductOverride,
+  ProductReview,
   SellerApplicationRecord,
   SellerDashboardData,
   SellerStoreSettings,
@@ -58,10 +65,12 @@ import type {
   ShippingZoneId,
   ShippingZoneRule,
   StoreNotification,
+  StorePolicyConfig,
   SupportInquiryRecord,
   UserRole,
 } from '../types/commerce';
 import { ApiError } from './apiError';
+import { buildCartMergeProducts, mergeGuestAndServerCarts } from '../utils/cartMerge';
 
 const STATIC_DB_STORAGE_KEY = 'kinto-static-db-v2';
 
@@ -81,6 +90,12 @@ interface SerializedStaticDb {
   promotions: ManagedPromoRecord[];
   platformSettings: PlatformSettingsState;
   sessions: Array<[string, string]>;
+  sessionExpiry?: Array<[string, number]>;
+  userCarts?: Array<[string, CartItem[]]>;
+  wishlists?: Array<[string, string[]]>;
+  userAddresses?: Array<[string, Address[]]>;
+  userPaymentMethods?: Array<[string, PaymentMethodRecord[]]>;
+  productReviews?: Array<[string, ProductReview[]]>;
   paymentSessions: Array<[string, PendingSessionContext]>;
 }
 
@@ -149,6 +164,26 @@ function getStaticDb(): MockMarketplaceDb {
         if (Array.isArray(parsed.sessions)) {
           instance.sessions = new Map(parsed.sessions);
         }
+        if (Array.isArray(parsed.sessionExpiry)) {
+          instance.sessionExpiry = new Map(parsed.sessionExpiry);
+        }
+        if (Array.isArray(parsed.userCarts)) {
+          instance.userCarts = new Map(parsed.userCarts);
+        }
+        if (Array.isArray(parsed.wishlists)) {
+          instance.wishlists = new Map(
+            parsed.wishlists.map(([uid, ids]) => [uid, new Set(ids)])
+          );
+        }
+        if (Array.isArray(parsed.userAddresses)) {
+          instance.userAddresses = new Map(parsed.userAddresses);
+        }
+        if (Array.isArray(parsed.userPaymentMethods)) {
+          instance.userPaymentMethods = new Map(parsed.userPaymentMethods);
+        }
+        if (Array.isArray(parsed.productReviews)) {
+          instance.productReviews = new Map(parsed.productReviews);
+        }
         if (Array.isArray(parsed.paymentSessions)) {
           instance.paymentSessions = new Map(parsed.paymentSessions);
         }
@@ -181,6 +216,12 @@ function persistStaticDb(db: MockMarketplaceDb): void {
       promotions: db.promotions,
       platformSettings: db.platformSettings,
       sessions: Array.from(db.sessions.entries()),
+      sessionExpiry: Array.from(db.sessionExpiry.entries()),
+      userCarts: Array.from(db.userCarts.entries()),
+      wishlists: Array.from(db.wishlists.entries()).map(([uid, set]) => [uid, Array.from(set)]),
+      userAddresses: Array.from(db.userAddresses.entries()),
+      userPaymentMethods: Array.from(db.userPaymentMethods.entries()),
+      productReviews: Array.from(db.productReviews.entries()),
       paymentSessions: Array.from(db.paymentSessions.entries()),
     };
     window.localStorage.setItem(STATIC_DB_STORAGE_KEY, JSON.stringify(payload));
@@ -1607,4 +1648,216 @@ export function staticFetchAdminReadiness(token?: string): AdminSystemReadiness 
   assertStaticRole(db, token, ['admin']);
   return db.buildSystemReadiness(getGatewayConfigStatus);
 }
+
+export function staticFetchAuthSession(token?: string): {
+  authenticated: boolean;
+  user: AccountDirectoryEntry | null;
+  policy: StorePolicyConfig;
+} {
+  const db = getStaticDb();
+  const user = db.getUserByToken(token);
+  if (!user || user.status === 'suspended') {
+    return { authenticated: false, user: null, policy: db.storePolicy };
+  }
+  return { authenticated: true, user: db.toPublicAccount(user), policy: db.storePolicy };
+}
+
+export function staticLogout(token?: string): { ok: boolean } {
+  const db = getStaticDb();
+  if (token) {
+    db.revokeSession(token);
+    persistStaticDb(db);
+  }
+  return { ok: true };
+}
+
+export function staticFetchAccountCart(token?: string): CartItem[] {
+  const db = getStaticDb();
+  const user = assertStaticAuth(db, token);
+  return db.getUserCart(user.id);
+}
+
+export function staticSyncAccountCart(items: CartItem[], token?: string): CartItem[] {
+  const db = getStaticDb();
+  const user = assertStaticAuth(db, token);
+  const saved = db.setUserCart(user.id, items);
+  persistStaticDb(db);
+  return saved;
+}
+
+export function staticMergeAccountCart(
+  guestItems: CartItem[],
+  token?: string
+): { items: CartItem[]; report: CartMergeReport } {
+  const db = getStaticDb();
+  const user = assertStaticAuth(db, token);
+  const products = buildCartMergeProducts({
+    cachedProducts: getCachedDummyJsonProductsSync(),
+    authoritativeSkus: AUTHORITATIVE_CATALOG_SKUS,
+    sellerInventory: db.sellerInventory,
+    sellerCreatedProducts: db.sellerCreatedProducts,
+  });
+  const { mergedCart, report } = mergeGuestAndServerCarts({
+    guestCart: guestItems,
+    serverCart: db.getUserCart(user.id),
+    products,
+    productOverrides: db.productOverrides,
+  });
+  const saved = db.setUserCart(user.id, mergedCart);
+  persistStaticDb(db);
+  return { items: saved, report };
+}
+
+export function staticFetchAccountWishlist(token?: string): string[] {
+  const db = getStaticDb();
+  const user = assertStaticAuth(db, token);
+  return db.getWishlist(user.id);
+}
+
+export function staticToggleAccountWishlist(
+  productId: string,
+  token?: string
+): { wishlistIds: string[]; added: boolean } {
+  const db = getStaticDb();
+  const user = assertStaticAuth(db, token);
+  const result = db.toggleWishlistItem(user.id, productId);
+  persistStaticDb(db);
+  return result;
+}
+
+export function staticMergeAccountWishlist(productIds: string[], token?: string): string[] {
+  const db = getStaticDb();
+  const user = assertStaticAuth(db, token);
+  const result = db.mergeWishlistItems(user.id, productIds);
+  persistStaticDb(db);
+  return result;
+}
+
+export function staticFetchAccountAddresses(token?: string): Address[] {
+  const db = getStaticDb();
+  const user = assertStaticAuth(db, token);
+  return db.getAddresses(user.id);
+}
+
+export function staticSaveAccountAddress(
+  address: Omit<Address, 'id'> & { id?: string },
+  token?: string
+): Address[] {
+  const db = getStaticDb();
+  const user = assertStaticAuth(db, token);
+  const addresses = db.saveAddress(user.id, address);
+  persistStaticDb(db);
+  return addresses;
+}
+
+export function staticDeleteAccountAddress(id: string, token?: string): Address[] {
+  const db = getStaticDb();
+  const user = assertStaticAuth(db, token);
+  const addresses = db.deleteAddress(user.id, id);
+  persistStaticDb(db);
+  return addresses;
+}
+
+export function staticSetDefaultAccountAddress(id: string, token?: string): Address[] {
+  const db = getStaticDb();
+  const user = assertStaticAuth(db, token);
+  const addresses = db.setDefaultAddress(user.id, id);
+  persistStaticDb(db);
+  return addresses;
+}
+
+export function staticFetchAccountPaymentMethods(token?: string): PaymentMethodRecord[] {
+  const db = getStaticDb();
+  const user = assertStaticAuth(db, token);
+  return db.getPaymentMethods(user.id);
+}
+
+export function staticSaveAccountPaymentMethod(
+  method: Omit<PaymentMethodRecord, 'id'>,
+  token?: string
+): PaymentMethodRecord[] {
+  const db = getStaticDb();
+  const user = assertStaticAuth(db, token);
+  const paymentMethods = db.savePaymentMethod(user.id, method);
+  persistStaticDb(db);
+  return paymentMethods;
+}
+
+export function staticDeleteAccountPaymentMethod(
+  id: string,
+  token?: string
+): PaymentMethodRecord[] {
+  const db = getStaticDb();
+  const user = assertStaticAuth(db, token);
+  const paymentMethods = db.deletePaymentMethod(user.id, id);
+  persistStaticDb(db);
+  return paymentMethods;
+}
+
+export function staticSetDefaultAccountPaymentMethod(
+  id: string,
+  token?: string
+): PaymentMethodRecord[] {
+  const db = getStaticDb();
+  const user = assertStaticAuth(db, token);
+  const paymentMethods = db.setDefaultPaymentMethod(user.id, id);
+  persistStaticDb(db);
+  return paymentMethods;
+}
+
+export function staticClaimGuestOrders(
+  orderIds?: string[],
+  token?: string
+): { claimedCount: number; orders: Order[] } {
+  const db = getStaticDb();
+  const user = assertStaticAuth(db, token);
+  const claimedCount = db.claimOrdersForUser(user, orderIds);
+  persistStaticDb(db);
+  return { claimedCount, orders: db.getUserOrders(user) };
+}
+
+export function staticFetchProductReviews(productId: string): ProductReview[] {
+  const db = getStaticDb();
+  return db.getProductReviews(productId);
+}
+
+export function staticSubmitProductReview(
+  productId: string,
+  payload: { rating: number; title: string; comment: string },
+  token?: string
+): { review: ProductReview; reviews: ProductReview[] } {
+  const db = getStaticDb();
+  const user = assertStaticAuth(db, token);
+  const userOrders = db.getUserOrders(user);
+  const hasDeliveredPurchase = userOrders.some(
+    (order) =>
+      order.currentStage === 'Delivered' &&
+      order.items.some((item) => item.productId === productId)
+  );
+  if (db.storePolicy.reviewsRequireDeliveredPurchase && !hasDeliveredPurchase) {
+    throw new ApiError(
+      'Verified delivery is required to publish a review for this item.',
+      403,
+      false
+    );
+  }
+  const review: ProductReview = {
+    id: `rev-${Date.now().toString(36)}`,
+    author: user.fullName,
+    location: user.location || 'Dhaka, Bangladesh',
+    rating: Math.round(payload.rating),
+    title: payload.title.trim() || 'Verified Customer Review',
+    comment: payload.comment.trim(),
+    date: new Date().toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }),
+    verified: hasDeliveredPurchase || user.role !== 'customer',
+  };
+  const reviews = db.addProductReview(productId, review);
+  persistStaticDb(db);
+  return { review, reviews };
+}
+
 

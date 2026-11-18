@@ -438,6 +438,7 @@ export interface Order {
   currentStage: OrderStage;
   timeline: OrderTimelineEvent[];
   policyAcceptance?: LegalAcceptanceRecord;
+  userId?: string;
 }
 
 export interface LegalAcceptanceRecord {
@@ -847,4 +848,91 @@ export interface AdminSystemReadiness {
     pendingSellers: number;
   };
 }
+
+export interface StorePolicyConfig {
+  wishlistAuthRequired: boolean;
+  checkoutAuthRequired: boolean;
+  reviewsRequireAuth: boolean;
+  reviewsRequireDeliveredPurchase: boolean;
+  pendingActionTtlMs: number;
+  sessionTtlMs: number;
+}
+
+export type ProtectedActionId =
+  | 'wishlist:toggle'
+  | 'wishlist:view'
+  | 'account:open'
+  | 'address:save'
+  | 'payment:save'
+  | 'review:submit'
+  | 'order:cancel'
+  | 'order:return'
+  | 'order:claim'
+  | 'checkout:proceed'
+  | 'seller:workspace'
+  | 'admin:workspace';
+
+export interface AuthPrefill {
+  email?: string;
+  fullName?: string;
+  phone?: string;
+}
+
+export interface AuthPromptContext {
+  actionId: ProtectedActionId;
+  titleKey: string;
+  descriptionKey: string;
+  benefitKeys: string[];
+  defaultTab: 'signin' | 'register';
+  itemName?: string;
+  prefill?: AuthPrefill;
+}
+
+export interface PendingAction {
+  actionId: ProtectedActionId;
+  createdAt: number;
+  expiresAt?: number;
+  payload?: {
+    productId?: string;
+    itemName?: string;
+    orderId?: string;
+    reason?: string;
+    address?: Omit<Address, 'id'>;
+    paymentMethod?: Omit<PaymentMethodRecord, 'id'>;
+    review?: {
+      productId: string;
+      rating: number;
+      title: string;
+      comment: string;
+    };
+    accountTab?: string;
+    preferredTab?: 'signin' | 'register';
+    prefill?: AuthPrefill;
+  };
+  returnRoute?: {
+    name: RouteName;
+    slug?: string;
+    category?: CategorySlug | 'all';
+    accountTab?: string;
+    orderId?: string;
+  };
+}
+
+export interface CartMergeAdjustment {
+  key: string;
+  productId: string;
+  name: string;
+  reason: 'clamped_stock' | 'out_of_stock' | 'unavailable' | 'price_updated';
+  requestedQuantity: number;
+  finalQuantity: number;
+  previousPrice?: number;
+  updatedPrice?: number;
+}
+
+export interface CartMergeReport {
+  addedFromGuest: number;
+  mergedTotalCount: number;
+  adjustments: CartMergeAdjustment[];
+}
+
 

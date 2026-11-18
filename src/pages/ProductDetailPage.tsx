@@ -56,12 +56,14 @@ export const ProductDetailPage: React.FC = () => {
     navigate,
     addToCart,
     wishlistIds,
+    wishlistPendingIds,
     toggleWishlist,
     recentlyViewedIds,
     recordProductView,
     submitProductReview,
     submitProductQuestion,
     profile,
+    runProtectedAction,
     storefrontLoading,
   } = useStore();
 
@@ -189,6 +191,7 @@ export const ProductDetailPage: React.FC = () => {
   const outOfStock = isProductOutOfStock(product);
   const maxSelectableQty = Math.max(1, product.stockCount);
   const isWishlisted = wishlistIds.includes(product.id);
+  const isWishlistPending = wishlistPendingIds.includes(product.id);
   const questions = product.questions || [];
 
   const relatedProducts = products
@@ -590,6 +593,7 @@ export const ProductDetailPage: React.FC = () => {
               </Button>
               <WishlistButton
                 active={isWishlisted}
+                pending={isWishlistPending}
                 onToggle={() => toggleWishlist(product)}
                 productName={product.name}
                 variant="full"
@@ -835,7 +839,14 @@ export const ProductDetailPage: React.FC = () => {
                     variant="primary"
                     size="md"
                     fullWidth
-                    onClick={() => navigate({ name: 'login' })}
+                    onClick={() => {
+                      void runProtectedAction('review:submit', () => {}, {
+                        productId: product.id,
+                        itemName: product.name,
+                        preferredTab: 'signin',
+                        returnRoute: { name: 'product', slug: product.slug },
+                      });
+                    }}
                   >
                     {t(language, 'signInToReview')}
                   </Button>

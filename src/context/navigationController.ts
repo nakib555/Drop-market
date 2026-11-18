@@ -14,6 +14,7 @@ export interface RouteState {
   collection?: 'trending' | 'best-sellers' | 'new-arrivals' | 'offers';
   accountTab?: string;
   orderId?: string;
+  redirectTo?: string;
 }
 
 const PAGE_TITLES: Record<RouteName, string> = {
@@ -197,6 +198,7 @@ export function getRouteKey(route: RouteState): string {
     route.query || '',
     route.accountTab || '',
     route.orderId || '',
+    route.redirectTo || '',
   ].join(':');
 }
 
@@ -273,7 +275,12 @@ export function parseLocationToRoute(
   }
   if (first === 'login') {
     const tab = searchParams.get('tab') === 'register' ? 'register' : 'signin';
-    return { name: 'login', accountTab: tab };
+    const redirect = searchParams.get('redirect');
+    return {
+      name: 'login',
+      accountTab: tab,
+      ...(redirect ? { redirectTo: redirect } : {}),
+    };
   }
   if (first === 'seller') {
     return { name: 'seller', accountTab: 'seller-hub' };
@@ -321,8 +328,13 @@ export function serializeRouteToPath(route: RouteState): string {
       return route.accountTab && route.accountTab !== 'overview'
         ? `/account/${encodeURIComponent(route.accountTab)}`
         : '/account';
-    case 'login':
-      return route.accountTab === 'register' ? '/login?tab=register' : '/login';
+    case 'login': {
+      const p = new URLSearchParams();
+      if (route.accountTab === 'register') p.set('tab', 'register');
+      if (route.redirectTo) p.set('redirect', route.redirectTo);
+      const qs = p.toString();
+      return qs ? `/login?${qs}` : '/login';
+    }
     case 'seller':
       return '/seller';
     case 'admin':
@@ -332,6 +344,22 @@ export function serializeRouteToPath(route: RouteState): string {
     default:
       return `/${route.name}`;
   }
+}
+
+export function resolveRedirectRoute(rawRedirect?: string): RouteState | null {
+  if (!rawRedirect) return null;
+  const trimmed = rawRedirect.trim();
+  if (!trimmed.startsWith('/')) return null;
+  const [pathnamePart, searchPart = ''] = trimmed.split('?');
+  const parsed = parseLocationToRoute(
+    pathnamePart || '/',
+    searchPart ? `?${searchPart}` : '',
+    ''
+  );
+  if (parsed.name === 'login' || parsed.name === 'not-found') {
+    return null;
+  }
+  return parsed;
 }
 
 export function parseHashToRoute(): RouteState {

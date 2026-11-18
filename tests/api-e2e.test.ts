@@ -32,13 +32,15 @@ async function apiJson<T>(
     method?: string;
     token?: string;
     body?: unknown;
+    headers?: Record<string, string>;
   } = {}
-): Promise<{ status: number; data: T; text: string }> {
+): Promise<{ status: number; data: T; text: string; headers: Headers; setCookies: string[] }> {
   const res = await fetch(`${baseUrl}${path}`, {
     method: options.method || 'GET',
     headers: {
       ...(options.body ? { 'Content-Type': 'application/json' } : {}),
       ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
+      ...(options.headers || {}),
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
@@ -49,7 +51,13 @@ async function apiJson<T>(
   } catch {
     // plain text or XML response
   }
-  return { status: res.status, data, text };
+  const setCookies =
+    typeof res.headers.getSetCookie === 'function'
+      ? res.headers.getSetCookie()
+      : res.headers.get('set-cookie')
+      ? [res.headers.get('set-cookie') as string]
+      : [];
+  return { status: res.status, data, text, headers: res.headers, setCookies };
 }
 
 test('health, robots.txt, and sitemap.xml endpoints serve expected SEO & health payloads', async () => {
@@ -408,4 +416,218 @@ test('support inquiries, newsletter deduplication, password recovery, and admin 
   assert.ok(adminReadiness.data.metrics.openSupportInquiries >= 1);
   assert.ok(adminReadiness.data.metrics.newsletterSubscribers >= 1);
 });
+
+test('HttpOnly cookie sessions, CSRF guard, logout revocation, and protected account routes enforce isolation', async () => {
+  // Unauthenticated session probe always returns 200 { authenticated: false }
+  const guestSession = await apiJson<{ authenticated: boolean; user: unknown; policy: { checkoutAuthRequired: boolean } }>(
+    '/api/auth/session'
+  );
+  assert.equal(guestSession.status, 200);
+  assert.equal(guestSession.data.authenticated, false);
+  assert.equal(guestSession.data.user, null);
+  assert.equal(guestSession.data.policy.checkoutAuthRequired, false);
+
+  // Protected account endpoints must reject unauthenticated guests with 401
+  assert.equal((await apiJson('/api/account/wishlist')).status, 401);
+  assert.equal(
+    (await apiJson('/api/account/wishlist/toggle', { method: 'POST', body: { productId: 'prod-aeterna-headphones' } })).status,
+    401
+  );
+  assert.equal(
+    (await apiJson('/api/account/cart/merge', { method: 'POST', body: { guestItems: [] } })).status,
+    401
+  );
+  assert.equal((await apiJson('/api/account/addresses')).status, 401);
+  assert.equal(
+    (await apiJson('/api/products/prod-aeterna-headphones/reviews', { method: 'POST', body: { rating: 5, comment: 'Great studio finish' } })).status,
+    401
+  );
+
+  // Login sets HttpOnly SameSite=Lax ks_session cookie
+  const loginRes = await apiJson<{ user: { id: string; email: string } }>('/api/auth/login', {
+    method: 'POST',
+    body: { email: 'rafiq.islam@kintostudio.bd', password: 'studio2026' },
+  });
+  assert.equal(loginRes.status, 200);
+  const rawSetCookie = loginRes.setCookies.find((c) => c.startsWith('ks_session='));
+  assert.ok(rawSetCookie, 'Expected Set-Cookie ks_session header');
+  assert.match(rawSetCookie, /HttpOnly/i);
+  assert.match(rawSetCookie, /SameSite=Lax/i);
+  const cookiePair = rawSetCookie.split(';')[0];
+
+  // Cookie session validates /api/auth/session without Bearer header
+  const authedSession = await apiJson<{ authenticated: boolean; user: { email: string } }>('/api/auth/session', {
+    headers: { Cookie: cookiePair },
+  });
+  assert.equal(authedSession.status, 200);
+  assert.equal(authedSession.data.authenticated, true);
+  assert.equal(authedSession.data.user.email, 'rafiq.islam@kintostudio.bd');
+
+  // CSRF guard blocks cookie-authenticated mutations missing X-Kinto-Request: 1
+  const csrfMissing = await apiJson('/api/account/wishlist/toggle', {
+    method: 'POST',
+    headers: { Cookie: cookiePair },
+    body: { productId: 'prod-aeterna-headphones' },
+  });
+  assert.equal(csrfMissing.status, 403);
+
+  // CSRF guard blocks cross-origin Origin headers even when X-Kinto-Request is present
+  const csrfCrossOrigin = await apiJson('/api/account/wishlist/toggle', {
+    method: 'POST',
+    headers: {
+      Cookie: cookiePair,
+      'X-Kinto-Request': '1',
+      Origin: 'https://evil.example',
+    },
+    body: { productId: 'prod-aeterna-headphones' },
+  });
+  assert.equal(csrfCrossOrigin.status, 403);
+
+  // Valid cookie + X-Kinto-Request + matching Origin succeeds
+  const wishlistToggle = await apiJson<{ wishlistIds: string[]; added: boolean }>('/api/account/wishlist/toggle', {
+    method: 'POST',
+    headers: {
+      Cookie: cookiePair,
+      'X-Kinto-Request': '1',
+      Origin: baseUrl,
+    },
+    body: { productId: 'prod-botanical-serum' },
+  });
+  assert.equal(wishlistToggle.status, 200);
+  assert.equal(wishlistToggle.data.added, true);
+  assert.ok(wishlistToggle.data.wishlistIds.includes('prod-botanical-serum'));
+
+  // Guest cart merges cleanly via cookie auth
+  const cartMerge = await apiJson<{ items: Array<{ productId: string; quantity: number }>; report: { guestItemsMerged: number } }>(
+    '/api/account/cart/merge',
+    {
+      method: 'POST',
+      headers: { Cookie: cookiePair, 'X-Kinto-Request': '1' },
+      body: {
+        guestItems: [
+          {
+            productId: 'prod-aeterna-headphones',
+            variantId: 'default',
+            variantName: 'Obsidian Matte',
+            quantity: 2,
+          },
+        ],
+      },
+    }
+  );
+  assert.equal(cartMerge.status, 200);
+  assert.ok(cartMerge.data.items.some((i) => i.productId === 'prod-aeterna-headphones' && i.quantity >= 2));
+
+  // Saving address persists per authenticated user and stays isolated from another user
+  const savedAddr = await apiJson<{ addresses: Array<{ id: string; streetAddress: string }> }>('/api/account/addresses', {
+    method: 'POST',
+    headers: { Cookie: cookiePair, 'X-Kinto-Request': '1' },
+    body: {
+      label: 'Studio',
+      fullName: 'Rafiq Islam',
+      phone: '+8801711223344',
+      city: 'Dhaka',
+      streetAddress: 'House 14, Road 6, Banani',
+      isDefault: true,
+    },
+  });
+  assert.equal(savedAddr.status, 201);
+  assert.ok(savedAddr.data.addresses.some((a) => a.streetAddress === 'House 14, Road 6, Banani'));
+
+  // Register a second customer and verify isolation (second customer sees empty wishlist/addresses & cannot cancel Rafiq's order)
+  const secondEmail = `isolated-${Date.now()}@example.com`;
+  const secondReg = await apiJson<{ token: string }>('/api/auth/register', {
+    method: 'POST',
+    body: {
+      fullName: 'Nadia Rahman',
+      email: secondEmail,
+      password: 'password123',
+      role: 'customer',
+      acceptedPolicies: { accepted: true, version: '2026-11' },
+    },
+  });
+  assert.equal(secondReg.status, 201);
+
+  const secondAddresses = await apiJson<{ addresses: Array<{ streetAddress: string }> }>('/api/account/addresses', {
+    token: secondReg.data.token,
+  });
+  assert.equal(secondAddresses.status, 200);
+  assert.equal(secondAddresses.data.addresses.length, 0);
+
+  // Guest COD checkout with matching email, then claim order into Nadia's account
+  const initGuestCod = await apiJson<{ session: { id: string } }>('/api/payments/initiate', {
+    method: 'POST',
+    body: {
+      idempotencyKey: `claim-test-${Date.now()}`,
+      paymentMethod: 'cod',
+      customerName: 'Nadia Rahman',
+      email: secondEmail,
+      phone: '+8801715556667',
+      shippingAddress: {
+        country: 'Bangladesh',
+        state: 'Dhaka',
+        city: 'Dhaka',
+        upazila: 'Dhaka North City Corporation',
+        area: 'Banani',
+        streetAddress: 'Plot 8, Kemal Ataturk Ave',
+      },
+      deliveryMethod: 'standard',
+      items: [{ productId: 'prod-aeterna-headphones', quantity: 1 }],
+      acceptedPolicies: { accepted: true, version: '2026-11' },
+    },
+  });
+  assert.equal(initGuestCod.status, 201);
+  const verifyGuestCod = await apiJson<{ order: { id: string; userId?: string } }>('/api/payments/verify', {
+    method: 'POST',
+    body: { sessionId: initGuestCod.data.session.id, outcome: 'cod_confirmed' },
+  });
+  assert.equal(verifyGuestCod.status, 200);
+  const claimedOrderId = verifyGuestCod.data.order.id;
+
+  const claimRes = await apiJson<{ claimedCount: number; orders: Array<{ id: string }> }>(
+    '/api/account/claim-orders',
+    {
+      method: 'POST',
+      token: secondReg.data.token,
+      body: { orderIds: [claimedOrderId] },
+    }
+  );
+  assert.equal(claimRes.status, 200);
+  assert.ok(claimRes.data.claimedCount >= 1);
+  assert.ok(claimRes.data.orders.some((o) => o.id === claimedOrderId));
+
+  // Rafiq cannot cancel Nadia's order
+  const crossUserCancel = await apiJson(`/api/orders/${encodeURIComponent(claimedOrderId)}/action`, {
+    method: 'POST',
+    headers: { Cookie: cookiePair, 'X-Kinto-Request': '1' },
+    body: { action: 'cancel', reason: 'Unauthorized attempt' },
+  });
+  assert.equal(crossUserCancel.status, 403);
+
+  // Authenticated review submission succeeds for signed-in user (when policy does not require prior delivered purchase, or fails with 403 if enabled)
+  const reviewRes = await apiJson<{ review?: { author: string } }>('/api/products/prod-aeterna-headphones/reviews', {
+    method: 'POST',
+    headers: { Cookie: cookiePair, 'X-Kinto-Request': '1' },
+    body: { rating: 5, title: 'Crisp studio tuning', comment: 'Clean build quality and neutral staging.' },
+  });
+  assert.equal(reviewRes.status, 201);
+  assert.equal(reviewRes.data.review?.author, 'Rafiqul Islam');
+
+  // Logout clears ks_session cookie and invalidates session
+  const logoutRes = await apiJson<{ ok: boolean }>('/api/auth/logout', {
+    method: 'POST',
+    headers: { Cookie: cookiePair, 'X-Kinto-Request': '1' },
+  });
+  assert.equal(logoutRes.status, 200);
+  assert.equal(logoutRes.data.ok, true);
+  const clearedCookie = logoutRes.setCookies.find((c) => c.startsWith('ks_session='));
+  assert.ok(clearedCookie && /Max-Age=0/i.test(clearedCookie), 'Expected Max-Age=0 session cookie clearance');
+
+  const postLogoutSession = await apiJson<{ authenticated: boolean }>('/api/auth/session', {
+    headers: { Cookie: cookiePair },
+  });
+  assert.equal(postLogoutSession.status, 200);
+  assert.equal(postLogoutSession.data.authenticated, false);
+});
+
 

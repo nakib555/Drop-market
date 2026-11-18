@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, Minus, Plus, Star } from 'lucide-react';
+import { Heart, Loader2, Minus, Plus, Star } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { CurrencyCode } from '../../types/commerce';
 import { formatCurrency, getDiscountPercent } from '../../utils/format';
@@ -212,6 +212,7 @@ export const QuantityStepper: React.FC<QuantityStepperProps> = ({
 
 interface WishlistButtonProps {
   active: boolean;
+  pending?: boolean;
   onToggle: (e: React.MouseEvent<HTMLButtonElement>) => void;
   productName: string;
   variant?: 'icon' | 'overlay' | 'full';
@@ -220,6 +221,7 @@ interface WishlistButtonProps {
 
 export const WishlistButton: React.FC<WishlistButtonProps> = ({
   active,
+  pending = false,
   onToggle,
   productName,
   variant = 'icon',
@@ -234,16 +236,22 @@ export const WishlistButton: React.FC<WishlistButtonProps> = ({
     return (
       <button
         type="button"
+        disabled={pending}
+        aria-busy={pending}
         onClick={onToggle}
         aria-pressed={active}
         aria-label={label}
-        className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2 rounded-[var(--ks-radius-md)] border text-xs font-medium tracking-wide transition-colors cursor-pointer ${
+        className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2 rounded-[var(--ks-radius-md)] border text-xs font-medium tracking-wide transition-colors disabled:opacity-60 cursor-pointer ${
           active
             ? 'border-[var(--ks-accent)] text-[var(--ks-accent)] bg-[var(--ks-surface-muted)]'
             : 'border-[var(--ks-border-strong)] bg-transparent text-[var(--ks-text-primary)] hover:bg-[var(--ks-surface-muted)]'
         } ${className}`}
       >
-        <Heart className={`w-4 h-4 ${active ? 'fill-current text-[var(--ks-accent)]' : ''}`} />
+        {pending ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <Heart className={`w-4 h-4 ${active ? 'fill-current text-[var(--ks-accent)]' : ''}`} />
+        )}
         <span>{active ? t(language, 'saved') : t(language, 'wishlist')}</span>
       </button>
     );
@@ -253,16 +261,22 @@ export const WishlistButton: React.FC<WishlistButtonProps> = ({
     return (
       <button
         type="button"
+        disabled={pending}
+        aria-busy={pending}
         onClick={onToggle}
         aria-pressed={active}
         aria-label={label}
-        className={`pointer-events-auto w-11 h-11 sm:w-9 sm:h-9 rounded-[var(--ks-radius-md)] flex items-center justify-center border transition-[color,background-color,transform] duration-[var(--ks-duration-fast)] active:scale-[0.88] cursor-pointer ${
+        className={`pointer-events-auto w-11 h-11 sm:w-9 sm:h-9 rounded-[var(--ks-radius-md)] flex items-center justify-center border transition-[color,background-color,transform] duration-[var(--ks-duration-fast)] active:scale-[0.88] disabled:opacity-60 cursor-pointer ${
           active
             ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)]'
             : 'bg-[var(--ks-surface)]/95 text-[var(--ks-text-primary)] border-[var(--ks-border)] hover:bg-[var(--ks-surface)]'
         } ${className}`}
       >
-        <Heart className={`w-3.5 h-3.5 ${active ? 'fill-current' : ''}`} />
+        {pending ? (
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        ) : (
+          <Heart className={`w-3.5 h-3.5 ${active ? 'fill-current' : ''}`} />
+        )}
       </button>
     );
   }
@@ -270,16 +284,22 @@ export const WishlistButton: React.FC<WishlistButtonProps> = ({
   return (
     <button
       type="button"
+      disabled={pending}
+      aria-busy={pending}
       onClick={onToggle}
       aria-pressed={active}
       aria-label={label}
-      className={`w-11 h-11 sm:w-10 sm:h-10 rounded-[var(--ks-radius-md)] border flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
+      className={`w-11 h-11 sm:w-10 sm:h-10 rounded-[var(--ks-radius-md)] border flex items-center justify-center shrink-0 transition-colors disabled:opacity-60 cursor-pointer ${
         active
           ? 'border-[var(--ks-accent)] text-[var(--ks-accent)]'
           : 'border-[var(--ks-border-strong)] text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] hover:border-[var(--ks-action)]'
       } ${className}`}
     >
-      <Heart className={`w-4 h-4 ${active ? 'fill-current' : ''}`} />
+      {pending ? (
+        <Loader2 className="w-4 h-4 animate-spin" />
+      ) : (
+        <Heart className={`w-4 h-4 ${active ? 'fill-current' : ''}`} />
+      )}
     </button>
   );
 };

@@ -39,6 +39,7 @@ import { STUDIO_TRANSITION } from '../../utils/motion';
 import { useOverlayLock } from '../../utils/scrollLock';
 import { PWAInstallButton } from '../pwa/PWAInstallButton';
 import { ResilientImage, useFocusTrap } from '../ui/Primitives';
+import { preloadAccountPage } from './StorefrontRouter';
 
 interface HeaderProps {
   onOpenSearch: () => void;
@@ -63,6 +64,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
     setCartDrawerOpen,
     wishlistIds,
     profile,
+    openAuthModal,
     signOut,
     notifications,
     unreadNotificationCount,
@@ -215,6 +217,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
   }, [notifOpen, accountMenuOpen, currencyMenuOpen, langMenuOpen, searchDropdownOpen, megaMenuOpen]);
 
   // Mobile menu scroll lock & LIFO Escape are handled via useOverlayLock above.
+
+  const visibleWishlistCount = useMemo(() => {
+    if (products.length === 0) return wishlistIds.length;
+    const validIds = new Set(products.map((p) => p.id));
+    return wishlistIds.filter((id) => validIds.has(id)).length;
+  }, [products, wishlistIds]);
 
   const matchingSearchCategories = useMemo(() => {
     const q = searchTerm.trim();
@@ -874,7 +882,9 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
             {!profile.isAuthenticated ? (
               <button
                 type="button"
-                onClick={() => go({ name: 'login' })}
+                onMouseEnter={preloadAccountPage}
+                onFocus={preloadAccountPage}
+                onClick={() => openAuthModal('signin')}
                 aria-label={t(language, 'signIn')}
                 className="h-9 px-2.5 sm:px-3.5 rounded-[var(--ks-radius-md)] flex items-center gap-1.5 text-xs font-medium border border-[var(--ks-border)] bg-[var(--ks-surface)] text-[var(--ks-text-primary)] hover:border-[var(--ks-accent)] hover:text-[var(--ks-accent)] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
@@ -968,7 +978,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                         >
                           <span className="inline-flex items-center gap-2.5">
                             <Heart className="w-3.5 h-3.5 text-[var(--ks-text-muted)]" />
-                            {t(language, 'wishlist')} ({wishlistIds.length})
+                            {t(language, 'wishlist')} ({visibleWishlistCount})
                           </span>
                           <ChevronRight className="w-3.5 h-3.5 text-[var(--ks-text-muted)] rtl:rotate-180" />
                         </button>
@@ -1020,13 +1030,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                           onClick={() => {
                             setAccountMenuOpen(false);
                             signOut();
-                            if (
-                              route.name === 'account' ||
-                              route.name === 'seller' ||
-                              route.name === 'admin'
-                            ) {
-                              navigate({ name: 'login' });
-                            }
                           }}
                           className="w-full py-2 px-3 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] bg-[var(--ks-surface)] hover:text-[var(--ks-error)] text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                         >
@@ -1044,19 +1047,19 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
             <button
               type="button"
               onClick={() => go({ name: 'wishlist' })}
-              aria-label={`Wishlist (${wishlistIds.length} saved)`}
+              aria-label={`Wishlist (${visibleWishlistCount} saved)`}
               className="hidden sm:flex relative w-9 h-9 rounded-[var(--ks-radius-md)] items-center justify-center text-[var(--ks-text-primary)] hover:bg-[var(--ks-surface-muted)] transition-colors cursor-pointer"
             >
               <Heart className="w-[17px] h-[17px]" />
-              {wishlistIds.length > 0 && (
+              {visibleWishlistCount > 0 && (
                 <motion.span
-                  key={wishlistIds.length}
+                  key={visibleWishlistCount}
                   initial={{ scale: 1.25 }}
                   animate={{ scale: 1 }}
                   transition={STUDIO_TRANSITION.fast}
                   className="absolute top-1 end-1 min-w-[15px] h-[15px] px-1 rounded-full bg-[var(--ks-accent)] text-[var(--ks-accent-text)] text-[9px] font-mono-num font-medium flex items-center justify-center"
                 >
-                  {wishlistIds.length}
+                  {visibleWishlistCount}
                 </motion.span>
               )}
             </button>
@@ -1601,14 +1604,24 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
-                          onClick={() => go({ name: 'login' })}
+                          onMouseEnter={preloadAccountPage}
+                          onFocus={preloadAccountPage}
+                          onClick={() => {
+                            setMobileMenuOpen(false);
+                            openAuthModal('signin');
+                          }}
                           className="inline-flex items-center justify-center min-h-[44px] px-3 rounded-[var(--ks-radius-md)] bg-[var(--ks-action)] text-[var(--ks-action-text)] text-xs font-medium cursor-pointer"
                         >
                           {t(language, 'signIn')}
                         </button>
                         <button
                           type="button"
-                          onClick={() => go({ name: 'login', accountTab: 'register' })}
+                          onMouseEnter={preloadAccountPage}
+                          onFocus={preloadAccountPage}
+                          onClick={() => {
+                            setMobileMenuOpen(false);
+                            openAuthModal('register');
+                          }}
                           className="inline-flex items-center justify-center min-h-[44px] px-3 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] bg-[var(--ks-surface)] text-xs font-medium cursor-pointer"
                         >
                           {t(language, 'createAccount')}
@@ -1671,7 +1684,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                           onClick={() => {
                             setMobileMenuOpen(false);
                             signOut();
-                            navigate({ name: 'login' });
                           }}
                           className="w-full min-h-[40px] px-2 rounded flex items-center justify-between gap-2 text-start text-xs text-[var(--ks-error)] hover:bg-[var(--ks-surface)] cursor-pointer"
                         >
@@ -1699,7 +1711,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                       onClick={() => go({ name: 'wishlist' })}
                       className="w-full min-h-[44px] px-2.5 rounded-[var(--ks-radius-md)] flex items-center justify-between gap-2 text-start text-sm font-medium hover:bg-[var(--ks-bg)] cursor-pointer"
                     >
-                      <span className="truncate">{t(language, 'wishlist')} ({wishlistIds.length})</span>
+                      <span className="truncate">{t(language, 'wishlist')} ({visibleWishlistCount})</span>
                       <Heart className="w-4 h-4 text-[var(--ks-text-muted)] shrink-0" />
                     </button>
                   </div>

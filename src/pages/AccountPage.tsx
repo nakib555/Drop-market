@@ -22,7 +22,7 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AdminDashboard } from '../components/account/AdminDashboard';
 import { SellerDashboard } from '../components/account/SellerDashboard';
 import { AuthPanel } from '../components/auth/AuthPanel';
@@ -31,6 +31,7 @@ import { Checkbox, Input, Select, Textarea } from '../components/ui/FormFields';
 import { Breadcrumb, EmptyState, Modal, ResilientImage } from '../components/ui/Primitives';
 import { BANGLADESH_GEO_TREE } from '../../server/shared/marketplaceSchema';
 import { useStore } from '../context/StoreContext';
+import { resolveRedirectRoute } from '../context/navigationController';
 import { submitSupportInquiryApi } from '../services/api';
 import { Order } from '../types/commerce';
 import {
@@ -39,7 +40,7 @@ import {
   formatShortDate,
   isProductOutOfStock,
 } from '../utils/format';
-import { t } from '../utils/i18n';
+import { t, type UiStringKey } from '../utils/i18n';
 import { STUDIO_TRANSITION } from '../utils/motion';
 import { isValidContactPhone } from '../utils/validation';
 
@@ -84,8 +85,14 @@ export const AccountPage: React.FC = () => {
     language,
     currency,
     route,
+    canGoBack,
+    goBack,
     navigate,
     profile,
+    authPromptContext,
+    authPrefill,
+    cancelAuthPrompt,
+    resumePendingActionAfterAuth,
     updateProfile,
     changePassword,
     signOut,
@@ -112,6 +119,7 @@ export const AccountPage: React.FC = () => {
     openCookiePreferences,
     showToast,
   } = useStore();
+  const prefersReducedMotion = useReducedMotion();
 
   const initialTab: AccountSection =
     route.name === 'seller'
@@ -200,27 +208,93 @@ export const AccountPage: React.FC = () => {
   const returnRequestedOrders = orders.filter((o) => o.currentStage === 'Return Requested');
 
   if (!profile.isAuthenticated || route.name === 'login') {
+    const resolvedReturnRoute = resolveRedirectRoute(route.redirectTo);
+    const hasReturnTarget = Boolean(resolvedReturnRoute || canGoBack);
+    const handleReturnToBrowsing = () => {
+      cancelAuthPrompt();
+      if (resolvedReturnRoute) {
+        navigate(resolvedReturnRoute);
+        return;
+      }
+      if (canGoBack) {
+        goBack();
+        return;
+      }
+      navigate({ name: 'shop', category: 'all' });
+    };
+
+    const headerTitle = authPromptContext
+      ? t(language, authPromptContext.titleKey as UiStringKey)
+      : t(language, 'accountSignInHeadline');
+    const headerDescription = authPromptContext
+      ? t(language, authPromptContext.descriptionKey as UiStringKey)
+      : t(language, 'accountSignInDesc');
+
     return (
       <div className="ks-container py-8 lg:py-12 space-y-8">
-        <Breadcrumb
-          items={[
-            { label: t(language, 'home'), onClick: () => navigate({ name: 'home' }) },
-            { label: t(language, 'signIn') },
-          ]}
-        />
+        <motion.div
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+          className="space-y-6"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Breadcrumb
+              items={[
+                { label: t(language, 'home'), onClick: () => navigate({ name: 'home' }) },
+                { label: route.accountTab === 'register' ? t(language, 'createAccount') : t(language, 'signIn') },
+              ]}
+            />
+            {hasReturnTarget && (
+              <button
+                type="button"
+                onClick={handleReturnToBrowsing}
+                className="min-h-[44px] sm:min-h-[36px] inline-flex items-center gap-1.5 px-3 rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] bg-[var(--ks-surface)] text-xs font-medium text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] hover:border-[var(--ks-border-strong)] transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-180" />
+                <span>{t(language, 'backBtn')}</span>
+              </button>
+            )}
+          </div>
 
-        <div className="max-w-2xl space-y-2">
-          <p className="ks-eyebrow text-[var(--ks-accent)]">{t(language, 'accountEyebrow')}</p>
-          <h1 className="font-display text-3xl sm:text-5xl font-medium tracking-tight">
-            {t(language, 'accountSignInHeadline')}
-          </h1>
-          <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
-            {t(language, 'accountSignInDesc')}
-          </p>
-        </div>
+          <div className="max-w-2xl space-y-2.5">
+            <p className="ks-eyebrow text-[var(--ks-accent)]">{t(language, 'accountEyebrow')}</p>
+            <h1 className="font-display text-3xl sm:text-5xl font-medium tracking-tight [text-wrap:balance]">
+              {headerTitle}
+            </h1>
+            <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
+              {headerDescription}
+            </p>
+            {authPromptContext?.itemName && (
+              <div className="inline-flex items-center gap-2 pt-1 text-xs font-medium text-[var(--ks-text-primary)]">
+                <ShieldCheck className="w-4 h-4 text-[var(--ks-accent)] shrink-0" />
+                <span>{authPromptContext.itemName}</span>
+              </div>
+            )}
+          </div>
+        </motion.div>
+
+        {authPromptContext && !profile.isAuthenticated && (
+          <motion.div
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.26, delay: 0.04, ease: [0.16, 1, 0.3, 1] }}
+            className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-bg-secondary)] border border-[var(--ks-border)] flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--ks-text-secondary)]"
+          >
+            <span className="inline-flex items-center gap-2 leading-relaxed">
+              <ShieldCheck className="w-4 h-4 text-[var(--ks-accent)] shrink-0" />
+              <span>{t(language, 'authCtxPreservedHint')}</span>
+            </span>
+          </motion.div>
+        )}
 
         {profile.isAuthenticated && route.name === 'login' && (
-          <div className="p-4 sm:p-5 rounded-[var(--ks-radius-lg)] bg-[var(--ks-bg-secondary)] border border-[var(--ks-border)] flex flex-wrap items-center justify-between gap-4">
+          <motion.div
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.26, delay: 0.04, ease: [0.16, 1, 0.3, 1] }}
+            className="p-4 sm:p-5 rounded-[var(--ks-radius-lg)] bg-[var(--ks-bg-secondary)] border border-[var(--ks-border)] flex flex-wrap items-center justify-between gap-4"
+          >
             <div className="space-y-0.5">
               <p className="text-xs uppercase tracking-wider text-[var(--ks-accent)] font-medium">
                 {t(language, 'activeSession')}
@@ -247,13 +321,18 @@ export const AccountPage: React.FC = () => {
               <span>{t(language, 'openActiveWorkspace')}</span>
               <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
             </Button>
-          </div>
+          </motion.div>
         )}
 
         <AuthPanel
-          key={route.accountTab === 'register' ? 'register' : 'signin'}
+          key={`${route.accountTab === 'register' ? 'register' : 'signin'}-${authPromptContext?.actionId || 'default'}`}
           initialTab={route.accountTab === 'register' ? 'register' : 'signin'}
-          onSuccess={(user) => {
+          promptContext={authPromptContext}
+          prefill={authPrefill}
+          onDismiss={hasReturnTarget ? handleReturnToBrowsing : undefined}
+          onSuccess={async (user) => {
+            const handled = await resumePendingActionAfterAuth(user);
+            if (handled) return;
             if (user.role === 'admin') {
               setSection('admin-console');
               navigate({ name: 'admin' });
@@ -471,10 +550,7 @@ export const AccountPage: React.FC = () => {
             variant="outline"
             size="sm"
             className="self-start sm:self-auto"
-            onClick={() => {
-              signOut();
-              navigate({ name: 'login' });
-            }}
+            onClick={() => signOut()}
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>{t(language, 'signOut')}</span>
@@ -499,10 +575,7 @@ export const AccountPage: React.FC = () => {
           <Button
             variant="outline"
             size="xs"
-            onClick={() => {
-              signOut();
-              navigate({ name: 'login' });
-            }}
+            onClick={() => signOut()}
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>{t(language, 'signOut')}</span>

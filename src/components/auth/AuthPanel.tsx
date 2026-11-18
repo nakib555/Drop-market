@@ -9,13 +9,13 @@ import {
   Store,
   Truck,
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useStore } from '../../context/StoreContext';
 import { buildPolicyAcceptance } from '../../data/legalPolicies';
 import { confirmPasswordResetApi, requestPasswordResetApi } from '../../services/api';
-import { AccountDirectoryEntry } from '../../types/commerce';
-import { t } from '../../utils/i18n';
-import { STUDIO_TRANSITION } from '../../utils/motion';
+import { AccountDirectoryEntry, AuthPrefill, AuthPromptContext } from '../../types/commerce';
+import { t, type UiStringKey } from '../../utils/i18n';
+import { getDirectionalSlideSign, STUDIO_TRANSITION } from '../../utils/motion';
 import { isValidContactPhone } from '../../utils/validation';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/FormFields';
@@ -27,8 +27,11 @@ import {
 interface AuthPanelProps {
   initialTab?: 'signin' | 'register';
   compact?: boolean;
+  promptContext?: AuthPromptContext | null;
+  prefill?: AuthPrefill;
   onSuccess?: (user: AccountDirectoryEntry) => void;
   onOpenFullPage?: () => void;
+  onDismiss?: () => void;
 }
 
 interface RegFieldErrors {
@@ -45,18 +48,24 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const AuthPanel: React.FC<AuthPanelProps> = ({
   initialTab = 'signin',
   compact = false,
+  promptContext,
+  prefill,
   onSuccess,
   onOpenFullPage,
+  onDismiss,
 }) => {
   const { signIn, registerAccount, navigate, openPolicyPreview, showToast, language } = useStore();
+  const prefersReducedMotion = useReducedMotion();
+  const isRtl = language === 'ar';
 
   const [authMode, setAuthMode] = useState<'signin' | 'register' | 'recover'>(initialTab);
-  const [loginEmail, setLoginEmail] = useState('');
+  const [transitionDirection, setTransitionDirection] = useState<number>(1);
+  const [loginEmail, setLoginEmail] = useState(prefill?.email || '');
   const [loginPassword, setLoginPassword] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
 
   // Password recovery state
-  const [recoverEmail, setRecoverEmail] = useState('');
+  const [recoverEmail, setRecoverEmail] = useState(prefill?.email || '');
   const [recoverStep, setRecoverStep] = useState<'request' | 'confirm'>('request');
   const [recoverCode, setRecoverCode] = useState('');
   const [recoverNewPassword, setRecoverNewPassword] = useState('');
@@ -64,9 +73,9 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
   const [recoverPreviewCode, setRecoverPreviewCode] = useState('');
   const [recoverStatusMsg, setRecoverStatusMsg] = useState('');
 
-  const [regName, setRegName] = useState('');
-  const [regEmail, setRegEmail] = useState('');
-  const [regPhone, setRegPhone] = useState('');
+  const [regName, setRegName] = useState(prefill?.fullName || '');
+  const [regEmail, setRegEmail] = useState(prefill?.email || '');
+  const [regPhone, setRegPhone] = useState(prefill?.phone || '');
   const [regPassword, setRegPassword] = useState('');
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [regRole, setRegRole] = useState<'customer' | 'seller'>('customer');
@@ -305,10 +314,19 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
     await runRegistration();
   };
 
+  const activeViewKey =
+    authMode === 'recover' ? `recover-${recoverStep}` : authMode;
+  const directionalSlideX = getDirectionalSlideSign(transitionDirection, isRtl) * 14;
+
   return (
     <div className={`grid grid-cols-1 lg:grid-cols-12 ${compact ? 'gap-6' : 'gap-8'} items-stretch`}>
       {/* Form Column */}
-      <div className="lg:col-span-7 p-6 sm:p-8 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] flex flex-col justify-between space-y-6">
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.28, delay: 0.04, ease: [0.16, 1, 0.3, 1] }}
+        className="lg:col-span-7 p-6 sm:p-8 rounded-[var(--ks-radius-lg)] bg-[var(--ks-surface)] border border-[var(--ks-border)] flex flex-col justify-between space-y-6 overflow-hidden"
+      >
         <div className="space-y-5">
           {/* Segmented Tabs */}
           <div className="flex items-center justify-between border-b border-[var(--ks-border)]">
@@ -325,6 +343,9 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                     key={tab.id}
                     type="button"
                     onClick={() => {
+                      if (authMode !== tab.id) {
+                        setTransitionDirection(tab.id === 'register' ? 1 : -1);
+                      }
                       setAuthMode(tab.id);
                       setFormError('');
                       setRegError(null);
@@ -361,6 +382,22 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
             )}
           </div>
 
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={activeViewKey}
+              initial={
+                prefersReducedMotion
+                  ? false
+                  : { opacity: 0, x: directionalSlideX }
+              }
+              animate={{ opacity: 1, x: 0 }}
+              exit={
+                prefersReducedMotion
+                  ? undefined
+                  : { opacity: 0, x: -directionalSlideX }
+              }
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            >
           {authMode === 'signin' ? (
             <form onSubmit={handleSignInSubmit} noValidate className="space-y-4">
               <div className="space-y-1">
@@ -421,6 +458,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => {
+                    setTransitionDirection(1);
                     setAuthMode('recover');
                     setRecoverEmail(loginEmail);
                     setRecoverStep('request');
@@ -478,6 +516,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                   <button
                     type="button"
                     onClick={() => {
+                      setTransitionDirection(-1);
                       setAuthMode('signin');
                       setFormError('');
                     }}
@@ -630,21 +669,30 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                 placeholder="Tasnim Ahmed"
               />
 
-              {regRole === 'seller' && (
-                <Input
-                  label={t(language, 'studioBrandLabel')}
-                  required
-                  autoComplete="organization"
-                  enterKeyHint="next"
-                  value={regStudioName}
-                  onChange={(e) => {
-                    setRegStudioName(e.target.value);
-                    clearFieldError('studioName');
-                  }}
-                  error={fieldErrors.studioName}
-                  placeholder="Dhaka Craft Atelier"
-                />
-              )}
+              <AnimatePresence initial={false}>
+                {regRole === 'seller' && (
+                  <motion.div
+                    initial={prefersReducedMotion ? false : { opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={prefersReducedMotion ? undefined : { opacity: 0, y: -4 }}
+                    transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    <Input
+                      label={t(language, 'studioBrandLabel')}
+                      required
+                      autoComplete="organization"
+                      enterKeyHint="next"
+                      value={regStudioName}
+                      onChange={(e) => {
+                        setRegStudioName(e.target.value);
+                        clearFieldError('studioName');
+                      }}
+                      error={fieldErrors.studioName}
+                      placeholder="Dhaka Craft Atelier"
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               <Input
                 label={t(language, 'emailLabel')}
@@ -782,6 +830,7 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
                 error={regError}
                 onDismiss={() => setRegError(null)}
                 onSwitchToSignIn={(email) => {
+                  setTransitionDirection(-1);
                   setAuthMode('signin');
                   setLoginEmail(email);
                   setRegError(null);
@@ -799,78 +848,124 @@ export const AuthPanel: React.FC<AuthPanelProps> = ({
               </Button>
             </form>
           )}
+            </motion.div>
+          </AnimatePresence>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Right Column: Marketplace Account & Security Information */}
-      <div className="lg:col-span-5 p-6 sm:p-8 rounded-[var(--ks-radius-lg)] bg-[var(--ks-bg-secondary)] border border-[var(--ks-border)] flex flex-col justify-between space-y-6">
+      {/* Right Column: Contextual Benefits & Security Information */}
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+        className="lg:col-span-5 p-6 sm:p-8 rounded-[var(--ks-radius-lg)] bg-[var(--ks-bg-secondary)] border border-[var(--ks-border)] flex flex-col justify-between space-y-6"
+      >
         <div className="space-y-5">
-          <div className="space-y-1.5">
-            <p className="ks-eyebrow text-[var(--ks-accent)]">{t(language, 'accessEyebrow')}</p>
-            <h3 className="font-display text-2xl font-medium">
-              {t(language, 'accessTitle')}
-            </h3>
-            <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
-              {t(language, 'accessDesc')}
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            <div className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)] flex items-start gap-3">
-              <Lock className="w-4 h-4 text-[var(--ks-accent)] shrink-0 mt-0.5" />
-              <div className="space-y-0.5">
-                <p className="text-xs font-semibold">{t(language, 'protectedSessionTitle')}</p>
-                <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
-                  {t(language, 'protectedSessionDesc')}
-                </p>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)] flex items-start gap-3">
-              <Truck className="w-4 h-4 text-[var(--ks-accent)] shrink-0 mt-0.5" />
-              <div className="space-y-0.5">
-                <p className="text-xs font-semibold">{t(language, 'guestTrackingTitle')}</p>
-                <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
-                  {t(language, 'guestTrackingPrefix')}{' '}
-                  <button
-                    type="button"
-                    onClick={() => navigate({ name: 'track-order' })}
-                    className="underline text-[var(--ks-accent)] font-medium cursor-pointer"
+          {promptContext ? (
+            <div className="space-y-3">
+              <p className="ks-eyebrow text-[var(--ks-accent)]">{t(language, 'accessEyebrow')}</p>
+              <h3 className="font-display text-xl sm:text-2xl font-medium">
+                {t(language, 'accessTitle')}
+              </h3>
+              <ul className="space-y-2 pt-1">
+                {promptContext.benefitKeys.map((bKey) => (
+                  <li
+                    key={bKey}
+                    className="flex items-start gap-2.5 p-3 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)] text-xs text-[var(--ks-text-secondary)] leading-relaxed"
                   >
-                    {t(language, 'trackOrderById')}
-                  </button>
-                  .
-                </p>
-              </div>
+                    <ShieldCheck className="w-4 h-4 text-[var(--ks-accent)] shrink-0 mt-0.5" />
+                    <span>{t(language, bKey as UiStringKey)}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-
-            <div className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)] flex items-start gap-3">
-              <Store className="w-4 h-4 text-[var(--ks-accent)] shrink-0 mt-0.5" />
-              <div className="space-y-0.5">
-                <p className="text-xs font-semibold">{t(language, 'partnerOnboardingTitle')}</p>
+          ) : (
+            <>
+              <div className="space-y-1.5">
+                <p className="ks-eyebrow text-[var(--ks-accent)]">{t(language, 'accessEyebrow')}</p>
+                <h3 className="font-display text-2xl font-medium">
+                  {t(language, 'accessTitle')}
+                </h3>
                 <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
-                  {t(language, 'partnerOnboardingDesc')}
+                  {t(language, 'accessDesc')}
                 </p>
               </div>
-            </div>
+
+              <div className="space-y-3">
+                <div className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)] flex items-start gap-3">
+                  <Lock className="w-4 h-4 text-[var(--ks-accent)] shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-semibold">{t(language, 'protectedSessionTitle')}</p>
+                    <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
+                      {t(language, 'protectedSessionDesc')}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)] flex items-start gap-3">
+                  <Truck className="w-4 h-4 text-[var(--ks-accent)] shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-semibold">{t(language, 'guestTrackingTitle')}</p>
+                    <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
+                      {t(language, 'guestTrackingPrefix')}{' '}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onDismiss?.();
+                          navigate({ name: 'track-order' });
+                        }}
+                        className="underline text-[var(--ks-accent)] font-medium cursor-pointer"
+                      >
+                        {t(language, 'trackOrderById')}
+                      </button>
+                      .
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border)] flex items-start gap-3">
+                  <Store className="w-4 h-4 text-[var(--ks-accent)] shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-semibold">{t(language, 'partnerOnboardingTitle')}</p>
+                    <p className="text-xs text-[var(--ks-text-secondary)] leading-relaxed">
+                      {t(language, 'partnerOnboardingDesc')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="pt-4 border-t border-[var(--ks-border-strong)] space-y-2.5">
+          {onDismiss && (
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="w-full min-h-[44px] px-3 py-2 rounded-[var(--ks-radius-md)] border border-[var(--ks-border-strong)] text-xs font-medium text-[var(--ks-text-secondary)] hover:text-[var(--ks-text-primary)] hover:bg-[var(--ks-surface)] transition-colors cursor-pointer"
+            >
+              {t(language, 'authCtxDismissKeepBrowsing')}
+            </button>
+          )}
+          <div className="flex items-center justify-between gap-3 text-[11px] text-[var(--ks-text-muted)]">
+            <span className="inline-flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-[var(--ks-accent)] shrink-0" />
+              {t(language, 'privacyProtectedNote')}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                onDismiss?.();
+                navigate({ name: 'legal' });
+              }}
+              className="min-h-[44px] inline-flex items-center gap-1 hover:underline text-[var(--ks-text-secondary)] whitespace-nowrap cursor-pointer"
+            >
+              <span>{t(language, 'legalCenter')}</span>
+              <ArrowRight className="w-3 h-3 rtl:rotate-180" />
+            </button>
           </div>
         </div>
-
-        <div className="pt-4 border-t border-[var(--ks-border-strong)] flex items-center justify-between gap-3 text-[11px] text-[var(--ks-text-muted)]">
-          <span className="inline-flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-[var(--ks-accent)] shrink-0" />
-            {t(language, 'privacyProtectedNote')}
-          </span>
-          <button
-            type="button"
-            onClick={() => navigate({ name: 'legal' })}
-            className="min-h-[44px] inline-flex items-center gap-1 hover:underline text-[var(--ks-text-secondary)] whitespace-nowrap cursor-pointer"
-          >
-            <span>{t(language, 'legalCenter')}</span>
-            <ArrowRight className="w-3 h-3 rtl:rotate-180" />
-          </button>
-        </div>
-      </div>
+      </motion.div>
     </div>
   );
 };

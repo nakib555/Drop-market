@@ -5,7 +5,7 @@ import { getRouteKey } from './context/navigationController';
 import { ThemeProvider } from './context/ThemeContext';
 import { Header } from './components/navigation/Header';
 import { SearchModal } from './components/navigation/SearchModal';
-import { StorefrontRouter } from './components/navigation/StorefrontRouter';
+import { StorefrontRouter, preloadAccountPage } from './components/navigation/StorefrontRouter';
 import { Footer } from './components/layout/Footer';
 import { CartDrawer } from './components/cart/CartDrawer';
 import { QuickViewModal } from './components/product/QuickViewModal';
@@ -50,7 +50,20 @@ const AppShell: React.FC = () => {
     return () => window.removeEventListener('keydown', onGlobalKey);
   }, []);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      preloadAccountPage();
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const routeKey = getRouteKey(route);
+  const routeTransitionClass =
+    route.name === 'login'
+      ? 'page-enter-auth'
+      : navigationDirection >= 0
+      ? 'page-enter-forward'
+      : 'page-enter-back';
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--ks-bg)] text-[var(--ks-text-primary)]">
@@ -62,10 +75,7 @@ const AppShell: React.FC = () => {
       </a>
       <Header onOpenSearch={() => setSearchOpen(true)} />
       <main id="main-content" tabIndex={-1} className="flex-1 overflow-x-clip focus:outline-none">
-        <div
-          key={routeKey}
-          className={navigationDirection >= 0 ? 'page-enter-forward' : 'page-enter-back'}
-        >
+        <div key={routeKey} className={routeTransitionClass}>
           <StorefrontRouter route={route} />
         </div>
       </main>

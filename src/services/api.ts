@@ -1,9 +1,12 @@
 import type {
   AccountDirectoryEntry,
+  Address,
   AdminDashboardData,
   AdminSystemReadiness,
   ApiSellerProductRecord,
   AvailabilityStatus,
+  CartItem,
+  CartMergeReport,
   CategoryFacetConfig,
   CategoryNode,
   CheckoutQuoteResponse,
@@ -19,10 +22,12 @@ import type {
   OrderStage,
   PasswordResetRequestResult,
   PaymentMethodId,
+  PaymentMethodRecord,
   PaymentSession,
   PlatformSettingsState,
   Product,
   ProductOverride,
+  ProductReview,
   SellerApplicationRecord,
   SellerDashboardData,
   SellerStoreSettings,
@@ -31,44 +36,62 @@ import type {
   ShippingZoneId,
   ShippingZoneRule,
   StoreNotification,
+  StorePolicyConfig,
   SupportInquiryRecord,
   UserRole,
 } from '../types/commerce';
 import type { BangladeshDivisionEntry } from '../../server/shared/marketplaceSchema';
 import { ApiError } from './apiError';
-import { readStorage, writeStorage } from './storage';
 
 export { ApiError };
 
-const TOKEN_STORAGE_KEY = 'kinto-api-token';
+const LEGACY_TOKEN_STORAGE_KEY = 'kinto-api-token';
 const STATIC_FALLBACK_STATUSES = new Set([404, 405, 501, 502, 503]);
 
+// In-memory only token used strictly when running offline static fallback mode (never written to localStorage)
+let memoryFallbackToken = '';
+
+if (typeof window !== 'undefined' && window.localStorage) {
+  try {
+    if (window.localStorage.getItem(LEGACY_TOKEN_STORAGE_KEY) !== null) {
+      window.localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY);
+    }
+  } catch {
+    // Ignore storage access errors
+  }
+}
+
 export function getStoredToken(): string {
-  return readStorage<string>(TOKEN_STORAGE_KEY, '');
+  return memoryFallbackToken;
 }
 
 export function setStoredToken(token: string): void {
-  writeStorage<string>(TOKEN_STORAGE_KEY, token);
+  memoryFallbackToken = token;
 }
 
 export function clearStoredToken(): void {
-  writeStorage<string>(TOKEN_STORAGE_KEY, '');
+  memoryFallbackToken = '';
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      window.localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY);
+    } catch {
+      // Ignore storage access errors
+    }
+  }
 }
 
 async function requestJson<T>(url: string, options: RequestInit = {}): Promise<T> {
-  const token = getStoredToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    'X-Kinto-Request': '1',
     ...(options.headers as Record<string, string> | undefined),
   };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
 
   let res: Response;
   try {
     res = await fetch(url, {
       ...options,
+      credentials: 'include',
       headers,
     });
   } catch (err) {
@@ -137,16 +160,24 @@ export async function fetchAuthAccounts(): Promise<AccountDirectoryEntry[]> {
 export async function loginWithApi(payload: {
   email: string;
   password: string;
-}): Promise<{ token: string; user: AccountDirectoryEntry }> {
+}): Promise<{ token?: string; user: AccountDirectoryEntry }> {
+  let usedFallback = false;
   const res = await withStaticFallback(
     () =>
-      requestJson<{ token: string; user: AccountDirectoryEntry }>('/api/auth/login', {
+      requestJson<{ token?: string; user: AccountDirectoryEntry }>('/api/auth/login', {
         method: 'POST',
         body: JSON.stringify(payload),
       }),
-    (mod) => mod.staticLogin(payload)
+    (mod) => {
+      usedFallback = true;
+      return mod.staticLogin(payload);
+    }
   );
-  setStoredToken(res.token);
+  if (usedFallback && res.token) {
+    setStoredToken(res.token);
+  } else {
+    clearStoredToken();
+  }
   return res;
 }
 
@@ -158,17 +189,56 @@ export async function registerWithApi(payload: {
   role: 'customer' | 'seller';
   studioName?: string;
   acceptedPolicies: LegalAcceptanceRecord;
-}): Promise<{ token: string; user: AccountDirectoryEntry }> {
+}): Promise<{ token?: string; user: AccountDirectoryEntry }> {
+  let usedFallback = false;
   const res = await withStaticFallback(
     () =>
-      requestJson<{ token: string; user: AccountDirectoryEntry }>('/api/auth/register', {
+      requestJson<{ token?: string; user: AccountDirectoryEntry }>('/api/auth/register', {
         method: 'POST',
         body: JSON.stringify(payload),
       }),
-    (mod) => mod.staticRegister(payload)
+    (mod) => {
+      usedFallback = true;
+      return mod.staticRegister(payload);
+    }
   );
-  setStoredToken(res.token);
+  if (usedFallback && res.token) {
+    setStoredToken(res.token);
+  } else {
+    clearStoredToken();
+  }
   return res;
+}
+
+export async function fetchAuthSession(): Promise<{
+  authenticated: boolean;
+  user: AccountDirectoryEntry | null;
+  policy?: StorePolicyConfig;
+}> {
+  return withStaticFallback(
+    () =>
+      requestJson<{
+        authenticated: boolean;
+        user: AccountDirectoryEntry | null;
+        policy?: StorePolicyConfig;
+      }>('/api/auth/session'),
+    (mod) => mod.staticFetchAuthSession(getStoredToken())
+  );
+}
+
+export async function logoutWithApi(): Promise<void> {
+  clearStoredToken();
+  try {
+    await withStaticFallback(
+      () =>
+        requestJson<{ ok: boolean }>('/api/auth/logout', {
+          method: 'POST',
+        }),
+      (mod) => mod.staticLogout(getStoredToken())
+    );
+  } catch {
+    // Best-effort cookie clearing
+  }
 }
 
 export async function fetchCurrentUser(): Promise<AccountDirectoryEntry> {
@@ -819,4 +889,226 @@ export async function fetchAdminReadinessApi(): Promise<AdminSystemReadiness> {
     (mod) => mod.staticFetchAdminReadiness(getStoredToken())
   );
 }
+
+export async function fetchAccountCartApi(): Promise<CartItem[]> {
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ items?: CartItem[] }>('/api/account/cart');
+      return Array.isArray(res.items) ? res.items : [];
+    },
+    (mod) => mod.staticFetchAccountCart(getStoredToken())
+  );
+}
+
+export async function syncAccountCartApi(items: CartItem[]): Promise<CartItem[]> {
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ items: CartItem[] }>('/api/account/cart', {
+        method: 'PUT',
+        body: JSON.stringify({ items }),
+      });
+      return Array.isArray(res.items) ? res.items : [];
+    },
+    (mod) => mod.staticSyncAccountCart(items, getStoredToken())
+  );
+}
+
+export async function mergeAccountCartApi(
+  guestItems: CartItem[]
+): Promise<{ items: CartItem[]; report: CartMergeReport }> {
+  return withStaticFallback(
+    () =>
+      requestJson<{ items: CartItem[]; report: CartMergeReport }>('/api/account/cart/merge', {
+        method: 'POST',
+        body: JSON.stringify({ guestItems }),
+      }),
+    (mod) => mod.staticMergeAccountCart(guestItems, getStoredToken())
+  );
+}
+
+export async function fetchAccountWishlistApi(): Promise<string[]> {
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ wishlistIds?: string[] }>('/api/account/wishlist');
+      return Array.isArray(res.wishlistIds) ? res.wishlistIds : [];
+    },
+    (mod) => mod.staticFetchAccountWishlist(getStoredToken())
+  );
+}
+
+export async function toggleAccountWishlistApi(
+  productId: string
+): Promise<{ wishlistIds: string[]; added: boolean }> {
+  return withStaticFallback(
+    () =>
+      requestJson<{ wishlistIds: string[]; added: boolean }>('/api/account/wishlist/toggle', {
+        method: 'POST',
+        body: JSON.stringify({ productId }),
+      }),
+    (mod) => mod.staticToggleAccountWishlist(productId, getStoredToken())
+  );
+}
+
+export async function mergeAccountWishlistApi(productIds: string[]): Promise<string[]> {
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ wishlistIds?: string[] }>('/api/account/wishlist/merge', {
+        method: 'POST',
+        body: JSON.stringify({ productIds }),
+      });
+      return Array.isArray(res.wishlistIds) ? res.wishlistIds : [];
+    },
+    (mod) => mod.staticMergeAccountWishlist(productIds, getStoredToken())
+  );
+}
+
+export async function fetchAccountAddressesApi(): Promise<Address[]> {
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ addresses?: Address[] }>('/api/account/addresses');
+      return Array.isArray(res.addresses) ? res.addresses : [];
+    },
+    (mod) => mod.staticFetchAccountAddresses(getStoredToken())
+  );
+}
+
+export async function saveAccountAddressApi(
+  address: Omit<Address, 'id'> & { id?: string }
+): Promise<Address[]> {
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ addresses: Address[] }>('/api/account/addresses', {
+        method: 'POST',
+        body: JSON.stringify(address),
+      });
+      return res.addresses;
+    },
+    (mod) => mod.staticSaveAccountAddress(address, getStoredToken())
+  );
+}
+
+export async function deleteAccountAddressApi(id: string): Promise<Address[]> {
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ addresses: Address[] }>(
+        `/api/account/addresses/${encodeURIComponent(id)}`,
+        { method: 'DELETE' }
+      );
+      return res.addresses;
+    },
+    (mod) => mod.staticDeleteAccountAddress(id, getStoredToken())
+  );
+}
+
+export async function setDefaultAccountAddressApi(id: string): Promise<Address[]> {
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ addresses: Address[] }>(
+        `/api/account/addresses/${encodeURIComponent(id)}/default`,
+        { method: 'PATCH' }
+      );
+      return res.addresses;
+    },
+    (mod) => mod.staticSetDefaultAccountAddress(id, getStoredToken())
+  );
+}
+
+export async function fetchAccountPaymentMethodsApi(): Promise<PaymentMethodRecord[]> {
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ paymentMethods?: PaymentMethodRecord[] }>(
+        '/api/account/payment-methods'
+      );
+      return Array.isArray(res.paymentMethods) ? res.paymentMethods : [];
+    },
+    (mod) => mod.staticFetchAccountPaymentMethods(getStoredToken())
+  );
+}
+
+export async function saveAccountPaymentMethodApi(
+  method: Omit<PaymentMethodRecord, 'id'>
+): Promise<PaymentMethodRecord[]> {
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ paymentMethods: PaymentMethodRecord[] }>(
+        '/api/account/payment-methods',
+        {
+          method: 'POST',
+          body: JSON.stringify(method),
+        }
+      );
+      return res.paymentMethods;
+    },
+    (mod) => mod.staticSaveAccountPaymentMethod(method, getStoredToken())
+  );
+}
+
+export async function deleteAccountPaymentMethodApi(id: string): Promise<PaymentMethodRecord[]> {
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ paymentMethods: PaymentMethodRecord[] }>(
+        `/api/account/payment-methods/${encodeURIComponent(id)}`,
+        { method: 'DELETE' }
+      );
+      return res.paymentMethods;
+    },
+    (mod) => mod.staticDeleteAccountPaymentMethod(id, getStoredToken())
+  );
+}
+
+export async function setDefaultAccountPaymentMethodApi(id: string): Promise<PaymentMethodRecord[]> {
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ paymentMethods: PaymentMethodRecord[] }>(
+        `/api/account/payment-methods/${encodeURIComponent(id)}/default`,
+        { method: 'PATCH' }
+      );
+      return res.paymentMethods;
+    },
+    (mod) => mod.staticSetDefaultAccountPaymentMethod(id, getStoredToken())
+  );
+}
+
+export async function claimGuestOrdersApi(
+  orderIds?: string[]
+): Promise<{ claimedCount: number; orders: Order[] }> {
+  return withStaticFallback(
+    () =>
+      requestJson<{ claimedCount: number; orders: Order[] }>('/api/account/claim-orders', {
+        method: 'POST',
+        body: JSON.stringify({ orderIds }),
+      }),
+    (mod) => mod.staticClaimGuestOrders(orderIds, getStoredToken())
+  );
+}
+
+export async function fetchProductReviewsApi(productId: string): Promise<ProductReview[]> {
+  return withStaticFallback(
+    async () => {
+      const res = await requestJson<{ reviews?: ProductReview[] }>(
+        `/api/products/${encodeURIComponent(productId)}/reviews`
+      );
+      return Array.isArray(res.reviews) ? res.reviews : [];
+    },
+    (mod) => mod.staticFetchProductReviews(productId)
+  );
+}
+
+export async function submitProductReviewApi(
+  productId: string,
+  payload: { rating: number; title: string; comment: string }
+): Promise<{ review: ProductReview; reviews: ProductReview[] }> {
+  return withStaticFallback(
+    () =>
+      requestJson<{ review: ProductReview; reviews: ProductReview[] }>(
+        `/api/products/${encodeURIComponent(productId)}/reviews`,
+        {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        }
+      ),
+    (mod) => mod.staticSubmitProductReview(productId, payload, getStoredToken())
+  );
+}
+
 
