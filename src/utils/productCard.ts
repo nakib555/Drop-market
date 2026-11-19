@@ -54,6 +54,12 @@ export function resolveCardPricing(price: number, originalPrice?: number): CardP
   return { discountPercent, hasVerifiedDiscount };
 }
 
+export interface CardRatingSummary {
+  rating: number;
+  hasRating: boolean;
+  isVerified: boolean;
+}
+
 /**
  * Returns true only when a product has real, verified ratings and reviews.
  */
@@ -67,3 +73,60 @@ export function hasVerifiedProductRating(rating?: number, reviewCount?: number):
     reviewCount > 0
   );
 }
+
+/**
+ * Resolves the star rating to display on product cards, prioritizing verified customer
+ * reviews and falling back to catalog sourceRating (or positive rating) when present.
+ */
+export function resolveCardRating(product: {
+  rating?: number;
+  reviewCount?: number;
+  sourceRating?: number;
+}): CardRatingSummary {
+  if (hasVerifiedProductRating(product.rating, product.reviewCount)) {
+    return {
+      rating: Number(Math.min(5, product.rating!).toFixed(1)),
+      hasRating: true,
+      isVerified: true,
+    };
+  }
+  if (
+    typeof product.sourceRating === 'number' &&
+    Number.isFinite(product.sourceRating) &&
+    product.sourceRating > 0
+  ) {
+    return {
+      rating: Number(Math.min(5, product.sourceRating).toFixed(1)),
+      hasRating: true,
+      isVerified: false,
+    };
+  }
+  if (
+    typeof product.rating === 'number' &&
+    Number.isFinite(product.rating) &&
+    product.rating > 0
+  ) {
+    return {
+      rating: Number(Math.min(5, product.rating).toFixed(1)),
+      hasRating: true,
+      isVerified: false,
+    };
+  }
+  return { rating: 0, hasRating: false, isVerified: false };
+}
+
+/**
+ * Resolves visible parenthetical stock count on product cards for available products.
+ */
+export function resolveCardStockCount(product: {
+  availability?: AvailabilityStatus;
+  stockCount: number;
+}): number | null {
+  if (isProductOutOfStock(product)) return null;
+  if (typeof product.stockCount !== 'number' || !Number.isFinite(product.stockCount)) {
+    return null;
+  }
+  const rounded = Math.round(product.stockCount);
+  return rounded > 0 ? rounded : null;
+}
+

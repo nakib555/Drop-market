@@ -5,6 +5,8 @@ import {
   isStudioCutoutImage,
   resolveCardAvailability,
   resolveCardPricing,
+  resolveCardRating,
+  resolveCardStockCount,
 } from '../src/utils/productCard.ts';
 
 test('isStudioCutoutImage distinguishes studio cutouts from full-bleed editorial photos', () => {
@@ -71,3 +73,29 @@ test('hasVerifiedProductRating requires both positive rating and positive review
   assert.equal(hasVerifiedProductRating(4.5, 0), false);
   assert.equal(hasVerifiedProductRating(undefined, 12), false);
 });
+
+test('resolveCardRating prioritizes verified reviews and falls back to sourceRating', () => {
+  assert.deepEqual(resolveCardRating({ rating: 4.8, reviewCount: 5, sourceRating: 2.6 }), {
+    rating: 4.8,
+    hasRating: true,
+    isVerified: true,
+  });
+  assert.deepEqual(resolveCardRating({ rating: 0, reviewCount: 0, sourceRating: 2.56 }), {
+    rating: 2.6,
+    hasRating: true,
+    isVerified: false,
+  });
+  assert.deepEqual(resolveCardRating({ rating: 0, reviewCount: 0, sourceRating: undefined }), {
+    rating: 0,
+    hasRating: false,
+    isVerified: false,
+  });
+});
+
+test('resolveCardStockCount returns positive rounded count for available items and null when out of stock', () => {
+  assert.equal(resolveCardStockCount({ availability: 'in-stock', stockCount: 42 }), 42);
+  assert.equal(resolveCardStockCount({ availability: 'low-stock', stockCount: 4 }), 4);
+  assert.equal(resolveCardStockCount({ availability: 'in-stock', stockCount: 0 }), null);
+  assert.equal(resolveCardStockCount({ availability: 'out-of-stock', stockCount: 10 }), null);
+});
+

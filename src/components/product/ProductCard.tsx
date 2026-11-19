@@ -4,10 +4,11 @@ import { Product } from '../../types/commerce';
 import { useStore } from '../../context/StoreContext';
 import { t, translateDepartmentName } from '../../utils/i18n';
 import {
-  hasVerifiedProductRating,
   isStudioCutoutImage,
   resolveCardAvailability,
   resolveCardPricing,
+  resolveCardRating,
+  resolveCardStockCount,
 } from '../../utils/productCard';
 import { ResilientImage } from '../ui/Primitives';
 import { PriceDisplay, WishlistButton } from './CommercePrimitives';
@@ -56,7 +57,8 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
     product.price,
     product.originalPrice
   );
-  const hasRating = hasVerifiedProductRating(product.rating, product.reviewCount);
+  const ratingInfo = resolveCardRating(product);
+  const visibleStockCount = resolveCardStockCount(product);
   const availability = resolveCardAvailability(product);
   const outOfStock = availability.outOfStock;
   const secondaryImage = product.images[1];
@@ -136,27 +138,38 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
               <span className={`font-medium ${TONE_CLASS_MAP[availability.tone]}`}>
                 {availabilityLabel}
               </span>
-              {hasRating && (
+              {(ratingInfo.hasRating || visibleStockCount !== null) && (
                 <>
                   <span aria-hidden="true" className="text-[var(--ks-text-muted)]">
                     ·
                   </span>
                   <span className="inline-flex items-center gap-1 font-mono-num tabular-nums">
-                    <Star
-                      className="w-3.5 h-3.5 fill-amber-400 text-amber-500 shrink-0"
-                      aria-hidden="true"
-                    />
-                    <span className="font-medium text-[var(--ks-text-primary)]">
-                      {product.rating.toFixed(1)}
-                    </span>
-                    <span className="text-[var(--ks-text-muted)]">({product.reviewCount})</span>
+                    {ratingInfo.hasRating && (
+                      <>
+                        <Star
+                          className="w-3.5 h-3.5 fill-amber-400 text-amber-500 shrink-0"
+                          aria-hidden="true"
+                        />
+                        <span className="font-medium text-[var(--ks-text-primary)]">
+                          {ratingInfo.rating.toFixed(1)}
+                        </span>
+                      </>
+                    )}
+                    {visibleStockCount !== null && (
+                      <span
+                        className="text-[var(--ks-text-muted)]"
+                        aria-label={t(language, 'inStockReady', { count: visibleStockCount })}
+                      >
+                        ({visibleStockCount})
+                      </span>
+                    )}
                   </span>
                 </>
               )}
             </div>
           </div>
 
-          <div className="flex flex-wrap items-end justify-between gap-4 pt-2">
+          <div className="flex flex-wrap items-end justify-between gap-4 pt-3 border-t border-[var(--ks-border)]">
             <PriceDisplay
               price={product.price}
               originalPrice={product.originalPrice}
@@ -274,20 +287,31 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
             <span className={`font-medium ${TONE_CLASS_MAP[availability.tone]}`}>
               {availabilityLabel}
             </span>
-            {hasRating && (
+            {(ratingInfo.hasRating || visibleStockCount !== null) && (
               <>
                 <span aria-hidden="true" className="text-[var(--ks-text-muted)]">
                   ·
                 </span>
                 <span className="inline-flex items-center gap-1 font-mono-num tabular-nums">
-                  <Star
-                    className="w-3.5 h-3.5 fill-amber-400 text-amber-500 shrink-0"
-                    aria-hidden="true"
-                  />
-                  <span className="font-medium text-[var(--ks-text-primary)]">
-                    {product.rating.toFixed(1)}
-                  </span>
-                  <span className="text-[var(--ks-text-muted)]">({product.reviewCount})</span>
+                  {ratingInfo.hasRating && (
+                    <>
+                      <Star
+                        className="w-3.5 h-3.5 fill-amber-400 text-amber-500 shrink-0"
+                        aria-hidden="true"
+                      />
+                      <span className="font-medium text-[var(--ks-text-primary)]">
+                        {ratingInfo.rating.toFixed(1)}
+                      </span>
+                    </>
+                  )}
+                  {visibleStockCount !== null && (
+                    <span
+                      className="text-[var(--ks-text-muted)]"
+                      aria-label={t(language, 'inStockReady', { count: visibleStockCount })}
+                    >
+                      ({visibleStockCount})
+                    </span>
+                  )}
                 </span>
               </>
             )}
@@ -295,7 +319,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
         </div>
 
         {/* Bottom Price Stack & Quick-Add '+' Button */}
-        <div className="flex items-end justify-between gap-2 pt-1 mt-auto">
+        <div className="flex items-end justify-between gap-2 pt-3 mt-auto border-t border-[var(--ks-border)]">
           <PriceDisplay
             price={product.price}
             originalPrice={product.originalPrice}

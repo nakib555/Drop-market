@@ -170,6 +170,7 @@ export interface Product {
   price: number;
   originalPrice?: number;
   rating: number;
+  sourceRating?: number;
   reviewCount: number;
   stockCount: number;
   availability: AvailabilityStatus;

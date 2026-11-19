@@ -27,7 +27,7 @@ export const ProductCardSkeleton: React.FC<ProductCardSkeletonProps> = ({ layout
             </div>
           </div>
 
-          <div className="flex flex-wrap items-end justify-between gap-4 pt-2">
+          <div className="flex flex-wrap items-end justify-between gap-4 pt-3 border-t border-[var(--ks-border)]">
             <div className="space-y-1.5">
               <SkeletonLoader className="h-5 w-20" />
               <SkeletonLoader className="h-3.5 w-24" />
@@ -58,7 +58,7 @@ export const ProductCardSkeleton: React.FC<ProductCardSkeletonProps> = ({ layout
           </div>
         </div>
 
-        <div className="flex items-end justify-between gap-2 pt-1 mt-auto">
+        <div className="flex items-end justify-between gap-2 pt-3 mt-auto border-t border-[var(--ks-border)]">
           <div className="space-y-1.5">
             <SkeletonLoader className="h-5 w-20" />
             <SkeletonLoader className="h-3.5 w-24" />

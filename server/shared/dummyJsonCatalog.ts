@@ -393,9 +393,14 @@ export function mapDummyJsonProduct(item: DummyJsonProductDto, index: number): P
   );
 
   // External DummyJSON review strings are unverified upstream samples; only verified Kinto Studio
-  // customer reviews are surfaced and aggregated in product ratings.
+  // customer reviews are surfaced and aggregated in product.rating / product.reviewCount.
   const verifiedReviews: ProductReview[] = [];
   const { rating, reviewCount } = computeVerifiedReviewStats(verifiedReviews);
+  const rawSourceRating = Number(item.rating);
+  const sourceRating =
+    Number.isFinite(rawSourceRating) && rawSourceRating > 0
+      ? Number(Math.min(5, Math.max(0.1, rawSourceRating)).toFixed(1))
+      : undefined;
   const slugBase = cleanTitle
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
@@ -448,6 +453,7 @@ export function mapDummyJsonProduct(item: DummyJsonProductDto, index: number): P
     price,
     originalPrice,
     rating,
+    sourceRating,
     reviewCount,
     stockCount,
     availability,
