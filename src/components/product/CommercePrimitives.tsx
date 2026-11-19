@@ -11,6 +11,7 @@ interface PriceDisplayProps {
   currency: CurrencyCode;
   size?: 'sm' | 'md' | 'lg';
   showSavings?: boolean;
+  stacked?: boolean;
   className?: string;
 }
 
@@ -20,6 +21,7 @@ export const PriceDisplay: React.FC<PriceDisplayProps> = ({
   currency,
   size = 'md',
   showSavings = false,
+  stacked = false,
   className = '',
 }) => {
   const { language } = useStore();
@@ -30,15 +32,33 @@ export const PriceDisplay: React.FC<PriceDisplayProps> = ({
     size === 'lg'
       ? 'text-2xl sm:text-3xl font-mono-num font-semibold tabular-nums text-[var(--ks-text-primary)]'
       : size === 'sm'
-      ? 'text-[15px] font-mono-num font-semibold tabular-nums text-[var(--ks-text-primary)]'
+      ? stacked
+        ? 'text-[17px] sm:text-[18px] font-mono-num font-bold tabular-nums text-[var(--ks-text-primary)] leading-tight'
+        : 'text-[15px] font-mono-num font-semibold tabular-nums text-[var(--ks-text-primary)]'
       : 'text-base sm:text-xl font-mono-num font-semibold tabular-nums text-[var(--ks-text-primary)]';
 
   const compareClass =
     size === 'lg'
       ? 'text-base font-mono-num line-through text-[var(--ks-text-muted)] tabular-nums'
       : size === 'sm'
-      ? 'text-[11px] font-mono-num line-through text-[var(--ks-text-muted)] tabular-nums'
+      ? 'text-xs font-mono-num line-through text-[var(--ks-text-muted)] tabular-nums'
       : 'text-xs font-mono-num line-through text-[var(--ks-text-muted)] tabular-nums';
+
+  if (stacked) {
+    return (
+      <div className={`flex flex-col items-start min-w-0 ${className}`}>
+        <span className={primaryClass}>{formatCurrency(price, currency)}</span>
+        {hasDiscount && originalPrice !== undefined && (
+          <div className="flex flex-wrap items-baseline gap-x-1.5 mt-0.5">
+            <span className={compareClass}>{formatCurrency(originalPrice, currency)}</span>
+            <span className="text-xs font-mono-num font-semibold text-[var(--ks-success)] tabular-nums">
+              -{discount}%
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className={`flex flex-wrap items-baseline gap-x-2 gap-y-0.5 min-w-0 ${className}`}>
@@ -266,16 +286,16 @@ export const WishlistButton: React.FC<WishlistButtonProps> = ({
         onClick={onToggle}
         aria-pressed={active}
         aria-label={label}
-        className={`pointer-events-auto w-11 h-11 sm:w-9 sm:h-9 rounded-[var(--ks-radius-md)] flex items-center justify-center border transition-[color,background-color,transform] duration-[var(--ks-duration-fast)] active:scale-[0.88] disabled:opacity-60 cursor-pointer ${
+        className={`pointer-events-auto w-11 h-11 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border shadow-xs transition-[color,background-color,border-color,transform] duration-[var(--ks-duration-fast)] active:scale-[0.9] disabled:opacity-60 cursor-pointer ${
           active
-            ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)]'
-            : 'bg-[var(--ks-surface)]/95 text-[var(--ks-text-primary)] border-[var(--ks-border)] hover:bg-[var(--ks-surface)]'
+            ? 'bg-[var(--ks-surface)] text-[var(--ks-accent)] border-[var(--ks-accent)]'
+            : 'bg-[var(--ks-surface)]/95 text-[var(--ks-text-secondary)] border-[var(--ks-border)] hover:text-[var(--ks-text-primary)] hover:border-[var(--ks-border-strong)] hover:bg-[var(--ks-surface)]'
         } ${className}`}
       >
         {pending ? (
-          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          <Loader2 className="w-4 h-4 animate-spin" />
         ) : (
-          <Heart className={`w-3.5 h-3.5 ${active ? 'fill-current' : ''}`} />
+          <Heart className={`w-[18px] h-[18px] ${active ? 'fill-current' : ''}`} strokeWidth={1.75} />
         )}
       </button>
     );
