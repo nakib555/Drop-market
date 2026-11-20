@@ -36,6 +36,7 @@ import {
   translateDepartmentShortName,
 } from '../../utils/i18n';
 import { STUDIO_TRANSITION } from '../../utils/motion';
+import { isStudioCutoutImage } from '../../utils/productCard';
 import { useOverlayLock } from '../../utils/scrollLock';
 import { PWAInstallButton } from '../pwa/PWAInstallButton';
 import { ResilientImage, useFocusTrap } from '../ui/Primitives';
@@ -576,7 +577,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch }) => {
                                     <ResilientImage
                                       src={item.images[0]}
                                       alt={item.name}
-                                      className="w-12 h-9 object-cover rounded-[var(--ks-radius-sm)] shrink-0"
+                                      className={`w-12 h-9 rounded-[var(--ks-radius-sm)] shrink-0 ${
+                                        isStudioCutoutImage(item.images[0])
+                                          ? 'object-contain p-0.5 bg-[#F7F7F5] dark:bg-[#22221F]'
+                                          : 'object-cover bg-[var(--ks-surface-muted)]'
+                                      }`}
                                     />
                                     <div className="flex-1 min-w-0">
                                       <p className="text-xs sm:text-sm font-medium truncate">

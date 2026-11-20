@@ -8,7 +8,6 @@ import {
   resolveCardAvailability,
   resolveCardPricing,
   resolveCardRating,
-  resolveCardStockCount,
 } from '../../utils/productCard';
 import { ResilientImage } from '../ui/Primitives';
 import { PriceDisplay, WishlistButton } from './CommercePrimitives';
@@ -58,13 +57,16 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
     product.originalPrice
   );
   const ratingInfo = resolveCardRating(product);
-  const visibleStockCount = resolveCardStockCount(product);
+  const hasVerifiedReviewCount =
+    ratingInfo.isVerified && typeof product.reviewCount === 'number' && product.reviewCount > 0;
   const availability = resolveCardAvailability(product);
   const outOfStock = availability.outOfStock;
   const secondaryImage = product.images[1];
   const primaryColor = product.colors[0] || { name: 'Standard', hex: '#84827B' };
   const isPrimaryCutout = isStudioCutoutImage(product.images[0]);
   const isSecondaryCutout = isStudioCutoutImage(secondaryImage);
+  const brandOrDeptLabel =
+    product.brand?.trim() || translateDepartmentName(language, product.category, product.categoryLabel);
 
   const availabilityLabel =
     availability.key === 'onlyLeft'
@@ -83,7 +85,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
 
   if (layout === 'list') {
     return (
-      <article className="group flex flex-col sm:flex-row gap-5 sm:gap-6 p-4 sm:p-5 rounded-2xl bg-[var(--ks-surface)] border border-[var(--ks-border)] transition-[transform,box-shadow,border-color] duration-200 ease-[var(--ks-ease-standard)] hover:-translate-y-0.5 hover:shadow-[var(--ks-shadow-card-hover)] hover:border-[var(--ks-border-strong)]">
+      <article className="group flex flex-col sm:flex-row gap-4 sm:gap-5 p-3.5 sm:p-4 rounded-xl bg-[var(--ks-surface)] border border-[var(--ks-border)] transition-[transform,box-shadow,border-color] duration-200 ease-[var(--ks-ease-standard)] hover:-translate-y-0.5 hover:shadow-[var(--ks-shadow-card-hover)] hover:border-[var(--ks-border-strong)]">
         <button
           type="button"
           onClick={() => navigate({ name: 'product', slug: product.slug })}
@@ -91,14 +93,14 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
             if (secondaryImage && !hoverMounted) setHoverMounted(true);
           }}
           aria-label={product.name}
-          className="relative w-full sm:w-60 md:w-64 aspect-[4/3] rounded-xl overflow-hidden bg-[#F7F7F5] dark:bg-[#22221F] border border-[var(--ks-border)] shrink-0 cursor-pointer block text-start"
+          className="relative w-full sm:w-52 md:w-56 aspect-[4/3] rounded-lg overflow-hidden bg-[#F7F7F5] dark:bg-[#22221F] border border-[var(--ks-border)] shrink-0 cursor-pointer block text-start"
         >
           <ResilientImage
             src={product.images[0]}
             alt={product.name}
             loading="lazy"
             className={`w-full h-full transition-transform duration-300 group-hover:scale-[1.03] ${
-              isPrimaryCutout ? 'object-contain p-3 sm:p-4' : 'object-cover'
+              isPrimaryCutout ? 'object-contain p-3' : 'object-cover'
             }`}
           />
           {secondaryImage && hoverMounted && (
@@ -108,21 +110,26 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
               loading="lazy"
               className={`absolute inset-0 w-full h-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${
                 isSecondaryCutout
-                  ? 'object-contain p-3 sm:p-4 bg-[#F7F7F5] dark:bg-[#22221F]'
+                  ? 'object-contain p-3 bg-[#F7F7F5] dark:bg-[#22221F]'
                   : 'object-cover'
               }`}
             />
           )}
+          {hasVerifiedDiscount && (
+            <span className="absolute top-2 start-2 px-1.5 py-0.5 rounded-[var(--ks-radius-sm)] bg-[var(--ks-action)] text-[var(--ks-action-text)] text-[10px] font-mono-num font-semibold tracking-wide pointer-events-none">
+              -{discountPercent}%
+            </span>
+          )}
         </button>
 
-        <div className="flex-1 min-w-0 flex flex-col justify-between gap-4">
-          <div className="space-y-2">
-            <span className="block text-xs tracking-wide text-[var(--ks-text-muted)] truncate">
+        <div className="flex-1 min-w-0 flex flex-col justify-between gap-3">
+          <div className="space-y-1.5">
+            <span className="block text-[11px] uppercase tracking-wider text-[var(--ks-text-muted)] truncate">
               {product.brand
                 ? `${product.brand} · ${translateDepartmentName(language, product.category, product.categoryLabel)}`
                 : translateDepartmentName(language, product.category, product.categoryLabel)}
             </span>
-            <h3 className="text-lg font-semibold text-[var(--ks-text-primary)] leading-snug">
+            <h3 className="text-base sm:text-[17px] font-semibold text-[var(--ks-text-primary)] leading-snug">
               <button
                 type="button"
                 onClick={() => navigate({ name: 'product', slug: product.slug })}
@@ -138,29 +145,22 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
               <span className={`font-medium ${TONE_CLASS_MAP[availability.tone]}`}>
                 {availabilityLabel}
               </span>
-              {(ratingInfo.hasRating || visibleStockCount !== null) && (
+              {ratingInfo.hasRating && (
                 <>
                   <span aria-hidden="true" className="text-[var(--ks-text-muted)]">
                     ·
                   </span>
                   <span className="inline-flex items-center gap-1 font-mono-num tabular-nums">
-                    {ratingInfo.hasRating && (
-                      <>
-                        <Star
-                          className="w-3.5 h-3.5 fill-amber-400 text-amber-500 shrink-0"
-                          aria-hidden="true"
-                        />
-                        <span className="font-medium text-[var(--ks-text-primary)]">
-                          {ratingInfo.rating.toFixed(1)}
-                        </span>
-                      </>
-                    )}
-                    {visibleStockCount !== null && (
-                      <span
-                        className="text-[var(--ks-text-muted)]"
-                        aria-label={t(language, 'inStockReady', { count: visibleStockCount })}
-                      >
-                        ({visibleStockCount})
+                    <Star
+                      className="w-3.5 h-3.5 fill-amber-400 text-amber-500 shrink-0"
+                      aria-hidden="true"
+                    />
+                    <span className="font-medium text-[var(--ks-text-primary)]">
+                      {ratingInfo.rating.toFixed(1)}
+                    </span>
+                    {hasVerifiedReviewCount && (
+                      <span className="text-[var(--ks-text-muted)]">
+                        ({product.reviewCount})
                       </span>
                     )}
                   </span>
@@ -169,7 +169,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
             </div>
           </div>
 
-          <div className="flex flex-wrap items-end justify-between gap-4 pt-3 border-t border-[var(--ks-border)]">
+          <div className="flex flex-wrap items-end justify-between gap-3 pt-2.5 border-t border-[var(--ks-border)]">
             <PriceDisplay
               price={product.price}
               originalPrice={product.originalPrice}
@@ -178,7 +178,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
               stacked
             />
 
-            <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2">
               <WishlistButton
                 active={isWishlisted}
                 pending={isWishlistPending}
@@ -190,7 +190,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
                 type="button"
                 disabled={outOfStock}
                 onClick={handlePrimaryAdd}
-                className={`px-4 min-h-[44px] rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 border transition-[color,background-color,border-color,transform] duration-[var(--ks-duration-fast)] whitespace-nowrap ${
+                className={`px-3.5 min-h-[40px] rounded-[var(--ks-radius-md)] text-xs font-semibold inline-flex items-center gap-1.5 border transition-[color,background-color,border-color,transform] duration-[var(--ks-duration-fast)] whitespace-nowrap ${
                   outOfStock
                     ? 'bg-[var(--ks-surface-muted)] border-[var(--ks-border)] text-[var(--ks-text-muted)] cursor-not-allowed opacity-70'
                     : justAdded
@@ -220,7 +220,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
   }
 
   return (
-    <article className="group flex flex-col rounded-2xl bg-[var(--ks-surface)] border border-[var(--ks-border)] overflow-hidden transition-[transform,box-shadow,border-color] duration-200 ease-[var(--ks-ease-standard)] hover:-translate-y-0.5 hover:shadow-[var(--ks-shadow-card-hover)] hover:border-[var(--ks-border-strong)]">
+    <article className="group flex flex-col rounded-xl bg-[var(--ks-surface)] border border-[var(--ks-border)] overflow-hidden transition-[transform,box-shadow,border-color] duration-200 ease-[var(--ks-ease-standard)] hover:-translate-y-0.5 hover:shadow-[var(--ks-shadow-card-hover)] hover:border-[var(--ks-border-strong)]">
       {/* Studio Image Stage */}
       <div
         onMouseEnter={() => {
@@ -239,7 +239,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
             alt={product.name}
             loading="lazy"
             className={`w-full h-full transition-transform duration-300 group-hover:scale-[1.03] ${
-              isPrimaryCutout ? 'object-contain p-3 sm:p-4' : 'object-cover'
+              isPrimaryCutout ? 'object-contain p-3' : 'object-cover'
             }`}
           />
           {secondaryImage && hoverMounted && (
@@ -249,14 +249,20 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
               loading="lazy"
               className={`absolute inset-0 w-full h-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${
                 isSecondaryCutout
-                  ? 'object-contain p-3 sm:p-4 bg-[#F7F7F5] dark:bg-[#22221F]'
+                  ? 'object-contain p-3 bg-[#F7F7F5] dark:bg-[#22221F]'
                   : 'object-cover'
               }`}
             />
           )}
         </button>
 
-        <div className="absolute top-2.5 end-2.5 sm:top-3 sm:end-3 pointer-events-none">
+        {hasVerifiedDiscount && (
+          <span className="absolute top-2.5 start-2.5 px-1.5 py-0.5 rounded-[var(--ks-radius-sm)] bg-[var(--ks-action)] text-[var(--ks-action-text)] text-[10px] font-mono-num font-semibold tracking-wide pointer-events-none">
+            -{discountPercent}%
+          </span>
+        )}
+
+        <div className="absolute top-2 end-2 sm:top-2.5 sm:end-2.5 pointer-events-none">
           <WishlistButton
             active={isWishlisted}
             pending={isWishlistPending}
@@ -271,11 +277,16 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
       </div>
 
       {/* Product Body */}
-      <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between gap-3">
-        <div className="space-y-1.5">
-          <h3 className="text-[15px] sm:text-base font-semibold text-[var(--ks-text-primary)] leading-snug">
+      <div className="p-3 sm:p-3.5 flex-1 flex flex-col justify-between gap-2">
+        <div className="space-y-1">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-[var(--ks-text-muted)] truncate">
+            {brandOrDeptLabel}
+          </p>
+
+          <h3 className="text-sm sm:text-[15px] font-semibold text-[var(--ks-text-primary)] leading-snug">
             <button
               type="button"
+              title={product.name}
               onClick={() => navigate({ name: 'product', slug: product.slug })}
               className="w-full text-start line-clamp-2 hover:text-[var(--ks-accent)] transition-colors cursor-pointer"
             >
@@ -283,33 +294,26 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
             </button>
           </h3>
 
-          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[12px] sm:text-[13px] min-h-[20px]">
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs pt-0.5">
             <span className={`font-medium ${TONE_CLASS_MAP[availability.tone]}`}>
               {availabilityLabel}
             </span>
-            {(ratingInfo.hasRating || visibleStockCount !== null) && (
+            {ratingInfo.hasRating && (
               <>
                 <span aria-hidden="true" className="text-[var(--ks-text-muted)]">
                   ·
                 </span>
                 <span className="inline-flex items-center gap-1 font-mono-num tabular-nums">
-                  {ratingInfo.hasRating && (
-                    <>
-                      <Star
-                        className="w-3.5 h-3.5 fill-amber-400 text-amber-500 shrink-0"
-                        aria-hidden="true"
-                      />
-                      <span className="font-medium text-[var(--ks-text-primary)]">
-                        {ratingInfo.rating.toFixed(1)}
-                      </span>
-                    </>
-                  )}
-                  {visibleStockCount !== null && (
-                    <span
-                      className="text-[var(--ks-text-muted)]"
-                      aria-label={t(language, 'inStockReady', { count: visibleStockCount })}
-                    >
-                      ({visibleStockCount})
+                  <Star
+                    className="w-3 h-3 fill-amber-400 text-amber-500 shrink-0"
+                    aria-hidden="true"
+                  />
+                  <span className="font-medium text-[var(--ks-text-primary)]">
+                    {ratingInfo.rating.toFixed(1)}
+                  </span>
+                  {hasVerifiedReviewCount && (
+                    <span className="text-[var(--ks-text-muted)]">
+                      ({product.reviewCount})
                     </span>
                   )}
                 </span>
@@ -319,7 +323,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
         </div>
 
         {/* Bottom Price Stack & Quick-Add '+' Button */}
-        <div className="flex items-end justify-between gap-2 pt-3 mt-auto border-t border-[var(--ks-border)]">
+        <div className="flex items-end justify-between gap-2 pt-2.5 mt-auto border-t border-[var(--ks-border)]">
           <PriceDisplay
             price={product.price}
             originalPrice={product.originalPrice}
@@ -346,7 +350,7 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
                 ? `${t(language, 'added')}: ${product.name}`
                 : `${t(language, 'addToBag')}: ${product.name}`
             }
-            className={`w-11 h-11 rounded-xl shrink-0 inline-flex items-center justify-center border transition-[color,background-color,border-color,transform] duration-[var(--ks-duration-fast)] ${
+            className={`w-10 h-10 sm:w-9 sm:h-9 rounded-[var(--ks-radius-md)] shrink-0 inline-flex items-center justify-center border transition-[color,background-color,border-color,transform] duration-[var(--ks-duration-fast)] ${
               outOfStock
                 ? 'bg-[var(--ks-surface-muted)] border-[var(--ks-border)] text-[var(--ks-text-muted)] cursor-not-allowed opacity-65'
                 : justAdded
@@ -355,9 +359,9 @@ const ProductCardInner: React.FC<ProductCardProps> = ({ product, layout = 'grid'
             }`}
           >
             {justAdded ? (
-              <Check className="w-5 h-5" strokeWidth={2.2} />
+              <Check className="w-4 h-4" strokeWidth={2.2} />
             ) : (
-              <Plus className="w-5 h-5" strokeWidth={2} />
+              <Plus className="w-4 h-4" strokeWidth={2} />
             )}
           </button>
         </div>

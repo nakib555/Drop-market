@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ArrowRight,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -28,6 +29,7 @@ import {
   STUDIO_TRANSITION,
   slideFadeVariants,
 } from '../utils/motion';
+import { isStudioCutoutImage } from '../utils/productCard';
 import { ProductCard } from '../components/product/ProductCard';
 import {
   PriceDisplay,
@@ -82,10 +84,16 @@ export const ProductDetailPage: React.FC = () => {
   const [selectedSizeIdx, setSelectedSizeIdx] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<'specs' | 'reviews' | 'qa' | 'shipping'>('specs');
+  const [reviewSort, setReviewSort] = useState<'newest' | 'highest' | 'lowest'>('newest');
+  const [reviewStarFilter, setReviewStarFilter] = useState<number | null>(null);
   const [showMobileStickyBar, setShowMobileStickyBar] = useState(false);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
 
   const primaryCtaRef = useRef<HTMLDivElement | null>(null);
+  const tabsSectionRef = useRef<HTMLElement | null>(null);
+  const tabButtonRefs = useRef<
+    Partial<Record<'specs' | 'reviews' | 'qa' | 'shipping', HTMLButtonElement | null>>
+  >({});
   const touchStartX = useRef<number | null>(null);
 
   // Review submission state
@@ -113,20 +121,29 @@ export const ProductDetailPage: React.FC = () => {
     setSelectedSizeIdx(0);
     setQuantity(1);
     setActiveTab('specs');
+    setReviewSort('newest');
+    setReviewStarFilter(null);
     setSizeGuideOpen(false);
-    setReviewAuthor('');
+    setReviewAuthor(profile.isAuthenticated && profile.fullName ? profile.fullName : '');
     setReviewLocation('');
     setReviewRating(5);
     setReviewTitle('');
     setReviewComment('');
     setReviewError('');
     setReviewSubmitted(false);
-    setQaAuthor('');
+    setQaAuthor(profile.isAuthenticated && profile.fullName ? profile.fullName : '');
     setQaQuestion('');
     setQaError('');
     setQaSubmitted(false);
     recordProductView(product.id);
   }, [product?.id, recordProductView]);
+
+  useEffect(() => {
+    if (profile.isAuthenticated && profile.fullName) {
+      setReviewAuthor((prev) => prev || profile.fullName);
+      setQaAuthor((prev) => prev || profile.fullName);
+    }
+  }, [profile.isAuthenticated, profile.fullName]);
 
   useEffect(() => {
     if (storefrontLoading || !product) {
@@ -170,6 +187,33 @@ export const ProductDetailPage: React.FC = () => {
     };
   }, [product?.id, storefrontLoading]);
 
+  const reviewStats = useMemo(() => {
+    const list = product?.reviews || [];
+    const count = list.length;
+    const counts: Record<1 | 2 | 3 | 4 | 5, number> = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    let sum = 0;
+    for (const rev of list) {
+      const rounded = Math.min(5, Math.max(1, Math.round(rev.rating))) as 1 | 2 | 3 | 4 | 5;
+      counts[rounded] += 1;
+      sum += rev.rating;
+    }
+    const avg = count > 0 ? Number((sum / count).toFixed(1)) : 0;
+    return { count, avg, counts };
+  }, [product?.reviews]);
+
+  const displayedReviews = useMemo(() => {
+    const list = product?.reviews || [];
+    const filtered =
+      reviewStarFilter !== null
+        ? list.filter((rev) => Math.round(rev.rating) === reviewStarFilter)
+        : list;
+    return [...filtered].sort((a, b) => {
+      if (reviewSort === 'highest') return b.rating - a.rating || b.date.localeCompare(a.date);
+      if (reviewSort === 'lowest') return a.rating - b.rating || b.date.localeCompare(a.date);
+      return b.date.localeCompare(a.date);
+    });
+  }, [product?.reviews, reviewStarFilter, reviewSort]);
+
   if (storefrontLoading) {
     return <ProductDetailSkeleton />;
   }
@@ -195,20 +239,33 @@ export const ProductDetailPage: React.FC = () => {
   const isWishlisted = wishlistIds.includes(product.id);
   const isWishlistPending = wishlistPendingIds.includes(product.id);
   const questions = product.questions || [];
+  const activeImgSrc = product.images[activeImageIdx] || product.images[0];
+  const isActiveImgCutout = isStudioCutoutImage(activeImgSrc);
 
   const relatedProducts = products
     .filter(
       (p) => p.id !== product.id && (p.category === product.category || p.brand === product.brand)
     )
-    .slice(0, 3);
+    .slice(0, 4);
 
   const recentlyViewed = recentlyViewedIds
     .filter((id) => id !== product.id)
     .map((id) => products.find((p) => p.id === id))
     .filter((p): p is NonNullable<typeof p> => Boolean(p))
-    .slice(0, 3);
+    .slice(0, 4);
 
   const isRtl = language === 'ar';
+
+  const jumpToTab = (tabId: 'specs' | 'reviews' | 'qa' | 'shipping') => {
+    setActiveTab(tabId);
+    if (typeof window !== 'undefined' && tabsSectionRef.current) {
+      const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      tabsSectionRef.current.scrollIntoView({
+        behavior: reduced ? 'auto' : 'smooth',
+        block: 'start',
+      });
+    }
+  };
 
   const stepGalleryImage = (delta: 1 | -1) => {
     if (!product || product.images.length <= 1) return;
@@ -246,7 +303,7 @@ export const ProductDetailPage: React.FC = () => {
       title: reviewTitle.trim(),
       comment: reviewComment.trim(),
     });
-    setReviewAuthor('');
+    setReviewAuthor(profile.isAuthenticated && profile.fullName ? profile.fullName : '');
     setReviewLocation('');
     setReviewRating(5);
     setReviewTitle('');
@@ -261,14 +318,16 @@ export const ProductDetailPage: React.FC = () => {
       return;
     }
     setQaError('');
-    submitProductQuestion(product.id, qaAuthor || t(language, 'yourNameLabel'), qaQuestion);
+    const resolvedAuthor =
+      qaAuthor.trim() || (profile.isAuthenticated ? profile.fullName?.trim() : '') || 'Shopper';
+    submitProductQuestion(product.id, resolvedAuthor, qaQuestion.trim());
     setQaQuestion('');
-    setQaAuthor('');
+    setQaAuthor(profile.isAuthenticated && profile.fullName ? profile.fullName : '');
     setQaSubmitted(true);
   };
 
   return (
-    <div className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-12 pb-20 lg:pb-16 space-y-14">
+    <div className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-7 lg:py-8 pb-12 lg:pb-12 space-y-10 lg:space-y-12">
       <Breadcrumb
         items={[
           { label: t(language, 'home'), onClick: () => navigate({ name: 'home' }) },
@@ -289,14 +348,30 @@ export const ProductDetailPage: React.FC = () => {
         ]}
       />
 
-      {/* Main Split: Left Gallery + Right Purchase Module */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
-        {/* Gallery with touch swipe */}
-        <div className="lg:col-span-7 space-y-4">
+      {/* Main Split: Sticky Left Gallery + Balanced Right Purchase Module */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-start">
+        {/* Gallery with touch swipe & keyboard navigation */}
+        <div
+          className="lg:col-span-6 lg:sticky lg:top-[calc(var(--ks-sticky-header-h,6.5rem)+1.25rem)] space-y-3"
+          onKeyDown={(e) => {
+            if (product.images.length <= 1) return;
+            if (e.key === 'ArrowLeft') {
+              e.preventDefault();
+              stepGalleryImage(isRtl ? 1 : -1);
+            } else if (e.key === 'ArrowRight') {
+              e.preventDefault();
+              stepGalleryImage(isRtl ? -1 : 1);
+            }
+          }}
+        >
           <div
             onTouchStart={handleGalleryTouchStart}
             onTouchEnd={handleGalleryTouchEnd}
-            className="relative aspect-[4/3] rounded-lg overflow-hidden bg-[var(--ks-surface-muted)] border border-[var(--ks-border)]"
+            className={`relative aspect-[4/3] rounded-lg overflow-hidden border border-[var(--ks-border)] ${
+              isActiveImgCutout
+                ? 'bg-[#F7F7F5] dark:bg-[#22221F]'
+                : 'bg-[var(--ks-surface-muted)]'
+            }`}
           >
             <AnimatePresence initial={false} mode="popLayout" custom={getDirectionalSlideSign(galleryDirection, isRtl)}>
               <motion.div
@@ -336,14 +411,14 @@ export const ProductDetailPage: React.FC = () => {
                   }`}
                 >
                   <ResilientImage
-                    src={product.images[activeImageIdx]}
+                    src={activeImgSrc}
                     alt={`${product.name} — view ${activeImageIdx + 1}`}
                     loading={activeImageIdx === 0 ? 'eager' : 'lazy'}
                     fetchPriority={activeImageIdx === 0 ? 'high' : 'auto'}
                     style={zoomed ? { transformOrigin: zoomOrigin } : undefined}
-                    className={`w-full h-full object-cover transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-                      zoomed ? 'scale-150' : 'scale-100'
-                    }`}
+                    className={`w-full h-full transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                      isActiveImgCutout ? 'object-contain p-5 sm:p-7' : 'object-cover'
+                    } ${zoomed ? 'scale-150' : 'scale-100'}`}
                   />
                 </button>
               </motion.div>
@@ -356,7 +431,7 @@ export const ProductDetailPage: React.FC = () => {
                 setZoomed((z) => !z);
               }}
               aria-label={zoomed ? 'Reset zoom' : 'Zoom product image'}
-              className="absolute top-3 end-3 w-11 h-11 rounded-md bg-[var(--ks-surface)]/92 text-[var(--ks-text-primary)] border border-[var(--ks-border)] flex items-center justify-center shadow-sm cursor-pointer"
+              className="absolute top-3 end-3 w-10 h-10 rounded-md bg-[var(--ks-surface)]/92 hover:bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)] flex items-center justify-center shadow-sm cursor-pointer transition-colors"
             >
               {zoomed ? <ZoomOut className="w-4 h-4" /> : <ZoomIn className="w-4 h-4" />}
             </button>
@@ -367,7 +442,7 @@ export const ProductDetailPage: React.FC = () => {
                   type="button"
                   onClick={() => stepGalleryImage(-1)}
                   aria-label={t(language, 'previousImage')}
-                  className="absolute start-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-[var(--ks-surface)]/92 text-[var(--ks-text-primary)] border border-[var(--ks-border)] flex items-center justify-center shadow-sm cursor-pointer"
+                  className="absolute start-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[var(--ks-surface)]/92 hover:bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)] flex items-center justify-center shadow-sm cursor-pointer transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
                 </button>
@@ -375,44 +450,59 @@ export const ProductDetailPage: React.FC = () => {
                   type="button"
                   onClick={() => stepGalleryImage(1)}
                   aria-label={t(language, 'nextImage')}
-                  className="absolute end-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-[var(--ks-surface)]/92 text-[var(--ks-text-primary)] border border-[var(--ks-border)] flex items-center justify-center shadow-sm cursor-pointer"
+                  className="absolute end-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[var(--ks-surface)]/92 hover:bg-[var(--ks-surface)] text-[var(--ks-text-primary)] border border-[var(--ks-border)] flex items-center justify-center shadow-sm cursor-pointer transition-colors"
                 >
                   <ChevronRight className="w-4 h-4 rtl:rotate-180" />
                 </button>
+                <span className="pointer-events-none absolute bottom-3 end-3 px-2 py-0.5 rounded-[var(--ks-radius-sm)] bg-[var(--ks-surface)]/92 border border-[var(--ks-border)] text-[11px] font-mono-num tabular-nums text-[var(--ks-text-secondary)]">
+                  {activeImageIdx + 1} / {product.images.length}
+                </span>
               </>
             )}
           </div>
 
           {product.images.length > 1 && (
-            <div className="grid grid-cols-4 sm:grid-cols-5 gap-3">
-              {product.images.map((img, idx) => (
-                <button
-                  key={`${img}-${idx}`}
-                  type="button"
-                  onClick={() => {
-                    setGalleryDirection(idx >= activeImageIdx ? 1 : -1);
-                    setActiveImageIdx(idx);
-                    setZoomed(false);
-                    setZoomOrigin('50% 50%');
-                  }}
-                  aria-label={`Select thumbnail ${idx + 1}`}
-                  className={`aspect-[4/3] rounded-md overflow-hidden border-2 transition-all cursor-pointer bg-[var(--ks-surface-muted)] ${
-                    idx === activeImageIdx
-                      ? 'border-[var(--ks-action)]'
-                      : 'border-transparent opacity-70 hover:opacity-100'
-                  }`}
-                >
-                  <ResilientImage src={img} alt="" className="w-full h-full object-cover" />
-                </button>
-              ))}
+            <div className="flex flex-wrap gap-2.5">
+              {product.images.map((img, idx) => {
+                const isThumbCutout = isStudioCutoutImage(img);
+                return (
+                  <button
+                    key={`${img}-${idx}`}
+                    type="button"
+                    onClick={() => {
+                      setGalleryDirection(idx >= activeImageIdx ? 1 : -1);
+                      setActiveImageIdx(idx);
+                      setZoomed(false);
+                      setZoomOrigin('50% 50%');
+                    }}
+                    aria-label={`Select thumbnail ${idx + 1}`}
+                    aria-current={idx === activeImageIdx ? 'true' : undefined}
+                    className={`w-[72px] sm:w-20 aspect-[4/3] rounded-md overflow-hidden border transition-all cursor-pointer ${
+                      isThumbCutout
+                        ? 'bg-[#F7F7F5] dark:bg-[#22221F]'
+                        : 'bg-[var(--ks-surface-muted)]'
+                    } ${
+                      idx === activeImageIdx
+                        ? 'border-[var(--ks-action)] ring-1 ring-[var(--ks-action)] opacity-100'
+                        : 'border-[var(--ks-border)] opacity-75 hover:opacity-100'
+                    }`}
+                  >
+                    <ResilientImage
+                      src={img}
+                      alt=""
+                      className={`w-full h-full ${isThumbCutout ? 'object-contain p-1.5' : 'object-cover'}`}
+                    />
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* Sticky Purchase Module */}
-        <div className="lg:col-span-5 lg:sticky lg:top-28 space-y-6 p-5 sm:p-7 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)]">
+        {/* Purchase Module */}
+        <div className="lg:col-span-6 space-y-4 sm:space-y-5 p-5 sm:p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] min-w-0">
           <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2 text-xs text-[var(--ks-text-muted)]">
+            <div className="flex items-center justify-between gap-3 text-xs text-[var(--ks-text-muted)]">
               <button
                 type="button"
                 onClick={() =>
@@ -422,20 +512,20 @@ export const ProductDetailPage: React.FC = () => {
                     brand: product.brand,
                   })
                 }
-                className="uppercase tracking-wider hover:text-[var(--ks-accent)] cursor-pointer"
+                className="uppercase tracking-wider hover:text-[var(--ks-accent)] cursor-pointer min-w-0 truncate"
               >
                 {product.brand}
               </button>
-              <span className="font-mono-num">SKU: {product.sku}</span>
+              <span className="font-mono-num shrink-0">SKU: {product.sku}</span>
             </div>
-            <h1 className="font-display text-[clamp(1.75rem,3vw,2.5rem)] font-medium leading-tight">
+            <h1 className="font-display text-[clamp(1.65rem,2.4vw,2.25rem)] font-medium leading-[1.15] break-words">
               {product.name}
             </h1>
             {product.subtitle && (
               <p className="text-xs font-medium text-[var(--ks-accent)]">{product.subtitle}</p>
             )}
-            <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--ks-text-secondary)]">
-              <span>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--ks-text-secondary)]">
+              <span className="min-w-0">
                 {product.brand === 'Kinto Studio'
                   ? 'Sold & fulfilled by Kinto Studio (1P)'
                   : `Partner Seller Studio: ${product.brand} (Marketplace fulfillment)`}
@@ -444,18 +534,18 @@ export const ProductDetailPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => openPolicyPreview('marketplace-terms')}
-                className="underline hover:text-[var(--ks-accent)] cursor-pointer"
+                className="underline hover:text-[var(--ks-accent)] cursor-pointer shrink-0"
               >
                 Marketplace Disclosure
               </button>
             </div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5">
               <RatingSummary
                 rating={product.rating}
                 reviewCount={product.reviewCount}
                 showCount
                 fallbackLabel={t(language, 'beFirstReview')}
-                onClick={() => setActiveTab('reviews')}
+                onClick={() => jumpToTab('reviews')}
               />
               <span aria-hidden="true" className="text-[var(--ks-text-muted)]">
                 ·
@@ -487,7 +577,7 @@ export const ProductDetailPage: React.FC = () => {
             currency={currency}
             size="lg"
             showSavings
-            className="pb-4 border-b border-[var(--ks-border)]"
+            className="pb-3.5 border-b border-[var(--ks-border)]"
           />
 
           <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
@@ -495,7 +585,7 @@ export const ProductDetailPage: React.FC = () => {
           </p>
 
           {/* Finish / Color */}
-          <div className="space-y-2.5">
+          <div className="space-y-2">
             <p className="text-xs font-medium">
               {product.variantColorLabel || t(language, 'finishColor')}:{' '}
               <span className="text-[var(--ks-text-secondary)]">{color.name}</span>
@@ -507,7 +597,7 @@ export const ProductDetailPage: React.FC = () => {
                   type="button"
                   aria-pressed={idx === selectedColorIdx}
                   onClick={() => setSelectedColorIdx(idx)}
-                  className={`flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-md border text-xs cursor-pointer transition-colors ${
+                  className={`flex items-center gap-2 px-3 py-1.5 min-h-[44px] sm:min-h-[38px] rounded-md border text-xs cursor-pointer transition-colors ${
                     idx === selectedColorIdx
                       ? 'border-[var(--ks-action)] font-medium bg-[var(--ks-surface-muted)] text-[var(--ks-text-primary)]'
                       : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:border-[var(--ks-border-strong)]'
@@ -524,16 +614,17 @@ export const ProductDetailPage: React.FC = () => {
           </div>
 
           {/* Size / Edition + Conditional Fashion Size Guide */}
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
               <p className="text-xs font-medium">
-                {product.variantSizeLabel || t(language, 'editionSize')}
+                {product.variantSizeLabel || t(language, 'editionSize')}:{' '}
+                <span className="text-[var(--ks-text-secondary)]">{size}</span>
               </p>
               {product.category === 'fashion-accessories' && (
                 <button
                   type="button"
                   onClick={() => setSizeGuideOpen(true)}
-                  className="inline-flex items-center gap-1 min-h-[44px] sm:min-h-[36px] text-xs font-medium text-[var(--ks-accent)] hover:underline cursor-pointer"
+                  className="inline-flex items-center gap-1 min-h-[44px] sm:min-h-[34px] text-xs font-medium text-[var(--ks-accent)] hover:underline cursor-pointer shrink-0"
                 >
                   <Ruler className="w-3.5 h-3.5" />
                   <span>{t(language, 'sizeGuide')}</span>
@@ -547,7 +638,7 @@ export const ProductDetailPage: React.FC = () => {
                   type="button"
                   aria-pressed={idx === selectedSizeIdx}
                   onClick={() => setSelectedSizeIdx(idx)}
-                  className={`px-3.5 py-2 min-h-[44px] rounded-md border text-xs cursor-pointer transition-colors ${
+                  className={`px-3.5 py-1.5 min-h-[44px] sm:min-h-[38px] rounded-md border text-xs cursor-pointer transition-colors ${
                     idx === selectedSizeIdx
                       ? 'bg-[var(--ks-action)] text-[var(--ks-action-text)] border-[var(--ks-action)] font-medium'
                       : 'border-[var(--ks-border)] text-[var(--ks-text-secondary)] hover:border-[var(--ks-border-strong)]'
@@ -560,7 +651,7 @@ export const ProductDetailPage: React.FC = () => {
           </div>
 
           {/* Quantity + CTAs */}
-          <div ref={primaryCtaRef} className="space-y-3 pt-2">
+          <div ref={primaryCtaRef} className="space-y-2.5 pt-1">
             <div className="flex flex-col min-[430px]:flex-row items-stretch gap-2.5 sm:gap-3">
               <QuantityStepper
                 value={quantity}
@@ -619,24 +710,24 @@ export const ProductDetailPage: React.FC = () => {
           </div>
 
           {/* Delivery, Return, Warranty Summary */}
-          <div className="pt-4 border-t border-[var(--ks-border)] space-y-2.5 text-xs leading-snug text-[var(--ks-text-secondary)]">
+          <div className="pt-3.5 border-t border-[var(--ks-border)] space-y-2 text-xs leading-snug text-[var(--ks-text-secondary)]">
             <div className="flex items-start gap-2.5">
-              <Truck className="w-4 h-4 text-[var(--ks-accent)] shrink-0 mt-[2px]" />
+              <Truck className="w-4 h-4 text-[var(--ks-accent)] shrink-0 mt-[1px]" />
               <span>{product.deliveryEstimate}</span>
             </div>
             <div className="flex items-start gap-2.5">
-              <RotateCcw className="w-4 h-4 text-[var(--ks-accent)] shrink-0 mt-[2px]" />
+              <RotateCcw className="w-4 h-4 text-[var(--ks-accent)] shrink-0 mt-[1px]" />
               <span>{product.returnPolicy}</span>
             </div>
             <div className="flex items-start gap-2.5">
-              <ShieldCheck className="w-4 h-4 text-[var(--ks-accent)] shrink-0 mt-[2px]" />
+              <ShieldCheck className="w-4 h-4 text-[var(--ks-accent)] shrink-0 mt-[1px]" />
               <span>{product.warranty}</span>
             </div>
 
             {(() => {
               const safetyNotice = getDepartmentSafetyNotice(product.category, language);
               return (
-                <div className="mt-3 p-3.5 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-1.5">
+                <div className="mt-2.5 p-3 rounded-md bg-[var(--ks-bg)] border border-[var(--ks-border)] space-y-1.5">
                   <p className="text-xs font-semibold text-[var(--ks-text-primary)]">
                     {safetyNotice.title}
                   </p>
@@ -681,11 +772,36 @@ export const ProductDetailPage: React.FC = () => {
       </div>
 
       {/* Specifications, Reviews, Q&A & Care Tabs */}
-      <section className="pt-8 border-t border-[var(--ks-border)] space-y-8">
+      <section
+        ref={tabsSectionRef}
+        id="pdp-details-tabs"
+        style={{ scrollMarginTop: 'calc(var(--ks-sticky-header-h, 6.5rem) + 1.25rem)' }}
+        className="pt-8 border-t border-[var(--ks-border)] space-y-6"
+      >
         <div
           role="tablist"
           aria-label={t(language, 'specsAndCare')}
           className="flex items-center gap-6 border-b border-[var(--ks-border)] overflow-x-auto no-scrollbar"
+          onKeyDown={(e) => {
+            const tabOrder = ['specs', 'reviews', 'qa', 'shipping'] as const;
+            const currentIdx = tabOrder.indexOf(activeTab);
+            let nextIdx: number | null = null;
+            if (e.key === 'ArrowRight') {
+              nextIdx = (currentIdx + (isRtl ? -1 : 1) + tabOrder.length) % tabOrder.length;
+            } else if (e.key === 'ArrowLeft') {
+              nextIdx = (currentIdx + (isRtl ? 1 : -1) + tabOrder.length) % tabOrder.length;
+            } else if (e.key === 'Home') {
+              nextIdx = 0;
+            } else if (e.key === 'End') {
+              nextIdx = tabOrder.length - 1;
+            }
+            if (nextIdx !== null) {
+              e.preventDefault();
+              const nextTab = tabOrder[nextIdx];
+              setActiveTab(nextTab);
+              tabButtonRefs.current[nextTab]?.focus();
+            }
+          }}
         >
           {(
             [
@@ -699,9 +815,15 @@ export const ProductDetailPage: React.FC = () => {
             return (
               <button
                 key={tab.id}
+                ref={(el) => {
+                  tabButtonRefs.current[tab.id] = el;
+                }}
+                id={`pdp-tab-${tab.id}`}
                 type="button"
                 role="tab"
                 aria-selected={isSelected}
+                aria-controls={`pdp-panel-${tab.id}`}
+                tabIndex={isSelected ? 0 : -1}
                 onClick={() => setActiveTab(tab.id)}
                 className={`relative min-h-[44px] py-2.5 pb-3.5 text-sm font-medium whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
                   isSelected
@@ -725,22 +847,27 @@ export const ProductDetailPage: React.FC = () => {
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={activeTab}
+            role="tabpanel"
+            id={`pdp-panel-${activeTab}`}
+            aria-labelledby={`pdp-tab-${activeTab}`}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={STUDIO_TRANSITION.fast}
           >
           {activeTab === 'specs' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+              <div className="space-y-6 min-w-0">
                 <dl className="divide-y divide-[var(--ks-border)] border-y border-[var(--ks-border)]">
                   {product.specifications.map((spec) => (
                     <div
                       key={spec.label}
-                      className="py-3.5 flex items-baseline justify-between gap-4 text-sm"
+                      className="py-3 flex items-baseline justify-between gap-4 text-sm"
                     >
-                      <dt className="text-[var(--ks-text-secondary)] min-w-0">{spec.label}</dt>
-                      <dd className="font-medium text-end font-mono-num max-w-[60%] leading-snug">
+                      <dt className="text-[var(--ks-text-secondary)] min-w-0 break-words">
+                        {spec.label}
+                      </dt>
+                      <dd className="font-medium text-end font-mono-num max-w-[60%] leading-snug break-words">
                         {spec.value}
                       </dd>
                     </div>
@@ -755,29 +882,31 @@ export const ProductDetailPage: React.FC = () => {
                       return (
                         <div
                           key={`typed-${attrKey}`}
-                          className="py-3.5 flex items-baseline justify-between gap-4 text-sm"
+                          className="py-3 flex items-baseline justify-between gap-4 text-sm"
                         >
-                          <dt className="text-[var(--ks-text-secondary)] min-w-0">{label}</dt>
-                          <dd className="font-medium text-end font-mono-num max-w-[60%] leading-snug">
+                          <dt className="text-[var(--ks-text-secondary)] min-w-0 break-words">
+                            {label}
+                          </dt>
+                          <dd className="font-medium text-end font-mono-num max-w-[60%] leading-snug break-words">
                             {formatTypedAttributeValue(attrVal, facetMeta?.unit)}
                           </dd>
                         </div>
                       );
                     })}
-                  <div className="py-3.5 flex items-baseline justify-between gap-4 text-sm">
-                    <dt className="text-[var(--ks-text-secondary)] min-w-0">
+                  <div className="py-3 flex items-baseline justify-between gap-4 text-sm">
+                    <dt className="text-[var(--ks-text-secondary)] min-w-0 break-words">
                       {t(language, 'shippingWeightTier')}
                     </dt>
-                    <dd className="font-medium text-end font-mono-num capitalize max-w-[60%] leading-snug">
+                    <dd className="font-medium text-end font-mono-num capitalize max-w-[60%] leading-snug break-words">
                       {product.weightKg ? `${product.weightKg} kg · ` : ''}
                       {t(language, 'parcelTierLabel', { tier: product.sizeTier || 'medium' })}
                     </dd>
                   </div>
-                  <div className="py-3.5 flex items-baseline justify-between gap-4 text-sm">
-                    <dt className="text-[var(--ks-text-secondary)] min-w-0">
+                  <div className="py-3 flex items-baseline justify-between gap-4 text-sm">
+                    <dt className="text-[var(--ks-text-secondary)] min-w-0 break-words">
                       {t(language, 'cashOnDelivery')}
                     </dt>
-                    <dd className="font-medium text-end font-mono-num max-w-[60%] leading-snug">
+                    <dd className="font-medium text-end font-mono-num max-w-[60%] leading-snug break-words">
                       {product.codEligible === false
                         ? t(language, 'prepaidOnly')
                         : t(language, 'codEligibleBD')}
@@ -786,7 +915,7 @@ export const ProductDetailPage: React.FC = () => {
                 </dl>
               </div>
 
-              <div className="p-6 rounded-lg bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] space-y-4 h-fit">
+              <div className="p-5 sm:p-6 rounded-lg bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] space-y-4 h-fit">
                 <div className="space-y-2">
                   <h3 className="font-display text-2xl font-medium">
                     {t(language, 'careHandlingWarranty')}
@@ -822,43 +951,161 @@ export const ProductDetailPage: React.FC = () => {
           )}
 
           {activeTab === 'reviews' && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-              <div className="lg:col-span-7 space-y-4">
-                {product.reviews.length === 0 ? (
-                  <p className="text-sm text-[var(--ks-text-secondary)] py-4">
-                    {t(language, 'noReviewsYet')}
-                  </p>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+              <div className="lg:col-span-7 space-y-4 min-w-0">
+                {reviewStats.count === 0 ? (
+                  <EmptyState
+                    compact
+                    icon={<Star className="w-5 h-5" />}
+                    title={t(language, 'reviewsTab', { count: 0 })}
+                    description={t(language, 'noReviewsYet')}
+                  />
                 ) : (
-                  product.reviews.map((rev) => (
-                    <article
-                      key={rev.id}
-                      className="p-5 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-2"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-0.5 text-[var(--ks-accent)]">
-                          {Array.from({ length: rev.rating }).map((_, idx) => (
-                            <Star key={idx} className="w-3.5 h-3.5 fill-current" />
-                          ))}
+                  <>
+                    {/* Real Verified Rating Breakdown & Sort Controls */}
+                    <div className="p-4 sm:p-5 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono-num text-2xl font-semibold tabular-nums text-[var(--ks-text-primary)]">
+                            {reviewStats.avg.toFixed(1)}
+                          </span>
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-0.5 text-[var(--ks-accent)]">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  className={`w-3.5 h-3.5 ${
+                                    star <= Math.round(reviewStats.avg)
+                                      ? 'fill-current'
+                                      : 'text-[var(--ks-border-strong)]'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                            <p className="text-xs text-[var(--ks-text-secondary)] font-mono-num">
+                              {reviewStats.count === 1
+                                ? t(language, 'reviewCountSingle', { count: reviewStats.count })
+                                : t(language, 'reviewCountPlural', { count: reviewStats.count })}
+                            </p>
+                          </div>
                         </div>
-                        <span className="text-xs text-[var(--ks-text-muted)] font-mono-num">
-                          {formatShortDate(rev.date)}
-                        </span>
+
+                        <div className="flex items-center gap-2">
+                          {reviewStarFilter !== null && (
+                            <button
+                              type="button"
+                              onClick={() => setReviewStarFilter(null)}
+                              className="text-xs text-[var(--ks-accent)] hover:underline cursor-pointer"
+                            >
+                              {t(language, 'clear')} ({reviewStarFilter}★)
+                            </button>
+                          )}
+                          <select
+                            aria-label={t(language, 'sortBy')}
+                            value={reviewSort}
+                            onChange={(e) =>
+                              setReviewSort(e.target.value as 'newest' | 'highest' | 'lowest')
+                            }
+                            className="min-h-[36px] px-2.5 py-1 text-xs rounded-[var(--ks-radius-md)] border border-[var(--ks-border)] bg-[var(--ks-bg)] text-[var(--ks-text-primary)] cursor-pointer focus:outline-none focus:border-[var(--ks-action)]"
+                          >
+                            <option value="newest">{t(language, 'sortNewest')}</option>
+                            <option value="highest">{t(language, 'sortHighestRated')}</option>
+                            <option value="lowest">Lowest Rated</option>
+                          </select>
+                        </div>
                       </div>
-                      <h4 className="text-base font-medium">{rev.title}</h4>
-                      <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
-                        {rev.comment}
-                      </p>
-                      <p className="text-xs text-[var(--ks-text-muted)] pt-1">
-                        {rev.author} · {rev.location}{' '}
-                        {rev.verified ? `· ${t(language, 'verifiedOwnerBadge')}` : ''}
-                      </p>
-                    </article>
-                  ))
+
+                      <div className="space-y-1.5 pt-2 border-t border-[var(--ks-border)]">
+                        {([5, 4, 3, 2, 1] as const).map((star) => {
+                          const starCount = reviewStats.counts[star];
+                          const pct =
+                            reviewStats.count > 0
+                              ? Math.round((starCount / reviewStats.count) * 100)
+                              : 0;
+                          const isActive = reviewStarFilter === star;
+                          return (
+                            <button
+                              key={star}
+                              type="button"
+                              disabled={starCount === 0 && !isActive}
+                              onClick={() =>
+                                setReviewStarFilter((prev) => (prev === star ? null : star))
+                              }
+                              aria-pressed={isActive}
+                              className={`w-full flex items-center gap-2.5 text-xs py-0.5 rounded transition-opacity ${
+                                starCount === 0 && !isActive
+                                  ? 'opacity-45 cursor-default'
+                                  : 'cursor-pointer hover:opacity-85'
+                              }`}
+                            >
+                              <span
+                                className={`w-8 text-start font-mono-num shrink-0 ${
+                                  isActive
+                                    ? 'font-semibold text-[var(--ks-accent)]'
+                                    : 'text-[var(--ks-text-secondary)]'
+                                }`}
+                              >
+                                {star}★
+                              </span>
+                              <span className="flex-1 h-2 rounded-full bg-[var(--ks-surface-muted)] overflow-hidden">
+                                <span
+                                  className="block h-full bg-[var(--ks-accent)] transition-all"
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </span>
+                              <span className="w-8 text-end font-mono-num tabular-nums text-[var(--ks-text-muted)] shrink-0">
+                                {starCount}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {displayedReviews.length === 0 ? (
+                      <div className="p-4 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] flex items-center justify-between gap-3 text-xs text-[var(--ks-text-secondary)]">
+                        <span>No reviews match {reviewStarFilter}★.</span>
+                        <button
+                          type="button"
+                          onClick={() => setReviewStarFilter(null)}
+                          className="font-medium text-[var(--ks-accent)] hover:underline cursor-pointer"
+                        >
+                          {t(language, 'resetFilters')}
+                        </button>
+                      </div>
+                    ) : (
+                      displayedReviews.map((rev) => (
+                        <article
+                          key={rev.id}
+                          className="p-4 sm:p-5 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-2"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-0.5 text-[var(--ks-accent)]">
+                              {Array.from({ length: rev.rating }).map((_, idx) => (
+                                <Star key={idx} className="w-3.5 h-3.5 fill-current" />
+                              ))}
+                            </div>
+                            <span className="text-xs text-[var(--ks-text-muted)] font-mono-num">
+                              {formatShortDate(rev.date)}
+                            </span>
+                          </div>
+                          <h4 className="text-base font-medium break-words">{rev.title}</h4>
+                          <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed break-words">
+                            {rev.comment}
+                          </p>
+                          <p className="text-xs text-[var(--ks-text-muted)] pt-1">
+                            {rev.author} · {rev.location}{' '}
+                            {rev.verified ? `· ${t(language, 'verifiedOwnerBadge')}` : ''}
+                          </p>
+                        </article>
+                      ))
+                    )}
+                  </>
                 )}
               </div>
 
               {!profile.isAuthenticated ? (
-                <div className="lg:col-span-5 p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-4 h-fit">
+                <div className="lg:col-span-5 p-5 sm:p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-4 h-fit">
                   <h3 className="font-display text-2xl font-medium">
                     {t(language, 'writeVerifiedReview')}
                   </h3>
@@ -896,7 +1143,7 @@ export const ProductDetailPage: React.FC = () => {
               ) : (
                 <form
                   onSubmit={handleReviewSubmit}
-                  className="lg:col-span-5 p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-4 h-fit"
+                  className="lg:col-span-5 p-5 sm:p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-4 h-fit"
                 >
                   <div className="space-y-1">
                     <h3 className="font-display text-2xl font-medium">
@@ -1008,33 +1255,44 @@ export const ProductDetailPage: React.FC = () => {
           )}
 
           {activeTab === 'qa' && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-              <div className="lg:col-span-7 space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+              <div className={`${questions.length === 0 ? 'lg:col-span-6' : 'lg:col-span-7'} space-y-4 min-w-0`}>
                 {questions.length === 0 ? (
-                  <p className="text-sm text-[var(--ks-text-secondary)] py-4">
-                    {t(language, 'noQuestionsYet')}
-                  </p>
+                  <EmptyState
+                    compact
+                    icon={<MessageSquarePlus className="w-5 h-5" />}
+                    title={t(language, 'qaTab', { count: 0 })}
+                    description={t(language, 'noQuestionsYet')}
+                  />
                 ) : (
                   questions.map((qa) => (
                     <article
                       key={qa.id}
-                      className="p-5 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-3"
+                      className="p-4 sm:p-5 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-3"
                     >
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         <div className="flex items-baseline justify-between gap-2 text-xs text-[var(--ks-text-muted)]">
                           <span className="min-w-0 truncate">
                             {t(language, 'questionFromAuthor', { author: qa.author })}
                           </span>
                           <span className="font-mono-num shrink-0">{formatShortDate(qa.date)}</span>
                         </div>
-                        <p className="text-sm font-semibold">{qa.question}</p>
+                        <p className="text-sm font-semibold flex items-start gap-2 break-words">
+                          <span className="font-mono-num text-[11px] font-semibold px-1.5 py-0.5 rounded bg-[var(--ks-surface-muted)] border border-[var(--ks-border)] text-[var(--ks-text-secondary)] shrink-0">
+                            Q
+                          </span>
+                          <span>{qa.question}</span>
+                        </p>
                       </div>
-                      <div className="pt-3 border-t border-[var(--ks-border)] space-y-1">
+                      <div className="pt-3 border-t border-[var(--ks-border)] space-y-1.5">
                         <p className="text-[11px] uppercase tracking-wider text-[var(--ks-accent)] font-medium">
                           {t(language, 'answerByLabel', { author: qa.answeredBy })}
                         </p>
-                        <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed">
-                          {qa.answer}
+                        <p className="text-sm text-[var(--ks-text-secondary)] leading-relaxed flex items-start gap-2 break-words">
+                          <span className="font-mono-num text-[11px] font-semibold px-1.5 py-0.5 rounded bg-[var(--ks-bg)] border border-[var(--ks-border)] text-[var(--ks-accent)] shrink-0">
+                            A
+                          </span>
+                          <span>{qa.answer}</span>
                         </p>
                       </div>
                     </article>
@@ -1044,7 +1302,9 @@ export const ProductDetailPage: React.FC = () => {
 
               <form
                 onSubmit={handleQuestionSubmit}
-                className="lg:col-span-5 p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-4 h-fit"
+                className={`${
+                  questions.length === 0 ? 'lg:col-span-6' : 'lg:col-span-5'
+                } p-5 sm:p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] space-y-4 h-fit`}
               >
                 <div className="flex items-center gap-2">
                   <MessageSquarePlus className="w-4 h-4 text-[var(--ks-accent)]" />
@@ -1090,7 +1350,7 @@ export const ProductDetailPage: React.FC = () => {
           )}
 
           {activeTab === 'shipping' && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6 text-sm">
               <div className="p-5 rounded-lg border border-[var(--ks-border)] bg-[var(--ks-surface)] space-y-2">
                 <p className="font-medium">{t(language, 'dispatchCoverage')}</p>
                 <p className="text-[var(--ks-text-secondary)] leading-relaxed">
@@ -1123,11 +1383,25 @@ export const ProductDetailPage: React.FC = () => {
 
       {/* Related & Recently Viewed */}
       {relatedProducts.length > 0 && (
-        <section className="space-y-6 pt-8 border-t border-[var(--ks-border)]">
-          <h2 className="font-display text-3xl font-medium">
-            {t(language, 'relatedProducts')}
-          </h2>
-          <div className="grid grid-cols-1 min-[390px]:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+        <section className="space-y-5 pt-8 border-t border-[var(--ks-border)]">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <h2 className="font-display text-2xl sm:text-3xl font-medium">
+              {t(language, 'relatedProducts')}
+            </h2>
+            <button
+              type="button"
+              onClick={() => navigate({ name: 'category', category: product.category })}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--ks-accent)] hover:underline cursor-pointer"
+            >
+              <span>
+                {t(language, 'shopAllDept', {
+                  dept: translateDepartmentName(language, product.category, product.categoryLabel),
+                })}
+              </span>
+              <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 min-[390px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
             {relatedProducts.map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}
@@ -1136,11 +1410,11 @@ export const ProductDetailPage: React.FC = () => {
       )}
 
       {recentlyViewed.length > 0 && (
-        <section className="space-y-6 pt-8 border-t border-[var(--ks-border)]">
-          <h2 className="font-display text-3xl font-medium">
+        <section className="space-y-5 pt-8 border-t border-[var(--ks-border)]">
+          <h2 className="font-display text-2xl sm:text-3xl font-medium">
             {t(language, 'recentlyViewed')}
           </h2>
-          <div className="grid grid-cols-1 min-[390px]:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 min-[390px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
             {recentlyViewed.map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}

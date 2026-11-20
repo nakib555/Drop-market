@@ -3,6 +3,7 @@ import { ArrowRight } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { isProductOutOfStock } from '../../utils/format';
 import { t, translateDepartmentName } from '../../utils/i18n';
+import { isStudioCutoutImage } from '../../utils/productCard';
 import { Button } from '../ui/Button';
 import { Modal, ResilientImage } from '../ui/Primitives';
 import { PriceDisplay, QuantityStepper, RatingSummary, WishlistButton } from './CommercePrimitives';
@@ -49,13 +50,23 @@ export const QuickViewModal: React.FC = () => {
       maxWidthClass="max-w-4xl"
     >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="aspect-[4/3] rounded-md overflow-hidden bg-[var(--ks-surface-muted)]">
-          <ResilientImage
-            src={quickViewProduct.images[0]}
-            alt={quickViewProduct.name}
-            className="w-full h-full object-cover"
-          />
-        </div>
+        {(() => {
+          const previewSrc = quickViewProduct.images[0];
+          const isCutout = isStudioCutoutImage(previewSrc);
+          return (
+            <div
+              className={`aspect-[4/3] rounded-md overflow-hidden border border-[var(--ks-border)] ${
+                isCutout ? 'bg-[#F7F7F5] dark:bg-[#22221F]' : 'bg-[var(--ks-surface-muted)]'
+              }`}
+            >
+              <ResilientImage
+                src={previewSrc}
+                alt={quickViewProduct.name}
+                className={`w-full h-full ${isCutout ? 'object-contain p-5' : 'object-cover'}`}
+              />
+            </div>
+          );
+        })()}
 
         <div className="flex flex-col justify-between gap-6">
           <div className="space-y-4">

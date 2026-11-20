@@ -12,14 +12,14 @@ export const ProductCardSkeleton: React.FC<ProductCardSkeletonProps> = ({ layout
     return (
       <div
         aria-hidden="true"
-        className="flex flex-col sm:flex-row gap-5 sm:gap-6 p-4 sm:p-5 rounded-2xl bg-[var(--ks-surface)] border border-[var(--ks-border)]"
+        className="flex flex-col sm:flex-row gap-4 sm:gap-5 p-3.5 sm:p-4 rounded-xl bg-[var(--ks-surface)] border border-[var(--ks-border)]"
       >
-        <SkeletonLoader className="w-full sm:w-60 md:w-64 aspect-[4/3] rounded-xl shrink-0" />
+        <SkeletonLoader className="w-full sm:w-52 md:w-56 aspect-[4/3] rounded-lg shrink-0" />
 
-        <div className="flex-1 min-w-0 flex flex-col justify-between gap-4">
-          <div className="space-y-2.5">
+        <div className="flex-1 min-w-0 flex flex-col justify-between gap-3">
+          <div className="space-y-2">
             <SkeletonLoader className="h-3 w-36" />
-            <SkeletonLoader className="h-6 w-2/3" />
+            <SkeletonLoader className="h-5 w-2/3" />
             <SkeletonLoader className="h-4 w-full max-w-xl" />
             <div className="flex items-center gap-2 pt-0.5">
               <SkeletonLoader className="h-3.5 w-16" />
@@ -27,14 +27,14 @@ export const ProductCardSkeleton: React.FC<ProductCardSkeletonProps> = ({ layout
             </div>
           </div>
 
-          <div className="flex flex-wrap items-end justify-between gap-4 pt-3 border-t border-[var(--ks-border)]">
+          <div className="flex flex-wrap items-end justify-between gap-3 pt-2.5 border-t border-[var(--ks-border)]">
             <div className="space-y-1.5">
               <SkeletonLoader className="h-5 w-20" />
               <SkeletonLoader className="h-3.5 w-24" />
             </div>
-            <div className="flex items-center gap-2.5">
-              <SkeletonLoader className="w-11 h-11 rounded-full" />
-              <SkeletonLoader className="w-28 h-11 rounded-xl" />
+            <div className="flex items-center gap-2">
+              <SkeletonLoader className="w-10 h-10 sm:w-9 sm:h-9 rounded-full" />
+              <SkeletonLoader className="w-28 h-10 rounded-[var(--ks-radius-md)]" />
             </div>
           </div>
         </div>
@@ -45,25 +45,26 @@ export const ProductCardSkeleton: React.FC<ProductCardSkeletonProps> = ({ layout
   return (
     <div
       aria-hidden="true"
-      className="flex flex-col rounded-2xl bg-[var(--ks-surface)] border border-[var(--ks-border)] overflow-hidden"
+      className="flex flex-col rounded-xl bg-[var(--ks-surface)] border border-[var(--ks-border)] overflow-hidden"
     >
       <SkeletonLoader className="w-full aspect-[4/3] rounded-none border-b border-[var(--ks-border)]" />
 
-      <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between gap-3">
-        <div className="space-y-2">
+      <div className="p-3 sm:p-3.5 flex-1 flex flex-col justify-between gap-2">
+        <div className="space-y-1.5">
+          <SkeletonLoader className="h-3 w-20" />
           <SkeletonLoader className="h-4 w-11/12" />
-          <div className="flex items-center gap-2 min-h-[20px]">
+          <div className="flex items-center gap-2 pt-0.5">
             <SkeletonLoader className="h-3.5 w-16" />
-            <SkeletonLoader className="h-3.5 w-14" />
+            <SkeletonLoader className="h-3.5 w-12" />
           </div>
         </div>
 
-        <div className="flex items-end justify-between gap-2 pt-3 mt-auto border-t border-[var(--ks-border)]">
+        <div className="flex items-end justify-between gap-2 pt-2.5 mt-auto border-t border-[var(--ks-border)]">
           <div className="space-y-1.5">
-            <SkeletonLoader className="h-5 w-20" />
-            <SkeletonLoader className="h-3.5 w-24" />
+            <SkeletonLoader className="h-4 w-20" />
+            <SkeletonLoader className="h-3 w-24" />
           </div>
-          <SkeletonLoader className="w-11 h-11 rounded-xl shrink-0" />
+          <SkeletonLoader className="w-10 h-10 sm:w-9 sm:h-9 rounded-[var(--ks-radius-md)] shrink-0" />
         </div>
       </div>
     </div>
@@ -88,7 +89,7 @@ export const ProductGridSkeleton: React.FC<ProductGridSkeletonProps> = ({
   const defaultClass =
     layout === 'list'
       ? 'space-y-4'
-      : 'grid grid-cols-1 min-[390px]:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6';
+      : 'grid grid-cols-1 min-[390px]:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-5';
 
   return (
     <div role="status" aria-busy="true" aria-label={resolvedLabel} className={className || defaultClass}>
@@ -108,7 +109,7 @@ export const ProductDetailSkeleton: React.FC = () => {
     role="status"
     aria-busy="true"
     aria-label={loadingText}
-    className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-12 pb-20 lg:pb-16 space-y-14"
+    className="max-w-[var(--ks-container-max)] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-10 pb-12 lg:pb-12 space-y-10 lg:space-y-12"
   >
     <span className="sr-only">{loadingText}...</span>
 
@@ -120,24 +121,24 @@ export const ProductDetailSkeleton: React.FC = () => {
       <SkeletonLoader className="h-3.5 w-40" />
     </div>
 
-    {/* Main Split: Left Gallery + Right Sticky Purchase Module */}
-    <div aria-hidden="true" className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
-      <div className="lg:col-span-7 space-y-4">
+    {/* Main Split: Balanced Left Sticky Gallery + Right Purchase Module */}
+    <div aria-hidden="true" className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-start">
+      <div className="lg:col-span-6 space-y-3">
         <SkeletonLoader className="w-full aspect-[4/3] rounded-lg" />
-        <div className="grid grid-cols-4 sm:grid-cols-5 gap-3">
+        <div className="flex flex-wrap gap-2.5">
           {Array.from({ length: 4 }).map((_, idx) => (
-            <SkeletonLoader key={idx} className="w-full aspect-[4/3] rounded-md" />
+            <SkeletonLoader key={idx} className="w-[72px] sm:w-20 aspect-[4/3] rounded-md" />
           ))}
         </div>
       </div>
 
-      <div className="lg:col-span-5 lg:sticky lg:top-28 space-y-6 p-5 sm:p-7 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)]">
-        <div className="space-y-3">
+      <div className="lg:col-span-6 space-y-5 p-5 sm:p-6 rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)]">
+        <div className="space-y-2.5">
           <div className="flex items-center justify-between gap-2">
             <SkeletonLoader className="h-3.5 w-28" />
             <SkeletonLoader className="h-3.5 w-20" />
           </div>
-          <SkeletonLoader className="h-9 w-4/5" />
+          <SkeletonLoader className="h-8 w-4/5" />
           <SkeletonLoader className="h-4 w-2/5" />
           <div className="flex items-center gap-3 pt-1">
             <SkeletonLoader className="h-4 w-28" />
@@ -156,37 +157,36 @@ export const ProductDetailSkeleton: React.FC = () => {
           <SkeletonLoader className="h-4 w-3/4" />
         </div>
 
-        <div className="space-y-2.5">
+        <div className="space-y-2">
           <SkeletonLoader className="h-3.5 w-32" />
           <div className="flex flex-wrap gap-2">
-            <SkeletonLoader className="h-10 w-28 rounded-md" />
-            <SkeletonLoader className="h-10 w-24 rounded-md" />
-            <SkeletonLoader className="h-10 w-24 rounded-md" />
+            <SkeletonLoader className="h-9 w-28 rounded-md" />
+            <SkeletonLoader className="h-9 w-24 rounded-md" />
+            <SkeletonLoader className="h-9 w-24 rounded-md" />
           </div>
         </div>
 
-        <div className="space-y-2.5">
+        <div className="space-y-2">
           <SkeletonLoader className="h-3.5 w-28" />
           <div className="flex flex-wrap gap-2">
-            <SkeletonLoader className="h-10 w-20 rounded-md" />
-            <SkeletonLoader className="h-10 w-20 rounded-md" />
-            <SkeletonLoader className="h-10 w-24 rounded-md" />
+            <SkeletonLoader className="h-9 w-20 rounded-md" />
+            <SkeletonLoader className="h-9 w-20 rounded-md" />
+            <SkeletonLoader className="h-9 w-24 rounded-md" />
           </div>
         </div>
 
-        <div className="space-y-3 pt-2">
+        <div className="space-y-3 pt-1">
           <div className="flex flex-col min-[390px]:flex-row gap-3">
             <SkeletonLoader className="h-12 w-full min-[390px]:w-32 rounded-md shrink-0" />
             <SkeletonLoader className="h-12 w-full rounded-md" />
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-            <SkeletonLoader className="h-10 w-full rounded-md col-span-2 sm:col-span-1" />
+          <div className="grid grid-cols-2 gap-2.5">
             <SkeletonLoader className="h-10 w-full rounded-md" />
             <SkeletonLoader className="h-10 w-full rounded-md" />
           </div>
         </div>
 
-        <div className="pt-4 border-t border-[var(--ks-border)] space-y-2.5">
+        <div className="pt-4 border-t border-[var(--ks-border)] space-y-2">
           <SkeletonLoader className="h-4 w-4/5" />
           <SkeletonLoader className="h-4 w-3/5" />
           <SkeletonLoader className="h-4 w-2/3" />
@@ -197,9 +197,9 @@ export const ProductDetailSkeleton: React.FC = () => {
     {/* Tabs & Specifications Skeleton */}
     <section
       aria-hidden="true"
-      className="pt-8 border-t border-[var(--ks-border)] space-y-8"
+      className="pt-7 border-t border-[var(--ks-border)] space-y-6"
     >
-      <div className="flex items-center gap-6 pb-3.5 border-b border-[var(--ks-border)]">
+      <div className="flex items-center gap-6 pb-3 border-b border-[var(--ks-border)]">
         <SkeletonLoader className="h-5 w-36" />
         <SkeletonLoader className="h-5 w-24" />
         <SkeletonLoader className="h-5 w-20" />

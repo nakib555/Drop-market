@@ -3,6 +3,7 @@ import { Heart, Loader2, Lock, ShoppingBag, Trash2 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { isProductOutOfStock } from '../utils/format';
 import { t } from '../utils/i18n';
+import { isStudioCutoutImage } from '../utils/productCard';
 import { PriceDisplay } from '../components/product/CommercePrimitives';
 import { Button } from '../components/ui/Button';
 import {
@@ -124,18 +125,28 @@ export const WishlistPage: React.FC = () => {
                 key={product.id}
                 className="rounded-lg bg-[var(--ks-surface)] border border-[var(--ks-border)] overflow-hidden flex flex-col"
               >
-                <button
-                  type="button"
-                  onClick={() => navigate({ name: 'product', slug: product.slug })}
-                  aria-label={t(language, 'viewItemAria', { name: product.name })}
-                  className="aspect-[4/3] w-full bg-[var(--ks-surface-muted)] overflow-hidden cursor-pointer block text-start"
-                >
-                  <ResilientImage
-                    src={product.images[0]}
-                    alt={product.name}
-                    className="w-full h-full object-cover hover:scale-[1.03] transition-transform duration-300"
-                  />
-                </button>
+                {(() => {
+                  const thumbSrc = product.images[0];
+                  const isCutout = isStudioCutoutImage(thumbSrc);
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => navigate({ name: 'product', slug: product.slug })}
+                      aria-label={t(language, 'viewItemAria', { name: product.name })}
+                      className={`aspect-[4/3] w-full overflow-hidden cursor-pointer block text-start ${
+                        isCutout ? 'bg-[#F7F7F5] dark:bg-[#22221F]' : 'bg-[var(--ks-surface-muted)]'
+                      }`}
+                    >
+                      <ResilientImage
+                        src={thumbSrc}
+                        alt={product.name}
+                        className={`w-full h-full hover:scale-[1.03] transition-transform duration-300 ${
+                          isCutout ? 'object-contain p-4' : 'object-cover'
+                        }`}
+                      />
+                    </button>
+                  );
+                })()}
 
                 <div className="p-5 flex-1 flex flex-col justify-between gap-4">
                   <div>

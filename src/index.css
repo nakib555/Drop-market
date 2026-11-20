@@ -110,7 +110,7 @@
     background-color: var(--ks-bg);
     color: var(--ks-text-primary);
     scroll-behavior: smooth;
-    scroll-padding-top: 5.25rem;
+    scroll-padding-top: calc(var(--ks-sticky-header-h, 6.5rem) + 1.25rem);
     overflow-x: clip;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;

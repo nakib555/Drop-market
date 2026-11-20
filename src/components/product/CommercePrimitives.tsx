@@ -286,7 +286,7 @@ export const WishlistButton: React.FC<WishlistButtonProps> = ({
         onClick={onToggle}
         aria-pressed={active}
         aria-label={label}
-        className={`pointer-events-auto w-11 h-11 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border shadow-xs transition-[color,background-color,border-color,transform] duration-[var(--ks-duration-fast)] active:scale-[0.9] disabled:opacity-60 cursor-pointer ${
+        className={`pointer-events-auto w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center border shadow-xs transition-[color,background-color,border-color,transform] duration-[var(--ks-duration-fast)] active:scale-[0.9] disabled:opacity-60 cursor-pointer ${
           active
             ? 'bg-[var(--ks-surface)] text-[var(--ks-accent)] border-[var(--ks-accent)]'
             : 'bg-[var(--ks-surface)]/95 text-[var(--ks-text-secondary)] border-[var(--ks-border)] hover:text-[var(--ks-text-primary)] hover:border-[var(--ks-border-strong)] hover:bg-[var(--ks-surface)]'

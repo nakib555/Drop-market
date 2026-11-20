@@ -139,16 +139,16 @@ export const Footer: React.FC = () => {
   return (
     <footer
       id="site-footer"
-      className="print:hidden bg-[var(--ks-bg-secondary)] border-t border-[var(--ks-border)] text-[var(--ks-text-primary)] mt-16 sm:mt-20"
+      className="print:hidden bg-[var(--ks-bg-secondary)] border-t border-[var(--ks-border)] text-[var(--ks-text-primary)] mt-10 sm:mt-12"
     >
       {/* Mobile-First Editorial Accordion Footer (< 768px) */}
       <MobileFooter />
 
-      {/* Tablet & Desktop Multi-Column Architecture (>= 768px preserved) */}
-      <div className="hidden md:block ks-container py-14 lg:py-16">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 pb-8 lg:pb-12 border-b border-[var(--ks-border-strong)]">
+      {/* Tablet & Desktop Multi-Column Architecture (>= 768px) */}
+      <div className="hidden md:block ks-container py-10 lg:py-12">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 pb-8 lg:pb-10 border-b border-[var(--ks-border-strong)]">
           {/* Newsletter & Brand Overview */}
-          <div className="lg:col-span-5 space-y-5">
+          <div className="lg:col-span-4 space-y-4">
             <div>
               <p className="font-display text-2xl font-semibold tracking-[0.07em]">
                 KINTO STUDIO
@@ -162,7 +162,7 @@ export const Footer: React.FC = () => {
               <label htmlFor="footer-newsletter" className="block text-xs font-medium text-[var(--ks-text-primary)]">
                 {t(language, 'newsletterUpdates')}
               </label>
-              <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex flex-col sm:flex-row items-stretch gap-2">
                 <input
                   id="footer-newsletter"
                   type="email"
@@ -175,9 +175,9 @@ export const Footer: React.FC = () => {
                   }}
                   placeholder={t(language, 'newsletterPlaceholder')}
                   aria-invalid={Boolean(emailError)}
-                  className="flex-1 min-h-[44px] px-3.5 py-2 text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border-strong)] text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)] focus:outline-none focus:border-[var(--ks-action)]"
+                  className="flex-1 h-11 px-3.5 py-2 text-sm rounded-[var(--ks-radius-md)] bg-[var(--ks-surface)] border border-[var(--ks-border-strong)] text-[var(--ks-text-primary)] placeholder:text-[var(--ks-text-muted)] focus:outline-none focus:border-[var(--ks-action)]"
                 />
-                <Button type="submit" variant="primary" size="md" disabled={subscribing}>
+                <Button type="submit" variant="primary" size="md" className="h-11 shrink-0" disabled={subscribing}>
                   <span>{subscribing ? t(language, 'subscribing') : t(language, 'subscribe')}</span>
                   <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
                 </Button>
@@ -189,14 +189,14 @@ export const Footer: React.FC = () => {
               )}
             </form>
 
-            <p className="text-xs text-[var(--ks-text-muted)]">
+            <p className="text-xs text-[var(--ks-text-muted)] leading-relaxed">
               {t(language, 'footerSupportNote')}
             </p>
           </div>
 
-          <div className="grid grid-cols-4 lg:col-span-7 gap-8 text-sm">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:col-span-8 gap-6 xl:gap-8 text-sm">
             {desktopColumns.map((col) => (
-              <div key={col.id} className="space-y-3">
+              <div key={col.id} className="space-y-3 min-w-0">
                 <p className="ks-eyebrow">{col.title}</p>
                 <ul className="space-y-2 text-xs sm:text-sm text-[var(--ks-text-secondary)]">
                   {col.links.map((link) => (
@@ -219,7 +219,7 @@ export const Footer: React.FC = () => {
         </div>
 
         {/* Bottom Legal & Preferences Bar */}
-        <div className="pt-8 flex items-center justify-between gap-4 text-xs text-[var(--ks-text-secondary)]">
+        <div className="pt-6 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs text-[var(--ks-text-secondary)]">
           <p>{t(language, 'footerCopyright')}</p>
 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
